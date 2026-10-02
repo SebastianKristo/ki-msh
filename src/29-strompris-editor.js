@@ -39,40 +39,40 @@
     .pw{display:flex;flex-direction:column;gap:12px}
     .pw .pphd{display:flex;align-items:center;gap:8px}
     .pw .pphd .t{flex:1;min-width:0;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pwc{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a)}
-    .pwh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fafafa}
-    .pwh i{margin-left:auto;font-style:normal;font-size:11px;font-weight:400;color:#7f7f7f}
-    .pwl{font-size:12px;color:#979797}
-    .pwseg{display:flex;gap:2px;padding:3px;border-radius:20px;background:var(--gray000,#232323);touch-action:pan-y;position:relative;overflow:hidden}
-    .pwseg>button{flex:1;min-width:0;height:34px;padding:0 8px;border-radius:17px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#afafaf;transition:background .2s,color .2s}
-    .pwseg>button.on{background:${C.accent};color:#2f2f2f}
-    .pwseg.gl{background:rgba(0,0,0,0.25);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.1)}
-    .pwseg.gl>button{color:rgba(255,255,255,0.62)}
-    .pwseg.gl>button.on{${M.GLASS_BUBBLE || 'background:rgba(255,255,255,.2);color:#fafafa;'}}
+    .pwc{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .pwh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ki-text, #fafafa)}
+    .pwh i{margin-left:auto;font-style:normal;font-size:11px;font-weight:400;color:var(--ki-text-3, #7f7f7f)}
+    .pwl{font-size:12px;color:var(--ki-text-mid, #979797)}
+    .pwseg{display:flex;gap:2px;padding:3px;border-radius:20px;background:var(--ki-bg, var(--gray000,#232323));touch-action:pan-y;position:relative;overflow:hidden}
+    .pwseg>button{flex:1;min-width:0;height:34px;padding:0 8px;border-radius:17px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, #afafaf);transition:background .2s,color .2s}
+    .pwseg>button.on{background:${C.accent};color:var(--ki-on-accent, #2f2f2f)}
+    .pwseg.gl{background:${M.theme.blackA(0.25)};box-shadow:inset 0 0 0 .5px ${M.theme.whiteA(0.1)}}
+    .pwseg.gl>button{color:var(--ki-text-2, rgba(255,255,255,0.62))}
+    .pwseg.gl>button.on{${M.GLASS_BUBBLE || `background:${M.theme.whiteA(0.2)};color:var(--ki-text, #fafafa);`}}
     .pwchips{display:flex;flex-wrap:wrap;gap:6px}
-    .pwchips>button{height:30px;padding:0 12px;border-radius:15px;background:var(--gray000,#232323);font-size:12px;font-weight:500;color:#c7c7c7;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .pwchips>button.on{background:#fafafa;color:#282828}
+    .pwchips>button{height:30px;padding:0 12px;border-radius:15px;background:var(--ki-bg, var(--gray000,#232323));font-size:12px;font-weight:500;color:var(--ki-text-1, #c7c7c7);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pwchips>button.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828)}
     .pwsug{display:flex;flex-direction:column;gap:4px}
-    .pwsug>button{display:flex;align-items:center;gap:8px;min-height:40px;padding:4px 10px;border-radius:12px;background:var(--gray000,#232323);text-align:left;width:100%}
+    .pwsug>button{display:flex;align-items:center;gap:8px;min-height:40px;padding:4px 10px;border-radius:12px;background:var(--ki-bg, var(--gray000,#232323));text-align:left;width:100%}
     .pwsug>button b{flex:1;min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pwsug>button span{font-size:11px;color:#979797;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .pwsug>button span{font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;font-variant-numeric:tabular-nums}
     .pwsug>button.on{box-shadow:inset 0 0 0 1.5px ${C.accent}}
-    .pwin{height:40px;border-radius:12px;padding:0 12px;background:var(--gray000,#232323);color:#fafafa;font-size:15px;width:100%;min-width:0}
+    .pwin{height:40px;border-radius:12px;padding:0 12px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text, #fafafa);font-size:15px;width:100%;min-width:0}
     .pwrow{display:flex;align-items:center;gap:10px}
     .pwrow .pwl{flex:1}
     .pwrg{display:flex;flex-direction:column;gap:4px}
     .pwrg .pwrow b{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
     .pwrg input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;touch-action:pan-y;cursor:pointer}
-    .pwrg input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#545454}
-    .pwrg input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#545454}
-    .pwrg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-    .pwrg input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:#fafafa}
-    .pwprev{display:flex;justify-content:flex-end;padding:14px;border-radius:18px;background:#282828;min-height:40px}
-    .pwtr{display:flex;align-items:baseline;gap:6px;padding:8px 12px;border-radius:12px;background:var(--gray000,#232323);font-size:12px;color:#979797}
+    .pwrg input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--ki-ctrl, #545454)}
+    .pwrg input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--ki-ctrl, #545454)}
+    .pwrg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 2px 6px ${M.theme.blackA(0.4)}}
+    .pwrg input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:var(--ki-knob, #fafafa)}
+    .pwprev{display:flex;justify-content:flex-end;padding:14px;border-radius:18px;background:var(--ki-bg, #282828);min-height:40px}
+    .pwtr{display:flex;align-items:baseline;gap:6px;padding:8px 12px;border-radius:12px;background:var(--ki-bg, var(--gray000,#232323));font-size:12px;color:var(--ki-text-mid, #979797)}
     .pwtr b{font-size:15px}
-    .pwst{font-size:12px;line-height:1.4;padding:10px 12px;border-radius:14px;background:var(--gray000,#232323);color:${C.green};word-break:break-word}
-    .pwst.warn{color:${C.yellow}}
-    .pwst.err{color:${C.red}}
+    .pwst{font-size:12px;line-height:1.4;padding:10px 12px;border-radius:14px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-green-text, ${C.green});word-break:break-word}
+    .pwst.warn{color:var(--ki-yellow-text, ${C.yellow})}
+    .pwst.err{color:var(--ki-red-text, ${C.red})}
     msh-entity-picker{display:block}
   `;
   // Segmenter (Fiks 15.2): Liquid Glass-drag alltid; glass-utseendet (.gl) bare med Liquid Glass-temaet (MSH.glassOn()).
@@ -92,7 +92,7 @@
     const gridSug = M.gridCandidates(hass).filter((id) => id !== raw.grid_entity).slice(0, 3);
     const tr = M.gridTrend ? M.gridTrend(P) : null;
     const t = c.tab;
-    const sug = (f, ids) => (ids.length ? `<div class="pwsug" data-key="pwsug-${f}">${ids.map((id) => `<button class="${raw[f] === id ? 'on' : ''}" data-a="pwset" data-f="${f}" data-v="${esc(id)}" data-h="selection">${ic(M.domainIcon ? M.domainIcon(id, hass.states[id]) : 'mdi:flash', 18, 'color:#afafaf')}<b>${esc(M.name ? M.name(hass, id) : id)}<br><span>${esc(id)}</span></b><span>${esc(fmtNow(hass, id))}</span></button>`).join('')}</div>` : '');
+    const sug = (f, ids) => (ids.length ? `<div class="pwsug" data-key="pwsug-${f}">${ids.map((id) => `<button class="${raw[f] === id ? 'on' : ''}" data-a="pwset" data-f="${f}" data-v="${esc(id)}" data-h="selection">${ic(M.domainIcon ? M.domainIcon(id, hass.states[id]) : 'mdi:flash', 18, 'color:var(--ki-text-2, #afafaf)')}<b>${esc(M.name ? M.name(hass, id) : id)}<br><span>${esc(id)}</span></b><span>${esc(fmtNow(hass, id))}</span></button>`).join('')}</div>` : '');
     const rng = (f, l, min, max) => `<div class="pwrg"><div class="pwrow"><span class="pwl">${l}</span><b class="pwrv-${f}">${t[f]} px</b></div><input type="range" data-in="pwtab" data-f="${f}" min="${min}" max="${max}" step="1" value="${t[f]}"></div>`;
     return `<div class="pw" data-key="pw"><style>${CSS}</style>
       <div class="pphd"><button class="b40" data-a="pwback" title="Tilbake">${ic('mdi:chevron-left', 18)}</button><span class="t">Strømpris</span></div>

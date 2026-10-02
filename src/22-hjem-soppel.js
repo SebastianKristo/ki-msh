@@ -80,7 +80,7 @@
     type: 'html',
     render(h, c) {
       const a = M.hjemTrashAct(c, kind), A = ACTS.find((x) => x[0] === a.action) || ACTS[0], k = kind;
-      const inp = (f, v, ph, extra) => `<input class="inp" style="height:44px;border-radius:14px;background:#282828;padding:0 14px" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${k}.${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" ${extra || ''}>`;
+      const inp = (f, v, ph, extra) => `<input class="inp" style="height:44px;border-radius:14px;background:var(--ki-surface-3, #282828);padding:0 14px" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" data-name="${k}.${f}" value="${esc(v || '')}" placeholder="${esc(ph)}" ${extra || ''}>`;
       let sub = '';
       if (a.action === 'popup') sub = M.popupPicker ? M.popupPicker.html({ key: 'tr-ph-' + k, name: k + '.hash', value: a.hash || '', placeholder: '#soppel', label: 'Popup' }) : inp('hash', a.hash, '#soppel');
       else if (a.action === 'navigate') sub = inp('navigation_path', a.navigation_path, '/dashboard-hjem/avfall');
@@ -90,7 +90,7 @@
         sub = inp('service', a.service, 'script.hent_soppel', `list="tr-sv-${k}"`) + `<datalist id="tr-sv-${k}">${sv.slice(0, 400).map((x) => `<option value="${esc(x)}"></option>`).join('')}</datalist>`;
       } else if (a.action === 'url') sub = inp('url_path', a.url_path, 'https://…', 'type="url" inputmode="url"');
       return `<div class="f" data-key="tract-${k}"><label>${esc(label)}</label>
-        <label class="tract" style="position:relative;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:14px;background:#282828;color:#fafafa;font-size:14px;font-weight:500;cursor:pointer">${M.icon(A[2], 20, 'color:#afafaf;flex:none')}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(A[1])}</span>${M.icon('mdi:unfold-more-horizontal', 18, 'color:#979797;flex:none')}
+        <label class="tract" style="position:relative;display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:14px;background:var(--ki-surface-3, #282828);color:var(--ki-text, #fafafa);font-size:14px;font-weight:500;cursor:pointer">${M.icon(A[2], 20, 'color:var(--ki-text-2, #afafaf);flex:none')}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(A[1])}</span>${M.icon('mdi:unfold-more-horizontal', 18, 'color:var(--ki-text-mid, #979797);flex:none')}
           <select data-name="${k}.action" aria-label="${esc(label)}" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;-webkit-appearance:none;appearance:none">${ACTS.map(([v, l]) => `<option value="${v}" ${v === a.action ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
         ${sub}<span class="help">${esc(A[3])}</span></div>`;
     },
@@ -166,12 +166,12 @@
       return `
         .tr{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;padding:40px 8px;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;box-sizing:border-box;border-radius:0;background:transparent;transition:background .3s,border-radius .3s,padding .3s,color .3s}
         /* Fiks 19.10 · tømmedagen (Hjem v3 trashToday): rosa kort, radius 30, padding 24/20, høyden følger innholdet (ca. 120 px) */
-        .tr.pink{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center;min-height:0;padding:24px 20px;border-radius:30px;background:${PINK};color:#2a1720;border:0}
+        .tr.pink{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center;min-height:0;padding:24px 20px;border-radius:30px;background:${PINK};color:var(--ki-on-accent, #2a1720);border:0}
         .pink .nw{height:auto}
-        .pink .n{font-size:60px;font-weight:600;color:#2a1720;letter-spacing:-0.04em}
+        .pink .n{font-size:60px;font-weight:600;color:var(--ki-on-accent, #2a1720);letter-spacing:-0.04em}
         .pink .tx{gap:6px;min-width:0}
-        .pink .l1{font-size:19px;font-weight:500;line-height:1.25;color:#2a1720;text-wrap:balance;overflow-wrap:anywhere;white-space:normal;max-width:100%}
-        .pink .l2{font-size:13px;font-weight:500;line-height:1.3;color:#2a1720;overflow-wrap:anywhere;max-width:100%}
+        .pink .l1{font-size:19px;font-weight:500;line-height:1.25;color:var(--ki-on-accent, #2a1720);text-wrap:balance;overflow-wrap:anywhere;white-space:normal;max-width:100%}
+        .pink .l2{font-size:13px;font-weight:500;line-height:1.3;color:var(--ki-on-accent, #2a1720);overflow-wrap:anywhere;max-width:100%}
         .an.due.pink .n{animation:roll .7s cubic-bezier(.34,1.56,.64,1) both}
         .tr.press:active{transform:scale(.97)}
         .nw{position:relative;display:grid;place-items:center;height:72px;overflow:visible}

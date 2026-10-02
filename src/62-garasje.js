@@ -187,10 +187,10 @@
       const un = !x || s === 'un', armed = !!(x && this._arm && this._arm.id === x.id);
       const away = conf === 'borte' && !someoneHome(this.hass);
       const oDis = un || (s === 'open' && !mov) || away, cDis = un || (s === 'closed' && !mov);
-      const big = (act, bg, dis) => (act ? `background:${bg};color:#232323;box-shadow:none` : `background:#2f2f2f;color:${dis ? '#696969' : '#fafafa'};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)`);
+      const big = (act, bg, dis) => (act ? `background:${bg};color:var(--ki-on-accent, #232323);box-shadow:none` : `background:var(--ki-surface-3, #2f2f2f);color:${dis ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'};box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
       return `<div class="gp-ctl" data-key="gp-ctl">
         <button class="gp-b" ${x ? 'data-act="g-open" data-haptic="off"' : ''} style="${big(mov === 'up' || armed, armed ? O : PK, oDis)}" ${oDis ? 'aria-disabled="true"' : ''} title="${away ? 'Bare når noen er hjemme' : 'Åpne'}">${M.icon('mdi:arrow-up', 22)}Åpne</button>
-        <button class="gp-stop" ${x ? 'data-act="g-stop" data-haptic="off"' : ''} title="Stopp" aria-label="Stopp" style="background:${mov ? R : '#2f2f2f'};color:${mov ? '#232323' : '#696969'};box-shadow:${mov ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.06)'}" ${mov ? '' : 'aria-disabled="true"'}>${M.icon('mdi:stop', 24)}</button>
+        <button class="gp-stop" ${x ? 'data-act="g-stop" data-haptic="off"' : ''} title="Stopp" aria-label="Stopp" style="background:${mov ? R : 'var(--ki-surface-3, #2f2f2f)'};color:${mov ? 'var(--ki-on-accent, #232323)' : 'var(--ki-text-lo, #696969)'};box-shadow:${mov ? 'none' : 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))'}" ${mov ? '' : 'aria-disabled="true"'}>${M.icon('mdi:stop', 24)}</button>
         <button class="gp-b" ${x ? 'data-act="g-close" data-haptic="off"' : ''} style="${big(mov === 'down', PK, cDis)}" ${cDis ? 'aria-disabled="true"' : ''}>${M.icon('mdi:arrow-down', 22)}Lukk</button></div>
         ${armed ? '<span class="gp-conf">Trykk «Åpne» igjen for å bekrefte</span>' : away && !un ? '<span class="gp-conf">Åpne er bare tilgjengelig når noen er hjemme</span>' : ''}`;
     }
@@ -304,18 +304,18 @@
     }
     get styles() {
       return `${S.CSS}
-        .gp-door{position:relative;width:118px;height:104px;flex:none;border-radius:16px 16px 6px 6px;background:#2f2f2f;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);padding:10px 10px 0;box-sizing:border-box}
+        .gp-door{position:relative;width:118px;height:104px;flex:none;border-radius:16px 16px 6px 6px;background:var(--ki-surface-3, #2f2f2f);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));padding:10px 10px 0;box-sizing:border-box}
         .gp-open{position:relative;width:100%;height:100%;border-radius:8px 8px 0 0;overflow:hidden;background:#1a1a1a}
         .gp-light{position:absolute;inset:0;transition:background .4s}
-        .gp-car{position:absolute;left:14px;right:14px;bottom:6px;height:22px;border-radius:10px 10px 4px 4px;background:#2a2a2a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
-        .gp-panel{position:absolute;left:0;right:0;top:0;background:repeating-linear-gradient(180deg,#5a5a5a 0px,#5a5a5a 12px,#454545 12px,#454545 14px);box-shadow:0 2px 0 #2a2a2a,0 6px 14px rgba(0,0,0,0.4);transition:height .6s linear}
+        .gp-car{position:absolute;left:14px;right:14px;bottom:6px;height:22px;border-radius:10px 10px 4px 4px;background:#2a2a2a;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .gp-panel{position:absolute;left:0;right:0;top:0;background:repeating-linear-gradient(180deg,#5a5a5a 0px,#5a5a5a 12px,#454545 12px,#454545 14px);box-shadow:0 2px 0 #2a2a2a,0 6px 14px rgba(0,0,0,0.4);transition:height .6s linear} /* ki-hex-ok: garasjeport-illustrasjon */
         .gp-panel.slow{transition:height 14s linear}
         .gp-ctl{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);gap:8px}
         .gp-b{height:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:600;transition:background .2s,color .2s}
         .gp-b[aria-disabled="true"],.gp-stop[aria-disabled="true"]{cursor:default}
         .gp-stop{height:56px;width:64px;border-radius:28px;display:grid;place-items:center;transition:background .2s}
         .gp-b:not([aria-disabled="true"]):active,.gp-stop:not([aria-disabled="true"]):active{transform:scale(.97)}
-        .gp-conf{position:relative;font-size:12px;color:var(--gray700,#979797);text-align:center;margin-top:-8px}
+        .gp-conf{position:relative;font-size:12px;color:var(--ki-text-mid, #979797);text-align:center;margin-top:-8px}
       `;
     }
   }
@@ -331,7 +331,7 @@
           const A = M.garasjeAuto(h, D);
           return `${A.doors.map((id) => {
             const x = doorInfo(h, D, id);
-            return `<section class="sk-sec" data-key="gd-${esc(x.obj)}"><div class="sk-lhd">${M.icon('mdi:garage', 22, 'color:#afafaf')}<input class="sk-in" data-in="name" data-obj="${esc(x.obj)}" value="${esc(x.name)}" aria-label="Navn"></input></div>
+            return `<section class="sk-sec" data-key="gd-${esc(x.obj)}"><div class="sk-lhd">${M.icon('mdi:garage', 22, 'color:var(--ki-text-2, #afafaf)')}<input class="sk-in" data-in="name" data-obj="${esc(x.obj)}" value="${esc(x.name)}" aria-label="Navn"></input></div>
               ${S.shEnt(api, { k: 'door:' + x.obj, icon: 'mdi:garage', label: 'Port', id, own: ((D.include || {}).porter || []).includes(id) ? id : '', auto: id, domains: 'cover' })}
               ${S.shEnt(api, { k: 'light:' + x.obj, icon: 'mdi:lightbulb', label: 'Lys', id: x.light, own: x.lightOwn, auto: x.lightAuto, domains: 'light,switch', noneLabel: 'Ingen lys' })}
               ${S.shEnt(api, { k: 'motion:' + x.obj, icon: 'mdi:motion-sensor', label: 'Bevegelse', id: x.motion, own: x.motionOwn, auto: x.motionAuto, domains: 'binary_sensor', deviceClass: 'motion,occupancy,presence', noneLabel: 'Ingen bevegelsessensor' })}</section>`;

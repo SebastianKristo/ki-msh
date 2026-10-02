@@ -1,12 +1,37 @@
 /* msh-sikkerhet-hero-card + msh-sikkerhet-card · popup #sikkerhet. Kilde: Sikkerhet v3.dc.html
- * Hero: sensorring + modus i kjernen + overskrift. Hovedkort: modusvelger (hold inne), «Krever oppmerksomhet»,
- * rom med sensorbrikker, siste hendelser, «Tilpass oppsett».
+ * Hero: sensorring + modus i kjernen + overskrift. Hovedkort: modusvelger (hold inne, hjelpetekst show_hint),
+ * rom (35.4 · variant 2a: statusstripe, aktive rom som kort, rolige som piller, Rom/Type), siste hendelser, «Tilpass oppsett».
  * Autokonfig: første alarm_control_panel.*, alle lock.* og binary_sensor med device_class
  * door/window/garage_door/opening/motion/occupancy. Tastaturet portales ut av popupen (M.overlay, sentrert).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const GRAY9 = 'var(--gray900, #c7c7c7)';
+  /* Fiks 34/35 · tema (lys/mørk). Lokale variabler (--sk-*) bygd på ki-tokenene (00-a-theme.js / MSH.theme, definert bare i
+   * lys modus) med dagens mørke verdier som fallback – mørk modus er uendret. Lys modus (hass.themes.darkMode === false →
+   * host[data-ki-theme=light]) får lyse flater, mørknet aksent-TEKST (Del A pkt. 6), sterkere tone-bakgrunner (pkt. 5,
+   * --ki-tone-k: 12 % → 18 %) og tekst på tone-flater mørknet litt til (≥ 4,5:1). Flater/fyll beholder aksenten. */
+  const SK_THEME = `
+    :host{--sk-surface:var(--ki-surface, #3a3a3a);--sk-surface-2:var(--ki-surface-2, #404040);--sk-surface-3:var(--ki-surface-3, #2f2f2f);--sk-popup:var(--ki-popup, #282828);
+      --sk-text:var(--ki-text, #fafafa);--sk-text-2:var(--ki-text-2, #afafaf);--sk-mute:var(--ki-text-3, #7f7f7f);--sk-mid:var(--ki-text-mid, #979797);--sk-dim:var(--gray500, #696969);
+      --sk-g9:var(--ki-text-1, #c7c7c7);--sk-g4:var(--ki-ctrl, #545454);--sk-ring-off:var(--ki-surface-2, #404040);--sk-line:var(--ki-line, rgba(255,255,255,0.06));--sk-line-2:var(--ki-line, rgba(255,255,255,0.1));
+      --sk-on-acc:var(--ki-on-accent, #282828);--sk-tk:var(--ki-tone-k, 1);--sk-tone-tx:100%;--sk-shadow:var(--ki-card-sh, none);
+      --sk-amber:var(--ki-amber-text, var(--orange, #f2b573));--sk-blue:var(--ki-blue-text, var(--blue, #73b9f2));--sk-green:var(--ki-green-text, var(--green, #66d19e));
+      --sk-red:var(--ki-red-text, var(--red, #f28073));--sk-purple:var(--ki-purple-text, var(--purple, #ad99e6));--sk-pink:var(--ki-pink-text, var(--pink, #f285c9));color:var(--sk-text)}
+    :host([data-ki-theme=light]){--sk-surface:var(--ki-surface, #ffffff);--sk-surface-2:var(--ki-surface-2, #ebebeb);--sk-surface-3:var(--ki-surface-3, #dedede);--sk-popup:var(--ki-popup, #f0f0f0);
+      --sk-text:var(--ki-text, #1c1c1c);--sk-text-2:var(--ki-text-2, #565656);--sk-mute:#626262;--sk-mid:var(--ki-text-mid, #5c5c5c);--sk-dim:#666666;--sk-g9:var(--ki-text-1, #333333);--sk-g4:var(--ki-ctrl, #cfcfcf);--sk-ring-off:#d4d4d4;
+      --sk-line:var(--ki-line, rgba(0,0,0,0.08));--sk-line-2:rgb(0 0 0 / 0.12);--sk-on-acc:var(--ki-on-accent, #2a1720);--sk-tk:var(--ki-tone-k, 1.5);--sk-tone-tx:76%;--sk-shadow:var(--ki-card-sh, 0 1px 3px rgba(0,0,0,0.06));
+      --sk-amber:var(--ki-amber-text, rgb(168 98 24));--sk-blue:var(--ki-blue-text, rgb(30 108 178));--sk-green:var(--ki-green-text, rgb(18 128 78));
+      --sk-red:var(--ki-red-text, rgb(186 58 44));--sk-purple:var(--ki-purple-text, rgb(104 76 186));--sk-pink:var(--ki-pink-text, rgb(176 48 128))}`;
+  // Aksentfarge → tekst-/ikonvariant (mørknes i lys modus). Fyll/flater bruker originalen.
+  const TXT = { [C.orange]: 'var(--sk-amber)', [C.blue]: 'var(--sk-blue)', [C.green]: 'var(--sk-green)', [C.red]: 'var(--sk-red)', [C.purple]: 'var(--sk-purple)', [C.pink]: 'var(--sk-pink)', [GRAY9]: 'var(--sk-g9)' };
+  const tx = (col) => TXT[col] || col;
+  // Tekst som ligger PÅ en tone-flate i samme farge: i lys modus litt mørkere enn tx() (ellers < 4,5:1); mørk = tx()
+  const toneTx = (col) => `color-mix(in srgb, ${tx(col)} var(--sk-tone-tx, 100%), black)`;
+  // Tone-bakgrunn: pct i mørk modus, × --ki-tone-k i lys (12 % → 18 %) – samme regel som MSH.theme.tone
+  const tone = (col, pct) => `color-mix(in srgb, ${col} calc(${pct}% * var(--sk-tk, 1)), transparent)`;
+  const isLight = (h) => !!(h && h.themes && h.themes.darkMode === false);
+  const markTheme = (el, h) => { const v = isLight(h) ? 'light' : 'dark'; if (el && el.getAttribute('data-ki-theme') !== v) el.setAttribute('data-ki-theme', v); };
   // [nøkkel, etikett, ikon, farge, tjeneste, tilstander, supported_features-bit]
   const MODES = [
     ['av', 'Av', 'remove_moderator', GRAY9, 'alarm_disarm', ['disarmed'], 0],
@@ -185,6 +210,12 @@
   const isAlert = (x) => (x.type === 'door' || x.type === 'window' || x.type === 'lock') && x.on;
   const iconOf = (x) => ({ door: x.on ? 'door_open' : 'door_front', window: x.on ? 'sensor_window' : 'window', lock: x.on ? 'lock_open' : 'lock', motion: x.on ? 'directions_run' : 'directions_walk', presence: 'person' })[x.type] || 'sensors';
   const colorOf = (x) => (isAlert(x) ? C.orange : x.on ? C.blue : null);
+  // 35.4 · rom-seksjonen (2a): typenavn, tilstandsord, gruppenavn/-ikon for Type-visningen, «x min siden»
+  const TLAB = { door: 'Dør', window: 'Vindu', lock: 'Lås', motion: 'Bevegelse', presence: 'Tilstede' };
+  const TICON = { door: 'door_front', window: 'window', lock: 'lock', motion: 'directions_walk', presence: 'person' };
+  const GNAME = { door: 'Dører', window: 'Vinduer', lock: 'Låser', motion: 'Bevegelse', presence: 'Tilstede' };
+  const stateOf = (x) => (x.un ? '–' : ({ door: x.on ? 'Åpen' : 'Lukket', window: x.on ? 'Åpent' : 'Lukket', lock: x.on ? 'Ulåst' : 'Låst', motion: x.on ? 'Bevegelse nå' : 'Stille', presence: x.on ? 'Tilstede' : 'Ingen' })[x.type] || (x.on ? 'På' : 'Av'));
+  const ago = (m) => (m < 60 ? Math.round(m) + ' min' : m < 1440 ? Math.round(m / 60) + ' t' : Math.round(m / 1440) + ' d');
   const summary = (S) => {
     const alerts = S.filter(isAlert), motion = S.filter((x) => (x.type === 'motion' || x.type === 'presence') && x.on);
     const headline = alerts.length
@@ -205,7 +236,7 @@
       return S.map((raw) => {
         const m = stMap(c, raw), u = ((c.state_map || {})[raw]) || {};
         return `<div class="f" data-key="st-${esc(raw)}" style="gap:8px">
-          <div class="line" style="gap:8px"><code style="font:500 13px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:#fafafa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(raw)}</code>${raw === now ? `<span style="flex:none;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#2f2f2f;background:${C.pink}">nå</span>` : ''}</div>
+          <div class="line" style="gap:8px"><code style="font:500 13px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ki-text, #fafafa);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(raw)}</code>${raw === now ? `<span style="flex:none;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:var(--ki-on-accent, #2f2f2f);background:${C.pink}">nå</span>` : ''}</div>
           <div class="chips sg">${MODES.map((x) => `<button class="chip ${x[0] === m.mode ? 'on' : ''}" aria-selected="${x[0] === m.mode}" data-a="sel" data-name="state_map.${esc(raw)}.mode" data-v="${x[0]}">${esc(x[1])}</button>`).join('')}</div>
           <input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" aria-label="Tekst for ${esc(raw)}" data-name="state_map.${esc(raw)}.text" value="${esc(u.text || '')}" placeholder="${esc(u.text ? '' : m.text)}">
         </div>`;
@@ -256,7 +287,10 @@
       ];
     }
     get cardSize() { return 6; }
+    set hass(h) { const o = this._hass; super.hass = h; if (o && isLight(o) !== isLight(h)) this.update(); }
+    get hass() { return super.hass; }
     render() {
+      markTheme(this, this.hass);
       const c = this.config, a = M.sikAuto(this.hass, c), S = a.sensors;
       S.forEach((x) => this.s(x.id));
       const al = this.s(a.alarm), mode = sikModeOf(this.hass, c), armed = !!(mode && mode.armed), stE = mode ? mode.A.st : this.s(M.sikStateEntity(this.hass, c));
@@ -266,17 +300,17 @@
       const bars = n ? S : Array.from({ length: 24 }, () => null);
       const ring = c.show_ring === false ? '' : bars.map((x, i) => {
         const col = x ? colorOf(x) : null, deg = (360 / Math.max(bars.length, 1)) * i;
-        const bg = col || (armed ? M.alpha(mode.color, 0.55) : 'var(--gray300, #404040)');
+        const bg = col || (armed ? M.alpha(mode.color, 0.55) : 'var(--sk-ring-off)');
         return `<div class="bar" data-key="${esc(x ? x.id : 'p' + i)}" title="${esc(x ? `${x.room} · ${x.name}` : '')}" style="transform:rotate(${deg.toFixed(2)}deg) translateY(-110px);background:${bg};box-shadow:${col ? `0 0 14px ${M.alpha(col, 0.7)}` : 'none'}"></div>`;
       }).join('');
       const since = stE && !M.unavailable(stE) ? `${armed ? 'Aktivert' : 'Avslått'} ${when(new Date(stE.last_changed).getTime())}` : stE ? 'Utilgjengelig' : c.state_entity ? `Fant ikke ${c.state_entity}` : a.alarm ? 'Fant ikke alarmen' : 'Ingen alarm valgt';
-      const core = armed ? `background:radial-gradient(circle at 50% 35%, ${M.alpha(mode.color, 0.16)}, var(--gray200, #3a3a3a) 70%)` : '';
+      const core = armed ? `background:radial-gradient(circle at 50% 35%, ${tone(mode.color, 16)}, var(--sk-surface) 70%)` : '';
       return `
         <section class="hero">
           <div class="ring ${c.show_ring === false ? 'noring' : ''}">
             ${ring}
             <button class="core" data-act="core" ${stE ? `data-ent="${esc(stE.entity_id)}"` : ''} style="${core}">
-              ${M.icon(mode ? mode.icon : 'mdi:shield-off-outline', 30, `color:${mode ? mode.color : 'var(--gray600, #7f7f7f)'}`)}
+              ${M.icon(mode ? mode.icon : 'mdi:shield-off-outline', 30, `color:${mode ? tx(mode.color) : 'var(--sk-mute)'}`)}
               <div class="ml">${esc(mode ? mode.label : '–')}</div>
               <div class="ms">${esc(since)}</div>
             </button>
@@ -296,53 +330,56 @@
       return super.onAction(name, el, ev);
     }
     get styles() {
-      return `
+      return `${SK_THEME}
         .hero{display:flex;flex-direction:column;align-items:center;gap:20px;padding:4px 0 2px}
         .ring{position:relative;width:260px;height:260px;flex:none}
         .ring.noring{width:172px;height:172px}
         .ring.noring .core{inset:0}
         .bar{position:absolute;left:calc(50% - 4px);top:calc(50% - 16px);width:8px;height:32px;border-radius:4px;transition:background .4s,box-shadow .4s}
-        .core{position:absolute;inset:44px;border-radius:50%;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:background .4s,transform .15s}
+        .core{position:absolute;inset:44px;border-radius:50%;background:var(--sk-surface);box-shadow:inset 0 0 0 1px var(--sk-line),var(--sk-shadow);color:var(--sk-text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:background .4s,transform .15s}
         .core:active{transform:scale(.97)}
         .ml{font-size:26px;font-weight:500;letter-spacing:-0.02em}
-        .ms{font-size:12px;color:var(--gray600,#7f7f7f)}
+        .ms{font-size:12px;color:var(--sk-mute)}
         .txt{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
         .hl{font-size:24px;font-weight:500;letter-spacing:-0.015em;text-wrap:balance}
-        .sl{font-size:14px;color:var(--gray600,#7f7f7f)}
+        .sl{font-size:14px;color:var(--sk-mute)}
       `;
     }
   }
   M.define('msh-sikkerhet-hero-card', SikkerhetHero, 'MSH Sikkerhet · sensorring', 'Toppkort for #sikkerhet: sensorring, alarmmodus og status. Legges først i popupen.');
 
   /* ================================================================ hovedkort */
-  const PAD_CSS = `
+  const PAD_CSS = `${SK_THEME}
+    :host([data-ki-theme=light]) .bg{background:rgb(0 0 0 / 0.2)}
     .bg{background:rgba(10,10,12,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-    .sh{left:16px;right:16px;padding:22px 20px 20px;border-radius:34px;background:var(--gray200,#3a3a3a);box-shadow:0 20px 50px rgba(0,0,0,0.55);scrollbar-width:none}
+    .sh{left:16px;right:16px;padding:22px 20px 20px;border-radius:34px;background:var(--sk-surface);color:var(--sk-text);box-shadow:0 20px 50px ${M.theme && M.theme.blackA ? M.theme.blackA(0.55) : 'rgb(0 0 0 / 0.55)'};scrollbar-width:none}
     .sh::-webkit-scrollbar{display:none}
     .pad{position:relative;display:flex;flex-direction:column;align-items:center;gap:16px}
-    .x{position:absolute;top:-8px;right:-6px;width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--gray900,#c7c7c7)}
+    .x{position:absolute;top:-8px;right:-6px;width:40px;height:40px;border-radius:20px;background:var(--sk-surface-2);display:grid;place-items:center;color:var(--sk-g9)}
     .hd{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
     .iw{width:56px;height:56px;border-radius:28px;display:grid;place-items:center}
     .tt{font-size:20px;font-weight:600}
-    .msg{font-size:13px;color:var(--gray700,#979797)}
-    .msg.err{color:var(--red,#f28073);font-weight:600}
+    .msg{font-size:13px;color:var(--sk-mid)}
+    .msg.err{color:var(--sk-red);font-weight:600}
     .dots{display:flex;gap:16px;height:16px;align-items:center;transition:transform .2s}
     .dots.err{animation:msh-shake .36s cubic-bezier(.36,.07,.19,.97)}
-    .dot{width:14px;height:14px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--gray600,#7f7f7f);transition:background .12s}
-    .dot.on{background:var(--white,#fafafa);box-shadow:none}
+    .dot{width:14px;height:14px;border-radius:7px;box-shadow:inset 0 0 0 1.5px var(--sk-mute);transition:background .12s}
+    .dot.on{background:var(--sk-text);box-shadow:none}
     .dots.err .dot{background:var(--red,#f28073);box-shadow:none}
     .keys{display:grid;grid-template-columns:repeat(3,68px);gap:10px 20px}
-    .k{width:68px;height:68px;border-radius:34px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:30px;font-weight:400;font-variant-numeric:tabular-nums;transition:transform .1s,background .1s;touch-action:manipulation}
-    .k:active{transform:scale(0.92);background:var(--gray400,#545454)}
-    .k.ic{background:transparent;color:var(--gray800,#afafaf)}
-    .k.ic:active{background:var(--gray400,#545454)}
+    .k{width:68px;height:68px;border-radius:34px;display:grid;place-items:center;background:var(--sk-surface-2);color:var(--sk-text);font-size:30px;font-weight:400;font-variant-numeric:tabular-nums;transition:transform .1s,background .1s;touch-action:manipulation}
+    .k:active{transform:scale(0.92);background:var(--sk-g4)}
+    .k.ic{background:transparent;color:var(--sk-text-2)}
+    .k.ic:active{background:var(--sk-g4)}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     @keyframes msh-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(6px)}40%{transform:translateX(-6px)}60%{transform:translateX(4px)}80%{transform:translateX(-3px)}}
   `;
 
   class Sikkerhet extends M.Card {
     static get cardName() { return 'Sikkerhet'; }
-    static get defaults() { return { code_for: 'alle', code_length: 4, show_alerts: true, show_log: true, toasts: true }; }
+    static get defaults() { return { code_for: 'alle', code_length: 4, show_hint: true, show_log: true, toasts: true }; }
+    // 35.4: Rom/Type-bryteren i rom-seksjonen huskes per enhet (UI-tilstand, ikke config)
+    static get uiPersist() { return ['rview']; }
     static get schema() {
       return (h, c) => [
         alarmOverride,
@@ -355,11 +392,11 @@
         sensorLists,
         sensorEdit(h, c),
         { type: 'section', label: 'Siste hendelser · hvem låste opp', icon: 'mdi:face-recognition', id: 'unlock', fields: unlockFields(h, c) },
-        { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Rekkefølge på seksjoner', options: [['modes', 'Modus'], ['alerts', 'Krever oppmerksomhet'], ['rooms', 'Rom'], ['log', 'Siste hendelser'], ['edit', 'Tilpass-knapp']] },
+        { type: 'order', name: 'sections', hiddenName: 'hidden_sections', label: 'Rekkefølge på seksjoner', options: [['modes', 'Modus'], ['rooms', 'Rom'], ['log', 'Siste hendelser'], ['edit', 'Tilpass-knapp']] },
         { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', id: 'view', fields: [
-          { type: 'boolean', name: 'show_alerts', label: 'Varsler · «Krever oppmerksomhet» øverst', default: true },
+          { type: 'boolean', name: 'show_hint', label: 'Hjelpetekst · «Hold inne for å bytte modus»', default: true, help: 'Vises alltid mens du holder inne en modus' },
           { type: 'boolean', name: 'show_log', label: 'Siste hendelser · logg nederst', default: true },
-          { type: 'select', name: 'sensor_view', label: 'Sensorer i rom', options: [['rows', 'Rader'], ['chips', 'Brikker']], default: 'rows' },
+          { type: 'select', name: 'room_view', label: 'Rom-seksjonen viser først', options: [['rom', 'Rom'], ['type', 'Type']], default: 'rom' },
           { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (toast)', default: true },
         ] },
         { type: 'gap' },
@@ -462,107 +499,121 @@
       });
       return out.slice(0, 5);
     }
+    set hass(h) { const o = this._hass; super.hass = h; if (o && isLight(o) !== isLight(h)) this.update(); }
+    get hass() { return super.hass; }
+    /* 35.4 · Rom-seksjonen (variant 2a, «Sikkerhet rom-varianter.dc.html»): statusstripe Åpne/Bevegelse/Rom rolig,
+     * rom med aktivitet som store kort øverst, rolige rom som piller i 2 kolonner, trykk åpner sensorlista, Rom/Type-bryter.
+     * Data: M.sikAuto (områder + binary_sensor/lock, overstyrt navn/type/rom). */
+    _rooms(S) {
+      const names = [...new Set(S.map((x) => x.room))];
+      return names.map((name) => {
+        const sensors = S.filter((x) => x.room === name);
+        const nAl = sensors.filter(isAlert).length, nMv = sensors.filter((x) => x.on && !isAlert(x)).length, hot = !!(nAl || nMv);
+        const sc = nAl ? C.orange : nMv ? C.blue : C.green;
+        const top = sensors.find(isAlert) || sensors.find((x) => x.on) || sensors[0];
+        const word = nAl ? (nAl === 1 ? '1 åpen' : nAl + ' åpne') : nMv ? 'Bevegelse' : 'Rolig';
+        let headline = 'Rolig';
+        if (nAl) headline = `${stateOf(top)} · ${TLAB[top.type].toLowerCase()}`;
+        else if (nMv) { const t = top.st && top.st.last_changed ? new Date(top.st.last_changed).getTime() : NaN, m = (Date.now() - t) / 60000; headline = !isFinite(m) || m < 1 ? 'Bevegelse nå' : `Bevegelse · ${ago(m)} siden`; }
+        return { name, sensors, nAl, nMv, hot, sc, top, word, headline };
+      });
+    }
+    _roomsHTML(S) {
+      if (!S.length) return `<section class="sec rms" data-section="rooms"><div class="rh"><div class="cap">Rom</div></div>${M.emptyState('Fant ingen dør-, vindus- eller bevegelsessensorer', 'entities')}</section>`;
+      const view = this.ui.rview || this.config.room_view || 'rom', rooms = this._rooms(S);
+      const totAl = rooms.reduce((n, r) => n + r.nAl, 0), totMv = rooms.reduce((n, r) => n + r.nMv, 0), calm = rooms.filter((r) => !r.hot);
+      const seg = [['rom', 'Rom'], ['type', 'Type']].map(([k, l]) => `<button class="rsg ${view === k ? 'on' : ''}" data-act="rview" data-v="${k}" data-haptic="selection" aria-pressed="${view === k}">${l}</button>`).join('');
+      const stat = (n, label, col) => `<div class="rst" style="${n && col ? `background:${tone(col, 12)}` : ''}"><span class="rsn" style="${n && col ? `color:${toneTx(col)}` : ''}">${n}</span><span class="rsl">${label}</span></div>`;
+      const mid = (x) => { const col = colorOf(x); return `<span class="smid" style="${col ? `background:${col};color:var(--sk-on-acc)` : ''}">${M.icon(iconOf(x), 17)}</span>`; };
+      let body = '';
+      if (view === 'type') {
+        const groups = ['door', 'window', 'lock', 'motion', 'presence'].map((t) => {
+          const L = S.filter((x) => x.type === t);
+          if (!L.length) return '';
+          const multi = (x) => L.filter((y) => y.room === x.room).length > 1 || (x.room === 'Annet' && x.name !== TLAB[t]);
+          const rows = L.map((x) => ({ x, col: colorOf(x) })).sort((p, q) => !!q.col - !!p.col);
+          const act = rows.filter((r) => r.col).length, mv = t === 'motion' || t === 'presence', lk = t === 'lock';
+          const sum = act ? `${act} av ${rows.length} ${mv ? 'aktiv' : lk ? 'ulåst' : 'åpen'}` : `Alle ${rows.length} ${mv ? 'stille' : lk ? 'låst' : 'lukket'}`;
+          return `<div class="rgp" data-key="tg-${t}"><div class="rgh">${M.icon(TICON[t], 20, 'color:var(--sk-g9)')}<span class="rgn">${GNAME[t]}</span><span class="rsum" style="color:${act ? (mv ? 'var(--sk-blue)' : 'var(--sk-amber)') : 'var(--sk-mid)'}">${esc(sum)}</span></div>
+            ${rows.map(({ x, col }) => `<button class="rgr" data-act="sens" data-ent="${esc(x.id)}" data-key="tr-${esc(x.id)}"><span class="rdot" style="${col ? `background:${col}` : ''}"></span><span class="rgrn">${esc(multi(x) ? `${x.room} · ${x.name}` : x.room)}</span><span class="rgs" style="${col ? `color:${tx(col)}` : ''}">${esc(stateOf(x))}</span></button>`).join('')}</div>`;
+        }).join('');
+        body = groups;
+      } else {
+        const open = rooms.find((r) => r.name === this.ui.ropen) || null;
+        const att = rooms.filter((r) => r.hot).map((r) => `<button class="rac press" data-act="room" data-room="${esc(r.name)}" data-key="ra-${esc(r.name)}" style="background:${tone(r.sc, 12)};box-shadow:inset 0 0 0 1.5px ${M.alpha(r.sc, 0.4)}${open === r ? ',inset 0 0 0 2.5px var(--pink, #f285c9)' : ''}">
+            <span class="raic" style="background:${r.sc}">${M.icon(iconOf(r.top), 22)}</span>
+            <span class="rat"><span class="ran">${esc(r.name)}</span><span class="rsub" style="color:${toneTx(r.sc)}">${esc(r.headline)}</span></span>
+            <span class="ram">${r.sensors.slice(0, 4).map(mid).join('')}</span>
+          </button>`).join('');
+        const pills = calm.length ? `<div class="rcalm">${calm.map((r) => `<button class="rpl press ${open === r ? 'on' : ''}" data-act="room" data-room="${esc(r.name)}" data-key="rp-${esc(r.name)}">
+            <span class="rpic">${M.icon(iconOf(r.top), 18)}</span>
+            <span class="rat"><span class="rpn">${esc(r.name)}</span><span class="rsub">${esc(r.word)}</span></span>
+          </button>`).join('')}</div>` : '';
+        const list = open ? `<div class="rol" data-key="rol-${esc(open.name)}"><div class="rolh"><span class="roln">${esc(open.name)}</span><button class="rolx" data-act="rclose" data-haptic="light" title="Lukk">${M.icon('close', 18)}</button></div>
+            ${open.sensors.map((x) => { const col = colorOf(x); return `<button class="rolr" data-act="sens" data-ent="${esc(x.id)}" data-key="or-${esc(x.id)}">${mid(x)}<span class="rolt">${esc(x.name)}</span><span class="rols" style="${col ? `color:${tx(col)}` : ''}">${esc(stateOf(x) + (x.type === 'lock' && x.bat != null ? ` · ${x.bat} %` : ''))}</span></button>`; }).join('')}</div>` : '';
+        body = att + pills + list;
+      }
+      return `<section class="sec rms" data-section="rooms">
+        <div class="rh"><div class="cap">Rom</div><div class="rseg">${seg}</div></div>
+        <div class="rstats">${stat(totAl, 'Åpne', C.orange)}${stat(totMv, 'Bevegelse', C.blue)}${stat(calm.length, 'Rom rolig', null)}</div>
+        ${body}
+      </section>`;
+    }
     render() {
+      markTheme(this, this.hass);
       const c = this.config, a = M.sikAuto(this.hass, c), S = a.sensors;
       S.forEach((x) => this.s(x.id));
       const al = this.s(a.alarm), mode = sikModeOf(this.hass, c);
       if (c.state_entity) this.s(c.state_entity);
       const selOnly = !al && !!mode && /^(select|input_select)\./.test(c.state_entity || ''); // 24.6: select uten alarmpanel
-      const dis = this.ui.dismiss || {};
-      const { alerts } = summary(S);
-      const shownAlerts = alerts.filter((x) => dis[x.id] !== x.st.last_changed);
-      const hold = this._hold;
+      const hold = this._mh;
       const hint = hold ? `Hold for å sette ${MODES.find((m) => m[0] === hold.k)[1].toLowerCase()}…` : selOnly ? `${mode.label} · hold inne for å bytte modus` : !al ? 'Ingen alarm valgt' : c.code_for === 'aldri' ? 'Hold inne for å bytte modus' : c.code_for === 'av' ? 'Hold inne for å bytte modus · kode for å slå av' : 'Hold inne for å bytte modus · krever kode';
       const codeNeeded = !!al && c.code_for !== 'aldri' && !(al && al.attributes.code_format == null);
+      // 35.4: hjelpeteksten kan skjules (show_hint), men vises alltid mens man holder inne
+      const hintOff = c.show_hint === false && !hold;
 
       const sec = {};
       sec.modes = `
-        <section class="sec modes-s">
+        <section class="sec modes-s" data-section="modes">
           <div class="modes">${MODES.map((m) => {
             const act = mode && mode.key === m[0], holding = hold && hold.k === m[0], ok = selOnly || this._supported(m, al);
-            return `<button class="mode ${act ? 'act' : ''} ${ok ? '' : 'dis'}" data-mode="${m[0]}" data-key="m-${m[0]}" style="background:${act ? M.alpha(m[3], 0.18) : 'transparent'};box-shadow:${act ? `inset 0 0 0 1px ${M.alpha(m[3], 0.45)}` : 'none'};color:${act ? 'var(--white, #fafafa)' : 'var(--gray700, #979797)'}">
-              <div class="fill" style="width:${holding ? (hold.p * 100).toFixed(1) : 0}%;background:${M.alpha(m[3], 0.28)}"></div>
-              ${M.icon(m[2], 21, `position:relative;color:${act || holding ? m[3] : 'var(--gray700, #979797)'}`)}
+            return `<button class="mode ${act ? 'act' : ''} ${ok ? '' : 'dis'}" data-mode="${m[0]}" data-key="m-${m[0]}" style="background:${act ? tone(m[3], 18) : 'transparent'};box-shadow:${act ? `inset 0 0 0 1px ${M.alpha(m[3], 0.45)}` : 'none'};color:${act ? 'var(--sk-text)' : 'var(--sk-mid)'}">
+              <div class="fill" style="width:${holding ? (hold.p * 100).toFixed(1) : 0}%;background:${tone(m[3], 28)}"></div>
+              ${M.icon(m[2], 21, `position:relative;color:${act || holding ? tx(m[3]) : 'var(--sk-mid)'}`)}
               <span class="mlab">${m[1]}</span>
             </button>`;
           }).join('')}</div>
-          <div class="hint">${codeNeeded ? M.icon('dialpad', 13) : ''}<span class="ht">${esc(hint)}</span></div>
+          <div class="hint ${hintOff ? 'off' : ''}">${codeNeeded ? M.icon('dialpad', 13) : ''}<span class="ht">${esc(hint)}</span></div>
           ${al || selOnly ? '' : M.emptyState(a.alarm ? `Fant ikke ${a.alarm}` : 'Fant ingen alarm_control_panel', 'overrides')}
         </section>`;
-      sec.alerts = c.show_alerts !== false && shownAlerts.length ? `
-        <section class="sec">
-          <div class="cap" style="color:${C.orange}">Krever oppmerksomhet</div>
-          ${shownAlerts.map((x) => `
-            <div class="alert" data-key="al-${esc(x.id)}" data-ent="${esc(x.id)}">
-              ${M.icon(iconOf(x), 22, `color:${C.orange}`)}
-              <div class="grow col" style="gap:2px"><div class="at">${esc(x.type === 'lock' ? `${x.name} er ulåst` : `${x.name} er ${x.type === 'window' ? 'åpent' : 'åpen'}`)}</div><div class="ar">${esc(x.room)}</div></div>
-              <button class="fix press" data-act="fix" data-id="${esc(x.id)}" data-haptic="success" style="background:${C.orange}">${x.type === 'lock' ? 'Lås' : 'Merk lukket'}</button>
-            </div>`).join('')}
-        </section>` : '';
-      const rooms = [...new Set(S.map((x) => x.room))];
-      sec.rooms = `
-        <section class="sec" style="gap:2px">
-          <div class="rh"><div class="cap">Rom</div><div class="cnt">${S.length} ${S.length === 1 ? 'sensor' : 'sensorer'}</div></div>
-          ${S.length ? rooms.map((room, i) => {
-            const list = S.filter((x) => x.room === room), alr = list.some(isAlert), mv = list.some((x) => x.on && !isAlert(x));
-            if (c.sensor_view !== 'chips') {
-              // Universal-rader (07-universal.js): aktiv sensor → regel 1 med varselfarge som bakgrunn og mørk tekst
-              return `<div class="room urm" data-key="r-${esc(room)}"><div class="rn"><span class="rd" style="background:${alr ? C.orange : mv ? C.blue : 'var(--gray400, #545454)'}"></span><span class="ell" style="font-size:14px;font-weight:500">${esc(room)}</span></div>
-                <div class="ulst">${list.map((x) => {
-                  const col = colorOf(x);
-                  const val = x.un ? '–' : ({ door: x.on ? 'Åpen' : 'Lukket', window: x.on ? 'Åpent' : 'Lukket', lock: x.on ? 'Ulåst' : 'Låst', motion: x.on ? 'Bevegelse' : 'Stille', presence: x.on ? 'Noen her' : 'Stille' })[x.type] || (x.on ? 'På' : 'Av');
-                  const alt = x.type === 'lock' && x.bat != null ? `${x.bat} %` : x.on && x.st && x.st.last_changed ? M.relTime(x.st.last_changed) : '';
-                  return M.universal({ mode: 'sensor', size: 'small', entity: x.id, st: x.st, act: 'chip', key: 'u-' + x.id, icon: iconOf(x), main_text: val, sub_text: x.name, alt_text: alt,
-                    state_rule_1_condition: !!col, state_rule_1_background_color: col, state_rule_1_text_color: 'var(--gray000)' });
-                }).join('')}</div></div>`;
-            }
-            return `<div class="room" data-key="r-${esc(room)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
-              <div class="rn"><span class="rd" style="background:${alr ? C.orange : mv ? C.blue : 'var(--gray400, #545454)'}"></span><span class="ell" style="font-size:14px;font-weight:500">${esc(room)}</span></div>
-              <div class="chips">${list.map((x) => {
-                const col = colorOf(x);
-                const lab = x.un ? `${x.name} · –` : x.type === 'lock' && !x.on && x.bat != null ? `${x.name} · ${x.bat} %` : ({ door: x.on ? 'Åpen' : x.name, window: x.on ? 'Åpent' : x.name, lock: x.on ? `${x.name} ulåst` : x.name, motion: x.on ? 'Bevegelse nå' : x.name, presence: x.on ? 'Noen her' : x.name })[x.type] || x.name;
-                return `<button class="chip press" data-act="chip" data-id="${esc(x.id)}" data-ent="${esc(x.id)}" data-key="${esc(x.id)}" style="background:${col ? M.alpha(col, 0.16) : 'var(--gray200, #3a3a3a)'};color:${col ? 'var(--white, #fafafa)' : 'var(--gray800, #afafaf)'};box-shadow:${col ? `inset 0 0 0 1px ${M.alpha(col, 0.4)}` : 'inset 0 0 0 1px rgba(255,255,255,0.04)'}">${M.icon(iconOf(x), 16, `color:${col || 'var(--gray600, #7f7f7f)'}`)}${esc(lab)}</button>`;
-              }).join('')}</div>
-            </div>`;
-          }).join('') : M.emptyState('Fant ingen dør-, vindus- eller bevegelsessensorer', 'entities')}
-        </section>`;
+      sec.rooms = this._roomsHTML(S);
       if (c.show_log !== false) {
         const ev = this._events(a, S, al);
         sec.log = `
-          <section class="sec">
+          <section class="sec" data-section="log">
             <div class="cap" style="padding:0 4px">Siste hendelser</div>
             <div class="log ${ev.some((e) => e.person) ? 'wide' : ''}">${ev.length ? ev.map((e, i) => {
-              const col = e.kind === 'alert' ? C.orange : e.kind === 'motion' ? C.blue : e.kind === 'mode' ? 'var(--white, #fafafa)' : C.green, p = e.person;
+              const col = e.kind === 'alert' ? C.orange : e.kind === 'motion' ? C.blue : e.kind === 'mode' ? 'var(--sk-text)' : C.green, p = e.person;
               const pic = p && p.pic ? (M.hjemPicUrl ? M.hjemPicUrl(this.hass, p.pic) : p.pic) : '';
-              const dot = p ? `<span class="eva" title="${esc(p.id || p.name)}" style="background:${pic ? 'var(--gray300, #404040)' : p.color}">${pic ? `<img src="${esc(pic)}" alt="">` : esc(p.initial)}</span>` : `<span class="evd" style="background:${col}"></span>`;
-              return `<div class="ev" data-key="ev-${i}"><div class="evl">${dot}<span class="evline" style="background:${i < ev.length - 1 ? 'rgba(255,255,255,0.1)' : 'transparent'}"></span></div>
+              const dot = p ? `<span class="eva" title="${esc(p.id || p.name)}" style="background:${pic ? 'var(--sk-surface-2)' : p.color}">${pic ? `<img src="${esc(pic)}" alt="">` : esc(p.initial)}</span>` : `<span class="evd" style="background:${col}"></span>`;
+              return `<div class="ev" data-key="ev-${i}"><div class="evl">${dot}<span class="evline" style="background:${i < ev.length - 1 ? 'var(--sk-line-2)' : 'transparent'}"></span></div>
                 <div class="evb"><div class="col" style="gap:2px"><div style="font-size:14px">${esc(e.text)}</div><div class="evw">${esc(e.who)}</div></div><div class="evw num">${esc(when(e.t))}</div></div></div>`;
             }).join('') : `<div class="evw" style="padding:0 0 4px">${this._log ? 'Ingen hendelser siste døgn' : 'Henter …'}</div>`}</div>
           </section>`;
       }
-      sec.edit = `<button class="own press" data-act="customize">${M.icon('tune', 20)}Tilpass oppsett</button>`;
-      const keys = ['modes', 'alerts', 'rooms', 'log', 'edit'];
+      sec.edit = `<button class="own press" data-act="customize" data-section="edit">${M.icon('tune', 20)}Tilpass oppsett</button>`;
+      const keys = ['modes', 'rooms', 'log', 'edit'];
       let order = Array.isArray(c.sections) ? c.sections.filter((k) => keys.includes(k)) : [];
       keys.forEach((k) => { if (!order.includes(k)) order.push(k); });
       const hid = new Set(c.hidden_sections || []);
       return `<div class="wrap">${order.filter((k) => !hid.has(k)).map((k) => sec[k] || '').join('')}</div>`;
     }
     onAction(name, el, ev) {
-      const d = el.dataset, h = this.hass;
-      if (name === 'fix') {
-        const a = M.sikAuto(h, this.config), x = a.sensors.find((y) => y.id === d.id);
-        if (!x) return;
-        if (x.type === 'lock') return M.call(h, 'lock', 'lock', { entity_id: x.id }).then(() => this._toast(`${x.name} låst`)).catch(() => {});
-        return this.setUI({ dismiss: { ...(this.ui.dismiss || {}), [x.id]: x.st.last_changed } });
-      }
-      if (name === 'chip') {
-        const a = M.sikAuto(h, this.config), x = a.sensors.find((y) => y.id === d.id);
-        if (x && x.domain === 'lock' && !x.un) {
-          const lock = x.st.state !== 'locked';
-          return M.call(h, 'lock', lock ? 'lock' : 'unlock', { entity_id: x.id }).then(() => this._toast(`${x.name} ${lock ? 'låst' : 'låst opp'}`)).catch(() => {});
-        }
-        return M.moreInfo(this, d.id);
-      }
+      const d = el.dataset;
+      if (name === 'rview') return this.setUI({ rview: d.v === 'type' ? 'type' : 'rom', ropen: null });
+      if (name === 'room') return this.setUI({ ropen: this.ui.ropen === d.room ? null : d.room });
+      if (name === 'rclose') return this.setUI({ ropen: null });
+      if (name === 'sens') return M.moreInfo(this, d.ent);
       return super.onAction(name, el, ev);
     }
     afterRender() {
@@ -571,7 +622,7 @@
         b.__b = true;
         M.guardDrag(b, 'none');
         b.addEventListener('pointerdown', (e) => { if (e.button) return; this._startHold(b.dataset.mode); });
-        ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => b.addEventListener(t, () => this._cancelHold()));
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => b.addEventListener(t, () => this._cancelModeHold()));
         b.addEventListener('contextmenu', (e) => e.preventDefault());
       });
     }
@@ -585,17 +636,18 @@
       this._cancelHoldAnim();
       M.haptic('selection');
       const t0 = performance.now();
-      this._hold = { k, p: 0 };
+      this._mh = { k, p: 0 };
       const step = () => {
-        if (!this._hold) return;
+        if (!this._mh) return;
         const p = Math.min(1, (performance.now() - t0) / 900);
-        this._hold.p = p;
+        this._mh.p = p;
         const b = this.shadowRoot.querySelector(`.mode[data-mode="${k}"]`);
         if (b) { b.querySelector('.fill').style.width = (p * 100).toFixed(1) + '%'; const ic = b.querySelector('ha-icon'); if (ic) ic.style.color = m[3]; }
-        const ht = this.shadowRoot.querySelector('.ht');
+        const ht = this.shadowRoot.querySelector('.ht'), hn = this.shadowRoot.querySelector('.hint');
         if (ht) ht.textContent = `Hold for å sette ${m[1].toLowerCase()}…`;
+        if (hn) hn.classList.remove('off'); // 35.4: hjelpeteksten vises alltid midlertidig mens man holder inne
         if (p < 1) { this._rafH = requestAnimationFrame(step); return; }
-        this._hold = null;
+        this._mh = null;
         this.update();
         if (this._needCode(k, al)) this._openPad(k);
         else this._apply(k);
@@ -603,10 +655,10 @@
       this._rafH = requestAnimationFrame(step);
     }
     _cancelHoldAnim() { if (this._rafH) cancelAnimationFrame(this._rafH); this._rafH = 0; }
-    _cancelHold() {
-      if (!this._hold) return;
+    _cancelModeHold() {
+      if (!this._mh) return;
       this._cancelHoldAnim();
-      this._hold = null;
+      this._mh = null;
       this.update();
     }
     async _apply(k, code) {
@@ -629,6 +681,7 @@
       this._pad = { k, entry: '', err: false };
       const ov = M.overlay({ center: true, maxWidth: 360, css: PAD_CSS, html: '', onClose: () => { this._pad = null; this._ov = null; window.removeEventListener('keydown', onKey); } });
       this._ov = ov;
+      markTheme(ov.host, this.hass);
       const onKey = (e) => {
         if (!this._pad) return;
         if (/^[0-9]$/.test(e.key)) { M.haptic('selection'); this._press(e.key); } else if (e.key === 'Backspace') { M.haptic('selection'); this._pad.entry = this._pad.entry.slice(0, -1); this._padRender(); }
@@ -670,7 +723,7 @@
       const html = `<div class="pad">
         <button class="x" data-k="close" title="Lukk">${M.icon('close', 22)}</button>
         <div class="hd">
-          <span class="iw" style="background:${M.alpha(m[3], 0.2)};color:${m[3]}">${M.icon(m[2], 28)}</span>
+          <span class="iw" style="background:${tone(m[3], 20)};color:${tx(m[3])}">${M.icon(m[2], 28)}</span>
           <span class="tt">${p.k === 'av' ? 'Slå av alarmen' : `Sett alarm til ${m[1].toLowerCase()}`}</span>
           <span class="msg ${p.err ? 'err' : ''}">${p.err ? 'Feil kode – prøv igjen' : `Skriv inn ${len}-sifret kode`}</span>
         </div>
@@ -683,44 +736,69 @@
       M.morph(ov.body, html);
     }
     get styles() {
-      return `
+      return `${SK_THEME}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap, 22px)}
         .sec{display:flex;flex-direction:column;gap:8px}
-        .modes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:5px;border-radius:22px;background:var(--gray200,#3a3a3a)}
+        .modes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:5px;border-radius:22px;background:var(--sk-surface);box-shadow:var(--sk-shadow)}
         .mode{position:relative;overflow:hidden;height:64px;border-radius:17px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;touch-action:none;user-select:none;-webkit-user-select:none;transition:background .25s}
         .mode.dis{opacity:.35}
         .fill{position:absolute;left:0;top:0;bottom:0}
         .mlab{position:relative;font-size:12px;font-weight:500}
-        .hint{display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--gray500,#696969);text-align:center}
-        .cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f);padding:0 4px}
-        .alert{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-radius:20px;background:${M.alpha(C.orange, 0.12)};box-shadow:inset 0 0 0 1px ${M.alpha(C.orange, 0.35)}}
-        .at{font-size:15px;font-weight:500}
-        .ar{font-size:12px;color:var(--gray800,#afafaf)}
-        .fix{height:36px;padding:0 14px;border-radius:18px;color:#282828;font-size:13px;font-weight:600;white-space:nowrap;flex:none}
-        .rh{display:flex;justify-content:space-between;align-items:baseline;padding:0 0 8px}
-        .cnt{font-size:12px;color:var(--gray500,#696969);white-space:nowrap;padding-right:4px}
-        .room{display:flex;align-items:flex-start;gap:10px;padding:10px 4px}
-        .rn{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding-top:7px}
-        .rd{width:7px;height:7px;border-radius:4px;flex:none}
-        .chips{flex:none;max-width:62%;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
-        .chip{height:32px;padding:0 11px 0 8px;border-radius:16px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;white-space:nowrap;transition:background .2s}
-        .urm{flex-direction:column;align-items:stretch;gap:8px;padding:6px 0}
-        .urm .rn{padding:0 4px}
-        .ulst{display:flex;flex-direction:column;gap:8px}
-        ${M.UNIVERSAL_CSS || ''}
+        .hint{display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--sk-dim);text-align:center}
+        .hint.off{display:none}
+        .cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--sk-mute);padding:0 4px}
+        /* 35.4 · rom (variant 2a) */
+        .rms{gap:10px}
+        .rh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 4px}
+        .rh .cap{padding:0}
+        .rseg{display:flex;gap:2px;padding:3px;border-radius:20px;background:var(--sk-surface);box-shadow:var(--sk-shadow);flex:none}
+        .rsg{height:32px;padding:0 16px;border-radius:16px;font-size:13px;font-weight:500;color:var(--sk-text-2);transition:background .2s,color .2s}
+        .rsg.on{background:${C.accent};color:var(--sk-on-acc)}
+        .rstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+        .rst{padding:12px 14px;border-radius:20px;display:flex;flex-direction:column;gap:2px;background:var(--sk-surface);box-shadow:var(--sk-shadow);min-width:0}
+        .rsn{font-size:28px;font-weight:300;line-height:1;color:var(--sk-text);font-variant-numeric:tabular-nums}
+        .rsl{font-size:12px;color:var(--sk-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rac{width:100%;text-align:left;display:flex;align-items:center;gap:12px;min-height:72px;padding:0 14px 0 12px;border-radius:24px;transition:transform .12s}
+        .rac:active{transform:scale(.98)}
+        .raic{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;color:var(--sk-on-acc)}
+        .rat{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+        .ran{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+        .rsub{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sk-mid)}
+        .ram{display:flex;gap:4px;flex:none}
+        .smid{width:30px;height:30px;border-radius:15px;flex:none;display:grid;place-items:center;background:var(--sk-surface-3);color:var(--sk-mid)}
+        .rcalm{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .rpl{min-height:56px;box-sizing:border-box;padding:8px 12px 8px 8px;border-radius:28px;display:flex;align-items:center;gap:10px;min-width:0;background:var(--sk-surface);box-shadow:inset 0 0 0 1px var(--sk-line),var(--sk-shadow);transition:background .2s,transform .12s}
+        .rpl:active{transform:scale(.97)}
+        .rpl.on{background:var(--sk-surface-2);box-shadow:inset 0 0 0 1.5px var(--pink, #f285c9)}
+        .rpic{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--sk-surface-3);color:var(--sk-text-2)}
+        .rpn{font-size:13px;font-weight:600;line-height:1.15;overflow-wrap:anywhere}
+        .rol,.rgp{display:flex;flex-direction:column;border-radius:24px;background:var(--sk-surface);box-shadow:var(--sk-shadow);overflow:hidden}
+        .rolh{display:flex;align-items:center;gap:10px;padding:12px 10px 8px 16px}
+        .roln{flex:1;min-width:0;font-size:15px;font-weight:600;overflow-wrap:anywhere}
+        .rolx{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;background:var(--sk-surface-3);color:var(--sk-text-2)}
+        .rolr{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border-top:1px solid var(--sk-line);text-align:left;width:100%}
+        .rolt{flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere}
+        .rols{font-size:13px;font-weight:500;color:var(--sk-mid);flex:none}
+        .rgh{display:flex;align-items:center;gap:10px;padding:12px 14px 8px}
+        .rgn{flex:1;font-size:14px;font-weight:600}
+        .rsum{font-size:12px;font-weight:500;flex:none}
+        .rgr{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-top:1px solid var(--sk-line);text-align:left;width:100%}
+        .rdot{width:8px;height:8px;border-radius:4px;flex:none;background:var(--sk-g4)}
+        .rgrn{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rgs{font-size:12px;font-weight:500;color:var(--sk-mid);flex:none}
         .log{display:flex;flex-direction:column;padding-left:4px}
         .ev{display:flex;gap:14px;align-items:stretch}
         .evl{display:flex;flex-direction:column;align-items:center;width:10px;flex:none}
         .evd{width:9px;height:9px;border-radius:5px;margin-top:5px;flex:none}
         .log.wide .evl{width:28px}
-        .eva{width:28px;height:28px;border-radius:14px;flex:none;overflow:hidden;display:grid;place-items:center;box-shadow:0 0 0 2px #282828;font-size:13px;font-weight:600;color:#2f2f2f}
+        .eva{width:28px;height:28px;border-radius:14px;flex:none;overflow:hidden;display:grid;place-items:center;box-shadow:0 0 0 2px var(--sk-popup);font-size:13px;font-weight:600;color:var(--sk-on-acc)}
         .eva img{width:100%;height:100%;object-fit:cover;display:block}
         .evline{flex:1;width:1px;margin-top:4px}
         .evb{flex:1;display:flex;justify-content:space-between;gap:12px;padding-bottom:14px}
-        .evw{font-size:12px;color:var(--gray600,#7f7f7f)}
-        .own{width:100%;height:52px;border-radius:26px;background:var(--gray200,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500}
+        .evw{font-size:12px;color:var(--sk-mute)}
+        .own{width:100%;height:52px;border-radius:26px;background:var(--sk-surface);box-shadow:var(--sk-shadow);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500}
       `;
     }
   }
-  M.define('msh-sikkerhet-card', Sikkerhet, 'MSH Sikkerhet', 'Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste hendelser. #sikkerhet');
+  M.define('msh-sikkerhet-card', Sikkerhet, 'MSH Sikkerhet', 'Alarmmodus (hold inne, kode via tastatur), rom og sensorer (status, rom/type) og siste hendelser. #sikkerhet');
 })();

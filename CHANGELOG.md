@@ -2,6 +2,19 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Basseng: popupene er slettet
+- Strategien lager ingen bassengpopup lenger – verken `#badebasseng` eller `#basseng` (`FUNCTION_POPUPS` og vilkåret i
+  `04-strategy.js` er fjernet), og ingen rom-popup for et område som heter «Basseng»/«Pool» (`MSH.ROOM_BLOCK`/`roomBlocked`).
+  Navbarens innebygde basseng-knapp (`CAT`/`DEF`/`POPS`) er fjernet, og onboarding foreslår den ikke.
+- Gamle/importerte bassengpopups i dashbord-configen droppes av strategien (`MSH.POPUP_DROP.basseng` i `mergePopups`,
+  `report.dropped`) i stedet for å tas over (POPUP_ALIAS/SUPERSEDE/MIGRATE/EXTRA for basseng er fjernet). Hash-omdirigeringen
+  `#basseng` → `#badebasseng` er fjernet.
+- Engangsmigrering av ki-store (`migrations.basseng_fjernet`, logget): alle bassengpopups i `custom_popups`,
+  `popup_overrides`/`popups` for basseng/badebasseng/pool/svommebasseng, navbar-knappen «basseng» og lenker til
+  bassenghashene i kortconfigene fjernes. Admin: Lovelace-ressursene `ki-basseng-card.js`/`ki-basseng-hero-card.js` slettes.
+- `msh-basseng-card` finnes fortsatt og kan legges manuelt i en egen popup (README → Manuelt: Basseng i en egen popup,
+  kommentert eksempel nederst i `examples/dashboard.yaml`); alias-elementene `ki-basseng-card`/`ki-basseng-hero-card` står.
+
 ## 30.1 / 31.3 – Basseng: én popup · Vær: fast høyde i «Neste timer»
 - Basseng: nøyaktig ÉN popup `#badebasseng` (card_id `pop-basseng` beholdes); `#basseng`/`#pool`/`#svommebasseng` er alias
   (`MSH.HASH_ALIAS`, `history.replaceState`). 28.14-tvillingen er fjernet. Engangsmigrering av ki-store (custom_popups,

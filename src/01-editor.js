@@ -87,31 +87,31 @@
     return out.sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name, 'nb'));
   };
   const PK_CSS = `
-    :host{display:block;font-family:${M.FONT};color:#fafafa}
+    :host{display:block;font-family:${M.FONT};color:var(--ki-text, #fafafa)}
     *{box-sizing:border-box}
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
-    .pk{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:14px;background:#282828;text-align:left}
+    .pk{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:14px;background:var(--ki-popup, #282828);text-align:left}
     .pk:active{transform:scale(.99)}
     .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .nm b{font-weight:500;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nm i{font-style:normal;font-size:11px;line-height:1.2;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pl{display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:18px;background:#282828}
+    .nm i{font-style:normal;font-size:11px;line-height:1.2;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pl{display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:18px;background:var(--ki-popup, #282828)}
     .sr{position:relative;display:flex;align-items:center}
-    .pks{height:42px;padding:0 42px 0 14px;border-radius:14px;background:#3a3a3a;font-size:15px;width:100%}
-    .pks::placeholder{color:#7f7f7f}
-    .x{position:absolute;right:4px;top:3px;width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:#979797}
+    .pks{height:42px;padding:0 42px 0 14px;border-radius:14px;background:var(--ki-surface, #3a3a3a);font-size:15px;width:100%}
+    .pks::placeholder{color:var(--ki-text-3, #7f7f7f)}
+    .x{position:absolute;right:4px;top:3px;width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:var(--ki-text-mid, #979797)}
     .fl{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;padding:0 1px}
     .fl::-webkit-scrollbar{display:none}
-    .fc{flex:none;height:30px;padding:0 12px;border-radius:15px;background:#3a3a3a;font-size:12px;font-weight:500;color:#c7c7c7;white-space:nowrap}
-    .fc.on{background:#fafafa;color:#282828}
+    .fc{flex:none;height:30px;padding:0 12px;border-radius:15px;background:var(--ki-surface, #3a3a3a);font-size:12px;font-weight:500;color:#c7c7c7;white-space:nowrap}
+    .fc.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828)}
     .pls{max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:2px;touch-action:pan-y}
     .pr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
-    .pr:hover{background:rgba(255,255,255,0.05)}
-    .pr.on{background:rgba(255,255,255,0.08)}
-    .val{font-size:12px;color:#afafaf;white-space:nowrap;flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-    .none{font-size:12px;color:#7f7f7f;padding:10px}
-    .more{font-size:11px;color:#7f7f7f;padding:6px 10px}
+    .pr:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .pr.on{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .val{font-size:12px;color:var(--ki-text-2, #afafaf);white-space:nowrap;flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+    .none{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:10px}
+    .more{font-size:11px;color:var(--ki-text-3, #7f7f7f);padding:6px 10px}
   `;
   class MshEntityPicker extends HTMLElement {
     static get observedAttributes() { return ['value', 'auto', 'auto-mode', 'domains', 'device-class', 'area', 'mode', 'placeholder', 'auto-label', 'prefer-class', 'none-label']; }
@@ -179,28 +179,28 @@
     }
     _btn(h) {
       const v = this.value, s = v && h ? h.states[v] : null, mode = this.getAttribute('mode') || 'set';
-      const chev = M.icon('mdi:chevron-down', 20, 'color:#979797');
-      if (mode === 'add') return `<button class="pk" data-p="open">${M.icon('mdi:plus', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('placeholder') || 'Legg til …')}</b><i>Søk etter navn, rom eller entity_id</i></span>${chev}</button>`;
-      if (v === 'none' && this.getAttribute('none-label')) return `<button class="pk" data-p="open">${M.icon('mdi:power-plug-off-outline', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('none-label'))}</b><i>none</i></span>${chev}</button>`;
-      if (v) return `<button class="pk" data-p="open">${M.icon(M.domainIcon(v, s), 22, 'color:#afafaf')}<span class="nm"><b>${esc(s ? s.attributes.friendly_name || v : v)}</b><i>${esc(v)}${s ? '' : ' · finnes ikke'}</i></span>${chev}</button>`;
+      const chev = M.icon('mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)');
+      if (mode === 'add') return `<button class="pk" data-p="open">${M.icon('mdi:plus', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(this.getAttribute('placeholder') || 'Legg til …')}</b><i>Søk etter navn, rom eller entity_id</i></span>${chev}</button>`;
+      if (v === 'none' && this.getAttribute('none-label')) return `<button class="pk" data-p="open">${M.icon('mdi:power-plug-off-outline', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(this.getAttribute('none-label'))}</b><i>none</i></span>${chev}</button>`;
+      if (v) return `<button class="pk" data-p="open">${M.icon(M.domainIcon(v, s), 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(s ? s.attributes.friendly_name || v : v)}</b><i>${esc(v)}${s ? '' : ' · finnes ikke'}</i></span>${chev}</button>`;
       const auto = this.getAttribute('auto') || '';
       if (this.getAttribute('auto-mode') === '1') {
         const as = auto && h ? h.states[auto] : null;
-        return `<button class="pk" data-p="open">${M.icon('mdi:auto-fix', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('auto-label') || 'Automatisk')}</b><i>${esc(auto ? (as && as.attributes.friendly_name ? as.attributes.friendly_name + ' · ' : '') + auto : 'fant ingen')}</i></span>${chev}</button>`;
+        return `<button class="pk" data-p="open">${M.icon('mdi:auto-fix', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(this.getAttribute('auto-label') || 'Automatisk')}</b><i>${esc(auto ? (as && as.attributes.friendly_name ? as.attributes.friendly_name + ' · ' : '') + auto : 'fant ingen')}</i></span>${chev}</button>`;
       }
-      return `<button class="pk" data-p="open">${M.icon('mdi:magnify', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('placeholder') || 'Velg entitet …')}</b><i>Søk etter navn, rom eller entity_id</i></span>${chev}</button>`;
+      return `<button class="pk" data-p="open">${M.icon('mdi:magnify', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(this.getAttribute('placeholder') || 'Velg entitet …')}</b><i>Søk etter navn, rom eller entity_id</i></span>${chev}</button>`;
     }
     _panel(h) {
       const v = this.value, q = this._q.trim(), doms = this._list('domains'), mode = this.getAttribute('mode') || 'set';
       const chips = PK_FLT.filter((f) => !f[2] || !doms.length || f[2].some((d) => doms.includes(d)));
       const flt = chips.some((f) => f[0] === this._flt) ? this._flt : '';
       const hits = h ? M.entitySearch(h, q, { domains: doms, deviceClass: this._list('device-class'), preferClass: this._list('prefer-class'), flt, area: this.getAttribute('area') || '' }) : [];
-      const row = (x) => `<button class="pr ${x.id === v ? 'on' : ''}" data-p="pick" data-hit="1" data-v="${esc(x.id)}" data-key="${esc(x.id)}">${M.icon(M.domainIcon(x.id, h.states[x.id]), 22, 'color:#afafaf')}<span class="nm"><b>${esc(x.name)}</b><i>${esc(x.id)}</i></span><span class="val">${esc(M.fmtState(h, x.id))}</span></button>`;
+      const row = (x) => `<button class="pr ${x.id === v ? 'on' : ''}" data-p="pick" data-hit="1" data-v="${esc(x.id)}" data-key="${esc(x.id)}">${M.icon(M.domainIcon(x.id, h.states[x.id]), 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(x.name)}</b><i>${esc(x.id)}</i></span><span class="val">${esc(M.fmtState(h, x.id))}</span></button>`;
       const auto = this.getAttribute('auto') || '';
-      const autoRow = mode !== 'add' && this.getAttribute('auto-mode') === '1' && !q ? `<button class="pr ${v ? '' : 'on'}" data-p="pick" data-v="" data-key="__auto">${M.icon('mdi:auto-fix', 22, 'color:#afafaf')}<span class="nm"><b>${esc(this.getAttribute('auto-label') || 'Automatisk')}</b><i>${esc(auto || 'fant ingen')}</i></span>${auto && h && h.states[auto] ? `<span class="val">${esc(M.fmtState(h, auto))}</span>` : ''}</button>` : '';
+      const autoRow = mode !== 'add' && this.getAttribute('auto-mode') === '1' && !q ? `<button class="pr ${v ? '' : 'on'}" data-p="pick" data-v="" data-key="__auto">${M.icon('mdi:auto-fix', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(this.getAttribute('auto-label') || 'Automatisk')}</b><i>${esc(auto || 'fant ingen')}</i></span>${auto && h && h.states[auto] ? `<span class="val">${esc(M.fmtState(h, auto))}</span>` : ''}</button>` : '';
       // none-label (19.21): egen rad «Ingen …» med verdien 'none' (etter Automatisk)
-      const nl = this.getAttribute('none-label'), noneRow = nl && mode !== 'add' && !q ? `<button class="pr ${v === 'none' ? 'on' : ''}" data-p="pick" data-v="none" data-key="__none">${M.icon('mdi:power-plug-off-outline', 22, 'color:#afafaf')}<span class="nm"><b>${esc(nl)}</b></span></button>` : '';
-      const useIt = ENT_RE.test(q) && !(h && h.states[q]) ? `<button class="pr" data-p="pick" data-v="${esc(q)}" data-key="__use">${M.icon('mdi:keyboard-return', 22, 'color:#afafaf')}<span class="nm"><b>Bruk «${esc(q)}»</b><i>Finnes ikke nå – brukes likevel</i></span></button>` : '';
+      const nl = this.getAttribute('none-label'), noneRow = nl && mode !== 'add' && !q ? `<button class="pr ${v === 'none' ? 'on' : ''}" data-p="pick" data-v="none" data-key="__none">${M.icon('mdi:power-plug-off-outline', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(nl)}</b></span></button>` : '';
+      const useIt = ENT_RE.test(q) && !(h && h.states[q]) ? `<button class="pr" data-p="pick" data-v="${esc(q)}" data-key="__use">${M.icon('mdi:keyboard-return', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>Bruk «${esc(q)}»</b><i>Finnes ikke nå – brukes likevel</i></span></button>` : '';
       const MAX = 120;
       return `<div class="pl">
         <div class="sr"><input class="pks" value="${esc(this._q)}" placeholder="Søk: navn, rom, entity_id …" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><button class="x" data-p="x" title="${this._q ? 'Tøm' : 'Lukk'}">${M.icon(this._q ? 'mdi:close-circle' : 'mdi:chevron-up', 20)}</button></div>
@@ -258,33 +258,33 @@
     },
   };
   const MM_CSS = `
-    :host{display:block;font-family:${M.FONT};color:#fafafa}
+    :host{display:block;font-family:${M.FONT};color:var(--ki-text, #fafafa)}
     *{box-sizing:border-box}
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
-    .mh{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:16px;background:#2f2f2f;text-align:left}
+    .mh{width:100%;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:16px;background:var(--ki-surface-3, #2f2f2f);text-align:left}
     .mh:active{transform:scale(.99)}
     .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .nm b{font-weight:500;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nm i{font-style:normal;font-size:11px;line-height:1.25;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .chev{flex:none;color:#979797;display:grid;transition:transform .2s}
+    .nm i{font-style:normal;font-size:11px;line-height:1.25;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chev{flex:none;color:var(--ki-text-mid, #979797);display:grid;transition:transform .2s}
     .open .chev{transform:rotate(180deg)}
-    .pn{display:flex;flex-direction:column;gap:8px;margin-top:6px;padding:8px;border-radius:16px;background:#2f2f2f}
-    .sq{height:40px;width:100%;padding:0 14px;border-radius:12px;background:#232323;font-size:14px}
-    .sq::placeholder{color:#7f7f7f}
-    .sg{display:flex;gap:2px;padding:3px;border-radius:14px;background:#232323}
-    .sg button{flex:1;height:30px;border-radius:11px;font-size:12px;font-weight:500;color:#afafaf;white-space:nowrap}
-    .sg button.on{background:#fafafa;color:#232323}
+    .pn{display:flex;flex-direction:column;gap:8px;margin-top:6px;padding:8px;border-radius:16px;background:var(--ki-surface-3, #2f2f2f)}
+    .sq{height:40px;width:100%;padding:0 14px;border-radius:12px;background:var(--ki-bg, #232323);font-size:14px}
+    .sq::placeholder{color:var(--ki-text-3, #7f7f7f)}
+    .sg{display:flex;gap:2px;padding:3px;border-radius:14px;background:var(--ki-bg, #232323)}
+    .sg button{flex:1;height:30px;border-radius:11px;font-size:12px;font-weight:500;color:var(--ki-text-2, #afafaf);white-space:nowrap}
+    .sg button.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323)}
     .ls{max-height:300px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
-    .gh{font-size:11px;font-weight:600;color:#979797;letter-spacing:.02em;padding:8px 8px 2px;text-transform:uppercase}
+    .gh{font-size:11px;font-weight:600;color:var(--ki-text-mid, #979797);letter-spacing:.02em;padding:8px 8px 2px;text-transform:uppercase}
     .rw{display:flex;align-items:center;gap:10px;height:48px;flex:none;padding:0 8px;border-radius:12px;width:100%;text-align:left}
-    .rw:hover{background:rgba(255,255,255,0.05)}
-    .ck{width:24px;height:24px;border-radius:12px;flex:none;display:grid;place-items:center;box-shadow:inset 0 0 0 2px #545454;color:#232323}
+    .rw:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .ck{width:24px;height:24px;border-radius:12px;flex:none;display:grid;place-items:center;box-shadow:inset 0 0 0 2px var(--ki-ctrl, #545454);color:var(--ki-on-accent, #232323)}
     .rw.on .ck{background:${M.C && M.C.pink ? M.C.pink : '#f285c9'};box-shadow:none}
     .ft{display:flex;align-items:center;gap:8px;padding:2px 2px 0}
-    .ft .ht{flex:1;min-width:0;font-size:11px;color:#7f7f7f;line-height:1.35}
-    .ft button{flex:none;height:32px;padding:0 14px;border-radius:16px;background:#3a3a3a;font-size:13px;font-weight:500}
-    .none{font-size:12px;color:#7f7f7f;padding:10px}
+    .ft .ht{flex:1;min-width:0;font-size:11px;color:var(--ki-text-3, #7f7f7f);line-height:1.35}
+    .ft button{flex:none;height:32px;padding:0 14px;border-radius:16px;background:var(--ki-surface, #3a3a3a);font-size:13px;font-weight:500}
+    .none{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:10px}
   `;
   class MshEntityMulti extends HTMLElement {
     static get observedAttributes() { return ['value', 'domains', 'group', 'icon', 'label', 'empty-label', 'empty-sub', 'hint']; }
@@ -339,7 +339,7 @@
         const q = this._q.trim(), flt = this._flt;
         const hitIds = q && h && M.entitySearch ? new Set(M.entitySearch(h, q, { domains: this._list('domains') }).map((x) => x.id)) : null;
         const L = all.filter((x) => (flt === 'sel' ? x.on : flt === 'all' ? true : x.on || !x.noise) && (!q || (hitIds ? hitIds.has(x.id) : (x.name + ' ' + x.id).toLowerCase().includes(q.toLowerCase()))));
-        const row = (x) => `<button class="rw ${x.on ? 'on' : ''}" data-p="pick" data-v="${esc(x.id)}" data-key="${esc(x.id)}" role="checkbox" aria-checked="${x.on}">${M.icon(M.domainIcon ? M.domainIcon(x.id, h && h.states[x.id]) : 'mdi:checkbox-blank-circle-outline', 22, 'color:#afafaf')}<span class="nm"><b>${esc(x.name)}</b><i>${esc(x.sub)}</i></span><span class="ck">${x.on ? M.icon('mdi:check', 16) : ''}</span></button>`;
+        const row = (x) => `<button class="rw ${x.on ? 'on' : ''}" data-p="pick" data-v="${esc(x.id)}" data-key="${esc(x.id)}" role="checkbox" aria-checked="${x.on}">${M.icon(M.domainIcon ? M.domainIcon(x.id, h && h.states[x.id]) : 'mdi:checkbox-blank-circle-outline', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(x.name)}</b><i>${esc(x.sub)}</i></span><span class="ck">${x.on ? M.icon('mdi:check', 16) : ''}</span></button>`;
         let list;
         if (G && L.length) {
           const by = {};
@@ -357,7 +357,7 @@
           <div class="ft"><span class="ht">${esc(this.getAttribute('hint') || 'Ingen valgt = alle.')}</span><button data-p="all">Alle</button></div>
         </div>`;
       }
-      const html = `<style>${MM_CSS}</style><div class="${this._open ? 'open' : ''}"><button class="mh" data-p="tog" aria-expanded="${this._open}">${M.icon(this.getAttribute('icon') || 'mdi:format-list-checks', 22, 'color:#afafaf')}<span class="nm">${head}</span><span class="chev">${M.icon('mdi:chevron-down', 20)}</span></button>${body}</div>`;
+      const html = `<style>${MM_CSS}</style><div class="${this._open ? 'open' : ''}"><button class="mh" data-p="tog" aria-expanded="${this._open}">${M.icon(this.getAttribute('icon') || 'mdi:format-list-checks', 22, 'color:var(--ki-text-2, #afafaf)')}<span class="nm">${head}</span><span class="chev">${M.icon('mdi:chevron-down', 20)}</span></button>${body}</div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
     }
   }
@@ -396,13 +396,13 @@
   // Debug-modus (31.1): localStorage «ki:debug» = '1' eller ?ki_debug i adressen
   M.debugOn = M.debugOn || (() => { try { return localStorage.getItem('ki:debug') === '1' || /[?&]ki_debug\b/.test(location.search); } catch (e) { return false; } });
   const ED_CSS = `
-    :host{display:block;font-family:${M.FONT};color:#fafafa;--ed-bg:#2f2f2f}
+    :host{display:block;font-family:${M.FONT};color:var(--ki-text, #fafafa);--ed-bg:var(--ki-surface-3, #2f2f2f)}
     *{box-sizing:border-box}
     button,input,select{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer}
     input,select{cursor:text;outline:none}
     select{cursor:pointer}
     .wrap{display:flex;flex-direction:column;gap:10px;padding:4px 0 0;background:transparent}
-    :host(:not([inline])) .wrap{padding:12px;border-radius:24px;background:#282828}
+    :host(:not([inline])) .wrap{padding:12px;border-radius:24px;background:var(--ki-popup, #282828)}
     /* Tittelrad: sticky rett under håndtaket (arkets flate fra MSH.sheetVars), med «Lagret»-pillen til høyre (Fiks 11) */
     .ttl{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:5;font-size:18px;font-weight:500;display:flex;align-items:center;gap:10px;min-height:44px;
       margin:-4px calc(-1 * var(--ki-sh-px, 0px)) 0;padding:2px calc(4px + var(--ki-sh-px, 0px)) 6px;background:var(--ki-sheet-bg, transparent);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none)}
@@ -412,23 +412,23 @@
     .ttl .done{flex:none;${M.DONE_PILL}}
     .ttl .done[disabled]{opacity:.7;cursor:progress}
     @media (max-width:380px){.ttl .tt{font-size:20px}.ttl .done{padding:0 14px}}
-    .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--gray1000,#e1e1e1);color:var(--gray000,#232323);opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
+    .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, var(--gray000,#232323));opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
     .ttl .stat.on{opacity:1;transform:none}
     /* 28.9: lagrestatus vises som den felles toast-pillen (MSH.toast) – ikke som egen pille i headeren */
     :host([inline]) .ttl .stat{display:none}
     .ttl .stat.ok{background:var(--green,#66d19e);color:#12291d}
     .ttl .stat.err{background:var(--red,#f28073);color:#2c1411}
-    .sec{border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;scroll-margin-top:calc(var(--ki-grab-h, 0px) + 56px)}
+    .sec{border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));overflow:hidden;scroll-margin-top:calc(var(--ki-grab-h, 0px) + 56px)}
     .sec>summary{list-style:none;display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;font-size:14px;font-weight:500;cursor:pointer}
     .sec>summary::-webkit-details-marker{display:none}
-    .sec>summary .chev{margin-left:auto;transition:transform .2s;color:#979797}
+    .sec>summary .chev{margin-left:auto;transition:transform .2s;color:var(--ki-text-mid, #979797)}
     .sec[open]>summary .chev{transform:rotate(180deg)}
     .sec .in{display:flex;flex-direction:column;gap:8px;padding:0 12px 12px}
     /* 19.20: faner (type 'tabs') – segment 44 px, #3a3a3a, aktiv rosa, ikon + tekst; undersegment (sub) 38 px med antall.
        Seksjoner i en fane er «flate» (f.flat): liten tittel i versaler (#7f7f7f) + meta til høyre, innholdet vises direkte. */
-    .chips.sg.tabs,.chips.sg.tsub{display:flex;flex-wrap:nowrap;gap:2px;padding:3px;border-radius:22px;background:#3a3a3a}
-    .chips.sg.tabs .chip,.chips.sg.tsub .chip{flex:1 1 0;min-width:0;justify-content:center;height:38px;padding:0 6px;border-radius:19px;background:transparent;color:#afafaf;font-size:13px;white-space:nowrap;overflow:hidden}
-    .chips.sg.tsub{border-radius:19px;background:#2f2f2f}
+    .chips.sg.tabs,.chips.sg.tsub{display:flex;flex-wrap:nowrap;gap:2px;padding:3px;border-radius:22px;background:var(--ki-surface, #3a3a3a)}
+    .chips.sg.tabs .chip,.chips.sg.tsub .chip{flex:1 1 0;min-width:0;justify-content:center;height:38px;padding:0 6px;border-radius:19px;background:transparent;color:var(--ki-text-2, #afafaf);font-size:13px;white-space:nowrap;overflow:hidden}
+    .chips.sg.tsub{border-radius:19px;background:var(--ki-surface-3, #2f2f2f)}
     .chips.sg.tsub .chip{height:32px;border-radius:16px}
     .chips.sg.tabs .chip.on,.chips.sg.tsub .chip.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720}
     .chips.sg .tc{font-size:11px;opacity:.7;font-variant-numeric:tabular-nums}
@@ -437,96 +437,96 @@
     /* 28.11: i Tilpass-arket står fanelinjen fast rett under den faste headeren (tittel + Ferdig) – bare innholdet scroller */
     :host([inline]) .wrap>.chips.sg.tabs{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) + 57px);z-index:4;box-shadow:0 0 0 8px var(--ki-sheet-bg,#282828)}
     .fsec{display:flex;flex-direction:column;gap:6px;scroll-margin-top:calc(var(--ki-grab-h, 0px) + 56px)}
-    .fsh{display:flex;align-items:baseline;gap:8px;padding:6px 6px 0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f}
-    .fsh .meta{margin-left:auto;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none;color:#979797;white-space:nowrap}
+    .fsh{display:flex;align-items:baseline;gap:8px;padding:6px 6px 0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f)}
+    .fsh .meta{margin-left:auto;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--ki-text-mid, #979797);white-space:nowrap}
     .fsec>.sec>.in{padding:12px}
     /* 28.10: «Mellomrom» (ki-spacing-editor) – flaten #404040 r24 ligger rett under overskriften (Rom v4) */
     .fsec.ksp>.sec{background:none;box-shadow:none;border:0;border-radius:24px}
     .fsec.ksp>.sec>.in{padding:0}
     .sec>.in>ki-spacing-editor{margin:0}
-    .f{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:#404040}
-    .f label{font-size:12px;color:#afafaf}
-    .f .help{font-size:11px;color:#7f7f7f}
-    .inp{height:40px;padding:0 12px;border-radius:12px;background:#2f2f2f;font-size:14px;width:100%}
-    .inp::placeholder{color:#7f7f7f}
+    .f{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:var(--ki-surface-2, #404040)}
+    .f label{font-size:12px;color:var(--ki-text-2, #afafaf)}
+    .f .help{font-size:11px;color:var(--ki-text-3, #7f7f7f)}
+    .inp{height:40px;padding:0 12px;border-radius:12px;background:var(--ki-surface-3, #2f2f2f);font-size:14px;width:100%}
+    .inp::placeholder{color:var(--ki-text-3, #7f7f7f)}
     .line{display:flex;align-items:center;gap:8px}
-    .sw{position:relative;width:46px;height:28px;border-radius:14px;background:#545454;flex:none;transition:background .2s}
-    .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+    .sw{position:relative;width:46px;height:28px;border-radius:14px;background:var(--ki-ctrl, #545454);flex:none;transition:background .2s}
+    .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
     .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: brytere er rosa overalt */
     .chips{display:flex;flex-wrap:wrap;gap:6px}
-    .chip{height:32px;padding:0 12px;border-radius:16px;background:#2f2f2f;font-size:12px;font-weight:500;color:#afafaf;display:inline-flex;align-items:center;gap:6px}
-    .chip.on{background:#fafafa;color:#282828}
+    .chip{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-surface-3, #2f2f2f);font-size:12px;font-weight:500;color:var(--ki-text-2, #afafaf);display:inline-flex;align-items:center;gap:6px}
+    .chip.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828)}
     .sws{display:flex;flex-wrap:wrap;gap:6px}
-    .dot{width:26px;height:26px;border-radius:13px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);flex:none}
-    .dot.on{box-shadow:0 0 0 2px #282828,0 0 0 4px #fafafa}
-    .ent{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 4px 4px 10px;border-radius:12px;background:#2f2f2f}
+    .dot{width:26px;height:26px;border-radius:13px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)));flex:none}
+    .dot.on{box-shadow:0 0 0 2px var(--ki-popup, #282828),0 0 0 4px var(--ki-text, #fafafa)}
+    .ent{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 4px 4px 10px;border-radius:12px;background:var(--ki-surface-3, #2f2f2f)}
     .ent .nm{flex:1;min-width:0;display:flex;flex-direction:column}
     .ent .nm b{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .ent .nm i{font-style:normal;font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ent .nm i{font-style:normal;font-size:11px;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ent.off{opacity:.45}
-    .ib{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:#afafaf;flex:none}
-    .ib:hover{background:#404040}
+    .ib{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:var(--ki-text-2, #afafaf);flex:none}
+    .ib:hover{background:var(--ki-surface-2, #404040)}
     .dd{position:relative}
     /* Fiks 21.7: søkeresultatene er vanlig innhold i kortet (ikke absolutt dropdown inni .sec{overflow:hidden}, som ble
        kuttet av kortets bunn og fikk egen scrollbar). Entitetssøk viser maks 6 treff uten egen scroll – kortet vokser.
        Bare lange lister (områder) får max-height + scroll (.menu.sc), og de ligger alltid sist i feltet. */
-    .menu{position:static;margin-top:6px;display:flex;flex-direction:column;gap:2px;border-radius:14px;background:#232323;padding:4px 4px 6px}
+    .menu{position:static;margin-top:6px;display:flex;flex-direction:column;gap:2px;border-radius:14px;background:var(--ki-bg, #232323);padding:4px 4px 6px}
     .menu.sc{max-height:260px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
-    .menu .more{font-size:11px;color:#7f7f7f;padding:4px 10px 2px}
-    .menu button.addq{flex-direction:row;align-items:center;gap:8px;color:#fafafa}
+    .menu .more{font-size:11px;color:var(--ki-text-3, #7f7f7f);padding:4px 10px 2px}
+    .menu button.addq{flex-direction:row;align-items:center;gap:8px;color:var(--ki-text, #fafafa)}
     .dd .menu{scroll-margin-bottom:calc(84px + env(safe-area-inset-bottom, 0px))}
     .dd .inp{scroll-margin:calc(var(--ki-grab-h, 0px) + 56px) 0 calc(96px + env(safe-area-inset-bottom, 0px))}
     /* Fiks 21.7: ingen rad kan krympe (flex-kolonner i arket) – alt vokser, bare arket scroller */
     .wrap>*,.in>*,.tpane>*,.fsec>*,.f>*{flex-shrink:0}
     .menu button{display:flex;width:100%;text-align:left;flex-direction:column;padding:8px 10px;border-radius:10px}
-    .menu button:hover{background:#3a3a3a}
-    .menu b{font-weight:500;font-size:13px} .menu i{font-style:normal;font-size:11px;color:#7f7f7f}
+    .menu button:hover{background:var(--ki-surface, #3a3a3a)}
+    .menu b{font-weight:500;font-size:13px} .menu i{font-style:normal;font-size:11px;color:var(--ki-text-3, #7f7f7f)}
     /* Sticky bunnlinje (Fiks 11): egen flate (#282828 / glass med Liquid Glass-tema), toppskille, safe-area. Tar plass i flyten,
        så siste rad kan scrolles helt fram over den. */
     .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;position:sticky;bottom:0;z-index:5;margin:0 calc(-1 * var(--ki-sh-px, 0px));
-      padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px));background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)}
-    .btn{height:52px;border-radius:26px;background:#3a3a3a;font-weight:500;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+      padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px));background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none);box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .btn{height:52px;border-radius:26px;background:var(--ki-surface, #3a3a3a);font-weight:500;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
     .actions .btn{height:48px;border-radius:24px}
     .btn.pri{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720}
     .btn.pri[disabled]{opacity:.7;cursor:progress}
     .spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(42,23,32,0.25);border-top-color:#2a1720;animation:edspin .8s linear infinite;flex:none}
     @keyframes edspin{to{transform:rotate(360deg)}}
-    .small{font-size:12px;color:#979797}
-    .ordrow{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border-radius:12px;background:#2f2f2f}
+    .small{font-size:12px;color:var(--ki-text-mid, #979797)}
+    .ordrow{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border-radius:12px;background:var(--ki-surface-3, #2f2f2f)}
     ha-icon-picker,ha-selector{display:block}
-    .sec>summary .meta{margin-left:auto;font-size:12px;font-weight:400;color:#979797;white-space:nowrap}
+    .sec>summary .meta{margin-left:auto;font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797);white-space:nowrap}
     .sec>summary .meta+.chev{margin-left:8px}
     msh-entity-picker{display:block}
     /* slider med snarvalg – egen pekerstyrt slider (Fiks 11): tar bare over ved bevisst vannrett drag (> 6 px og mer
        vannrett enn loddrett), trykk på sporet endrer ingenting, loddrett bevegelse scroller arket (touch-action: pan-y).
        Den skjulte <input type=range> gir tastatur/skjermleser (piltaster) og samme input/change-hendelser. */
-    .rg .rv{font-size:13px;color:#fafafa;font-variant-numeric:tabular-nums}
+    .rg .rv{font-size:13px;color:var(--ki-text, #fafafa);font-variant-numeric:tabular-nums}
     .sl{position:relative;height:32px;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
     .sl.drag{cursor:grabbing}
-    .sl .tr{position:absolute;left:11px;right:11px;top:13px;height:6px;border-radius:3px;background:#545454;overflow:hidden}
-    .sl .fi{position:absolute;left:0;top:0;bottom:0;width:var(--p,0%);background:#afafaf}
-    .sl .th{position:absolute;top:5px;left:calc((100% - 22px) * var(--f, 0));width:22px;height:22px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4);transition:transform .15s}
+    .sl .tr{position:absolute;left:11px;right:11px;top:13px;height:6px;border-radius:3px;background:var(--ki-ctrl, #545454);overflow:hidden}
+    .sl .fi{position:absolute;left:0;top:0;bottom:0;width:var(--p,0%);background:var(--ki-text-2, #afafaf)}
+    .sl .th{position:absolute;top:5px;left:calc((100% - 22px) * var(--f, 0));width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.4*var(--ki-ka-k,1))));transition:transform .15s}
     .sl.drag .th{transform:scale(1.15)}
     .sl input[type=range]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;pointer-events:none}
-    .sl:focus-within .th{box-shadow:0 0 0 3px rgba(242,133,201,.55),0 2px 6px rgba(0,0,0,.4)}
-    .pill{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;background:#545454;color:#fafafa}
-    .pill.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a}
+    .sl:focus-within .th{box-shadow:0 0 0 3px rgba(242,133,201,.55),0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.4*var(--ki-ka-k,1))))}
+    .pill{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa)}
+    .pill.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:var(--ki-on-accent, #3a3a3a)}
     /* Liquid glass (navbar-stil glass, attributtet settes når editoren ligger i et glassark fra MSH.overlay):
        rader/grupper = glassSurface('row'), felt/segmentspor rgba(0,0,0,.25), aktivt segment = glassboble, tekst #fafafa / .62.
        Ferdig-knappen (rosa gradient) er uendret. Standard-profilen bruker reglene over. */
     :host([glass]){--ed-bg:transparent}
     :host([glass]) .sec,:host([glass]) .f,:host([glass]) .ent,:host([glass]) .ordrow{${M.glassSurface('row')}}
-    :host([glass]) .inp{background:rgba(0,0,0,0.25)}
-    :host([glass]) .f label,:host([glass]) .small,:host([glass]) .sec>summary .chev,:host([glass]) .sec>summary .meta,:host([glass]) .ent .nm i,:host([glass]) .f .help{color:rgba(255,255,255,0.62)}
+    :host([glass]) .inp{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
+    :host([glass]) .f label,:host([glass]) .small,:host([glass]) .sec>summary .chev,:host([glass]) .sec>summary .meta,:host([glass]) .ent .nm i,:host([glass]) .f .help{color:var(--ki-text-2, rgba(255,255,255,0.62))}
     :host([glass]) .chips.sg{${M.glassSurface('segment')}padding:3px;border-radius:19px;gap:2px;touch-action:pan-y}
-    :host([glass]) .chips.sg .chip{background:transparent;color:rgba(255,255,255,0.62);border-radius:16px;transition:background .2s,color .2s}
+    :host([glass]) .chips.sg .chip{background:transparent;color:var(--ki-text-2, rgba(255,255,255,0.62));border-radius:16px;transition:background .2s,color .2s}
     :host([glass]) .chips.sg .chip.on{${M.GLASS_BUBBLE}}
-    :host([glass]) .chip,:host([glass]) .pill{background:rgba(255,255,255,0.1)}
+    :host([glass]) .chip,:host([glass]) .pill{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     :host([glass]) .btn:not(.pri),:host([glass]) .ttl .hb{${M.glassSurface('row')}}
-    :host([glass]) .ib:hover,:host([glass]) .menu button:hover{background:rgba(255,255,255,0.08)}
+    :host([glass]) .ib:hover,:host([glass]) .menu button:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     :host([glass]) .menu{${M.glassSurface('menu')}}
     ${M.glassFallback(':host([glass]) .menu', 'menu')}
-    :host([glass]) .sw:not(.on),:host([glass]) .sl .tr{background:rgba(255,255,255,0.18)}
+    :host([glass]) .sw:not(.on),:host([glass]) .sl .tr{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
   `;
 
   /* ------------------------------------------------------------ 28.10 · ki-spacing-editor (felles «Mellomrom») */
@@ -539,23 +539,23 @@
   // Bruk: M.spacingEditorHTML(fields, cfg) → <ki-spacing-editor rows="…">. Sender 'ki-spacing-change' { name, value,
   // commit } (bubbles + composed; commit=false under drag, true ved slipp/chip) – msh-editor (og arkene som arver den,
   // f.eks. Tilpass Tesla) lytter og lagrer i utkastet.
-  const SP_CSS = `:host{display:block;width:100%;min-width:0;box-sizing:border-box;font-family:${M.FONT};color:#fafafa}
+  const SP_CSS = `:host{display:block;width:100%;min-width:0;box-sizing:border-box;font-family:${M.FONT};color:var(--ki-text, #fafafa)}
     *{box-sizing:border-box}
-    .box{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0;padding:14px 16px;border-radius:24px;background:var(--gray300,#404040)}
+    .box{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0;padding:14px 16px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040))}
     .r{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
     .t{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-width:0}
     .l{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;font-weight:500;line-height:1.25}
-    .l ha-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px;color:#afafaf;display:inline-flex}
+    .l ha-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px;color:var(--ki-text-2, #afafaf);display:inline-flex}
     .lt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .v{flex:none;font-size:13px;color:#afafaf;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .v{flex:none;font-size:13px;color:var(--ki-text-2, #afafaf);font-variant-numeric:tabular-nums;white-space:nowrap}
     .ks{position:relative;width:100%;min-width:0;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
     .ks.drag{cursor:grabbing}
     .ks input{display:block;width:100%;accent-color:rgb(242 133 201);pointer-events:none;cursor:inherit}
     .c{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
-    .p{height:30px;padding:0 12px;border-radius:15px;border:0;margin:0;font:500 12px ${M.FONT};white-space:nowrap;background:#545454;color:#fafafa;cursor:pointer;transition:transform .12s}
+    .p{height:30px;padding:0 12px;border-radius:15px;border:0;margin:0;font:500 12px ${M.FONT};white-space:nowrap;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa);cursor:pointer;transition:transform .12s}
     .p:active{transform:scale(.95)}
-    .p.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a}
-    .h{font-size:11px;color:#7f7f7f}`;
+    .p.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:var(--ki-on-accent, #3a3a3a)}
+    .h{font-size:11px;color:var(--ki-text-3, #7f7f7f)}`;
   class KiSpacing extends HTMLElement {
     static get observedAttributes() { return ['rows']; }
     constructor() {
@@ -646,7 +646,7 @@
   // Skjemafelt (type 'range') + config → rader → <ki-spacing-editor>. Tom liste → ''.
   M.spacingRows = (fields, cfg) => (fields || []).filter((f) => f && f.type === 'range' && f.name).map((f) => {
     const v = get(cfg || {}, f.name);
-    return { name: f.name, label: f.label || f.name, icon: f.icon || '', min: f.min, max: f.max, step: f.step || 2, unit: f.unit || 'px', default: f.default, value: v != null && v !== '' ? Number(v) : f.default != null ? f.default : f.min, presets: f.presets || [], help: f.help || '' };
+    return { name: f.name, label: f.label || f.name, icon: f.icon || '', min: f.min, max: f.max, step: f.step || 2, unit: f.unit || 'px', default: f.default, value: v != null && v !== '' ? Number(v) : f.default != null ? f.default : f.min, presets: f.presets || [], help: f.help || '', ...(f.offset != null ? { offset: f.offset } : {}) };
   });
   M.spacingEditorHTML = (fields, cfg, key) => {
     const rows = M.spacingRows(fields, cfg);
@@ -883,7 +883,7 @@
           const pills = (f.presets || []).map(([v, l]) => `<button class="pill ${Number(v) === cur ? 'on' : ''}" data-a="sel" data-num="1" data-name="${esc(f.name)}" data-v="${v}">${esc(l)}</button>`).join('');
           const v = cur != null ? cur : f.min, fr = f.max > f.min ? M.clamp((v - f.min) / (f.max - f.min), 0, 1) : 0;
           const drag = this._sl && this._sl.taken && this._sl.name === f.name;
-          return `<div class="f rg"><div class="line">${f.icon ? M.icon(f.icon, 20, 'color:#afafaf') : ''}<span style="flex:1;font-size:13px">${esc(f.label)}</span><span class="rv">${cur != null ? cur : '–'} ${esc(f.unit || 'px')}</span></div>
+          return `<div class="f rg"><div class="line">${f.icon ? M.icon(f.icon, 20, 'color:var(--ki-text-2, #afafaf)') : ''}<span style="flex:1;font-size:13px">${esc(f.label)}</span><span class="rv">${cur != null ? cur : '–'} ${esc(f.unit || 'px')}</span></div>
             <div class="sl${drag ? ' drag' : ''}" data-key="sl-${esc(f.name)}" data-name="${esc(f.name)}" data-v="${v}" data-min="${f.min}" data-max="${f.max}" data-step="${f.step || 1}" style="--f:${fr.toFixed(4)};--p:${(fr * 100).toFixed(2)}%"><div class="tr"><div class="fi"></div></div><div class="th"></div>
               <input type="range" aria-label="${esc(f.label || f.name)}" data-name="${esc(f.name)}" data-num="1" data-range="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${v}"></div>
             ${pills ? `<div class="chips">${pills}</div>` : ''}${help}</div>`;
@@ -987,7 +987,7 @@
     }
     _entRow(id, tail, off) {
       const s = this._hass.states[id];
-      return `<div class="ent ${off ? 'off' : ''}">${M.icon(M.domainIcon(id, s), 20, 'color:#afafaf')}<span class="nm"><b>${esc(s ? s.attributes.friendly_name || id : id)}</b><i>${esc(id)}${s ? '' : ' · finnes ikke'}</i></span>${tail || ''}</div>`;
+      return `<div class="ent ${off ? 'off' : ''}">${M.icon(M.domainIcon(id, s), 20, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(s ? s.attributes.friendly_name || id : id)}</b><i>${esc(id)}${s ? '' : ' · finnes ikke'}</i></span>${tail || ''}</div>`;
     }
     _matches(f, q) {
       const h = this._hass, doms = f.domains || (f.domain ? [].concat(f.domain) : null);
@@ -1028,7 +1028,7 @@
       const lab = f.label ? `<label>${esc(f.label)}</label>` : '';
       const help = f.help ? `<span class="help">${esc(f.help)}</span>` : '';
       if (f.type === 'area') {
-        const cur = val ? `<div class="ent">${M.icon('mdi:texture-box', 20, 'color:#afafaf')}<span class="nm"><b>${esc(M.areaName(this._hass, val))}</b><i>${esc(val)}</i></span><button class="ib" data-a="clear" data-name="${esc(name)}" title="Tilbake til auto">${M.icon('mdi:close', 18)}</button></div>` : '';
+        const cur = val ? `<div class="ent">${M.icon('mdi:texture-box', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="nm"><b>${esc(M.areaName(this._hass, val))}</b><i>${esc(val)}</i></span><button class="ib" data-a="clear" data-name="${esc(name)}" title="Tilbake til auto">${M.icon('mdi:close', 18)}</button></div>` : '';
         return `<div class="f">${lab}${cur}${this._search(f, key, 'setent', name, val ? 'Bytt …' : auto ? 'Auto: ' + auto : 'Velg område …')}${help}</div>`;
       }
       // HA GUI-editor: ha-selector (entity) med «Automatisk»-hjelpetekst

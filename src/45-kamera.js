@@ -22,6 +22,9 @@
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const PINK = C.accent;
+  // Fiks 34/35 · tema: gjennomsiktig hvit/svart (regel 3/4) og aksent som tekst/ikon (pkt. 6); mørk = uendret
+  const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const AT = (c) => { const r = M.theme && M.theme.accentText ? M.theme.accentText(c) : c; return /^color-mix/.test(r) ? c : r; }; // Del A pkt. 6: aksent som tekst/ikon (ukjente farger beholdes)
   const LAYOUTS = [['mosaic', 'Mosaikk', 'dashboard'], ['main', 'Hovedkamera', 'space_dashboard'], ['grid', 'Rutenett', 'grid_view'], ['list', 'Liste', 'view_agenda'], ['masonry', 'Masonry', 'view_quilt'], ['overview', 'Oversikt', 'view_compact'], ['focus', 'Fokus', 'fullscreen'], ['2x2', '2×2', 'border_all'], ['3col', '3 kolonner', 'view_week']];
   // ki-kamera-card: grid_layout → visning
   const GL = { mosaikk: 'mosaic', hovedkamera: 'main', rutenett: 'grid', liste: 'list', masonry: 'masonry', oversikt: 'overview', fokus: 'focus', '2x2': '2x2', '3kol': '3col' };
@@ -208,6 +211,9 @@
     return u[0] === '/' && hass.hassUrl ? hass.hassUrl(u) : u;
   };
 
+  // 33.4 · fanehøyde (05-tab-bar.js): variabler + felles editorfelt (Direkte/Frigate)
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
+  const KTH = { items: [{ key: 'live', label: 'Direkte', icon: 'mdi:video' }, { key: 'frigate', label: 'Frigate', icon: 'mdi:history' }], mode: 'rad', native: 38, gear: true };
   class Kamera extends M.Card {
     static get cardName() { return 'Kamera'; }
     static get defaults() { return { refresh: 10 }; }
@@ -229,6 +235,7 @@
             { type: 'select', name: 'layout', label: 'Oppsett', options: LAYOUTS.map(([k, l]) => [k, l]), default: layoutOf(c) },
             { type: 'select', name: 'mode', label: 'Startmodus', options: [['live', 'Direkte'], ['frigate', 'Frigate']], default: srcMode(c) },
             { type: 'order', name: 'tab_order', hiddenName: 'tab_hidden', label: 'Faner (hold inne en fane i popupen og dra for å flytte)', options: [['live', 'Direkte'], ['frigate', 'Frigate']] }, // Fiks 28.13
+            ...(M.tabH ? [M.tabH.field(KTH)] : []), // 33.4: fanehøyde (Direkte/Frigate)
             { type: 'select', name: 'view', label: 'Startvisning', options: [['alle', 'Alle'], ['events', 'Hendelser']], default: 'alle' },
             { type: 'number', name: 'refresh', label: 'Oppdater stillbilder (sekunder)', min: 2, max: 300, default: 10, help: 'Kun mens popupen er åpen' },
             { type: 'text', name: 'frigate_instance', label: 'Frigate-instans', placeholder: 'frigate' },
@@ -350,7 +357,7 @@
     }
     _badge(s, solid, compact, cam) {
       const st = s ? s.state : 'unavailable', priv = cam && cam.privacy && M.isOn(this.s(cam.privacy));
-      const B = priv ? ['PRIVAT', 'var(--gray700,#979797)'] : st === 'recording' ? ['OPPTAK', C.red] : st === 'streaming' ? ['DIREKTE', C.green] : M.unavailable(s) ? ['FRAKOBLET', 'var(--gray600,#7f7f7f)'] : null;
+      const B = priv ? ['PRIVAT', 'var(--gray700,#979797)'] : st === 'recording' ? ['OPPTAK', C.red] : st === 'streaming' ? ['DIREKTE', C.green] : M.unavailable(s) ? ['FRAKOBLET', 'var(--gray600,#7f7f7f)'] : null; // ki-hex-ok: merket ligger på kamerabildet (mørk øy)
       if (!B) return '';
       if (compact) return `<span class="bdg cp" title="${B[0]}"><i style="background:${B[1]}"></i></span>`;
       return solid ? `<span class="bdg solid" style="background:${B[1]}"><i></i>${B[0]}</span>` : `<span class="bdg"><i style="background:${B[1]}"></i>${B[0]}</span>`;
@@ -405,8 +412,8 @@
       const tOrd = Array.isArray(cfg.tab_order) ? cfg.tab_order : [], tIx = (k) => { const i = tOrd.indexOf(k); return i < 0 ? 9 : i; }; // Fiks 28.13: tab_order
       const modes = [['live', 'Direkte', 'videocam'], ['frigate', 'Frigate', 'history']].sort((a, b) => tIx(a[0]) - tIx(b[0])).filter((m, i, A) => !(cfg.tab_hidden || []).includes(m[0]) || A.every((x) => (cfg.tab_hidden || []).includes(x[0]))).map(([k, l, i]) => `<button class="md ${mode === k ? 'on' : ''}" data-act="mode" data-v="${k}" data-haptic="selection">${M.icon(i, 18)}${l}</button>`).join('');
       // Visning-meny (▾): i popup til høyre for Direkte/Frigate, i dashbord i headeren
-      const top = `<div class="top" style="margin-top:${dash ? 0 : padTOf(cfg)}px"><div class="seg">${modes}</div>${dash ? '' : `<button class="tune ${this._drop ? 'on' : ''}" data-act="drop" title="Visning">${M.icon('tune', 22)}</button>`}</div>`;
-      const head = dash ? `<div class="hd"><button class="hb ${this._drop ? 'on' : ''}" data-act="drop" title="Visning"><span class="hi">${M.icon(cfg.icon || 'videocam', 22)}</span>${M.icon('mdi:chevron-down', 18, 'color:var(--gray700,#979797)')}</button><span class="ht ell">${esc(cfg.title || 'Kamera')}</span><span class="hc">${vis.length} ${vis.length === 1 ? 'kamera' : 'kameraer'}</span></div>` : '';
+      const top = `<div class="top" style="margin-top:${dash ? 0 : padTOf(cfg)}px;${M.tabH ? M.tabH.style(cfg) : ''}"><div class="seg">${modes}</div>${dash ? '' : `<button class="tune ${this._drop ? 'on' : ''}" data-act="drop" title="Visning">${M.icon('tune', 22)}</button>`}</div>`;
+      const head = dash ? `<div class="hd"><button class="hb ${this._drop ? 'on' : ''}" data-act="drop" title="Visning"><span class="hi">${M.icon(cfg.icon || 'videocam', 22)}</span>${M.icon('mdi:chevron-down', 18, 'color:var(--ki-text-mid, var(--gray700,#979797))')}</button><span class="ht ell">${esc(cfg.title || 'Kamera')}</span><span class="hc">${vis.length} ${vis.length === 1 ? 'kamera' : 'kameraer'}</span></div>` : '';
       const back = dash && cfg.back_path ? `<button class="back" data-act="back" data-haptic="light">${M.icon('mdi:chevron-left', 22)}<span>Tilbake</span></button>` : '';
       const wrap = (inner) => `<div class="k ${dash ? 'dash' : 'pop'} ${back ? 'hasback' : ''}" style="--cg:${gapOf(cfg)}px;--tfs:${textOf(cfg)}px">${head}${top}${inner}</div>${back}`;
       if (!all.length) return wrap(M.emptyState('Fant ingen kameraer', 'entities'));
@@ -436,7 +443,7 @@
       const showName = cfg.show_name !== false, showBadge = cfg.show_badge !== false;
       const tiles = list.map((id, i) => {
         const [cs, rs] = span(i), s = this.s(id), model = showName && (cs > 1 || cols === 1) ? camModel(h, id) : '';
-        return `<div class="tile" data-act="view" data-v="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" style="grid-column:span ${Math.min(cs, cols)};grid-row:span ${rs}">
+        return `<div class="tile" data-ki-island data-act="view" data-v="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" style="grid-column:span ${Math.min(cs, cols)};grid-row:span ${rs}">
           <span class="ph">${M.icon(camIcon(h, cfg, id), 26)}</span>${this._media(id, 'image')}
           <span class="shade"></span>${showBadge ? this._badge(s, false, cols > 2, this._cams.get(id)) : ''}
           <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('mdi:arrow-expand', 16)}</button>
@@ -456,13 +463,13 @@
       if (priv) acts.push(['privacy', pOn ? 'mdi:eye-off' : 'mdi:eye', 'Privat', priv, pOn ? C.pink : null]);
       acts.push(['snap', 'photo_camera', 'Bilde', !M.unavailable(s) ? id : null, null]);
       const ev = this._events(cam);
-      return `<div class="one" data-ent="${esc(id)}" data-key="one-${esc(id)}">
+      return `<div class="one" data-ki-island data-ent="${esc(id)}" data-key="one-${esc(id)}">
           <span class="ph">${M.icon(camIcon(h, cfg, id), 40)}</span>${this._media(id, 'stream')}
           <span class="shade1"></span>${cfg.show_badge !== false ? this._badge(s, true, false, cam) : ''}
           <button class="full" data-act="full" data-v="${esc(id)}" title="Fullskjerm">${M.icon('mdi:arrow-expand', 16)}</button>
           ${cfg.show_name !== false ? `<span class="on1 ell">${esc(camName(h, cfg, id))}</span><span class="om">${esc(camModel(h, id))}</span>` : ''}
         </div>
-        <div class="acts" style="grid-template-columns:repeat(${acts.length},minmax(0,1fr))">${acts.map(([k, ic, l, ent, col]) => `<button class="ac press" data-act="ca" data-k="${k}" data-v="${esc(ent || '')}" ${ent ? '' : 'disabled'} style="color:${ent ? 'var(--white,#fafafa)' : 'var(--gray500,#696969)'}">${M.icon(ic, 24, col ? 'color:' + col : '')}<span>${l}</span></button>`).join('')}</div>
+        <div class="acts" style="grid-template-columns:repeat(${acts.length},minmax(0,1fr))">${acts.map(([k, ic, l, ent, col]) => `<button class="ac press" data-act="ca" data-k="${k}" data-v="${esc(ent || '')}" ${ent ? '' : 'disabled'} style="color:${ent ? 'var(--ki-text, var(--white,#fafafa))' : 'var(--ki-text-lo, var(--gray500,#696969))'}">${M.icon(ic, 24, col ? 'color:' + AT(col) : '')}<span>${l}</span></button>`).join('')}</div>
         <span class="sec">Siste hendelser</span>
         ${ev.length ? ev.slice(0, this._evLimit()).map((e) => `<div class="er" data-ent="${esc(e.id)}" data-key="${esc(e.id)}"><span class="ei">${M.icon(e.icon, 22)}</span><span class="el ell">${esc(e.label)}</span><span class="et">${e.now ? 'nå' : hhmm(e.ts)}</span></div>`).join('') : '<div class="none">Ingen hendelser</div>'}`;
     }
@@ -478,9 +485,9 @@
       const ev = vis.flatMap((id) => this._events(this._cams.get(id) || { id })).filter((e) => !seen.has(e.id) && seen.add(e.id)).sort((a, b) => b.ts - a.ts).slice(0, this._evLimit());
       if (!ev.length) return '<div class="none">Ingen hendelser siste døgn</div>';
       return this._evWrap(ev.map((e) => `<button class="evr" data-act="view" data-v="${esc(e.cam)}" data-ent="${esc(e.id)}" data-key="${esc(e.id)}">
-        <span class="th"><span class="ph">${M.icon(e.icon, 22)}</span>${this._imgTag('t:' + e.cam, this._img(e.cam))}</span>
+        <span class="th" data-ki-island><span class="ph">${M.icon(e.icon, 22)}</span>${this._imgTag('t:' + e.cam, this._img(e.cam))}</span>
         <span class="tx"><span class="t1">${esc(e.label)}</span><span class="t2 ell">${esc(camName(h, cfg, e.cam))} · ${e.now ? 'nå' : hhmm(e.ts)}</span></span>
-        ${M.icon('play_circle', 22, 'color:var(--gray700,#979797)')}</button>`).join(''));
+        ${M.icon('play_circle', 22, 'color:var(--ki-text-mid, var(--gray700,#979797))')}</button>`).join(''));
     }
     _frigate() {
       const h = this.hass, cfg = this.config, fr = this._fr || { ok: false, list: [] };
@@ -499,7 +506,7 @@
         const f = FLABEL[e.label] || ['sensors', e.label ? e.label[0].toUpperCase() + e.label.slice(1) : 'Hendelse'];
         const sc = e.top_score != null ? e.top_score : e.data && e.data.top_score != null ? e.data.top_score : e.score;
         const thumb = `/api/frigate/${encodeURIComponent(inst)}/notifications/${encodeURIComponent(e.id)}/thumbnail.jpg`;
-        return `<div class="evr" data-key="${esc(e.id)}"><span class="th"><span class="ph">${M.icon(f[0], 22)}</span>${this._imgTag('f:' + e.id, h.hassUrl ? h.hassUrl(thumb) : thumb)}</span>
+        return `<div class="evr" data-key="${esc(e.id)}"><span class="th" data-ki-island><span class="ph">${M.icon(f[0], 22)}</span>${this._imgTag('f:' + e.id, h.hassUrl ? h.hassUrl(thumb) : thumb)}</span>
           <span class="tx"><span class="t1 fl">${M.icon(f[0], 18)}${esc(f[1])}</span><span class="t2 ell">${esc(byCam(e.camera))} · ${hhmm((e.start_time || 0) * 1000)}${sc != null ? ' · ' + Math.round(sc * 100) + ' %' : ''}</span></span></div>`;
       }).join('');
       return `<div class="fs">${stats.map(([v, l]) => `<div class="fst"><span class="fv num">${esc(v)}</span><span class="fl2">${esc(l)}</span></div>`).join('')}</div>
@@ -558,14 +565,14 @@
       const html = `<span class="dt">Visning</span>${LAYOUTS.map(([k, l, i]) => `<button class="di ${L === k ? 'on' : ''}" data-l="${k}">${M.icon(i, 20)}<span class="dl">${esc(l)}</span>${M.icon('check', 18, `color:${C.pink};opacity:${L === k ? 1 : 0}`)}</button>`).join('')}
         <div class="sep"></div><button class="di mu" data-l="_edit">${M.icon('tune', 20)}<span class="dl">Tilpass kameraer…</span></button>`;
       const css = `.bg{background:transparent!important}
-        .sh{${pos};top:${top}px!important;bottom:auto!important;width:230px;max-width:230px!important;margin:0!important;padding:8px!important;border-radius:22px!important;background:var(--gray300,#404040)!important;box-shadow:0 18px 40px rgba(0,0,0,0.5)!important;transform:scale(.96)!important;transform-origin:${dash ? 'top left' : 'top right'};max-height:calc(100% - ${top + 16}px)!important}
+        .sh{${pos};top:${top}px!important;bottom:auto!important;width:230px;max-width:230px!important;margin:0!important;padding:8px!important;border-radius:22px!important;background:var(--ki-surface, var(--gray300,#404040))!important;box-shadow:0 18px 40px ${BA(0.5)}!important;transform:scale(.96)!important;transform-origin:${dash ? 'top left' : 'top right'};max-height:calc(100% - ${top + 16}px)!important}
         :host(.on) .sh{transform:none!important}
         .body{display:flex;flex-direction:column;gap:2px}
-        .dt{font-size:12px;color:var(--gray700,#979797);padding:4px 10px 6px}
-        .di{height:42px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500;color:var(--white,#fafafa);background:transparent;width:100%}
-        .di.on{background:rgba(255,255,255,0.08)} .dl{flex:1;text-align:left}
-        .di.mu{height:44px;color:var(--gray800,#afafaf)}
-        .sep{height:1px;background:rgba(255,255,255,0.1);margin:4px 8px}`;
+        .dt{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));padding:4px 10px 6px}
+        .di{height:42px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500;color:var(--ki-text, var(--white,#fafafa));background:transparent;width:100%}
+        .di.on{background:${WA(0.08)}} .dl{flex:1;text-align:left}
+        .di.mu{height:44px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .sep{height:1px;background:${WA(0.1)};margin:4px 8px}`;
       const ov = M.overlay({ html, css, sheet: false, onClose: () => { this._drop = null; this.update(); } });
       this._drop = ov;
       this.update();
@@ -585,17 +592,17 @@
       const h = this.hass, cfg = this.config, s = h.states[id];
       if (!s) return;
       const html = `<div class="fh"><span class="fn ell">${esc(camName(h, cfg, id))}</span><span class="fm">${esc(camModel(h, id))}</span><button class="x" data-x="close" title="Lukk">${M.icon('close', 22)}</button></div>
-        <div class="fv"><span class="fph">${M.icon(camIcon(h, cfg, id), 40)}</span></div>
+        <div class="fv" data-ki-island><span class="fph">${M.icon(camIcon(h, cfg, id), 40)}</span></div>
         <div class="fa"><button data-x="snap">${M.icon('photo_camera', 20)}Bilde</button><button data-x="more">${M.icon('open_in_new', 20)}Mer info</button></div>`;
-      const css = `.sh{padding:14px!important;background:var(--gray000,#232323)!important}
+      const css = `.sh{padding:14px!important;background:var(--ki-bg, var(--gray000,#232323))!important}
         .fh{display:flex;align-items:center;gap:10px;padding:0 2px 12px}
-        .fn{flex:1;min-width:0;font-size:18px;font-weight:600} .fm{font-size:12px;color:var(--gray700,#979797)}
-        .x{width:44px;height:44px;border-radius:22px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none}
-        .fv{position:relative;width:100%;aspect-ratio:16/9;border-radius:22px;overflow:hidden;background:var(--gray200,#3a3a3a);display:grid;place-items:center}
+        .fn{flex:1;min-width:0;font-size:18px;font-weight:600} .fm{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .x{width:44px;height:44px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center;flex:none}
+        .fv{position:relative;width:100%;aspect-ratio:16/9;border-radius:22px;overflow:hidden;background:var(--gray200,#3a3a3a);color:#fafafa;display:grid;place-items:center} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .fv img,.fv ha-camera-stream{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
-        .fph{color:var(--gray600,#7f7f7f)}
+        .fph{color:var(--gray600,#7f7f7f)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .fa{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:12px}
-        .fa button{height:52px;border-radius:26px;background:var(--gray200,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500}`;
+        .fa button{height:52px;border-radius:26px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500}`;
       let t = null;
       const ov = M.overlay({ html, css, center: true, maxWidth: 1100, onClose: () => clearInterval(t) });
       const fv = ov.body.querySelector('.fv');
@@ -684,64 +691,66 @@
         .k.hasback{padding-bottom:calc(var(--cg,6px) + 80px + env(safe-area-inset-bottom))}
         .hd{display:flex;align-items:center;gap:10px;padding:0 6px 0 0;min-height:48px}
         .hb{display:flex;align-items:center;gap:2px;height:48px;padding:0 6px 0 4px;border-radius:24px;flex:none;transition:background .2s}
-        .hb.on{background:rgba(255,255,255,0.08)}
-        .hi{width:40px;height:40px;border-radius:20px;background:var(--gray1000,#e1e1e1);color:#282828;display:grid;place-items:center}
+        .hb.on{background:${WA(0.08)}}
+        .hi{width:40px;height:40px;border-radius:20px;background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, #282828);display:grid;place-items:center}
         .ht{flex:1;min-width:0;font-size:28px;font-weight:500}
-        .hc{flex:none;font-size:14px;color:var(--gray700,#979797)}
+        .hc{flex:none;font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .top{position:relative;display:flex;gap:8px;align-items:center}
-        .seg{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:23px;background:var(--gray200,#3a3a3a)}
-        .md{height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;background:transparent;color:var(--gray800,#afafaf);transition:background .2s,color .2s}
-        .md.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-        .tune{width:46px;height:46px;border-radius:23px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none;transition:background .2s}
-        .tune.on{background:var(--gray300,#404040)}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (38), sporet H + 8, ▾-knappen = sporets høyde */
+        .seg{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:calc(${TV('th', 38)} / 2 + 4px);background:var(--ki-surface-3, var(--gray200,#3a3a3a))}
+        .md{height:${TV('th', 38)};padding:0 ${TV('tp', 0)};border-radius:calc(${TV('th', 38)} / 2);display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;background:transparent;color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
+        .md.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+        .md ha-icon{--mdc-icon-size:${TV('ti', 18)} !important;width:${TV('ti', 18)} !important;height:${TV('ti', 18)} !important}
+        .tune{width:calc(${TV('th', 38)} + 8px);height:calc(${TV('th', 38)} + 8px);border-radius:calc(${TV('th', 38)} / 2 + 4px);background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none;transition:background .2s}
+        .tune.on{background:var(--ki-surface-2, var(--gray300,#404040))}
         .chips{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;margin:0;padding:0;min-width:0}
-        .ch{flex:none;height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:background .2s,color .2s}
-        .ch.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+        .ch{flex:none;height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
+        .ch.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
         .grid{display:grid;grid-auto-flow:dense;gap:var(--cg,6px)}
-        .tile{position:relative;border-radius:20px;overflow:hidden;background:var(--gray200,#3a3a3a);cursor:pointer;min-width:0;-webkit-touch-callout:none}
-        .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--gray500,#696969);pointer-events:none}
+        .tile{position:relative;border-radius:20px;overflow:hidden;background:var(--gray200,#3a3a3a);color:#fafafa;cursor:pointer;min-width:0;-webkit-touch-callout:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
+        .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--gray500,#696969);pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         img.im{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;-webkit-user-select:none;user-select:none}
         img.im.bad{visibility:hidden}
         .strm{position:absolute;inset:0;overflow:hidden;pointer-events:none}
         .strm>*{position:absolute;inset:0;width:100%;height:100%;display:block;--video-max-height:100%}
-        .shade{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.25), transparent 30%, transparent 65%, rgba(0,0,0,0.55));pointer-events:none}
-        .bdg{position:absolute;left:8px;top:8px;height:20px;padding:0 7px 0 6px;border-radius:10px;background:rgba(20,20,20,0.6);display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;line-height:1;letter-spacing:0.04em;text-transform:uppercase;pointer-events:none}
+        .shade{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.25), transparent 30%, transparent 65%, rgba(0,0,0,0.55));pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
+        .bdg{position:absolute;left:8px;top:8px;height:20px;padding:0 7px 0 6px;border-radius:10px;background:rgba(20,20,20,0.6);color:#fafafa;display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;line-height:1;letter-spacing:0.04em;text-transform:uppercase;pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .bdg i{width:6px;height:6px;border-radius:3px;flex:none}
         .bdg.cp{padding:0;width:20px;justify-content:center}
         .bdg.solid{left:14px;top:14px;height:28px;padding:0 12px 0 10px;border-radius:14px;font-size:12px;font-weight:700;letter-spacing:0}
-        .bdg.solid i{width:8px;height:8px;border-radius:4px;background:#fff}
-        .full{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:14px;background:rgba(20,20,20,0.55);display:grid;place-items:center}
+        .bdg.solid i{width:8px;height:8px;border-radius:4px;background:#fff} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
+        .full{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:14px;background:rgba(20,20,20,0.55);color:#fafafa;display:grid;place-items:center} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .full:active{transform:scale(.92)}
-        .tn{position:absolute;left:10px;bottom:8px;right:10px;font-size:var(--tfs,14px);line-height:calc(var(--tfs,14px) + 4px);font-weight:500;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.5)}
-        .tm{position:absolute;right:10px;bottom:8px;max-width:40%;font-size:11px;line-height:calc(var(--tfs,14px) + 4px);color:rgba(255,255,255,0.8);pointer-events:none}
+        .tn{position:absolute;left:10px;bottom:8px;right:10px;font-size:var(--tfs,14px);line-height:calc(var(--tfs,14px) + 4px);font-weight:500;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.5)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
+        .tm{position:absolute;right:10px;bottom:8px;max-width:40%;font-size:11px;line-height:calc(var(--tfs,14px) + 4px);color:rgba(255,255,255,0.8);pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .tile:has(.tm) .tn{right:auto;max-width:calc(60% - 16px)}
-        .one{position:relative;height:300px;border-radius:30px;overflow:hidden;background:var(--gray200,#3a3a3a)}
+        .one{position:relative;height:300px;border-radius:30px;overflow:hidden;background:var(--gray200,#3a3a3a);color:#fafafa} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .one .full{right:14px;top:14px}
-        .shade1{position:absolute;inset:0;background:linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.55));pointer-events:none}
+        .shade1{position:absolute;inset:0;background:linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.55));pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .on1{position:absolute;left:16px;bottom:14px;max-width:60%;font-size:18px;font-weight:600;pointer-events:none}
-        .om{position:absolute;right:16px;bottom:14px;font-size:12px;color:rgba(255,255,255,0.7);pointer-events:none}
+        .om{position:absolute;right:16px;bottom:14px;font-size:12px;color:rgba(255,255,255,0.7);pointer-events:none} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-        .ac{height:96px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--gray200,#3a3a3a);min-width:0}
+        .ac{height:96px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0}
         .ac[disabled]{cursor:default}
         .ac[disabled]:active{transform:none}
-        .sec{font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray700,#979797);padding:8px 8px 0}
-        .er{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 8px;border-radius:30px;background:var(--gray200,#3a3a3a)}
-        .ei{width:44px;height:44px;border-radius:22px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none}
+        .sec{font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-mid, var(--gray700,#979797));padding:8px 8px 0}
+        .er{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 8px;border-radius:30px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .ei{width:44px;height:44px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center;flex:none}
         .el{flex:1;min-width:0;font-size:15px;font-weight:500}
-        .et{font-size:13px;color:var(--gray700,#979797);flex:none}
-        .none{padding:30px 0;text-align:center;font-size:15px;color:var(--gray600,#7f7f7f)}
+        .et{font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));flex:none}
+        .none{padding:30px 0;text-align:center;font-size:15px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .evl{display:grid;gap:8px;min-width:0}
-        .evr{display:flex;align-items:center;gap:12px;height:72px;padding:0 16px 0 6px;border-radius:36px;background:var(--gray200,#3a3a3a);text-align:left;width:100%;min-width:0}
-        .th{position:relative;width:88px;height:60px;border-radius:30px;overflow:hidden;flex:none;background:var(--gray300,#404040)}
+        .evr{display:flex;align-items:center;gap:12px;height:72px;padding:0 16px 0 6px;border-radius:36px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;width:100%;min-width:0}
+        .th{position:relative;width:88px;height:60px;border-radius:30px;overflow:hidden;flex:none;background:var(--gray300,#404040)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .t1{font-size:15px;font-weight:500}
         .t1.fl{display:flex;align-items:center;gap:6px}
-        .t2{font-size:12px;color:var(--gray700,#979797)}
+        .t2{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .fs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-        .fst{display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a);min-width:0}
+        .fst{display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0}
         .fv{font-size:24px;font-weight:300}
-        .fl2{font-size:12px;color:var(--gray700,#979797)}
-        .back{position:fixed;left:var(--kbx,50%);bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:4;height:56px;padding:0 24px 0 16px;border-radius:28px;background:var(--gray100,#2f2f2f);border:1px solid var(--gray400,#545454);display:flex;align-items:center;gap:6px;font-size:15px;font-weight:500;color:var(--white,#fafafa);box-shadow:0 12px 30px rgba(0,0,0,0.4);transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+        .fl2{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .back{position:fixed;left:var(--kbx,50%);bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:4;height:56px;padding:0 24px 0 16px;border-radius:28px;background:var(--ki-surface, var(--gray100,#2f2f2f));border:1px solid var(--ki-line, var(--gray400,#545454));display:flex;align-items:center;gap:6px;font-size:15px;font-weight:500;color:var(--ki-text, var(--white,#fafafa));box-shadow:0 12px 30px ${BA(0.4)};transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
         .back:active{transform:translateX(-50%) scale(.96)}
       `;
     }
@@ -760,81 +769,81 @@
   ];
   const RESET_KEYS = ['layout', 'grid_layout', 'order', 'hidden', 'cam_gap', 'gap', 'luft', 'show_name', 'show_badge', 'text_size', 'padT', 'pad_top']; // egne kameranavn (names) beholdes
   const ED_CSS = `
-    :host{display:block;color:var(--white,#fafafa);font-family:${M.FONT}}
+    :host{display:block;color:var(--ki-text, var(--white,#fafafa));font-family:${M.FONT}}
     .w{display:flex;flex-direction:column;gap:10px}
     .hd{display:flex;align-items:center;gap:12px;padding:0 4px}
-    .hic{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none}
+    .hic{width:48px;height:48px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none}
     .htx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .htx b{font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .hd .hb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--gray200,#3a3a3a);font-size:14px;font-weight:500;color:var(--white,#fafafa)}
+    .hd .hb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:14px;font-weight:500;color:var(--ki-text, var(--white,#fafafa))}
     .hd .done{flex:none;${M.DONE_PILL}} /* Fiks 26: Ferdig = rosa pille øverst til høyre */
-    .htx i{font-style:normal;font-size:13px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .x{width:48px;height:48px;border-radius:24px;background:var(--gray200,#3a3a3a);display:grid;place-items:center;flex:none}
+    .htx i{font-style:normal;font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .x{width:48px;height:48px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none}
     .scope:empty{display:none} .scope{padding:0 4px}
-    .s{display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:var(--gray200,#3a3a3a)}
+    .s{display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .st{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 4px}
     .st>span:first-child{font-size:16px;font-weight:500}
-    .sm{font-size:14px;color:var(--gray700,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-    .sg{display:flex;padding:4px;gap:4px;border-radius:22px;background:var(--gray300,#404040)}
-    .sg button{flex:1;height:36px;border-radius:18px;font-size:14px;font-weight:500;color:var(--gray800,#afafaf);white-space:nowrap;transition:background .2s,color .2s}
-    .sg button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+    .sm{font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .sg{display:flex;padding:4px;gap:4px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .sg button{flex:1;height:36px;border-radius:18px;font-size:14px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;transition:background .2s,color .2s}
+    .sg button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
     .lg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .lg button{height:88px;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--gray300,#404040);color:var(--white,#fafafa);min-width:0}
-    .lg button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+    .lg button{height:88px;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa));min-width:0}
+    .lg button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
     .rw{display:flex;flex-direction:column;gap:8px;min-height:44px;justify-content:center;padding:0 4px}
     .rl{display:flex;align-items:center;gap:12px;min-height:44px}
-    .rl>ha-icon{color:var(--gray700,#979797)}
+    .rl>ha-icon{color:var(--ki-text-mid, var(--gray700,#979797))}
     .lb{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .rv{font-size:14px;color:var(--gray700,#979797);font-variant-numeric:tabular-nums;flex:none}
-    .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--gray400,#545454);flex:none;transition:background .2s}
-    .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
+    .rv{font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797));font-variant-numeric:tabular-nums;flex:none}
+    .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--ki-ctrl, var(--gray400,#545454));flex:none;transition:background .2s}
+    .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px ${BA(0.3)};transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
     .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: rosa brytere */
-    .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--gray300,#404040);flex:none}
-    .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--gray800,#afafaf)}
-    .ts button.on{background:${PINK};color:var(--gray200,#3a3a3a)}
+    .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+    .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .ts button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
     input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;margin:0;background:transparent;touch-action:pan-y;cursor:pointer}
-    input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--gray400,#545454)}
-    input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--gray400,#545454)}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:#fafafa;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-    input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:#fafafa}
+    input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))}
+    input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 2px 6px ${BA(0.4)}}
+    input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:var(--ki-knob, #fafafa)}
     .pills{display:flex;gap:6px;flex-wrap:wrap}
-    .spc{display:flex;flex-direction:column;gap:16px;padding:14px 16px;border-radius:24px;background:var(--gray300,#404040)}
+    .spc{display:flex;flex-direction:column;gap:16px;padding:14px 16px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040))}
     .spr{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
     .spt{display:flex;justify-content:space-between;align-items:center;gap:10px;min-width:0}
-    .spt>ha-icon{color:var(--gray800,#afafaf);flex:none}
+    .spt>ha-icon{color:var(--ki-text-2, var(--gray800,#afafaf));flex:none}
     .spl{flex:1;min-width:0;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .spv{flex:none;font-size:13px;color:var(--gray800,#afafaf);font-variant-numeric:tabular-nums}
+    .spv{flex:none;font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));font-variant-numeric:tabular-nums}
     .spr input[type=range]{accent-color:rgb(242 133 201)}
     .spc-ch{display:flex;flex-wrap:wrap;gap:6px}
-    .spp{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--gray400,#545454);color:var(--white,#fafafa)}
-    .spp.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-    .nm{position:relative;display:flex;align-items:center;height:30px;border-radius:10px;background:#282828;min-width:0;cursor:text}
-    .nm input{flex:1;min-width:0;height:30px;padding:0 28px 0 10px;border:0;outline:none;background:transparent;color:var(--white,#fafafa);font:inherit;font-size:15px;font-weight:500;text-overflow:ellipsis}
-    .nm input::placeholder{color:var(--white,#fafafa);opacity:1}
-    .nm input:focus::placeholder{color:var(--gray600,#7f7f7f)}
-    .nm>ha-icon{position:absolute;right:8px;color:var(--gray600,#7f7f7f);pointer-events:none}
-    .pill{height:30px;padding:0 12px;border-radius:15px;font-size:13px;font-weight:500;background:var(--gray400,#545454);color:var(--white,#fafafa)}
-    .pill.on{background:${PINK};color:var(--gray200,#3a3a3a)}
-    .cr{display:flex;align-items:center;gap:10px;padding:8px;border-radius:24px;background:#2c2c2c;transition:opacity .2s}
+    .spp{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text, var(--white,#fafafa))}
+    .spp.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+    .nm{position:relative;display:flex;align-items:center;height:30px;border-radius:10px;background:var(--ki-surface, #282828);min-width:0;cursor:text}
+    .nm input{flex:1;min-width:0;height:30px;padding:0 28px 0 10px;border:0;outline:none;background:transparent;color:var(--ki-text, var(--white,#fafafa));font:inherit;font-size:15px;font-weight:500;text-overflow:ellipsis}
+    .nm input::placeholder{color:var(--ki-text, var(--white,#fafafa));opacity:1}
+    .nm input:focus::placeholder{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .nm>ha-icon{position:absolute;right:8px;color:var(--ki-text-3, var(--gray600,#7f7f7f));pointer-events:none}
+    .pill{height:30px;padding:0 12px;border-radius:15px;font-size:13px;font-weight:500;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text, var(--white,#fafafa))}
+    .pill.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+    .cr{display:flex;align-items:center;gap:10px;padding:8px;border-radius:24px;background:var(--ki-surface-2, #2c2c2c);transition:opacity .2s}
     .cr.off{opacity:.55}
-    .cth{position:relative;width:76px;height:48px;border-radius:14px;overflow:hidden;flex:none;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--gray500,#696969)}
+    .cth{position:relative;width:76px;height:48px;border-radius:14px;overflow:hidden;flex:none;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--gray500,#696969)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
     .cth img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     .cn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .cn b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cn i{font-style:normal;font-size:11px;color:var(--gray700,#979797);font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--white,#fafafa)}
-    .cb[disabled]{background:#2c2c2c;color:var(--gray400,#545454);pointer-events:none}
-    .add{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--gray300,#404040)}
-    .srch{height:42px;padding:0 14px;border-radius:14px;background:var(--gray300,#404040);font-size:14px;width:100%;outline:none;border:0;color:inherit;font-family:inherit}
+    .cn i{font-style:normal;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa))}
+    .cb[disabled]{background:var(--ki-surface-2, #2c2c2c);color:var(--ki-text-lo, var(--gray400,#545454));pointer-events:none}
+    .add{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .srch{height:42px;padding:0 14px;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:14px;width:100%;outline:none;border:0;color:inherit;font-family:inherit}
     .res{display:flex;flex-direction:column;gap:2px;max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
     .rr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
-    .rr:hover{background:rgba(255,255,255,0.06)}
-    .note{font-size:12px;color:var(--gray600,#7f7f7f);padding:4px 6px 0}
-    .more{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--gray800,#afafaf)}
-    .stat{font-size:12px;color:var(--gray700,#979797);text-align:center}.stat.ok{color:rgb(102 209 158)}.stat.err{color:var(--red,#f28073)}
+    .rr:hover{background:${WA(0.06)}}
+    .note{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:4px 6px 0}
+    .more{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .stat{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));text-align:center}.stat.ok{color:var(--ki-green-text, rgb(102 209 158))}.stat.err{color:var(--ki-red-text, var(--red,#f28073))}
     .act{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .act button{height:54px;border-radius:27px;background:var(--gray200,#3a3a3a);font-size:15px;color:var(--gray700,#979797)}
-    .act button.pri{background:${PINK};color:var(--gray200,#3a3a3a);font-weight:600}
+    .act button{height:54px;border-radius:27px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:15px;color:var(--ki-text-mid, var(--gray700,#979797))}
+    .act button.pri{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a));font-weight:600}
   `;
   class KameraEditor extends HTMLElement {
     constructor() {
@@ -865,6 +874,8 @@
       sr.addEventListener('keydown', (e) => { const t = e.target; if (t && t.dataset && t.dataset.a === 'nm' && e.key === 'Enter') { e.preventDefault(); t.blur(); } });
       // Slider: ikke la Bubble Card / arket scrolle eller lukke mens man drar
       ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => sr.addEventListener(t, (e) => { if (e.target && e.target.type === 'range') e.stopPropagation(); }, { passive: true }));
+      // 33.4: fanehøyde – slider live (utkast + forhåndsvisning), lagres i utkastet ved slipp/segment
+      if (M.tabH) M.tabH.bindEditor(sr, { set: (v, commit) => { if (commit) return this._set({ tab_height: v }); const c = { ...this._config }; if (v == null) delete c.tab_height; else c.tab_height = v; this._config = c; this.dispatchEvent(new CustomEvent('msh-change', { detail: { config: c, commit: false } })); } });
     }
     set inline(v) { this._inline = v; }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
@@ -906,7 +917,8 @@
         <div class="s"><div class="st"><span>Profil</span><span class="sm">${eff ? (eff === 'popup' ? 'Popup' : 'Dashbord') + (prof === 'auto' ? ' (auto)' : '') : ''}</span></div>
           <div class="sg">${PROFILES.map(([k, l]) => `<button class="${prof === k ? 'on' : ''}" data-a="prof" data-v="${k}">${l}</button>`).join('')}</div></div>
         <div class="s"><div class="st"><span>Visning</span><span class="sm">${esc((LAYOUTS.find((x) => x[0] === L) || [])[1] || '')}</span></div>
-          <div class="lg">${LAYOUTS.map(([k, l, i]) => `<button class="${L === k ? 'on' : ''}" data-a="lay" data-v="${k}">${M.icon(i, 22)}<span>${esc(l)}</span></button>`).join('')}</div></div>
+          <div class="lg">${LAYOUTS.map(([k, l, i]) => `<button class="${L === k ? 'on' : ''}" data-a="lay" data-v="${k}">${M.icon(i, 22)}<span>${esc(l)}</span></button>`).join('')}</div>
+          ${M.tabH ? `<div style="padding:6px 4px 0" data-key="tabh">${M.tabH.editorHTML(c.tab_height, { ...KTH, cfg: c })}</div>` : ''}</div>
         <div class="s"><div class="st"><span>Utseende</span></div>
           ${M.spacingEditorHTML ? M.spacingEditorHTML(SP_FIELDS, { cam_gap: g, padT: padTOf(c) }, 'ksp-kamera') : `<div class="spc">
             ${spRow('cam_gap', 'mdi:arrow-expand-horizontal', 'Mellomrom', g, 0, 24, 1, GAP_PRESETS.map(([v, l]) => [v, `${l} ${v}`]))}
@@ -919,9 +931,9 @@
         <div class="s"><div class="st"><span>Kameraer som vises</span><span class="sm">${shown} av ${ord.length}</span></div>
           ${ord.map((id, i) => {
             const off = hid.has(id), src = camImg(h, id, this._t || (this._t = Date.now()));
-            return `<div class="cr ${off ? 'off' : ''}" data-key="${esc(id)}"><span class="cth">${M.icon(camIcon(h, c, id), 20)}${src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : ''}</span>
+            return `<div class="cr ${off ? 'off' : ''}" data-key="${esc(id)}"><span class="cth" data-ki-island>${M.icon(camIcon(h, c, id), 20)}${src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : ''}</span>
               <span class="cn"><label class="nm"><input data-a="nm" data-v="${esc(id)}" value="${esc(ownName(c, id))}" placeholder="${esc(ccfg(c, id).name || defaultName(h, id))}" aria-label="Navn på ${esc(id)}" autocomplete="off" spellcheck="false" enterkeyhint="done">${M.icon('mdi:pencil-outline', 16)}</label><i>${esc(id)}</i></span>
-              <button class="cb" data-a="eye" data-v="${esc(id)}" title="${off ? 'Vis' : 'Skjul'}">${M.icon(off ? 'visibility_off' : 'visibility', 22, off ? 'color:var(--gray500,#696969)' : '')}</button>
+              <button class="cb" data-a="eye" data-v="${esc(id)}" title="${off ? 'Vis' : 'Skjul'}">${M.icon(off ? 'visibility_off' : 'visibility', 22, off ? 'color:var(--ki-text-lo, var(--gray500,#696969))' : '')}</button>
               <button class="cb" data-a="mv" data-i="${i}" data-d="-1" ${i > 0 ? '' : 'disabled'} title="Flytt opp">${M.icon('arrow_upward', 20)}</button>
               <button class="cb" data-a="mv" data-i="${i}" data-d="1" ${i < ord.length - 1 ? '' : 'disabled'} title="Flytt ned">${M.icon('arrow_downward', 20)}</button></div>`;
           }).join('') || '<span class="note">Fant ingen kameraer.</span>'}
@@ -940,7 +952,7 @@
       const h = this._hass, q = slug(this._q || '');
       const ids = Object.keys(h.states).filter((id) => id.startsWith('camera.') && !ord.includes(id)).filter((id) => !q || slug(id + ' ' + M.name(h, id)).includes(q)).sort().slice(0, 50);
       return `<input class="srch" data-a="q" placeholder="Søk etter kamera …" value="${esc(this._q)}" autocomplete="off">
-        <div class="res">${ids.map((id) => `<button class="rr" data-a="add" data-v="${esc(id)}">${M.icon(M.domainIcon(id, h.states[id]), 20, 'color:var(--gray700,#979797)')}<span class="cn"><b>${esc(defaultName(h, id))}</b><i>${esc(id)}</i></span>${M.icon('mdi:plus', 20)}</button>`).join('') || '<span class="note">Ingen flere kameraer</span>'}</div>`;
+        <div class="res">${ids.map((id) => `<button class="rr" data-a="add" data-v="${esc(id)}">${M.icon(M.domainIcon(id, h.states[id]), 20, 'color:var(--ki-text-mid, var(--gray700,#979797))')}<span class="cn"><b>${esc(defaultName(h, id))}</b><i>${esc(id)}</i></span>${M.icon('mdi:plus', 20)}</button>`).join('') || '<span class="note">Ingen flere kameraer</span>'}</div>`;
     }
     _input(e) {
       const t = e.target;

@@ -80,7 +80,6 @@
     ['#kamera', 'Kamera', 'mdi:cctv', 'msh-kamera-card'],
     ['#media', 'Media', 'mdi:cast', 'msh-media-card'],
     ['#klima', 'Klima', 'mdi:thermostat', 'msh-klima-card'],
-    ['#badebasseng', 'Basseng', 'mdi:pool', 'msh-basseng-card'], // fiks 30.1 – standard-hash #badebasseng; #basseng er alias (M.HASH_ALIAS, 40-basseng.js)
     ['#ruter', 'Ruter', 'mdi:bus', 'msh-ruter-card'],
     ['#vanning', 'Vanning', 'mdi:sprinkler', 'msh-vanning-card'],
     ['#sikkerhet', 'Sikkerhet', 'mdi:shield-home', 'msh-sikkerhet-card'],
@@ -100,14 +99,19 @@
     ['#innstillinger', 'Innstillinger', 'mdi:tune-variant', 'msh-innstillinger-card'], // fiks 25.5 – 26.15: innholdet er nå #settings (msh-innstillinger-card, 04-strategy); #innstillinger genereres bare når noe peker dit
     ['#varmepumpe', 'Varmepumpe', 'mdi:heat-pump', 'msh-varmepumpe-card'], // fiks 26.20 – NIBE S/F-serien (nibe_heatpump/myuplink, 61-varmepumpe.js); bare med NIBE-enhet (M.popupNeeds); erstatter den importerte #varmepumpe · 31.2: #nibe er alias (M.HASH_ALIAS, 61-varmepumpe.js)
   ];
-  // Fiks 30.1 · gamle hasher som alias for ÉN popup: { '#basseng': '#badebasseng' } (satt i 40-basseng.js). Lenker,
+  // Fiks 30.1 · gamle hasher som alias for ÉN popup (f.eks. { '#nibe': '#varmepumpe' }, satt i 61-varmepumpe.js). Lenker,
   // navbar-config og varsler med den gamle hashen virker (hashchange → history.replaceState), men ingen popup lages der.
+  // (Bassengpopupene er slettet – #basseng/#badebasseng er ikke lenger alias, se 40-basseng.js.)
   M.HASH_ALIAS = M.HASH_ALIAS || {};
   M.canonHash = (h) => { const s = String(h == null ? '' : h).trim(); return M.HASH_ALIAS[s] || s; };
   M.hashAliasesOf = (h) => Object.keys(M.HASH_ALIAS).filter((a) => M.HASH_ALIAS[a] === h);
-  // card_id for en funksjons-popup når den ikke er 'pop-' + hash (30.1: #badebasseng beholder 'pop-basseng' og oppsettet)
+  // card_id for en funksjons-popup når den ikke er 'pop-' + hash
   M.POPUP_CARD_ID = M.POPUP_CARD_ID || {};
   M.popupCardId = (hash) => M.POPUP_CARD_ID[hash] || 'pop-' + String(hash).replace(/^#/, '');
+  // Basseng slettet · områder som aldri får en rom-popup (f.eks. et område «Basseng»/«Pool» – bassengpopupen er slettet, 40-basseng.js):
+  // liste med (hass, area_id) → true. Gjelder strategien, «Lag popups» (manuelt dashbord) og popup-velgeren.
+  M.ROOM_BLOCK = M.ROOM_BLOCK || [];
+  M.roomBlocked = (hass, id) => M.ROOM_BLOCK.some((f) => { try { return !!f(hass, id); } catch (e) { return false; } });
   // Funksjons-popups som bare lages når entitetene finnes (ellers ingen popup, heller ikke via referanser)
   M.popupNeeds = { '#dorlas': (hass) => M.all(hass, 'lock').length > 0, '#garasje': (hass) => M.all(hass, 'cover', (st) => st.attributes.device_class === 'garage').length > 0, '#ringeklokke': (hass) => !!(M.ringFind && M.ringFind(hass)) };
   const needOk = (hash, hass) => !M.popupNeeds[hash] || !hass || M.popupNeeds[hash](hass);
@@ -120,7 +124,7 @@
     if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden, color: e.color || null })); // 30.2: romfarge til popup-velgeren
     const out = [], seen = new Set();
     const add = (hash, name, icon, group, source) => { if (!hash || seen.has(hash)) return; seen.add(hash); out.push({ hash, name: name || hash, icon: icon || 'mdi:card-outline', group, source }); };
-    if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id]) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // 30.1: område «Basseng» = funksjons-popupen
+    if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id] && !M.roomBlocked(hass, a.id)) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // basseng slettet: ingen rom-popup for området «Basseng»
     M.FUNCTION_POPUPS.forEach(([h, n, i]) => { if (needOk(h, hass)) add(h, n, i, 'fn', 'auto'); });
     if (hass) M.all(hass, 'person').forEach((p) => add('#person-' + p.split('.')[1], M.name(hass, p), 'mdi:account', 'fn', 'auto'));
     const cp = (M.store && M.store.get('custom_popups')) || [];
@@ -210,8 +214,8 @@
     const res = { created: [], updated: [] }, drop = new Set();
     const S0 = (M.store && M.store.get()) || {}, gapFor = (hash) => M.headerGapOf(((S0.popups || {})[hash.slice(1)] || {}).header_gap, S0.popup_header_gap);
     const put = (hash, make, mainTag, extra) => {
-      // Fiks 26.14 · gammel popup under en annen hash (M.POPUP_ALIAS, f.eks. #badebasseng) tas over av den nye
-      // Fiks 30.1 · alle gamle popups under alias-hashene (f.eks. #basseng ved siden av #badebasseng): den første tas over
+      // Fiks 26.14 · gammel popup under en annen hash (M.POPUP_ALIAS, f.eks. #nibe → #varmepumpe) tas over av den nye
+      // Fiks 30.1 · alle gamle popups under alias-hashene (f.eks. #nibe ved siden av #varmepumpe): den første tas over
       // (hvis hashen ikke finnes fra før), resten fjernes – nøyaktig ÉN popup per funksjon.
       let took = null;
       const gone = [];
@@ -239,7 +243,7 @@
       }
     };
     // Rom (mal B)
-    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === M.canonHash('#' + a.id) && needOk(h, hass))).forEach((a) => { // 26.14: område «Basseng» → funksjons-popupen #basseng
+    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.roomBlocked(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === M.canonHash('#' + a.id) && needOk(h, hass))).forEach((a) => { // basseng slettet: ingen rom-popup for området «Basseng»
       const look = roomLookFrom(lc, a.id, hass);
       put('#' + a.id, (card) => M.popupTemplateB({ name: a.name, icon: look.icon, hash: '#' + a.id, color: plainVar(look.col), card }), 'msh-rom-card', (m) => (m.area ? {} : { area: a.id }));
     });

@@ -38,8 +38,8 @@
     .msh-tr>button{flex:0 0 auto;min-width:max-content;scroll-snap-align:start;white-space:nowrap;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
     .msh-tr.tr-drag,.msh-tr.tr-pan{scroll-snap-type:none}
     .msh-tr.tr-drag>button{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-    .msh-tr.tr-drag>button.tr-lift{transition:none;position:relative;z-index:5;box-shadow:0 8px 20px rgba(0,0,0,.4)}
-    .msh-tr.tr-drag>button.tr-lift:not(.on){background:var(--gray300,#404040) !important;color:var(--white,#fafafa) !important}
+    .msh-tr.tr-drag>button.tr-lift{transition:none;position:relative;z-index:5;box-shadow:0 8px 20px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.4*var(--ki-ka-k,1))))}
+    .msh-tr.tr-drag>button.tr-lift:not(.on){background:var(--ki-surface-2, var(--gray300,#404040)) !important;color:var(--ki-text, var(--white,#fafafa)) !important}
     .msh-tr.tr-settle>button{transition:none !important}
   `;
 
@@ -67,9 +67,9 @@
   // Bruk: `.tbox{${MSH.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.12)')}}` → standardflaten uten tema,
   // glass (rgba(255,255,255,.06) + blur(22px) saturate(190%) + glasskant) med tema.
   M.TAB_GLASS_VARS = {
-    '--ki-tr-bg': 'linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0) 45%),rgba(255,255,255,0.06)',
+    '--ki-tr-bg': 'linear-gradient(180deg,rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1))),rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0*var(--ki-wa-k,1)),var(--ki-wa-max,1))) 45%),rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))',
     '--ki-tr-blur': 'blur(22px) saturate(190%)',
-    '--ki-tr-sh': 'inset 0 0 0 0.5px rgba(255,255,255,0.14),inset 0 1px 0 rgba(255,255,255,0.22)',
+    '--ki-tr-sh': 'inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.22*var(--ki-wa-k,1)),var(--ki-wa-max,1)))',
   };
   M.tabSurface = (bg, sh) => `background:var(--ki-tr-bg,${bg || 'transparent'});-webkit-backdrop-filter:var(--ki-tr-blur,none);backdrop-filter:var(--ki-tr-blur,none);box-shadow:var(--ki-tr-sh,${sh || 'none'});`;
   M.tabGlassSync = function () {
@@ -326,10 +326,10 @@
         st.its.forEach((x) => { st.tr0.set(x, x.style.transition); if (x !== b) x.style.transition = E; });
         const cs = getComputedStyle(b), S = b.style;
         st.l0 = { boxShadow: S.boxShadow, position: S.position, zIndex: S.zIndex, touchAction: S.touchAction, background: S.background };
-        S.transition = 'none'; S.transform = 'scale(1.06)'; S.boxShadow = '0 8px 20px rgba(0,0,0,.4)';
+        S.transition = 'none'; S.transform = 'scale(1.06)'; S.boxShadow = '0 8px 20px ' + (M.theme ? M.theme.blackA(0.4, M.theme.mode()) : 'rgb(0 0 0 / .4)'); // konkret (regel 3) – løftet varer bare under draget
         if (cs.position === 'static') S.position = 'relative';
         S.zIndex = '5'; S.touchAction = 'none';
-        if (/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) && !b.classList.contains('on')) S.background = 'var(--gray300,#404040)';
+        if (/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) && !b.classList.contains('on')) S.background = 'var(--ki-surface-2, var(--gray300,#404040))';
         st.oo0 = row.style.outlineOffset;
         row.style.outlineOffset = '-1.5px';
         const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;

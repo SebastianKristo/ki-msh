@@ -37,7 +37,7 @@ Det som blir feil, overstyres i kortets egen «Tilpass»-ark eller i HAs GUI-edi
 Mobil (390 px, mørkt tema) og PC med rail-navbar. Bildene er tatt i testharnessen med testdata (ingen ekte personer,
 adresser eller kameraer).
 
-| Hjem | Rom | Basseng | Vanning |
+| Hjem | Rom | Basseng (manuell popup) | Vanning |
 |:---:|:---:|:---:|:---:|
 | <img src="docs/images/hjem.png" alt="Hjem" width="200"> | <img src="docs/images/rom.png" alt="Rom" width="200"> | <img src="docs/images/basseng.png" alt="Basseng" width="200"> | <img src="docs/images/vanning.png" alt="Vanning" width="200"> |
 
@@ -96,15 +96,19 @@ nesten alltid en gammel kopi av `ki-msh.js` i cachen:
 3. Sjekk konsollen: står det `[ki-msh] Ressurs-URL-en har ?v=…, men bundelen er …` eller `To versjoner er lastet`,
    bruker nettleseren/appen fortsatt en gammel kopi, eller den gamle ressursen ligger igjen i listen – fjern den.
 
-**Basseng (fiks 30.1):** det finnes nøyaktig ÉN bassengpopup, `#badebasseng`, med ÉTT `msh-basseng-card`. `#basseng`
-(og `#pool`/`#svommebasseng`) er bare alias: lenker, navbar-config og varsler dit blir til `#badebasseng` med
-`history.replaceState`. Ved første generering etter oppdateringen kjører en engangsmigrering av ki-store (logges i
-konsollen som «Basseng-migrering (fiks 30.1) kjørt én gang», merket `migrations.basseng30`): gamle bassengpopups i
-`custom_popups` fjernes (innstillingene flyttes til kortet), `popup_overrides`/`popups` flyttes fra `basseng` til
-`badebasseng`, og lenker til `#basseng` i kortconfigene skrives om. For en admin fjernes Lovelace-ressursene
-`ki-basseng-card.js` og `ki-basseng-hero-card.js` automatisk, og filene slettes fra service worker-cachen (Cache Storage)
-ved oppstart. Står `custom:ki-basseng-card`/`custom:ki-basseng-hero-card` fortsatt i en config, rendres de som
-`msh-basseng-card` (hero-kortet rendrer ingenting ved siden av et bassengkort) med en advarsel i konsollen.
+**Basseng – popupene er slettet:** strategien lager ingen bassengpopup lenger – verken `#badebasseng` eller `#basseng`
+(heller ikke en rom-popup for et område som heter «Basseng»/«Pool»), navbaren har ingen innebygd basseng-knapp, og
+onboarding foreslår den ikke. Omdirigeringen `#basseng` → `#badebasseng` er fjernet. Gamle/importerte bassengpopups i
+dashbord-configen (strategiens `custom_popups`, ki-store) droppes av strategien i stedet for å tas over. Ved første
+generering etter oppdateringen kjører en engangsmigrering av ki-store (logges i konsollen som «Basseng-popupene er
+slettet – migrering kjørt én gang», merket `migrations.basseng_fjernet`): alle bassengpopups i `custom_popups`,
+`popup_overrides.basseng/badebasseng` og `popups.basseng/badebasseng` fjernes, navbar-knappen «basseng» (og egne knapper
+mot bassenghashene) fjernes, og lenker til `#basseng`/`#badebasseng`/`#pool`/`#svommebasseng` i kortconfigene (Hjem-kort,
+prosa-piller, `popup_hash`, `tap_action`) fjernes. For en admin slettes Lovelace-ressursene `ki-basseng-card.js` og
+`ki-basseng-hero-card.js` automatisk, og filene slettes fra service worker-cachen (Cache Storage) ved oppstart. Kortet
+`msh-basseng-card` finnes fortsatt – se [Manuelt: Basseng i en egen popup](#manuelt-basseng-i-en-egen-popup). Står
+`custom:ki-basseng-card`/`custom:ki-basseng-hero-card` i et manuelt dashbord, rendres de som `msh-basseng-card`
+(hero-kortet rendrer ingenting ved siden av et bassengkort) med en advarsel i konsollen.
 
 Det kortkoden **ikke** kan gjøre selv, og som må gjøres for hånd etter oppdateringen:
 - Sett `?v=<ny versjon>` på `ki-msh.js`-ressursen (punkt 1 over) – URL-en ligger i HA, ikke i bundelen.
@@ -112,8 +116,8 @@ Det kortkoden **ikke** kan gjøre selv, og som må gjøres for hånd etter oppda
   ressurslisten (`resources:` i YAML) selv.
 - iOS-appen (WKWebView) holder på den gamle `ki-msh.js` til appen er tvunget til å lukke: tilbakestill frontend-hurtigbufferen
   (punkt 2), sveip appen helt bort og åpne den igjen. Sjekk så at konsollen viser riktig versjon.
-- Et eget YAML-dashbord uten strategien: bruk «Opprett / oppdater popups» i GUI-editoren til `msh-hjem-card`, som tar over den gamle popupen og
-  fjerner kopien, eller endre for hånd til én popup `#badebasseng` med én `custom:msh-basseng-card`.
+- Et eget YAML-dashbord uten strategien: fjern den gamle bassengpopupen (`#basseng`/`#badebasseng`) og basseng-knappen i
+  navbaren for hånd – eller bytt kortene i den til én `custom:msh-basseng-card` hvis du vil beholde den (se Manuelt under).
 
 ## Popups
 
@@ -127,7 +131,6 @@ Alle popups er Bubble Card `pop-up` og åpnes med hashen (f.eks. `#vanning`). Ko
 | Rom | `#<område>` | `msh-rom-card` | KI Rom / entiteter i området |
 | Person | `#person-<id>` | `msh-person-card` | `person.*`, mobil-sensorer |
 | Innstillinger | `#settings` | `msh-innstillinger-card` | KI Varslinger og sikkerhet, `ki_energi` |
-| Basseng | `#badebasseng` (alias `#basseng`) | `msh-basseng-card` | område «Basseng»/`pool` |
 | Vanning | `#vanning` | `msh-vanning-card` | OpenSprinkler, `valve.*`, KI Vanning |
 | Varmepumpe | `#varmepumpe` | `msh-varmepumpe-card` | NIBE (`nibe_heatpump` / myUplink) |
 | Server | `#server` | `msh-server-card` | UniFi, UniFi Protect, Proxmox VE, Unraid |
@@ -150,6 +153,34 @@ Alle popups er Bubble Card `pop-up` og åpnes med hashen (f.eks. `#vanning`). Ko
 
 Popups som bare lages når entitetene finnes: Dørlås, Ringeklokke, Tesla, Sir Sweeps og Varmepumpe. Full liste over
 config-nøkler: [`docs/kort.md`](docs/kort.md). Autokonfig-reglene: [`docs/entiteter.md`](docs/entiteter.md).
+
+### Manuelt: Basseng i en egen popup
+
+Strategien lager ingen bassengpopup (den er slettet), men kortet `msh-basseng-card` (toppkort, prosalinje, fanene
+Oversikt · Varme · Klor · Spreder, autokonfigurerte hurtigknapper) kan legges i en egen Bubble Card-popup – i «Tilpass
+Hjem» → Popups → *Ny popup* (egen popup i ki-store) eller i dashbord-YAML-en (strategiens `custom_popups` eller et manuelt
+dashbord). Kortet finner entitetene selv (område «Basseng»/`pool`, navn med basseng/pool) og har GUI-editor
+(`getConfigElement`) og «Tilpass basseng»:
+
+```yaml
+- type: custom:bubble-card
+  card_type: pop-up
+  name: Basseng
+  icon: mdi:pool
+  hash: '#mitt-basseng'
+  is_sidebar_hidden: true
+  bg_blur: '5'
+  bg_opacity: '98'
+  margin_top_mobile: 50px
+  margin_top_desktop: 50px
+  card_layout: large
+  cards:
+    - type: custom:msh-basseng-card
+      card_id: pop-basseng
+```
+
+Bruk en egen hash (ikke `#basseng`/`#badebasseng`/`#pool`/`#svommebasseng`), og legg til en navbar-knapp som egen knapp
+(«Tilpass navbar» → *Ny knapp* → popupen).
 
 ## Tilpasning
 

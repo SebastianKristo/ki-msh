@@ -178,8 +178,12 @@
   const G = 'var(--green, rgb(102 209 158))', Y = 'var(--yellow, rgb(242 210 111))', OR = 'var(--orange, rgb(242 181 115))';
   const R = 'var(--red, rgb(242 128 115))', B = 'var(--blue, rgb(115 185 242))', P = 'var(--pink, rgb(242 133 201))', PU = 'var(--purple, rgb(173 153 230))';
   const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
-  const TONE = { ok: G, advarsel: OR, feil: R, noytral: '#979797', info: B, gul: Y };
+  const TONE = { ok: G, advarsel: OR, feil: R, noytral: 'var(--ki-text-mid, #979797)', info: B, gul: Y };
   const al = (c, a) => `color-mix(in srgb, ${c} ${Math.round(a * 100)}%, transparent)`;
+  // Del A pkt. 6: aksent brukt som TEKST/ikon mørknes i lys modus (MSH.theme.accentText); flater/fyll beholder aksenten
+  //   I lys modus ligger teksten ofte på en tonet chip/innerflate (#dedede), så den mørknes 25 % til (--ki-tone-k = 1,5 bare i
+  //   lys modus → 75 % aksent + 25 % svart; mørk: 100 % = uendret).
+  const at = (c) => (c && M.theme && M.theme.accentText ? `color-mix(in srgb, ${M.theme.accentText(c)} calc(100% - (var(--ki-tone-k, 1) - 1) * 50%), black)` : c);
 
   /* ================================================================ kontekst (oppslag via mapId) */
   // Ett oppslagsobjekt per render. card.s(id) registrerer avhengigheten, så kortet tegnes på nytt når
@@ -245,7 +249,7 @@
 
   /* ================================================================ radtyper */
   const dotHTML = (k) => (k ? `<span class="kb-dot" style="background:${TONE[k] || k}"></span>` : '');
-  const chipHTML = (t, k) => `<span class="kb-chip" style="color:${TONE[k] || k || '#979797'};background:${al(TONE[k] || k || '#979797', 0.18)}">${esc(t)}</span>`;
+  const chipHTML = (t, k) => `<span class="kb-chip" style="color:${at(TONE[k] || k) || 'var(--ki-text-mid, #979797)'};background:${al(TONE[k] || k || 'var(--ki-text-mid, #979797)', 0.18)}">${esc(t)}</span>`;
   const helpBtn = (card, id, cls = '') => (HJELP[id] ? `<button type="button" class="kb-q sm${S(card).help.has('r:' + id) ? ' on' : ''} ${cls}" data-act="k-help" data-k="r:${esc(id)}" aria-label="Forklaring">?</button>` : '');
   const helpBox = (card, id, extra = '') => (S(card).help.has('r:' + id) && HJELP[id] ? `<div class="kb-help">${esc(HJELP[id])}${extra ? `<div style="margin-top:6px">${esc(extra)}</div>` : ''}</div>` : '');
   // Info-rad: prikk · navn (+ chip) · undertekst · verdi. o.act/o.data gjør raden trykkbar, o.ent gir hold → more-info.
@@ -340,7 +344,7 @@
   const klokke = (iso) => { if (!iso) return '–'; const d = new Date(iso); return isNaN(d) ? '–' : `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
   // Døgnbånd (_dognplan): én rad per ting, fargede spenn med tekst, hvit strek = nå, akse 00–24. Over midnatt deles i to.
-  const SPENN = { dag: Y, ok: G, s: B, c: PU, borte: '#7f7f7f', advarsel: OR, noytral: '#979797', feil: R };
+  const SPENN = { dag: Y, ok: G, s: B, c: PU, borte: 'var(--ki-text-mid, #7f7f7f)', advarsel: OR, noytral: 'var(--ki-text-mid, #979797)', feil: R };
   function dognplan(K, rader) {
     const naa = new Date(), naaMin = naa.getHours() * 60 + naa.getMinutes();
     const pct = (m) => (m / 1440 * 100).toFixed(2);
@@ -356,7 +360,7 @@
       const mk = (r.mark || []).map(([id, tekst, k]) => {
         const m = minOf(K, id);
         if (m == null) return '';
-        return `<span class="kb-dp-mk" style="left:${pct(m)}%;background:${SPENN[k] || '#fafafa'}" title="${esc(tekst)} ${klMin(m)}"></span><span class="kb-dp-ml" style="${m > 1080 ? `right:${(100 - pct(m)).toFixed(2)}%` : `left:${pct(m)}%`}">${esc(tekst)} ${klMin(m)}</span>`;
+        return `<span class="kb-dp-mk" style="left:${pct(m)}%;background:${SPENN[k] || 'var(--ki-text, #fafafa)'}" title="${esc(tekst)} ${klMin(m)}"></span><span class="kb-dp-ml" style="${m > 1080 ? `right:${(100 - pct(m)).toFixed(2)}%` : `left:${pct(m)}%`}">${esc(tekst)} ${klMin(m)}</span>`;
       }).join('');
       return `<div class="kb-dp-r"><span class="kb-dp-n">${esc(r.navn)}</span><div class="kb-dp-t">${sp}${mk}<span class="kb-dp-now" style="left:${pct(naaMin)}%"></span></div></div>`;
     };
@@ -414,8 +418,8 @@
   // Søyler med skrubb. bars: [{h (0..100), c (farge), c2?, h2? (stablet), o (opasitet), cls}], labels: tekst per søyle.
   function barsHTML(card, gid, bars, labels, o = {}) {
     S(card).graphs[gid] = labels;
-    const lines = (o.lines || []).map(([pct, t, c]) => `<span class="kb-gl" style="bottom:${pct}%;border-color:${c || '#696969'}"><em style="color:${c || '#979797'}">${esc(t)}</em></span>`).join('');
-    return `<div class="kb-bars${o.cls ? ' ' + o.cls : ''}" data-kgraph="${esc(gid)}" style="height:${o.h || 96}px;gap:${o.gap != null ? o.gap : 3}px">${lines}${bars.map((b) => `<span class="kb-bar${b.cls ? ' ' + b.cls : ''}" style="${b.ring ? 'box-shadow:inset 0 0 0 1.5px #fafafa;' : ''}"><i style="height:${Math.max(0, Math.min(100, b.h || 0)).toFixed(1)}%;background:${b.c};opacity:${b.o != null ? b.o : 1}"></i>${b.h2 ? `<i style="height:${Math.min(100, b.h2).toFixed(1)}%;background:${b.c2};opacity:${b.o2 != null ? b.o2 : 1}"></i>` : ''}${b.dot ? '<b class="kb-bdot"></b>' : ''}</span>`).join('')}<div class="kb-scrub" hidden><span class="kb-scrub-l"></span><span class="kb-scrub-t"></span></div></div>`
+    const lines = (o.lines || []).map(([pct, t, c]) => `<span class="kb-gl" style="bottom:${pct}%;border-color:${c || 'var(--ki-text-lo, #696969)'}"><em style="color:${at(c) || 'var(--ki-text-mid, #979797)'}">${esc(t)}</em></span>`).join('');
+    return `<div class="kb-bars${o.cls ? ' ' + o.cls : ''}" data-kgraph="${esc(gid)}" style="height:${o.h || 96}px;gap:${o.gap != null ? o.gap : 3}px">${lines}${bars.map((b) => `<span class="kb-bar${b.cls ? ' ' + b.cls : ''}" style="${b.ring ? 'box-shadow:inset 0 0 0 1.5px var(--ki-text, #fafafa);' : ''}"><i style="height:${Math.max(0, Math.min(100, b.h || 0)).toFixed(1)}%;background:${b.c};opacity:${b.o != null ? b.o : 1}"></i>${b.h2 ? `<i style="height:${Math.min(100, b.h2).toFixed(1)}%;background:${b.c2};opacity:${b.o2 != null ? b.o2 : 1}"></i>` : ''}${b.dot ? '<b class="kb-bdot"></b>' : ''}</span>`).join('')}<div class="kb-scrub" hidden><span class="kb-scrub-l"></span><span class="kb-scrub-t"></span></div></div>`
       + (o.axis ? `<div class="kb-axis">${o.axis.map((t) => `<span>${esc(t)}</span>`).join('')}</div>` : '');
   }
 
@@ -447,7 +451,7 @@
     const h = (v) => 100 * v / maks;
     const bars = rader.map((r) => {
       const naa = r.kv === 'forelopig', over = isFinite(grense) && r.kwh != null && r.kwh > grense;
-      const c = over ? R : naa ? P : r.kv === 'estimert' ? '#7f7f7f' : '#afafaf';
+      const c = over ? R : naa ? P : r.kv === 'estimert' ? 'var(--ki-text-mid, #7f7f7f)' : 'var(--ki-text-2, #afafaf)';
       const b = { h: r.kwh == null ? 0 : h(r.kwh), c, o: r.kv === 'estimert' ? 0.55 : naa ? 1 : 0.75 };
       if (naa && isFinite(r.est) && r.est > r.kwh) { b.h2 = h(r.est - r.kwh); b.c2 = P; b.o2 = 0.3; }
       return b;
@@ -455,7 +459,7 @@
     const hh = (r) => pad(new Date(r.start * 1000).getHours());
     const labels = rader.map((r) => `${hh(r)}:00 · ${r.kwh == null ? 'mangler måling' : nf(r.kwh, 2) + ' kWh (' + (r.kv === 'forelopig' ? 'nå' + (isFinite(r.est) ? ', forventet ' + nf(r.est, 2) : '') : r.kv || 'målt') + ')'}`);
     return barsHTML(card, 'siste12', bars, labels, { h: 96, lines: isFinite(grense) ? [[h(grense), `grense ${nf(grense, 2)}`, '#696969']] : [], axis: rader.map(hh) })
-      + `<div class="kb-legend"><span><i style="background:#afafaf"></i>Målt</span><span><i style="background:#7f7f7f;opacity:.55"></i>Estimert</span><span><i style="background:${P}"></i>Nå (lys = forventet slutt)</span><span><i style="background:${R}"></i>Over grensen</span></div>`;
+      + `<div class="kb-legend"><span><i style="background:var(--ki-text-2, #afafaf)"></i>Målt</span><span><i style="background:var(--ki-text-mid, #7f7f7f);opacity:.55"></i>Estimert</span><span><i style="background:${P}"></i>Nå (lys = forventet slutt)</span><span><i style="background:${R}"></i>Over grensen</span></div>`;
   }
   function forventet(K) {
     const prog = (n) => Number(K.a('sensor.ki_prognose', n, NaN));
@@ -588,7 +592,7 @@
       const c = TONE[h.k];
       const valgt = kb.zone === l.key;
       return `<button type="button" class="kb-zt${valgt ? ' on' : ''}" data-act="k-zone" data-key="${esc(l.key)}">
-        <span class="kb-zt-top"><span class="kb-zt-i" style="color:${c};background:${al(c, 0.18)}">${M.icon(soneIkon(l), 18)}</span>${chipHTML(l.overstyrt ? 'Manuell' : h.tekst, l.overstyrt ? 'noytral' : h.k)}</span>
+        <span class="kb-zt-top"><span class="kb-zt-i" style="color:${at(c)};background:${al(c, 0.18)}">${M.icon(soneIkon(l), 18)}</span>${chipHTML(l.overstyrt ? 'Manuell' : h.tekst, l.overstyrt ? 'noytral' : h.k)}</span>
         <span class="kb-zt-temp">${l.naa !== null && l.naa !== undefined ? nf(l.naa, 1) + '°' : '–'}</span>
         <span class="kb-zt-n">${esc(l.navn)}</span><span class="kb-zt-s">mål ${esc(l.settpunkt ?? l.mal ?? '–')}° · ${esc(l.forklaring || '')}</span></button>`;
     }).join('')}</div>`;
@@ -613,7 +617,7 @@
     const hva = kb.zgraf[l.key] || 'temp';
     const til = l.overstyrt && l.overstyrt_til ? klokke(l.overstyrt_til) : null;
     return `<section class="kb kb-zone" data-key="kb-zone">
-      <div class="kb-zh"><span class="kb-zt-i lg" style="color:${c};background:${al(c, 0.18)}">${M.icon(soneIkon(l), 22)}</span>
+      <div class="kb-zh"><span class="kb-zt-i lg" style="color:${at(c)};background:${al(c, 0.18)}">${M.icon(soneIkon(l), 22)}</span>
         <span class="kb-zh-t"><b>${esc(l.navn)}</b><span>${esc(l.forklaring || '')}</span></span>
         <button type="button" class="kb-x" data-act="k-zone" data-key="" aria-label="Lukk">${M.icon('mdi:close', 18)}</button></div>
       ${facts([fact(h.tekst, h.k), l.overstyrt ? fact(til ? `Manuelt til ${til}` : 'Manuell', 'noytral') : '', fact(`Prioritet ${l.prio ?? '–'}`), fact(String(l.type || '–')), fact(`plan ${nf(l.effekt, 2)} kW`), l.leggetid ? fact('leggetid', 'noytral') : '', l.forvarm ? fact('forvarmer', 'ok') : ''])}
@@ -688,15 +692,15 @@
     eksterne.forEach((t) => { bars.push({ h: hoyde(t.kwh), c: B, o: 0.6 }); labels.push(`ekstern, ukjent dato · ${nf(t.kwh, 2)} kWh`); axis.push('?'); });
     for (let dag = 1; dag <= antall; dag++) {
       const d = perDag[dag];
-      bars.push({ h: d ? hoyde(d.kwh) : 0, c: !d ? '#545454' : d.topp ? P : d.kvalitet === 'estimert' ? '#7f7f7f' : '#afafaf', o: d && d.kvalitet === 'estimert' && !d.topp ? 0.55 : 1, ring: dag === iDag.getDate(), dot: !!(d && d.manglende_timer) });
+      bars.push({ h: d ? hoyde(d.kwh) : 0, c: !d ? 'var(--ki-text-lo, #545454)' : d.topp ? P : d.kvalitet === 'estimert' ? 'var(--ki-text-mid, #7f7f7f)' : 'var(--ki-text-2, #afafaf)', o: d && d.kvalitet === 'estimert' && !d.topp ? 0.55 : 1, ring: dag === iDag.getDate(), dot: !!(d && d.manglende_timer) });
       labels.push(`${dag}. · ${d ? nf(d.kwh, 2) + ' kWh kl. ' + d.time + ' (' + d.kvalitet + (d.manglende_timer ? ', ' + d.manglende_timer + ' t mangler' : '') + ')' : 'ingen data'}`);
       axis.push(dag % 5 === 0 || dag === 1 ? String(dag) : '');
     }
     const lines = [];
     if (isFinite(mal)) lines.push([hoyde(mal), `mål ${nf(mal, 1)}`, P]);
-    if (isFinite(grense)) lines.push([hoyde(grense), `grense ${nf(grense, 2)}`, '#979797']);
+    if (isFinite(grense)) lines.push([hoyde(grense), `grense ${nf(grense, 2)}`, 'var(--ki-text-mid, #979797)']);
     return barsHTML(card, 'dogn', bars, labels, { h: 100, gap: 2, lines, axis, cls: 'dense' })
-      + `<div class="kb-legend"><span><i style="background:${P}"></i>Topp tre</span><span><i style="background:#afafaf"></i>Andre dager</span><span><i style="background:#7f7f7f;opacity:.55"></i>Estimert</span><span><i style="background:${B};opacity:.6"></i>Ekstern (uten dato)</span><span>Ramme = i dag · prikk = timer mangler</span></div>`;
+      + `<div class="kb-legend"><span><i style="background:${P}"></i>Topp tre</span><span><i style="background:var(--ki-text-2, #afafaf)"></i>Andre dager</span><span><i style="background:var(--ki-text-mid, #7f7f7f);opacity:.55"></i>Estimert</span><span><i style="background:${B};opacity:.6"></i>Ekstern (uten dato)</span><span>Ramme = i dag · prikk = timer mangler</span></div>`;
   }
   function topp3(K, card) {
     const N = N_(K);
@@ -714,7 +718,7 @@
   function effekt6(K, card) {
     const U = 'sensor.ki_uregulert_effekt', ST = 'sensor.ki_styrt_effekt';
     const live = `Nå ${nf(K.n(U) / 1000, 2)} + ${nf(K.n(ST) / 1000, 2)} kW`;
-    const legend = `<div class="kb-legend"><span><i style="background:#afafaf"></i>Uregulert</span><span><i style="background:${OR}"></i>Styrt varme</span><span class="kb-live"><i></i>${esc(live)}</span></div>`;
+    const legend = `<div class="kb-legend"><span><i style="background:var(--ki-text-2, #afafaf)"></i>Uregulert</span><span><i style="background:${OR}"></i>Styrt varme</span><span class="kb-live"><i></i>${esc(live)}</span></div>`;
     if (!K.st(U) && !K.st(ST)) return note('Ingen historikk ennå — sensorene er nye') + legend;
     const d = hist(card, K, [U, ST], 6);
     if (!d) return `<div class="kb-wait">Henter historikk …</div>` + legend;
@@ -722,7 +726,7 @@
     const a = buckets(d[U] || [], NB, 6).map((v) => (v == null ? null : v / 1000)), b = buckets(d[ST] || [], NB, 6).map((v) => (v == null ? null : v / 1000));
     if (!a.some((v) => v != null) && !b.some((v) => v != null)) return note('Ingen historikk ennå — sensorene er nye') + legend;
     const maks = Math.max(0.2, ...a.map((v, i) => (v || 0) + (b[i] || 0))) * 1.1;
-    const bars = a.map((v, i) => ({ h: 100 * (v || 0) / maks, c: '#afafaf', o: 0.7, h2: 100 * (b[i] || 0) / maks, c2: OR }));
+    const bars = a.map((v, i) => ({ h: 100 * (v || 0) / maks, c: 'var(--ki-text-2, #afafaf)', o: 0.7, h2: 100 * (b[i] || 0) / maks, c2: OR }));
     const labels = a.map((v, i) => `${bucketLabel(i, NB, 6)} · Uregulert ${nf(v, 2)} · Styrt ${nf(b[i], 2)} kW`);
     return barsHTML(card, 'effekt6', bars, labels, { h: 90, cls: 'stack', axis: ['−6 t', '−4 t', '−2 t', 'nå'] }) + legend;
   }
@@ -751,7 +755,7 @@
     const vis = Object.entries(poster).filter(([k]) => k !== 'gardiner' || K.har('gardiner')).filter(([k]) => k !== 'hanklevarmer' || K.har('hanklevarmer'))
       .filter(([k]) => k !== 'lys' || (lysSt && (lysSt.attributes.regler || []).length));
     return big(nf(Number(a.total_kr_maned || 0), 0), `kr spart i ${new Date().toLocaleDateString('nb-NO', { month: 'long' })}`)
-      + `<div class="kb-spar">${vis.map(([k, p]) => `<div class="kb-sp"><div class="kb-sp-h"><span>${M.icon(SPAR_IKON[k] || 'mdi:cash', 17, 'color:#979797')}${esc(SPAR_NAVN[k] || k)}</span><b>${nf(p.kr || 0, 0)} kr <small>${nf(p.kwh || 0, 1)} kWh</small></b></div>
+      + `<div class="kb-spar">${vis.map(([k, p]) => `<div class="kb-sp"><div class="kb-sp-h"><span>${M.icon(SPAR_IKON[k] || 'mdi:cash', 17, 'color:var(--ki-text-mid, #979797)')}${esc(SPAR_NAVN[k] || k)}</span><b>${nf(p.kr || 0, 0)} kr <small>${nf(p.kwh || 0, 1)} kWh</small></b></div>
         <div class="kb-sp-bar"><i style="width:${(100 * (p.kr || 0) / maks).toFixed(0)}%"></i>${p.potensial_kr ? `<em style="width:${(100 * p.potensial_kr / maks).toFixed(0)}%" title="kunne spart"></em>` : ''}</div>
         ${p.tekst || p.potensial_kr > 0.5 ? `<div class="kb-rs">${esc(p.tekst || '')}${p.potensial_kr > 0.5 ? ` · +${nf(p.potensial_kr, 0)} kr mulig` : ''}</div>` : ''}</div>`).join('')}</div>`
       + (Number(a.gardin_kunne_spart_kr || 0) > 0.5 ? note(`Gardinene sto åpne om natten i timer de burde vært lukket — ${nf(Number(a.gardin_kunne_spart_kr), 0)} kr til denne måneden hvis de lukkes.`) : '');
@@ -772,8 +776,8 @@
     const pct = isFinite(dager) && hard > 0 ? Math.max(0, Math.min(100, (dager / hard) * 100)) : 0;
     const c = TONE[L.klasse];
     const varmer = !!a('varmer', false), konfigurert = !!a('bryter', '');
-    const ring = `<div class="kb-legring" style="background:conic-gradient(${c} ${(100 - pct).toFixed(0)}%, #2f2f2f 0)"><div>${M.icon(L.forfalt ? 'mdi:shield-alert' : L.sikret ? 'mdi:shield-check' : 'mdi:shield-outline', 22, `color:${c}`)}<span>${nf(dager, 1)} / ${nf(intervall, 0)} d</span></div></div>`;
-    return `<div class="kb-lg">${ring}<div class="kb-lg-t"><span class="kb-cap" style="color:${c}">Legionella ${esc(L.tekst.toLowerCase())}</span><b>${esc(!konfigurert ? 'Ikke satt opp' : varmer ? 'Varmer nå' : a('bryter_pa', false) ? 'Bryter på, trekker ikke effekt' : 'Står stille')}</b><span>${esc(K.s('sensor.ki_vvb_forklaring', a('forklaring', '')))}${a('neste_frist', null) ? ` Frist ${esc(dato(a('neste_frist', null)))}.` : ''}</span></div></div>`
+    const ring = `<div class="kb-legring" style="background:conic-gradient(${c} ${(100 - pct).toFixed(0)}%, var(--ki-surface-3, #2f2f2f) 0)"><div>${M.icon(L.forfalt ? 'mdi:shield-alert' : L.sikret ? 'mdi:shield-check' : 'mdi:shield-outline', 22, `color:${c}`)}<span>${nf(dager, 1)} / ${nf(intervall, 0)} d</span></div></div>`;
+    return `<div class="kb-lg">${ring}<div class="kb-lg-t"><span class="kb-cap" style="color:${at(c)}">Legionella ${esc(L.tekst.toLowerCase())}</span><b>${esc(!konfigurert ? 'Ikke satt opp' : varmer ? 'Varmer nå' : a('bryter_pa', false) ? 'Bryter på, trekker ikke effekt' : 'Står stille')}</b><span>${esc(K.s('sensor.ki_vvb_forklaring', a('forklaring', '')))}${a('neste_frist', null) ? ` Frist ${esc(dato(a('neste_frist', null)))}.` : ''}</span></div></div>`
       + vvbStatusRows(K, card, false);
   }
   function vvbBrytere(K, card) {
@@ -946,8 +950,8 @@
     const c = TONE[klasse];
     const forventet = satt ? Math.round(satt * 230) / 1000 : null;
     const avvik = (forventet != null && malt != null) ? forventet - malt : null;
-    return `<div class="kb-ev"><span class="kb-ev-i" style="color:${c};background:${al(c, 0.18)}">${M.icon('mdi:ev-station', 26)}</span>
-      <div class="kb-ev-t"><span class="kb-cap" style="color:${c}">${esc(tekst)}</span><b>${malt != null ? nf(Number(malt), 2) : '–'}<small> kW nå</small></b><span>${esc(a('forklaring', ''))}</span></div></div>`
+    return `<div class="kb-ev"><span class="kb-ev-i" style="color:${at(c)};background:${al(c, 0.18)}">${M.icon('mdi:ev-station', 26)}</span>
+      <div class="kb-ev-t"><span class="kb-cap" style="color:${at(c)}">${esc(tekst)}</span><b>${malt != null ? nf(Number(malt), 2) : '–'}<small> kW nå</small></b><span>${esc(a('forklaring', ''))}</span></div></div>`
       + stats([[trinn ? trinn + ' A' : '–', 'valgt trinn'], [satt ? satt + ' A' : '–', 'satt trinn'], [soc != null ? nf(soc, 0) + ' %' : '–', 'batteri']])
       + (avvik != null && Math.abs(avvik) >= 0.5 ? list([row({ dot: 'advarsel', name: 'Bilen tar mindre enn den får', sub: `Satt til ${satt} A (${nf(forventet, 2)} kW), tar ${nf(Number(malt), 2)} kW — nesten full eller kald. Differansen er gitt til varmen.`, v: nf(avvik, 2) + ' kW' })]) : '')
       + list([row({ dot: klasse, name: 'Handling', chip: [st.state, klasse], sub: trinn ? `Valgt trinn ${trinn} A` : 'Ingen lading nå', act: 'k-more', data: { id: 'sensor.ki_lading_status' }, ent: 'sensor.ki_lading_status' })]);
@@ -1685,7 +1689,7 @@
 
   /* ================================================================ API: status til heroen */
   const ZONE_TEXT = { ok: 'God margin', yellow: 'Nærmer seg grensen', orange: 'Liten margin', red: 'Fare for ny topp', critical: 'Kritisk', fallback: 'Trygg fallback', off: 'Motoren er av' };
-  const ZONE_COLOR = { ok: G, yellow: Y, orange: OR, red: R, critical: 'rgb(240 86 110)', fallback: B, off: '#979797' };
+  const ZONE_COLOR = { ok: G, yellow: Y, orange: OR, red: R, critical: 'rgb(240 86 110)', fallback: B, off: 'var(--ki-text-mid, #979797)' };
   M.KLIMA_ZONE_COLOR = ZONE_COLOR;
   const SONE_AV_TILSTAND = { gronn: 'ok', gul: 'yellow', oransje: 'orange', rod: 'red', kritisk: 'critical' };
   M.klimaStatus = function (card) {
@@ -1738,21 +1742,21 @@
   /* ================================================================ CSS */
   const CSS = `
     .kb-wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
-    .kb{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:var(--gray200,#3a3a3a);min-width:0}
+    .kb{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0}
     .kb.is-col{gap:0}
     .kb-h{display:flex;align-items:center;gap:8px;min-height:28px;cursor:pointer;user-select:none;-webkit-user-select:none}
-    .kb-ic{display:inline-flex;color:var(--gray700,#979797);flex:none}
+    .kb-ic{display:inline-flex;color:var(--ki-text-mid, var(--gray700,#979797));flex:none}
     .kb-t{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto;max-width:72%;min-width:0}
-    .kb-m{flex:1 1 auto;min-width:0;text-align:right;font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .kb-chev{display:inline-flex;color:var(--gray600,#7f7f7f);transition:transform .2s;flex:none}
+    .kb-m{flex:1 1 auto;min-width:0;text-align:right;font-size:12px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .kb-chev{display:inline-flex;color:var(--ki-text-mid, var(--gray600,#7f7f7f));transition:transform .2s;flex:none}
     .kb.is-col .kb-chev,.kb-subsec.is-col .kb-subh ha-icon{transform:rotate(-90deg)}
-    .kb-q{width:28px;height:28px;border-radius:14px;background:var(--gray100,#2f2f2f);color:var(--gray800,#afafaf);font-size:13px;font-weight:600;display:inline-grid;place-items:center;flex:none;transition:background .15s,color .15s}
+    .kb-q{width:28px;height:28px;border-radius:14px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));color:var(--ki-text-2, var(--gray800,#afafaf));font-size:13px;font-weight:600;display:inline-grid;place-items:center;flex:none;transition:background .15s,color .15s}
     .kb-q.sm{width:20px;height:20px;border-radius:10px;font-size:11px;margin-left:2px}
-    .kb-q.on{background:rgba(242,133,201,.22);color:rgb(242 133 201)}
-    .kb-help{background:var(--gray100,#2f2f2f);border-radius:16px;padding:12px 14px;font-size:12px;line-height:1.5;color:var(--gray900,#c7c7c7);text-wrap:pretty}
+    .kb-q.on{background:rgba(242,133,201,.22);color:var(--ki-pink-text, rgb(242 133 201))}
+    .kb-help{background:var(--ki-surface-3, var(--gray100,#2f2f2f));border-radius:16px;padding:12px 14px;font-size:12px;line-height:1.5;color:var(--ki-text-1, var(--gray900,#c7c7c7));text-wrap:pretty}
     .kb-b{display:flex;flex-direction:column;gap:12px;min-width:0}
     .kb-list{display:flex;flex-direction:column;min-width:0}
-    .kb-list>.kb-row+.kb-row,.kb-list>.kb-help+.kb-row,.kb-list>.kb-eg+.kb-eg{border-top:1px solid rgba(255,255,255,.05)}
+    .kb-list>.kb-row+.kb-row,.kb-list>.kb-help+.kb-row,.kb-list>.kb-eg+.kb-eg{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .kb-list>.kb-help{margin:0 0 8px}
     .kb-row{display:flex;align-items:center;gap:10px;padding:10px 0;min-height:44px;min-width:0}
     .kb-row.tap{cursor:pointer}
@@ -1761,60 +1765,60 @@
     .kb-dot{width:7px;height:7px;border-radius:4px;flex:none}
     .kb-rt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .kb-rn{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;font-weight:500;min-width:0;overflow-wrap:anywhere}
-    .kb-rs{font-size:11px;color:var(--gray600,#7f7f7f);line-height:1.4;text-wrap:pretty;overflow-wrap:anywhere}
+    .kb-rs{font-size:11px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));line-height:1.4;text-wrap:pretty;overflow-wrap:anywhere}
     .kb-rv{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;flex:none;text-align:right;max-width:48%;overflow:hidden;text-overflow:ellipsis}
-    .kb-rv.pill{padding:6px 11px;border-radius:12px;background:var(--gray100,#2f2f2f)}
+    .kb-rv.pill{padding:6px 11px;border-radius:12px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
     .kb-chip{font-size:10px;font-weight:600;padding:2px 7px;border-radius:7px;white-space:nowrap}
-    .kb-sw{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray300,#404040);transition:background .2s}
-    .kb-sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:left .2s}
+    .kb-sw{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--ki-surface-2, var(--gray300,#404040));transition:background .2s}
+    .kb-sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .kb-sw.on{background:rgb(242 133 201)}
     .kb-sw.on i{left:21px}
     .kb-sw.miss{opacity:.35}
     .kb-msw{margin-left:2px;cursor:pointer}
     .kb-stats{display:grid;gap:6px}
-    .kb-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:12px 4px;border-radius:18px;background:var(--gray100,#2f2f2f);text-align:center;min-width:0}
+    .kb-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:12px 4px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));text-align:center;min-width:0}
     .kb-stat b{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-    .kb-stat span{font-size:10px;color:var(--gray600,#7f7f7f);line-height:1.3}
+    .kb-stat span{font-size:10px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));line-height:1.3}
     .kb-big{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
     .kb-big b{font-size:40px;font-weight:300;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1}
-    .kb-big span{font-size:14px;color:var(--gray600,#7f7f7f)}
-    .kb-concl{font-size:13px;line-height:1.45;color:var(--gray900,#c7c7c7);text-wrap:pretty}
-    .kb-note{font-size:11px;line-height:1.5;color:var(--gray600,#7f7f7f);text-wrap:pretty}
-    .kb-warn{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:rgba(242,128,115,.14);color:rgb(242 128 115);font-size:12px;line-height:1.4}
-    .kb-sub{font-size:12px;font-weight:600;color:var(--gray700,#979797);padding-top:2px}
+    .kb-big span{font-size:14px;color:var(--ki-text-mid, var(--gray600,#7f7f7f))}
+    .kb-concl{font-size:13px;line-height:1.45;color:var(--ki-text-1, var(--gray900,#c7c7c7));text-wrap:pretty}
+    .kb-note{font-size:11px;line-height:1.5;color:var(--ki-text-mid, var(--gray600,#7f7f7f));text-wrap:pretty}
+    .kb-warn{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:rgba(242,128,115,.14);color:var(--ki-red-text, rgb(242 128 115));font-size:12px;line-height:1.4}
+    .kb-sub{font-size:12px;font-weight:600;color:var(--ki-text-mid, var(--gray700,#979797));padding-top:2px}
     .kb-facts{display:flex;flex-wrap:wrap;gap:6px}
-    .kb-fact{font-size:11px;padding:4px 9px;border-radius:9px;background:var(--gray100,#2f2f2f);color:var(--gray800,#afafaf)}
+    .kb-fact{font-size:11px;padding:4px 9px;border-radius:9px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));color:var(--ki-text-2, var(--gray800,#afafaf))}
     .kb-facts .kb-chip{font-size:11px;padding:4px 9px;border-radius:9px}
-    .kb-ul{margin:0;padding-left:18px;font-size:12px;line-height:1.5;color:var(--gray900,#c7c7c7)}
-    .kb-ul.sm{font-size:11px;color:var(--gray700,#979797)}
+    .kb-ul{margin:0;padding-left:18px;font-size:12px;line-height:1.5;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+    .kb-ul.sm{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
     .kb-dim{opacity:.4;pointer-events:none}
-    .kb-wait{font-size:12px;color:var(--gray600,#7f7f7f);padding:18px 0;text-align:center}
+    .kb-wait{font-size:12px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));padding:18px 0;text-align:center}
     .kb-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .kb-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 12px;border-radius:22px;background:var(--gray100,#2f2f2f);font-size:13px;font-weight:500;text-align:center;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .2s,color .2s}
+    .kb-btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 12px;border-radius:22px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));font-size:13px;font-weight:500;text-align:center;transition:transform .15s cubic-bezier(.34,1.5,.64,1),background .2s,color .2s}
     .kb-btn:active{transform:scale(.96)}
     .kb-btn.wide{width:100%}
-    .kb-btn.on{background:rgba(242,133,201,.22);color:rgb(242 133 201)}
+    .kb-btn.on{background:rgba(242,133,201,.22);color:var(--ki-pink-text, rgb(242 133 201))}
     .kb-btn.armed{background:rgb(242 128 115);color:#2a1512}
-    .kb-seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--gray100,#2f2f2f)}
-    .kb-seg button{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 8px;border-radius:18px;font-size:13px;font-weight:500;color:var(--gray700,#979797);white-space:nowrap;transition:background .2s,color .2s}
+    .kb-seg{display:flex;gap:2px;padding:4px;border-radius:22px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .kb-seg button{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 8px;border-radius:18px;font-size:13px;font-weight:500;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;transition:background .2s,color .2s}
     .kb-seg button span{overflow:hidden;text-overflow:ellipsis}
-    .kb-seg button.on{background:var(--gray300,#404040);color:#fafafa}
+    .kb-seg button.on{background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, #fafafa)}
     .kb-seg button:disabled{opacity:.35}
-    .kb-wrap>.kb-seg{background:var(--gray200,#3a3a3a);border-radius:26px}
+    .kb-wrap>.kb-seg{background:var(--ki-surface, var(--gray200,#3a3a3a));border-radius:26px}
     .kb-wrap>.kb-seg button{height:44px;border-radius:22px;font-size:14px}
-    .kb-subsec{border-radius:18px;background:var(--gray100,#2f2f2f);padding:0 12px}
+    .kb-subsec{border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));padding:0 12px}
     .kb-subh{display:flex;align-items:center;gap:8px;min-height:44px;font-size:13px;font-weight:500;cursor:pointer}
     .kb-subh>span:first-child{flex:1}
-    .kb-subm{font-size:11px;color:var(--gray600,#7f7f7f);font-weight:400}
+    .kb-subm{font-size:11px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));font-weight:400}
     .kb-subb{padding-bottom:6px}
     .kb-subsec+.kb-subsec{margin-top:6px}
-    .kb-track{position:relative;height:10px;border-radius:5px;background:var(--gray100,#2f2f2f)}
+    .kb-track{position:relative;height:10px;border-radius:5px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
     .kb-track.sm{height:6px}
     .kb-track.lg{height:22px;border-radius:11px}
     .kb-track>i{position:absolute;left:0;top:0;bottom:0;border-radius:inherit;transition:width .4s}
-    .kb-track>b{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:rgba(255,255,255,.55)}
-    .kb-tracktxt{display:flex;justify-content:space-between;font-size:11px;color:var(--gray600,#7f7f7f);margin-top:-4px}
-    .kb-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:var(--gray600,#7f7f7f)}
+    .kb-track>b{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:rgb(var(--ki-wa-c,255 255 255)/0.55)}
+    .kb-tracktxt{display:flex;justify-content:space-between;font-size:11px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));margin-top:-4px}
+    .kb-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:var(--ki-text-mid, var(--gray600,#7f7f7f))}
     .kb-legend span{display:inline-flex;align-items:center;gap:5px}
     .kb-legend i{width:8px;height:8px;border-radius:2px;display:inline-block}
     .kb-live i{border-radius:4px;background:rgb(102 209 158);animation:kbpuls 2s ease-in-out infinite}
@@ -1827,45 +1831,45 @@
     .kb-bars.dense .kb-bar{border-radius:2px}
     .kb-bdot{position:absolute;top:-5px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:2px;background:rgb(242 181 115)}
     .kb-gl{position:absolute;left:0;right:0;border-top:1px dashed;pointer-events:none;z-index:1}
-    .kb-gl em{position:absolute;right:0;bottom:1px;font-size:9px;font-style:normal;background:var(--gray200,#3a3a3a);padding:0 3px;border-radius:3px}
-    .kb-axis{display:flex;justify-content:space-between;gap:2px;font-size:9px;color:var(--gray500,#696969);font-variant-numeric:tabular-nums;margin-top:-6px}
+    .kb-gl em{position:absolute;right:0;bottom:1px;font-size:9px;font-style:normal;background:var(--ki-surface, var(--gray200,#3a3a3a));padding:0 3px;border-radius:3px}
+    .kb-axis{display:flex;justify-content:space-between;gap:2px;font-size:9px;color:var(--ki-text-lo, var(--gray500,#696969));font-variant-numeric:tabular-nums;margin-top:-6px}
     .kb-bars+.kb-axis span{flex:1;text-align:center;min-width:0;overflow:visible;white-space:nowrap}
     .kb-scrub{position:absolute;inset:0;pointer-events:none;z-index:2}
     .kb-scrub[hidden]{display:none}
-    .kb-scrub-l{position:absolute;top:-4px;bottom:0;width:0;border-left:1.5px dashed #fafafa}
+    .kb-scrub-l{position:absolute;top:-4px;bottom:0;width:0;border-left:1.5px dashed var(--ki-text, #fafafa)}
     .kb-scrub-t{position:absolute;top:-6px;padding:4px 8px;border-radius:8px;background:rgba(20,20,22,.9);font-size:11px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
     .kb-fc{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
     .kb-fc .kb-stat{gap:6px;padding:10px 4px}
     .kb-fc .kb-stat b{font-size:14px}
-    .kb-fcb{position:relative;width:8px;height:44px;border-radius:4px;background:var(--gray300,#404040);overflow:hidden;display:flex;align-items:flex-end}
+    .kb-fcb{position:relative;width:8px;height:44px;border-radius:4px;background:var(--ki-surface-2, var(--gray300,#404040));overflow:hidden;display:flex;align-items:flex-end}
     .kb-fcb i{display:block;width:100%;border-radius:4px}
     .kb-bed{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .kb-bedb{display:flex;align-items:center;gap:10px;padding:10px;border-radius:22px;background:var(--gray100,#2f2f2f);text-align:left;min-width:0;transition:transform .15s}
+    .kb-bedb{display:flex;align-items:center;gap:10px;padding:10px;border-radius:22px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));text-align:left;min-width:0;transition:transform .15s}
     .kb-bedb:active{transform:scale(.97)}
     .kb-bedb.on{background:${PINK};color:#2a1720}
-    .kb-bedi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--gray300,#404040);flex:none}
-    .kb-bedb.on .kb-bedi{background:rgba(255,255,255,.4)}
+    .kb-bedi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+    .kb-bedb.on .kb-bedi{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.4*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .kb-bedt{display:flex;flex-direction:column;min-width:0}
     .kb-bedt b{font-size:14px;font-weight:500}
     .kb-bedt span{font-size:11px;opacity:.7}
     .kb-dp{display:flex;flex-direction:column;gap:6px;padding-top:4px}
     .kb-dp-r{display:flex;align-items:center;gap:8px}
-    .kb-dp-n{width:72px;flex:none;font-size:11px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .kb-dp-t{position:relative;flex:1;height:22px;border-radius:8px;background:var(--gray100,#2f2f2f);overflow:hidden;min-width:0}
-    .kb-dp-sp{position:absolute;top:2px;bottom:2px;border-radius:6px;color:#fafafa;font-size:9px;font-weight:600;display:flex;align-items:center;padding-left:5px;overflow:hidden;white-space:nowrap}
+    .kb-dp-n{width:72px;flex:none;font-size:11px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .kb-dp-t{position:relative;flex:1;height:22px;border-radius:8px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));overflow:hidden;min-width:0}
+    .kb-dp-sp{position:absolute;top:2px;bottom:2px;border-radius:6px;color:var(--ki-text, #fafafa);font-size:9px;font-weight:600;display:flex;align-items:center;padding-left:5px;overflow:hidden;white-space:nowrap}
     .kb-dp-mk{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;border-radius:1px}
-    .kb-dp-ml{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 4px;font-size:9px;font-weight:600;color:var(--gray900,#c7c7c7);white-space:nowrap}
-    .kb-dp-now{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#fafafa}
-    .kb-dp-ax{display:flex;justify-content:space-between;padding-left:80px;font-size:9px;color:var(--gray500,#696969);font-variant-numeric:tabular-nums}
+    .kb-dp-ml{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 4px;font-size:9px;font-weight:600;color:var(--ki-text-1, var(--gray900,#c7c7c7));white-space:nowrap}
+    .kb-dp-now{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ki-text, #fafafa)}
+    .kb-dp-ax{display:flex;justify-content:space-between;padding-left:80px;font-size:9px;color:var(--ki-text-lo, var(--gray500,#696969));font-variant-numeric:tabular-nums}
     .kb-ms{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
     .kb-ms.dis{opacity:.4;pointer-events:none}
-    .kb-mo{height:34px;border-radius:10px;background:var(--gray100,#2f2f2f);display:grid;place-items:center;font-size:10px;font-weight:500;color:var(--gray800,#afafaf);min-width:0;overflow:hidden;transition:background .15s}
-    .kb-mo.in{background:rgba(242,133,201,.28);color:#fafafa}
+    .kb-mo{height:34px;border-radius:10px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));display:grid;place-items:center;font-size:10px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));min-width:0;overflow:hidden;transition:background .15s}
+    .kb-mo.in{background:rgba(242,133,201,.28);color:var(--ki-text, #fafafa)}
     .kb-mo.start{background:${PINK};color:#2a1720}
-    .kb-mo.now{box-shadow:inset 0 0 0 1.5px #fafafa}
-    .kb-mo.pv{background:rgba(242,133,201,.55);color:#fafafa}
+    .kb-mo.now{box-shadow:inset 0 0 0 1.5px var(--ki-text, #fafafa)}
+    .kb-mo.pv{background:rgba(242,133,201,.55);color:var(--ki-text, #fafafa)}
     .kb-zgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .kb-zt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:12px;border-radius:22px;background:var(--gray100,#2f2f2f);text-align:left;min-width:0;transition:transform .15s}
+    .kb-zt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:12px;border-radius:22px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));text-align:left;min-width:0;transition:transform .15s}
     .kb-zt:active{transform:scale(.97)}
     .kb-zt.on{box-shadow:inset 0 0 0 1.5px rgb(242 133 201)}
     .kb-zt-top{display:flex;justify-content:space-between;align-items:center;width:100%;gap:6px}
@@ -1873,54 +1877,54 @@
     .kb-zt-i.lg{width:44px;height:44px;border-radius:22px}
     .kb-zt-temp{font-size:26px;font-weight:300;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
     .kb-zt-n{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
-    .kb-zt-s{font-size:11px;color:var(--gray600,#7f7f7f);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .kb-zone{box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+    .kb-zt-s{font-size:11px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .kb-zone{box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .kb-zh{display:flex;align-items:center;gap:12px}
     .kb-zh-t{flex:1;min-width:0;display:flex;flex-direction:column}
     .kb-zh-t b{font-size:16px;font-weight:600}
-    .kb-zh-t span{font-size:12px;color:var(--gray600,#7f7f7f);text-wrap:pretty}
-    .kb-x{width:36px;height:36px;border-radius:18px;background:var(--gray100,#2f2f2f);display:grid;place-items:center;flex:none}
-    .kb-ovbox{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px;border-radius:30px;background:var(--gray100,#2f2f2f)}
-    .kb-ovb{width:48px;height:48px;border-radius:24px;background:var(--gray300,#404040);display:grid;place-items:center;transition:transform .12s}
+    .kb-zh-t span{font-size:12px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));text-wrap:pretty}
+    .kb-x{width:36px;height:36px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));display:grid;place-items:center;flex:none}
+    .kb-ovbox{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px;border-radius:30px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .kb-ovb{width:48px;height:48px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center;transition:transform .12s}
     .kb-ovb:active{transform:scale(.92)}
     .kb-ovv{display:flex;flex-direction:column;align-items:center}
     .kb-ovv b{font-size:30px;font-weight:300;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-    .kb-ovv span{font-size:11px;color:var(--gray600,#7f7f7f)}
+    .kb-ovv span{font-size:11px;color:var(--ki-text-mid, var(--gray600,#7f7f7f))}
     .kb-durs{display:flex;gap:6px}
-    .kb-dur{flex:1;height:40px;border-radius:20px;background:var(--gray100,#2f2f2f);font-size:13px;font-weight:500;transition:transform .15s}
+    .kb-dur{flex:1;height:40px;border-radius:20px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));font-size:13px;font-weight:500;transition:transform .15s}
     .kb-dur:active{transform:scale(.95);background:rgba(242,133,201,.3)}
     .kb-zg{display:flex;gap:10px;align-items:stretch}
     .kb-zg .kb-bars{flex:1;min-width:0}
-    .kb-zmm{display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:var(--gray600,#7f7f7f);text-align:right;flex:none;min-width:44px}
+    .kb-zmm{display:flex;flex-direction:column;justify-content:space-between;font-size:10px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));text-align:right;flex:none;min-width:44px}
     .kb-zmm span{display:flex;flex-direction:column}
-    .kb-zmm b{font-size:12px;color:#fafafa;font-weight:600;font-variant-numeric:tabular-nums}
+    .kb-zmm b{font-size:12px;color:var(--ki-text, #fafafa);font-weight:600;font-variant-numeric:tabular-nums}
     .kb-spar{display:flex;flex-direction:column;gap:10px}
     .kb-sp{display:flex;flex-direction:column;gap:5px}
     .kb-sp-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
     .kb-sp-h span{display:flex;align-items:center;gap:8px}
     .kb-sp-h b{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-    .kb-sp-h small{font-weight:400;color:var(--gray600,#7f7f7f);font-size:11px}
-    .kb-sp-bar{position:relative;height:8px;border-radius:4px;background:var(--gray100,#2f2f2f);overflow:hidden}
+    .kb-sp-h small{font-weight:400;color:var(--ki-text-mid, var(--gray600,#7f7f7f));font-size:11px}
+    .kb-sp-bar{position:relative;height:8px;border-radius:4px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));overflow:hidden}
     .kb-sp-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:rgb(102 209 158);z-index:1}
     .kb-sp-bar em{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:rgba(102,209,158,.25)}
     .kb-lg{display:flex;align-items:center;gap:16px}
     .kb-legring{position:relative;width:96px;height:96px;border-radius:50%;flex:none}
-    .kb-legring>div{position:absolute;inset:10px;border-radius:50%;background:var(--gray200,#3a3a3a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
-    .kb-legring span{font-size:10px;color:var(--gray600,#7f7f7f)}
+    .kb-legring>div{position:absolute;inset:10px;border-radius:50%;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+    .kb-legring span{font-size:10px;color:var(--ki-text-mid, var(--gray600,#7f7f7f))}
     .kb-lg-t,.kb-ev-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
     .kb-lg-t b{font-size:16px;font-weight:600}
-    .kb-lg-t>span:last-child,.kb-ev-t>span:last-child{font-size:12px;color:var(--gray600,#7f7f7f);text-wrap:pretty}
+    .kb-lg-t>span:last-child,.kb-ev-t>span:last-child{font-size:12px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));text-wrap:pretty}
     .kb-cap{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
     .kb-ev{display:flex;align-items:center;gap:14px}
     .kb-ev-i{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;flex:none}
     .kb-ev-t b{font-size:30px;font-weight:300;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
-    .kb-ev-t b small{font-size:13px;color:var(--gray600,#7f7f7f);letter-spacing:0}
+    .kb-ev-t b small{font-size:13px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));letter-spacing:0}
     .kb-ledig{display:flex;flex-direction:column;gap:10px}
     .kb-amps{display:grid;grid-template-columns:repeat(auto-fit,minmax(56px,1fr));gap:6px}
-    .kb-amp{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:18px;background:var(--gray100,#2f2f2f);transition:transform .15s,opacity .2s}
+    .kb-amp{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));transition:transform .15s,opacity .2s}
     .kb-amp:active{transform:scale(.95)}
     .kb-amp b{font-size:15px;font-weight:600}
-    .kb-amp span{font-size:10px;color:var(--gray600,#7f7f7f)}
+    .kb-amp span{font-size:10px;color:var(--ki-text-mid, var(--gray600,#7f7f7f))}
     .kb-amp.on{background:${PINK};color:#2a1720}
     .kb-amp.on span{color:rgba(42,23,32,.7)}
     .kb-amp.dim{opacity:.4}
@@ -1928,31 +1932,31 @@
     .kb-tl-i{display:flex;gap:12px}
     .kb-tl-d{display:flex;flex-direction:column;align-items:center;width:12px;flex:none;padding-top:4px}
     .kb-tl-d i{width:10px;height:10px;border-radius:5px;flex:none}
-    .kb-tl-d em{flex:1;width:2px;background:rgba(255,255,255,.08);margin-top:4px}
+    .kb-tl-d em{flex:1;width:2px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));margin-top:4px}
     .kb-tl-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding-bottom:14px}
     .kb-tl-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-    .kb-tl-t{font-size:12px;color:var(--gray600,#7f7f7f);font-variant-numeric:tabular-nums}
+    .kb-tl-t{font-size:12px;color:var(--ki-text-mid, var(--gray600,#7f7f7f));font-variant-numeric:tabular-nums}
     .kb-tl-h b{font-size:13px;font-weight:500}
-    .kb-tl-v{margin-left:auto;font-size:11px;color:var(--gray700,#979797);font-variant-numeric:tabular-nums}
+    .kb-tl-v{margin-left:auto;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));font-variant-numeric:tabular-nums}
     .kb-inrow{display:flex}
-    .kb-text{flex:1;min-width:0;height:44px;padding:0 14px;border-radius:14px;background:var(--gray100,#2f2f2f);color:#fafafa;font-size:16px;color-scheme:dark}
+    .kb-text{flex:1;min-width:0;height:44px;padding:0 14px;border-radius:14px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));color:var(--ki-text, #fafafa);font-size:16px;color-scheme:dark}
     .kb-tariff{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
-    .kb-tariff>div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:14px;background:var(--gray100,#2f2f2f)}
-    .kb-tariff span{font-size:11px;color:var(--gray600,#7f7f7f)}
+    .kb-tariff>div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:14px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .kb-tariff span{font-size:11px;color:var(--ki-text-mid, var(--gray600,#7f7f7f))}
     .kb-tariff b{font-size:14px;font-weight:600}
-    .kb-tariff em{font-size:10px;font-style:normal;color:rgb(102 209 158)}
+    .kb-tariff em{font-size:10px;font-style:normal;color:color-mix(in srgb, var(--ki-green-text, rgb(102 209 158)) calc(100% - (var(--ki-tone-k, 1) - 1) * 50%), black)}
     .kb-tariff>div.on{box-shadow:inset 0 0 0 1.5px rgb(102 209 158)}
     .kb-raw{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto;overscroll-behavior:contain}
-    .kb-raw>div{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:12px;background:var(--gray100,#2f2f2f)}
-    .kb-raw span{font-size:11px;color:var(--gray700,#979797)}
-    .kb-raw code{font:500 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--gray900,#c7c7c7);overflow-wrap:anywhere;white-space:pre-wrap}
-    .kb-eg.open{background:rgba(255,255,255,.02);border-radius:12px}
-    .kb-err .kb-rn{color:rgb(242 128 115)}
+    .kb-raw>div{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:12px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
+    .kb-raw span{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
+    .kb-raw code{font:500 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ki-text-1, var(--gray900,#c7c7c7));overflow-wrap:anywhere;white-space:pre-wrap}
+    .kb-eg.open{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.02*var(--ki-wa-k,1)),var(--ki-wa-max,1)));border-radius:12px}
+    .kb-err .kb-rn{color:var(--ki-red-text, rgb(242 128 115))}
     .kb-stp{display:inline-flex;align-items:center;gap:6px;flex:none}
-    .kb-stb{width:32px;height:32px;border-radius:16px;background:var(--gray100,#2f2f2f);display:grid;place-items:center}
+    .kb-stb{width:32px;height:32px;border-radius:16px;background:var(--ki-step-bg, var(--gray100,#2f2f2f));box-shadow:var(--ki-step-sh, none);color:var(--ki-text, #fafafa);display:grid;place-items:center}
     .kb-stb:disabled{opacity:.35}
     .kb-stv{position:relative;min-width:56px;height:32px;display:grid;place-items:center;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
-    .kb-stp.dis .kb-stv{color:var(--gray700,#979797)}
+    .kb-stp.dis .kb-stv{color:var(--ki-text-mid, var(--gray700,#979797))}
     .kb-nat{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;color-scheme:dark}
   `;
   Object.defineProperty(M, 'KLIMA_BLOCK_CSS', { configurable: true, get() { return CSS + (M.STEPPER_CSS || ''); } });

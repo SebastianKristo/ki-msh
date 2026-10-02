@@ -9,7 +9,7 @@
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
-  const GRAY = 'var(--gray600,#7f7f7f)';
+  const GRAY = 'var(--ki-text-3, var(--gray600,#7f7f7f))';
   const AV_COLS = [C.orange, C.pink, C.blue, C.green, C.purple, C.yellow];
 
   /* ------------------------------------------------------------ oppslag */
@@ -140,7 +140,7 @@
         <div class="av press" ${p ? `data-act="more" data-id="${esc(pid)}" data-ent="${esc(pid)}"` : 'data-act="customize"'} title="${esc(name)}">
           <div class="halo" style="box-shadow:0 0 0 2px ${M.alpha(zc, 0.55)},0 0 40px ${M.alpha(zc, 0.25)}"></div>
           <div class="img" style="background:${pic ? `center/cover no-repeat url('${esc(pic)}'), ${bg}` : bg};opacity:${away ? 0.75 : 1}">${pic ? '' : esc(p ? (name.trim()[0] || '?').toUpperCase() : '?')}</div>
-          <span class="zb" style="color:${zc}">${M.icon(zi, 18)}</span>
+          <span class="zb" style="color:${M.theme.accentText(zc)}">${M.icon(zi, 18)}</span>
         </div>
         <div class="txt">
           <div class="nm">${esc(name)}</div>
@@ -155,13 +155,13 @@
         .hero{display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0 0}
         .av{position:relative;width:132px;height:132px;flex:none}
         .halo{position:absolute;inset:-8px;border-radius:50%;transition:box-shadow .4s}
-        .img{position:relative;width:132px;height:132px;border-radius:66px;display:grid;place-items:center;font-size:48px;font-weight:600;color:var(--white,#fafafa);overflow:hidden}
-        .zb{position:absolute;right:0;bottom:4px;width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:var(--gray300,#404040);box-shadow:0 0 0 3px #282828}
+        .img{position:relative;width:132px;height:132px;border-radius:66px;display:grid;place-items:center;font-size:48px;font-weight:600;color:var(--ki-text, var(--white,#fafafa));overflow:hidden}
+        .zb{position:absolute;right:0;bottom:4px;width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:0 0 0 3px var(--ki-popup, #282828)}
         .txt{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
         .nm{font-size:26px;font-weight:500;letter-spacing:-0.015em}
-        .zl{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--gray900,#c7c7c7)}
+        .zl{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .zd{width:8px;height:8px;border-radius:4px;flex:none}
-        .since{font-size:13px;color:var(--gray600,#7f7f7f)}
+        .since{font-size:13px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .pick{margin-top:6px}
       `;
     }
@@ -169,7 +169,7 @@
   M.define('msh-person-hero-card', PersonHero, 'MSH Person · toppkort', 'Avatar (entity_picture), sone-glorie, sted og «siden». Første kort i #person-<id>.');
 
   /* ------------------------------------------------------------ hovedkort */
-  const STAGES = [['awake', 'Våken', 'var(--gray600,#7f7f7f)', 35], ['light', 'Lett', C.blue, 60], ['deep', 'Dyp', C.purple, 100], ['rem', 'REM', C.purple, 80]];
+  const STAGES = [['awake', 'Våken', 'var(--ki-text-3, var(--gray600,#7f7f7f))', 35], ['light', 'Lett', C.blue, 60], ['deep', 'Dyp', C.purple, 100], ['rem', 'REM', C.purple, 80]];
   const SECS = [['stats', 'Nøkkeltall'], ['sleep', 'Søvn i natt'], ['mobil', 'Mobil'], ['zones', 'Soner i dag']];
   const ZCACHE = new Map();
 
@@ -246,7 +246,7 @@
       let dist = '–';
       if (ds && M.isNum(ds.state)) { const v = Number(ds.state), u = String(ds.attributes.unit_of_measurement || 'm'); const km = u === 'km' ? v : u === 'mi' ? v * 1.609 : v / 1000; dist = `${M.nf(km, km < 10 ? 1 : 0)} km`; }
       const tiles = [['directions_walk', st != null ? M.nf(st, 0) : '–', 'skritt', C.green, e.steps], ['mdi:map-marker-distance', dist, 'reist i dag', C.blue, e.distance], ['bedtime', sc != null ? M.nf(sc, 0) : '–', 'søvnscore', C.purple, e.sleep_score]];
-      return `<section class="stats">${tiles.map(([ic, v, l, col, id]) => `<div class="tile" ${id ? `data-ent="${esc(id)}"` : ''}>${M.icon(ic, 20, `color:${col}`)}<div class="tv"><span class="v num">${esc(v)}</span><span class="l">${esc(l)}</span></div></div>`).join('')}</section>`;
+      return `<section class="stats">${tiles.map(([ic, v, l, col, id]) => `<div class="tile" ${id ? `data-ent="${esc(id)}"` : ''}>${M.icon(ic, 20, `color:${M.theme.accentText(col)}`)}<div class="tv"><span class="v num">${esc(v)}</span><span class="l">${esc(l)}</span></div></div>`).join('')}</section>`;
     }
     _sleep(h, e) {
       const dur = mins(this.s(e.sleep_duration)), sc = this.n(e.sleep_score), s0 = this.s(e.sleep_start);
@@ -255,10 +255,10 @@
       const stage = { awake: mins(this.s(e.sleep_awake)), light: mins(this.s(e.sleep_light)), deep: mins(this.s(e.sleep_deep)), rem: mins(this.s(e.sleep_rem)) };
       const hasSt = Object.values(stage).some((v) => v != null && v > 0);
       const good = sc != null && sc >= 80, col = good ? C.green : C.orange;
-      const chip = sc != null ? `<div class="sc" style="background:${M.alpha(col, 0.16)};color:${col}">${sc >= 80 ? 'God natt' : sc >= 70 ? 'Grei natt' : 'Urolig natt'}</div>` : '';
+      const chip = sc != null ? `<div class="sc" style="background:${M.alpha(col, 0.16)};color:${M.theme.accentText(col)}">${sc >= 80 ? 'God natt' : sc >= 70 ? 'Grei natt' : 'Urolig natt'}</div>` : '';
       const blocks = hasSt
         ? STAGES.filter(([k]) => stage[k] > 0).map(([k, , col2, ht]) => `<span style="flex:${stage[k].toFixed(1)};background:${col2};opacity:${k === 'awake' ? 0.5 : 1};height:${ht}%"></span>`).join('')
-        : '<span style="flex:1;background:var(--gray200,#3a3a3a);height:100%"></span>';
+        : '<span style="flex:1;background:var(--ki-surface, var(--gray200,#3a3a3a));height:100%"></span>';
       const legend = STAGES.map(([k, l, col2]) => `<span class="lg"><span class="ld" style="background:${col2}"></span>${l}<span class="lv num">${stage[k] != null ? M.nf(stage[k], 0) + ' min' : '–'}</span></span>`).join('');
       // 7 netter fra historikk (siste verdi per døgn), i natt uthevet
       const days = [];
@@ -271,7 +271,7 @@
         days.push({ v, d: i === 0 ? 'i n' : d0.toLocaleDateString('nb-NO', { weekday: 'short' }).slice(0, 2) });
       }
       const wmax = Math.max(1, ...days.map((x) => x.v || 0));
-      const week = days.map((x, i) => `<div class="wd"><div class="wb" style="height:${x.v ? Math.max(4, (x.v / wmax) * 100) : 4}%;background:${x.v ? (i === 6 ? C.purple : M.alpha(C.purple, 0.35)) : 'var(--gray200,#3a3a3a)'}"></div><span>${esc(x.d)}</span></div>`).join('');
+      const week = days.map((x, i) => `<div class="wd"><div class="wb" style="height:${x.v ? Math.max(4, (x.v / wmax) * 100) : 4}%;background:${x.v ? (i === 6 ? C.purple : M.alpha(C.purple, 0.35)) : 'var(--ki-surface-3, var(--gray200,#3a3a3a))'}"></div><span>${esc(x.d)}</span></div>`).join('');
       const hh = dur != null ? Math.floor(dur / 60) : null, mm = dur != null ? Math.round(dur % 60) : null;
       return `<section class="sleep" ${e.sleep_duration ? `data-ent="${esc(e.sleep_duration)}"` : ''}>
         ${this._title('Søvn i natt', win)}
@@ -292,7 +292,7 @@
       const net = cn && !M.unavailable(cn) ? (wifi ? 'Wi-Fi' : cell ? 'Mobildata' : cs) : '';
       const [zl] = M.zoneInfo(h, p.state);
       const sub = [charging ? 'Lader' : '', net, zl].filter(Boolean).join(' · ');
-      const barCol = bat != null && bat < 20 ? C.red : charging ? C.green : 'var(--white,#fafafa)';
+      const barCol = bat != null && bat < 20 ? C.red : charging ? C.green : 'var(--ki-text, var(--white,#fafafa))';
       const chips = [];
       if (bs || ch) chips.push([charging ? 'battery_charging_full' : 'battery_5_bar', charging ? 'Lader' : 'På batteri', e.charging || e.battery_state]);
       if (net) chips.push([wifi ? 'wifi' : 'signal_cellular_alt', net, e.connection]);
@@ -308,13 +308,13 @@
             <span class="ps">${esc(sub || '–')}</span>
           </div>
         </div>
-        ${chips.length ? `<div class="chips">${chips.map(([ic, l, id]) => `<span class="chip" ${id ? `data-ent="${esc(id)}"` : ''}>${M.icon(ic, 16, 'color:var(--gray600,#7f7f7f)')}${esc(l)}</span>`).join('')}</div>` : ''}
+        ${chips.length ? `<div class="chips">${chips.map(([ic, l, id]) => `<span class="chip" ${id ? `data-ent="${esc(id)}"` : ''}>${M.icon(ic, 16, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}${esc(l)}</span>`).join('')}</div>` : ''}
       </section>`;
     }
     _zones(h, e) {
       const log = this._zoneLog(h, e.pid);
       const rows = log.map(([t, sub, time, col], i) => `<div class="zr" data-key="z${i}">
-          <div class="zc"><span class="zdot" style="background:${col}"></span><span class="zline" style="background:${i < log.length - 1 ? 'rgba(255,255,255,0.1)' : 'transparent'}"></span></div>
+          <div class="zc"><span class="zdot" style="background:${col}"></span><span class="zline" style="background:${i < log.length - 1 ? 'rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1)))' : 'transparent'}"></span></div>
           <div class="zt"><div class="zx"><div class="z1">${esc(t)}</div>${sub ? `<div class="z2">${esc(sub)}</div>` : ''}</div><div class="z3 num">${esc(hm(time))}</div></div>
         </div>`).join('');
       return `<section class="zones">${this._title('Soner i dag')}<div class="zl">${rows || `<div class="none">${this._zlog == null ? '–' : 'Ingen soneendringer i dag'}</div>`}</div></section>`;
@@ -324,40 +324,40 @@
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,22px)}
         section{display:flex;flex-direction:column;gap:8px}
         .sh{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px}
-        .st{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray600,#7f7f7f)}
-        .sr{font-size:12px;color:var(--gray500,#696969)}
+        .st{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .sr{font-size:12px;color:var(--ki-text-lo, var(--gray500,#696969))}
         .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-        .tile{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:18px;background:var(--gray200,#3a3a3a);min-width:0}
+        .tile{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0}
         .tv{display:flex;flex-direction:column;gap:1px;min-width:0}
         .tv .v{font-size:17px;font-weight:500;white-space:nowrap}
-        .tv .l{font-size:11px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+        .tv .l{font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap}
         .sleep{gap:12px}
         .sb{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:0 4px}
         .big{font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1;white-space:nowrap}
-        .big .u{font-size:15px;color:var(--gray600,#7f7f7f);letter-spacing:0}
+        .big .u{font-size:15px;color:var(--ki-text-3, var(--gray600,#7f7f7f));letter-spacing:0}
         .sc{font-size:12px;font-weight:600;padding:5px 10px;border-radius:10px;white-space:nowrap}
         .blocks{display:flex;height:40px;border-radius:12px;overflow:hidden;gap:2px;align-items:flex-end}
         .blocks span{border-radius:4px;min-width:3px}
         .legend{display:flex;gap:14px;flex-wrap:wrap;padding:0 4px}
-        .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray700,#979797);white-space:nowrap}
+        .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap}
         .ld{width:8px;height:8px;border-radius:4px}
-        .lv{color:var(--gray500,#696969)}
+        .lv{color:var(--ki-text-lo, var(--gray500,#696969))}
         .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;height:64px;align-items:end;padding-top:6px}
         .wd{display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end}
         .wb{width:100%;max-width:26px;border-radius:6px}
-        .wd span{font-size:10px;color:var(--gray500,#696969)}
+        .wd span{font-size:10px;color:var(--ki-text-lo, var(--gray500,#696969))}
         .sleep .pick{align-self:flex-start}
-        .phone{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:22px;background:var(--gray200,#3a3a3a)}
-        .pi{width:40px;height:40px;border-radius:20px;background:var(--gray300,#404040);display:grid;place-items:center;flex:none}
+        .phone{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .pi{width:40px;height:40px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));display:grid;place-items:center;flex:none}
         .pc{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
         .pr{display:flex;justify-content:space-between;gap:10px}
         .pm{font-size:14px;font-weight:500}
         .pb{font-size:13px;font-weight:500;flex:none}
-        .bar{height:5px;border-radius:3px;background:var(--gray300,#404040);overflow:hidden}
+        .bar{height:5px;border-radius:3px;background:var(--ki-surface-2, var(--gray300,#404040));overflow:hidden}
         .bar>div{height:100%;border-radius:3px;transition:width .4s}
-        .ps{font-size:12px;color:var(--gray600,#7f7f7f)}
+        .ps{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .chips{display:flex;gap:6px;flex-wrap:wrap}
-        .chip{height:30px;padding:0 11px 0 8px;border-radius:15px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);white-space:nowrap}
+        .chip{height:30px;padding:0 11px 0 8px;border-radius:15px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap}
         .zl{display:flex;flex-direction:column;padding-left:4px}
         .zr{display:flex;gap:14px;align-items:stretch}
         .zc{display:flex;flex-direction:column;align-items:center;width:10px;flex:none}
@@ -366,9 +366,9 @@
         .zt{flex:1;display:flex;justify-content:space-between;gap:12px;padding-bottom:14px;min-width:0}
         .zx{display:flex;flex-direction:column;gap:2px;min-width:0}
         .z1{font-size:14px}
-        .z2,.z3{font-size:12px;color:var(--gray600,#7f7f7f)}
+        .z2,.z3{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .z3{flex:none}
-        .none{padding:6px 0 4px;font-size:13px;color:var(--gray500,#696969)}
+        .none{padding:6px 0 4px;font-size:13px;color:var(--ki-text-lo, var(--gray500,#696969))}
       `;
     }
   }

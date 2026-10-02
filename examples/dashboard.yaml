@@ -61,7 +61,7 @@ views:
       - type: grid
         cards:
           - type: custom:msh-navbar-card
-            bar: [vanning, media, klima, basseng, ruter]
+            bar: [vanning, media, klima, ruter]
             more: [gjoremal]
 
 
@@ -139,50 +139,6 @@ views:
               - type: custom:msh-rom-card
                 card_id: rom_kjokken
           # Mal A – funksjons-popups
-          - type: custom:bubble-card
-            card_type: pop-up
-            name: Basseng
-            icon: mdi:pool
-            state: null
-            hash: '#badebasseng'
-            is_sidebar_hidden: true
-            styles: |-
-              .bubble-pop-up-container {
-                --vertical-stack-card-gap: 0px!important;
-              } #header-container > div > div {
-                background: var(--gray000)!important;
-              }
-              #header-container > button {background: none;}
-              .icon-container {background-color:var(--gray1000)!important;}
-              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
-              .bubble-icon {
-                --mdc-icon-size: 24px !important;
-              }
-              .bubble-name {
-                font-size: 30px !important;
-                font-weight: 500;
-                line-height: 1.4 !important;
-                padding: 8px 0 !important;
-              }
-              .bubble-close-button {
-                background-color: var(--gray200) !important;
-                border-radius: 50%;
-              }
-            bg_blur: '5'
-            shadow_opacity: '20'
-            bg_opacity: '98'
-            margin_top_mobile: 50px
-            margin_top_desktop: 50px
-            card_layout: large
-            button_type: name
-            sub_button:
-              main: []
-              bottom: []
-            slider_fill_orientation: left
-            slider_value_position: right
-            cards:
-              - type: custom:msh-basseng-card
-                card_id: pop-basseng
           - type: custom:bubble-card
             card_type: pop-up
             name: Ruter
@@ -1098,8 +1054,9 @@ views:
               .bubble-pop-up.bubble-pop-up > .bubble-header-container *{pointer-events:none}
               .bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button,.bubble-pop-up.bubble-pop-up > .bubble-header-container .close-pop-up,.bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button *{pointer-events:auto!important}
               .bubble-pop-up #header-container > div > div,.bubble-pop-up.bubble-pop-up .bubble-header{background:transparent!important;box-shadow:none!important}
-              .bubble-pop-up.bubble-pop-up .bubble-name{font-size:30px!important;font-weight:500;line-height:1.4!important;padding:8px 0!important;text-shadow:0 1px 4px rgba(0,0,0,.5)}
-              .bubble-pop-up.bubble-pop-up .bubble-close-button{background-color:rgba(58,58,58,.9)!important;border-radius:50%}
+              .bubble-pop-up.bubble-pop-up[data-ki-theme=light] #header-container > div > div{background:transparent!important}
+              .bubble-pop-up.bubble-pop-up .bubble-name{font-size:30px!important;font-weight:500;line-height:1.4!important;padding:8px 0!important;text-shadow:0 1px 4px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))))}
+              .bubble-pop-up.bubble-pop-up .bubble-close-button{background-color:var(--ki-surface-2, rgba(58,58,58,.9))!important;border-radius:50%}
               .bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{position:absolute!important;inset:0!important;height:auto!important;max-height:none!important;padding:0!important;margin:0!important;border-radius:0!important;clip-path:none!important;-webkit-clip-path:none!important;mask-image:none!important;-webkit-mask-image:none!important;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important;z-index:1;gap:0!important;--vertical-stack-card-gap:0px!important}
               /* ki-kart:end */
             bg_blur: '0'
@@ -1161,3 +1118,28 @@ views:
             slider_value_position: right
             cards:
               - type: custom:msh-person-card
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Manuelt · Basseng (valgfritt). Strategien lager IKKE lenger noen bassengpopup (#badebasseng/#basseng er slettet), og
+# navbaren har ingen innebygd basseng-knapp. Vil du ha bassengkortet, legg det i en egen popup – f.eks. som
+# «Egen popup» i «Tilpass Hjem» → Popups, eller i dette dashbordet (lim inn under cards: over og fjern kommentartegnene):
+#
+#          - type: custom:bubble-card
+#            card_type: pop-up
+#            name: Basseng
+#            icon: mdi:pool
+#            hash: '#mitt-basseng'
+#            is_sidebar_hidden: true
+#            bg_blur: '5'
+#            bg_opacity: '98'
+#            margin_top_mobile: 50px
+#            margin_top_desktop: 50px
+#            card_layout: large
+#            styles: |-
+#              .bubble-pop-up-container { --vertical-stack-card-gap: 0px!important; }
+#            cards:
+#              - type: custom:msh-basseng-card
+#                card_id: pop-basseng
+#
+# Bruk ikke #basseng/#badebasseng/#pool/#svommebasseng som hash i strategi-dashbordet: gamle bassengpopups der uten
+# msh-basseng-card droppes av strategien. En navbar-knapp lages som egen knapp (Tilpass navbar → Ny knapp → popupen).

@@ -1,6 +1,6 @@
-// Fiks 26.14 · Basseng (#badebasseng, alias #basseng – 30.1): ÉTT kort msh-basseng-card – toppkort → prosalinje → faner
+// Fiks 26.14 · Basseng: ÉTT kort msh-basseng-card (manuell popup – bassengpopupene er slettet) – toppkort → prosalinje → faner
 // → innhold; hurtigknapper Lys · Pumpe · Varme · Stille (lyd av) · Stikkontakt autokonfigurert etter rolle-tabellen,
-// overrides/exclude/include, migrering av `hurtig:`/navn/hero-kort og basseng-v3-cfg, strategien (alias #badebasseng),
+// overrides/exclude/include, migrering av `hurtig:`/navn/hero-kort og basseng-v3-cfg, strategien (importerte droppes),
 // bunnluft uten gap-card og «Tilpass basseng» ↔ getConfigElement.   node test/basseng26-check.mjs  (SHOTS=<mappe>)
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync } from 'node:fs';
@@ -45,10 +45,10 @@ async function page(cfg, opts = {}) {
     }
     window.__h = h;
     const bc = document.createElement('bubble-card');
-    bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng' });
+    bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#mitt-basseng' });
     bc.innerHTML = '<div class="pop"><div class="hdr">Basseng</div><div class="inner"></div></div>';
     document.getElementById('dash').appendChild(bc);
-    location.hash = '#basseng';
+    location.hash = '#mitt-basseng';
     const c = document.createElement('msh-basseng-card');
     c.setConfig({ type: 'custom:msh-basseng-card', card_id: 'pop-basseng', ...(cfg || {}) });
     c.hass = h;
@@ -71,12 +71,12 @@ let L = await p.evaluate(() => {
   const sr = window.__c.shadowRoot, card = sr.querySelector('ha-card'), kids = [...card.children].map((e) => e.className || e.localName);
   const wrap = sr.querySelector('.wrap'), W = [...wrap.children].map((e) => e.className.split(' ').filter((x) => x !== 'press').join('.'));
   const hero = sr.querySelector('.msh-hero-slot msh-basseng-hero-card');
-  return { kids, W, hero: !!hero, heroT: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.t') ? hero.shadowRoot.querySelector('.t').textContent : null, heroN: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.lbl') ? hero.shadowRoot.querySelector('.lbl').textContent : null, prose: sr.querySelector('.ptop').textContent.replace(/\s+/g, ' ').trim(), tabs: [...sr.querySelectorAll('.gti')].map((e) => e.textContent), inner: [...document.querySelector('.inner').children].map((e) => e.localName), w: Math.round(window.__c.getBoundingClientRect().width), iw: Math.round(document.querySelector('.inner').getBoundingClientRect().width) - 36 };
+  return { kids, W, hero: !!hero, heroT: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.t') ? hero.shadowRoot.querySelector('.t').textContent : null, heroN: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.lbl') ? hero.shadowRoot.querySelector('.lbl').textContent : null, prose: sr.querySelector('p.sent').textContent.replace(/\s+/g, ' ').trim(), first: sr.querySelector('.wrap > .tabrow + *') && sr.querySelector('.wrap > .tabrow + *').localName, tabs: [...sr.querySelectorAll('.gti')].map((e) => e.textContent), inner: [...document.querySelector('.inner').children].map((e) => e.localName), w: Math.round(window.__c.getBoundingClientRect().width), iw: Math.round(document.querySelector('.inner').getBoundingClientRect().width) - 36 };
 });
 ok('A · ett kort i popupen', L.inner.join() === 'msh-basseng-card', L.inner);
-ok('A · rekkefølge: toppkort → prosalinje → faner → innhold', L.kids[0] === 'msh-hero-slot' && L.hero && L.W[0].startsWith('prose') && L.W[1] === 'tabrow', L);
+ok('A · rekkefølge: toppkort → faner → Oversikt med setningen først (fiks 33.1)', L.kids[0] === 'msh-hero-slot' && L.hero && L.W[0] === 'tabrow' && L.first === 'p', L);
 ok('A · toppkortet viser vanntemperatur 26,4', /26,4/.test(L.heroT || ''), L.heroT);
-ok('A · prosalinje «Vannet er 26,4° og 1,6° under målet. Pumpa går nå.»', /Vannet er 26,4° og 1,6° under målet\. Pumpa går nå\./.test(L.prose), L.prose);
+ok('A · setningen «Vannet når 28° om ca X t Y min. Pumpa går nå.» (fiks 33.1)', /^Vannet når 28° om ca \d+ t \d+ min\. Pumpa går nå\.$/.test(L.prose), L.prose);
 ok('A · faner Oversikt · Varme · Klor skjules uten data (Klor/Spreder uten entiteter)', L.tabs.join('|') === 'Oversikt|Varme', L.tabs);
 ok('A · fyller bredden (390 px)', Math.abs(L.w - L.iw) <= 2, [L.w, L.iw]);
 let Q = await quick(p);
@@ -130,46 +130,31 @@ ok('E · basseng-v3-cfg → overrides/controls/hidden_controls/tabs/vals/anim i 
   N.overrides.spr === 'switch.hage_spreder' && N.overrides.klor_calendar === 'calendar.klor' && N.controls.join() === 'pump,light,quiet' && N.hidden_controls.join() === 'light' && N.tabs[0] === 'klor' && N.vals.turnovers === '4' && N.vals.price_ctrl === false && N.anim === false, N);
 await p.close();
 
-// ================================================================ F · strategien: importert #basseng/#badebasseng → ÉN popup #badebasseng (30.1)
+// ================================================================ F · strategien: bassengpopupene er slettet – importerte droppes
 p = await page({}, {});
 let S = await p.evaluate(() => {
   const M = window.MSH;
   const legacy = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', name: 'Badebasseng', icon: 'mdi:pool', button_type: 'name', popup_mode: 'x', sub_button: { main: [], bottom: [] },
     cards: [{ type: 'custom:gap-card', height: 10 }, { type: 'custom:ki-basseng-hero-card', navn: 'Bassenget' }, { type: 'custom:gap-card' }, { type: 'custom:ki-basseng-card', hero: false, hurtig: [{ entity: 'light.bassenglys', navn: 'Lys' }, { entity: 'switch.bassengpumpe' }, { entity: 'switch.baseng_stikkontakt' }] }] };
-  const cfg = { custom_popups: [legacy] };
-  const extra = M.POPUP_EXTRA['#badebasseng'](cfg);
-  const gen = M.popupTemplateA({ name: 'Basseng', icon: 'mdi:pool', hash: '#badebasseng', card: { type: 'custom:msh-basseng-card', card_id: 'pop-basseng', ...(extra || {}) } });
-  const r = M.mergePopups({ auto: [{ config: gen, group: 'fn' }], custom: cfg.custom_popups });
-  const out = r.popups.filter((x) => /basseng/.test(x.hash));
-  return { hashes: out.map((x) => x.hash), cards: out[0] && out[0].cards.map((c) => c.type), card: out[0] && out[0].cards[0], extra, inactive: r.report.inactive, gap: JSON.stringify(out).includes('gap-card'), legacyWhen: M.bassengLegacy(cfg) };
-});
-ok('F · importert #basseng erstattes: én popup #badebasseng med ÉTT msh-basseng-card, ingen gap-card', S.hashes.join() === '#badebasseng' && S.cards.join() === 'custom:msh-basseng-card' && !S.gap, S);
-ok('F · navn og hurtig flyttes fra de gamle kortene til kortet (migreres der)', S.extra && S.extra.navn === 'Bassenget' && Array.isArray(S.extra.hurtig) && S.card.navn === 'Bassenget' && S.legacyWhen, S.extra);
-S = await p.evaluate(() => {
-  const M = window.MSH;
-  const legacy = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', cards: [{ type: 'custom:ki-basseng-card' }] };
-  const gen = M.popupTemplateA({ name: 'Basseng', icon: 'mdi:pool', hash: '#badebasseng', card: { type: 'custom:msh-basseng-card', card_id: 'pop-basseng' } });
-  const r = M.mergePopups({ auto: [{ config: gen, group: 'fn' }], custom: [legacy], userPopups: { basseng: { prefer: 'custom' } } });
+  const r = M.mergePopups({ auto: [], custom: [legacy], userPopups: { basseng: { prefer: 'custom' } } });
   const own = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', name: 'Notater', cards: [{ type: 'markdown', content: 'x' }] };
-  const r2 = M.mergePopups({ auto: [{ config: gen, group: 'fn' }], custom: [own] });
-  return { pref: r.popups.filter((x) => /basseng/.test(x.hash)).map((x) => x.hash + ':' + x.cards[0].type), own: r2.popups.map((x) => x.hash).filter((h) => /basseng/.test(h)) };
+  const man = { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#mitt-basseng', name: 'Basseng', icon: 'mdi:pool', cards: [{ type: 'custom:msh-basseng-card', card_id: 'pop-basseng' }] };
+  const r2 = M.mergePopups({ auto: [], yaml: [man], custom: [own] });
+  return { pops: r.popups.map((x) => x.hash), dropped: r.report.dropped.map((x) => x.hash), r2: r2.popups.map((x) => x.hash + ':' + x.cards[0].type), d2: r2.report.dropped.length, fn: M.FUNCTION_POPUPS.some((f) => f[3] === 'msh-basseng-card'), alias: M.canonHash('#basseng') };
 });
-// Fiks 28.14: også «Bruk egen» får de gamle kortene (ki-basseng-card/hero/gap-card) migrert til ÉTT msh-basseng-card
-ok('F · «Bruk egen» (gammel nøkkel basseng) beholder egen popup på #badebasseng (gamle kort migrert); en helt annen #basseng røres ikke', S.pref.join() === '#badebasseng:custom:msh-basseng-card' && S.own.join() === '#badebasseng,#basseng', S);
-// manuelt dashbord (M.buildPopups): gammel #basseng + 28.14-tvilling #badebasseng → ÉN popup #badebasseng
+ok('F · importert gammel #basseng droppes (også med «Bruk egen») – ingen popup tas over', !S.pops.length && S.dropped.join() === '#basseng', S);
+ok('F · en helt annen #basseng og en manuell popup med msh-basseng-card beholdes; ingen funksjons-popup/alias for basseng', S.r2.join() === '#mitt-basseng:custom:msh-basseng-card,#basseng:markdown' && S.d2 === 0 && !S.fn && S.alias === '#basseng', S);
+// manuelt dashbord (M.buildPopups): ingen bassengpopup og ingen rom-popup for området «Basseng» lages
 S = await p.evaluate(async () => {
   const M = window.MSH, h = window.__h;
-  const lc = { views: [{ title: 'Hjem', type: 'sections', sections: [{ type: 'grid', cards: [{ type: 'custom:msh-hjem-card' },
-    { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', name: 'Badebasseng', cards: [{ type: 'custom:gap-card' }, { type: 'custom:ki-basseng-hero-card', navn: 'Bassenget' }, { type: 'custom:ki-basseng-card', hurtig: [{ entity: 'switch.bassengpumpe' }] }] },
-    { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#badebasseng', name: 'Basseng', cards: [{ type: 'custom:msh-basseng-card', card_id: 'pop-basseng' }] }] }] }] };
+  const lc = { views: [{ title: 'Hjem', type: 'sections', sections: [{ type: 'grid', cards: [{ type: 'custom:msh-hjem-card' }] }] }] };
   const old = h.callWS;
   h.callWS = (m) => (m.type === 'lovelace/config' ? Promise.resolve(JSON.parse(JSON.stringify(lc))) : old(m));
   const r = await M.buildPopups(h, { dryRun: true });
   h.callWS = old;
-  const pops = []; JSON.stringify(r.config, (k, v) => { if (v && v.card_type === 'pop-up' && /basseng/.test(v.hash)) pops.push(v); return v; });
-  return pops.map((x) => ({ hash: x.hash, cards: x.cards.map((c) => c.type), navn: x.cards[0].navn, hurtig: !!x.cards[0].hurtig, id: x.cards[0].card_id }));
+  return { created: r.created, area: !!(h.areas && h.areas.basseng) };
 });
-ok('F · manuelt dashbord: gammel #basseng + tvilling #badebasseng → ÉN popup #badebasseng med ÉTT kort (navn/hurtig med)', S.length === 1 && S[0].hash === '#badebasseng' && S[0].cards.join() === 'custom:msh-basseng-card' && S[0].navn === 'Bassenget' && S[0].hurtig && S[0].id === 'pop-basseng', S);
+ok('F · manuelt dashbord («Opprett popups»): ingen #badebasseng/#basseng (heller ikke rom-popup for området)', S.area && S.created.length > 3 && !S.created.some((x) => /basseng|pool/.test(x)), S);
 await p.close();
 
 // ================================================================ G · editorene og bunnluft
@@ -190,8 +175,8 @@ await p.close();
 
 // ---------------- tomt: ingen entiteter → «–» + Velg entitet, toppkortet vises likevel
 p = await page({ area: 'finnes_ikke' }, {});
-S = await p.evaluate(() => { const sr = window.__c.shadowRoot; const hero = sr.querySelector('msh-basseng-hero-card'); return { hero: !!hero && !!hero.shadowRoot.querySelector('.hero'), t: hero && hero.shadowRoot.querySelector('.t').textContent, prose: sr.querySelector('.ptop').textContent.replace(/\s+/g, ' ').trim(), q: sr.querySelectorAll('.ctl .tile').length, pick: !!sr.querySelector('.qempty [data-act="customize"]') }; });
-ok('H · uten entiteter: toppkort med «–», prosalinje «Vannet er –» + Velg entitet, ingen hurtigknapper', S.hero && /–/.test(S.t) && /Vannet er – \. ?Velg entitet|Vannet er –\. Velg entitet/.test(S.prose) && S.q === 0 && S.pick, S);
+S = await p.evaluate(() => { const sr = window.__c.shadowRoot; const hero = sr.querySelector('msh-basseng-hero-card'); return { hero: !!hero && !!hero.shadowRoot.querySelector('.hero'), t: hero && hero.shadowRoot.querySelector('.t').textContent, prose: sr.querySelector('p.sent').textContent.replace(/\s+/g, ' ').trim(), q: sr.querySelectorAll('.ctl .tile').length, pick: !!sr.querySelector('.qempty [data-act="customize"]') }; });
+ok('H · uten entiteter: toppkort med «–», setningen «Vannet når – om ca –.» (aldri skjult), ingen hurtigknapper + Velg entitet', S.hero && /–/.test(S.t) && S.prose === 'Vannet når – om ca –.' && S.q === 0 && S.pick, S);
 await p.close();
 
 ok('ingen sidefeil', !errs.length, errs);

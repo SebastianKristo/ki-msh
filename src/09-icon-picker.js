@@ -163,39 +163,39 @@
     button,input{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input{cursor:text;outline:none;-webkit-user-select:text;user-select:text}
     .hd{display:flex;align-items:center;gap:10px;min-height:40px}
-    .hd b{flex:1;font-size:18px;font-weight:500;color:#fafafa}
-    .hd .x{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa}
-    .sr{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;flex:none}
+    .hd b{flex:1;font-size:18px;font-weight:500;color:var(--ki-text, #fafafa)}
+    .hd .x{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:var(--ki-text, #fafafa)}
+    .sr{display:flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:var(--ki-text, #fafafa);flex:none}
     .sr input{flex:1;min-width:0;height:100%;font-size:16px}
-    .sr input::placeholder{color:#7f7f7f}
-    .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:#979797}
+    .sr input::placeholder{color:var(--ki-text-3, #7f7f7f)}
+    .sr .qx{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text-mid, #979797)}
     .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;flex:none;padding:0 1px}
     .chips::-webkit-scrollbar{display:none}
     .chip{flex:none;height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-grp,#3a3a3a);font-size:12px;font-weight:500;color:#c7c7c7;white-space:nowrap}
-    .chip.on{background:#fafafa;color:#282828}
+    .chip.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828)}
     .body>.sc{flex:1 1 0;min-height:120px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;display:flex;flex-direction:column;gap:10px;padding-bottom:4px}
     .sc::-webkit-scrollbar{display:none}
-    .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:0 2px;flex:none}
+    .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);padding:0 2px;flex:none}
     .gr{display:grid;grid-template-columns:repeat(${COLS}, ${CELL}px);justify-content:space-between;row-gap:${GAP}px}
     .vg{position:relative;flex:none}
     .vg .gr{position:absolute;left:0;right:0}
-    .ic{width:${CELL}px;height:${CELL}px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;display:grid;place-items:center}
+    .ic{width:${CELL}px;height:${CELL}px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:var(--ki-text, #fafafa);display:grid;place-items:center}
     .ic:active{transform:scale(.94)}
-    .ic.on{background:#fafafa;color:#282828}
+    .ic.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828)}
     .ic ha-icon{--mdc-icon-size:26px;width:26px;height:26px;display:inline-flex}
-    .use{min-height:44px;border-radius:22px;background:var(--ki-sheet-grp,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;font-size:13px;color:#fafafa;flex:none}
-    .note{font-size:12px;color:#979797;line-height:1.45;padding:0 2px}
-    .note b{color:#fafafa;font-weight:500}
+    .use{min-height:44px;border-radius:22px;background:var(--ki-sheet-grp,#3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;font-size:13px;color:var(--ki-text, #fafafa);flex:none}
+    .note{font-size:12px;color:var(--ki-text-mid, #979797);line-height:1.45;padding:0 2px}
+    .note b{color:var(--ki-text, #fafafa);font-weight:500}
     .man{display:flex;gap:8px;align-items:center;flex:none}
-    .man .pv{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa}
+    .man .pv{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--ki-sheet-grp,#3a3a3a);color:var(--ki-text, #fafafa)}
     .man .pv ha-icon{--mdc-icon-size:24px;width:24px;height:24px;display:inline-flex}
-    .manl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f7f7f;padding:0 2px;flex:none}
-    .man input{flex:1;min-width:0;height:44px;border-radius:14px;padding:0 12px;background:var(--ki-sheet-grp,#3a3a3a);color:#fafafa;font-size:15px}
-    .man .ok{height:44px;padding:0 16px;border-radius:22px;background:var(--pink,#f285c9);color:#2f2f2f;font-weight:600;font-size:14px}
+    .manl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);padding:0 2px;flex:none}
+    .man input{flex:1;min-width:0;height:44px;border-radius:14px;padding:0 12px;background:var(--ki-sheet-grp,#3a3a3a);color:var(--ki-text, #fafafa);font-size:15px}
+    .man .ok{height:44px;padding:0 16px;border-radius:22px;background:var(--pink,#f285c9);color:var(--ki-on-accent, #2f2f2f);font-weight:600;font-size:14px}
     .ft{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;min-height:32px}
-    .lnk{font-size:13px;color:var(--pink,#f285c9);font-weight:500;padding:6px 2px}
-    .cur{font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-    :host([data-glass]) .ic:not(.on),:host([data-glass]) .sr,:host([data-glass]) .chip:not(.on),:host([data-glass]) .use,:host([data-glass]) .man input,:host([data-glass]) .man .pv,:host([data-glass]) .hd .x{background:rgba(0,0,0,0.25)}
+    .lnk{font-size:13px;color:var(--ki-pink-text, var(--pink,#f285c9));font-weight:500;padding:6px 2px}
+    .cur{font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    :host([data-glass]) .ic:not(.on),:host([data-glass]) .sr,:host([data-glass]) .chip:not(.on),:host([data-glass]) .use,:host([data-glass]) .man input,:host([data-glass]) .man .pv,:host([data-glass]) .hd .x{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
   `;
   const cellHTML = (id, cur) => `<button class="ic${id === cur ? ' on' : ''}" data-v="${esc(id)}" title="${esc(id)}">${M.icon(id, 24)}</button>`;
 
@@ -205,7 +205,7 @@
     const st = { q: '', set: cp || 'mdi', sets: null, hits: [], win: -1 }; // standardfane: settet til nåverdien, ellers MDI
     const S = M.overlay({ css: SHEET_CSS, maxWidth: 440, html: `
       <div class="hd"><b>${esc(o.title || 'Velg ikon')}</b><button class="x" data-p="close" title="Lukk">${M.icon('mdi:close', 20)}</button></div>
-      <div class="sr">${M.icon('mdi:magnify', 20, 'color:#7f7f7f')}<input class="q" placeholder="Søk ikon – robot, sofa, støvsuger …" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><button class="qx" data-p="qx" title="Tøm">${M.icon('mdi:close-circle', 18)}</button></div>
+      <div class="sr">${M.icon('mdi:magnify', 20, 'color:var(--ki-text-3, #7f7f7f)')}<input class="q" placeholder="Søk ikon – robot, sofa, støvsuger …" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><button class="qx" data-p="qx" title="Tøm">${M.icon('mdi:close-circle', 18)}</button></div>
       <div class="chips"></div>
       <div class="sc"></div>
       <div class="manl">Skriv inn selv</div>
@@ -293,18 +293,18 @@
 
   /* ------------------------------------------------------------ feltet <msh-icon-field> */
   const FIELD_CSS = `
-    :host{display:block;font-family:${M.FONT};color:#fafafa;min-width:0}
+    :host{display:block;font-family:${M.FONT};color:var(--ki-text, #fafafa);min-width:0}
     *{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .f{display:flex;align-items:center;gap:6px;height:var(--msh-if-h,48px);padding:0 4px 0 4px;border-radius:14px;background:var(--msh-if-bg,#282828);min-width:0}
+    .f{display:flex;align-items:center;gap:6px;height:var(--msh-if-h,48px);padding:0 4px 0 4px;border-radius:14px;background:var(--msh-if-bg,var(--ki-popup, #282828));min-width:0}
     .pk{flex:1;min-width:0;height:100%;display:flex;align-items:center;gap:10px;padding:0 4px;text-align:left}
     .pk:active{transform:scale(.99)}
-    .ci{width:38px;height:38px;border-radius:19px;flex:none;display:grid;place-items:center;background:var(--msh-if-ic,#3a3a3a)}
+    .ci{width:38px;height:38px;border-radius:19px;flex:none;display:grid;place-items:center;background:var(--msh-if-ic,var(--ki-surface, #3a3a3a))}
     .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .nm b{font-weight:500;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nm i{font-style:normal;font-size:11px;line-height:1.2;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nm.ph b{color:#979797}
-    .x{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:#979797}
+    .nm i{font-style:normal;font-size:11px;line-height:1.2;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nm.ph b{color:var(--ki-text-mid, #979797)}
+    .x{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;color:var(--ki-text-mid, #979797)}
   `;
   const pretty = (id) => { const n = String(id).split(':').pop().replace(/[-_]+/g, ' '); return n.charAt(0).toUpperCase() + n.slice(1); };
   class MshIconField extends HTMLElement {
@@ -333,7 +333,7 @@
       const v = this.value, ph = this.getAttribute('placeholder') || '';
       const shown = v || ph;
       const html = `<style>${FIELD_CSS}</style><div class="f"><button class="pk" data-p="open" title="Velg ikon"><span class="ci">${M.icon(shown || 'mdi:magnify', 22, v ? '' : 'opacity:.55')}</span>`
-        + `<span class="nm${v ? '' : ' ph'}"><b>${esc(v ? pretty(v) : ph ? 'Standard · ' + pretty(ph) : 'Velg ikon …')}</b><i>${esc(v || (ph ? M.iconName(ph) : 'Søk i mdi og egne ikonsett'))}</i></span>${M.icon('mdi:chevron-down', 20, 'color:#979797')}</button>`
+        + `<span class="nm${v ? '' : ' ph'}"><b>${esc(v ? pretty(v) : ph ? 'Standard · ' + pretty(ph) : 'Velg ikon …')}</b><i>${esc(v || (ph ? M.iconName(ph) : 'Søk i mdi og egne ikonsett'))}</i></span>${M.icon('mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>`
         + `${v ? `<button class="x" data-p="x" title="Tøm">${M.icon('mdi:close', 18)}</button>` : ''}</div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
     }

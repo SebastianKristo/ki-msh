@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#232323;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./haptic.js"></script>
+</helmet>
+<div style="min-height:100vh;display:flex;justify-content:center;padding:24px 12px;box-sizing:border-box">
+<section data-screen-label="Server popup v6" style="width:100%;max-width:440px;background:#282828;border-radius:38px;padding:20px 14px 36px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden">
+
+  <header style="display:flex;align-items:center;gap:12px;padding:0 4px 6px">
+    <span style="width:44px;height:44px;border-radius:22px;background:#e1e1e1;color:#282828;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">dns</span></span>
+    <span style="flex:1;font-size:30px;font-weight:600;letter-spacing:-0.03em">Server</span>
+    <button style="width:44px;height:44px;border-radius:22px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:22px">close</span></button>
+  </header>
+
+  <sc-if value="{{ pickCards }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+      <sc-for list="{{ hosts }}" as="h" hint-placeholder-count="3">
+        <button onClick="{{ h.tap }}" style="{{ h.card }}" style-active="transform:scale(0.97)">
+          <span style="display:flex;align-items:center;justify-content:space-between;width:100%">
+            <span style="position:relative;width:40px;height:40px;flex:none">
+              <svg viewBox="0 0 40 40" style="position:absolute;inset:0;width:40px;height:40px;transform:rotate(-90deg)"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"></circle><circle cx="20" cy="20" r="17" fill="none" stroke="{{ h.ringCol }}" stroke-width="3" stroke-linecap="round" stroke-dasharray="{{ h.dash }}"></circle></svg>
+              <span class="ms" style="position:absolute;inset:0;display:grid;place-items:center;font-size:18px;color:#e1e1e1">{{ h.icon }}</span>
+            </span>
+            <span style="{{ h.dot }}"></span>
+          </span>
+          <span style="display:flex;flex-direction:column;gap:1px;min-width:0;width:100%;text-align:left">
+            <span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.name }}</span>
+            <span style="{{ h.subS }}">{{ h.sub }}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ pickTabs }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:4px;border-radius:999px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+        <sc-for list="{{ hosts }}" as="h" hint-placeholder-count="3"><button onClick="{{ h.tap }}" style="{{ h.tab }}">{{ h.name }}</button></sc-for>
+      </div>
+      <button onClick="{{ openCustom }}" title="Tilpass" style="{{ tabCog }}"><span class="ms" style="font-size:22px">settings</span></button>
+    </div>
+  </sc-if>
+
+  <div style="position:relative;height:184px;border-radius:28px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden;flex:none">
+    <div style="position:absolute;top:18px;left:18px;right:70px;display:flex;align-items:center;gap:8px;min-width:0">
+      <span style="font-size:13px;color:#afafaf;white-space:nowrap">{{ hero.title }}</span>
+      <span style="{{ hero.chipS }}"><span class="ms" style="font-size:13px">{{ hero.chipIcon }}</span>{{ hero.chip }}</span>
+    </div>
+    <sc-if value="{{ pickCards }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ openCustom }}" title="Tilpass" style="position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center"><span class="ms" style="font-size:22px">settings</span></button>
+    </sc-if>
+    <div style="position:absolute;top:54px;left:18px;right:18px;display:flex;align-items:baseline;gap:16px">
+      <span style="display:flex;align-items:baseline;gap:3px"><span style="font-size:44px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums">{{ hero.big }}</span><span style="font-size:20px;color:#afafaf">{{ hero.unit }}</span></span>
+      <sc-for list="{{ hero.others }}" as="o" hint-placeholder-count="2">
+        <button onClick="{{ o.tap }}" style="display:flex;align-items:baseline;gap:2px;padding:4px 0"><span style="font-size:17px;font-variant-numeric:tabular-nums">{{ o.value }}</span><span style="font-size:12px;color:#979797">{{ o.unit }}</span></button>
+      </sc-for>
+    </div>
+    <span style="position:absolute;top:104px;left:18px;font-size:12px;color:#7f7f7f">{{ hero.time }}</span>
+    <div onPointerDown="{{ hero.move }}" onPointerMove="{{ hero.move }}" onPointerUp="{{ hero.leave }}" onPointerLeave="{{ hero.leave }}" onTouchStart="{{ hero.stop }}" onTouchMove="{{ hero.stop }}" style="position:absolute;left:0;right:0;bottom:0;height:84px;touch-action:none">
+      <svg viewBox="0 0 300 84" preserveAspectRatio="none" style="width:100%;height:84px;display:block">
+        <path d="{{ hero.area }}" fill="{{ hero.fill }}"></path>
+        <path d="{{ hero.line }}" fill="none" stroke="{{ hero.color }}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+        <sc-if value="{{ hero.hasMarker }}" hint-placeholder-val="{{ false }}"><line x1="{{ hero.mx }}" x2="{{ hero.mx }}" y1="0" y2="84" stroke="#e1e1e1" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"></line></sc-if>
+      </svg>
+    </div>
+  </div>
+
+  <sc-if value="{{ showProse }}" hint-placeholder-val="{{ true }}">
+    <p style="margin:2px 6px 0;font-size:16px;line-height:1.9;color:#e1e1e1;text-wrap:pretty">{{ prose.a }} <span style="background:#fafafa;color:#141414;border-radius:999px;padding:2px 10px;font-weight:500;white-space:nowrap">{{ prose.c1 }}</span> {{ prose.b }} <span style="background:#fafafa;color:#141414;border-radius:999px;padding:2px 10px;font-weight:500;white-space:nowrap">{{ prose.c2 }}</span>{{ prose.c }}</p>
+  </sc-if>
+
+  <div style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:3px;border-radius:22px;background:#3a3a3a;margin:2px 0">
+    <sc-for list="{{ subs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.tap }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+  </div>
+
+  <sc-if value="{{ sec.glist }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#3a3a3a;border-radius:28px;padding:12px;display:flex;flex-direction:column;gap:10px;animation:fade .3s ease">
+      <div style="display:flex;align-items:center;gap:10px;padding:2px 4px 0"><span class="ms" style="font-size:20px;color:#c7c7c7">{{ gl.icon }}</span><span style="flex:1;font-size:15px;font-weight:600">{{ gl.title }}</span><span style="font-size:12px;color:#979797">{{ gl.sum }}</span></div>
+      <label style="height:44px;border-radius:22px;background:#404040;display:flex;align-items:center;gap:8px;padding:0 14px;cursor:text">
+        <span class="ms" style="font-size:20px;color:#979797">search</span>
+        <input value="{{ gl.q }}" onInput="{{ gl.setQ }}" placeholder="{{ gl.ph }}" style="flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:#fafafa;font:inherit;font-size:14px">
+        <sc-if value="{{ gl.hasQ }}" hint-placeholder-val="{{ false }}"><button onClick="{{ gl.clearQ }}" style="width:28px;height:28px;border-radius:14px;display:grid;place-items:center;color:#afafaf"><span class="ms" style="font-size:18px">close</span></button></sc-if>
+      </label>
+      <div style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:3px;border-radius:22px;background:#2f2f2f">
+        <sc-for list="{{ gl.chips }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.tap }}" style="{{ c.style }}">{{ c.label }}<span style="{{ c.nS }}">{{ c.n }}</span></button></sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <sc-for list="{{ gl.rows }}" as="g" hint-placeholder-count="6">
+          <div style="{{ g.wrap }}">
+          <div onClick="{{ g.open }}" style="{{ g.row }}">
+            <span style="{{ g.ic }}"><span class="ms" style="font-size:20px">{{ g.icon }}</span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span style="display:flex;align-items:center;gap:6px;min-width:0"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.name }}</span><span style="flex:none;height:18px;padding:0 7px;border-radius:9px;display:inline-flex;align-items:center;font-size:10px;font-weight:600;background:#2f2f2f;color:#c7c7c7">{{ g.tag }}</span></span>
+              <span style="{{ g.subS }}">{{ g.sub }}</span>
+            </span>
+            <button onClick="{{ g.tap }}" title="{{ g.tip }}" style="{{ g.track }}"><span style="{{ g.knob }}"></span></button>
+          </div>
+          <sc-if value="{{ g.isOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;padding:2px 10px 12px;animation:fade .25s ease">
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+                <sc-for list="{{ g.stats }}" as="x" hint-placeholder-count="6">
+                  <div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:#2f2f2f;min-width:0">
+                    <span style="display:flex;align-items:baseline;gap:2px;min-width:0"><span style="font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.v }}</span><span style="font-size:11px;color:#979797">{{ x.u }}</span></span>
+                    <span style="font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.l }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:#2f2f2f">
+                <sc-for list="{{ g.bars }}" as="b" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="width:44px;color:#afafaf">{{ b.l }}</span><span style="flex:1;height:6px;border-radius:3px;background:#404040;overflow:hidden;display:flex"><span style="{{ b.bar }}"></span></span><span style="width:84px;text-align:right;color:#c7c7c7;font-variant-numeric:tabular-nums;white-space:nowrap">{{ b.v }}</span></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;border-radius:16px;background:#2f2f2f;padding:0 12px">
+                <sc-for list="{{ g.toggles }}" as="o" hint-placeholder-count="2">
+                  <div style="{{ o.row }}">
+                    <span class="ms" style="font-size:20px;color:#c7c7c7">{{ o.icon }}</span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:500">{{ o.label }}</span><span style="font-size:11px;color:#979797">{{ o.sub }}</span></span>
+                    <button onClick="{{ o.tap }}" style="{{ o.track }}"><span style="{{ o.knob }}"></span></button>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ g.actions }}" as="a" hint-placeholder-count="3"><button onClick="{{ a.tap }}" style="{{ a.style }}" style-active="transform:scale(0.96)"><span class="ms" style="font-size:18px">{{ a.icon }}</span>{{ a.label }}</button></sc-for>
+              </div>
+            </div>
+          </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ gl.empty }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;text-align:center;font-size:13px;color:#979797">Ingen treff</div></sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isHa }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px;animation:fade .3s ease">
+      <sc-if value="{{ sec.haUpd }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#3a3a3a;border-radius:28px;padding:6px 0;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 16px 4px"><span style="flex:1;font-size:15px;font-weight:600">Oppdateringer</span><span style="font-size:12px;color:#979797">{{ updSum }}</span></div>
+          <sc-for list="{{ upd }}" as="u" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;min-height:64px;padding:0 12px 0 14px;border-top:1px solid rgba(255,255,255,0.05)">
+              <span style="width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:#404040;color:#c7c7c7"><span class="ms" style="font-size:20px">{{ u.icon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ u.name }}</span><span style="font-size:12px;color:#979797;font-variant-numeric:tabular-nums">{{ u.ver }}</span></span>
+              <button onClick="{{ u.tap }}" style="{{ u.btn }}" style-active="transform:scale(0.96)">{{ u.label }}</button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ sec.haSys }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#3a3a3a;border-radius:28px;padding:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ haSys }}" as="x" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:#404040;min-width:0"><span style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums">{{ x.v }}</span><span style="font-size:11px;color:#979797">{{ x.l }}</span></div>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <sc-for list="{{ haActs }}" as="a" hint-placeholder-count="3"><button onClick="{{ a.tap }}" style="{{ a.style }}" style-active="transform:scale(0.96)"><span class="ms" style="font-size:18px">{{ a.icon }}</span>{{ a.label }}</button></sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isUnraid }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:8px;animation:fade .3s ease">
+      <sc-if value="{{ sec.array }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">Array</span><span style="font-size:12px;color:#979797">{{ arr.sub }}</span></span>
+          <button onPointerDown="{{ arr.holdDown }}" onPointerUp="{{ arr.holdUp }}" onPointerLeave="{{ arr.holdUp }}" style="{{ arr.btn }}"><span style="{{ arr.btnFill }}"></span><span class="ms" style="position:relative;font-size:18px">{{ arr.icon }}</span><span style="position:relative">{{ arr.label }}</span></button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ bays }}" as="b" hint-placeholder-count="6">
+            <button onClick="{{ b.tap }}" title="{{ b.title }}" style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0" style-active="transform:scale(0.95)">
+              <span style="{{ b.bay }}"><span style="{{ b.fill }}"></span><sc-if value="{{ b.sleep }}" hint-placeholder-val="{{ false }}"><span class="ms" style="position:absolute;left:0;right:0;top:8px;text-align:center;font-size:16px;color:#7f7f7f">bedtime</span></sc-if><span style="{{ b.pctS }}">{{ b.pct }}</span></span>
+              <span style="display:flex;flex-direction:column;align-items:center;gap:0"><span style="font-size:12px;font-weight:600">{{ b.name }}</span><span style="{{ b.tempS }}">{{ b.temp }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#979797"><span>{{ arr.used }}</span><span>{{ arr.free }}</span></div>
+          <div style="height:8px;border-radius:4px;background:#2f2f2f;overflow:hidden;display:flex"><span style="{{ arr.bar }}"></span></div>
+        </div>
+      </div></sc-if>
+
+      <sc-if value="{{ sec.docker }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:14px 12px 12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px;padding:0 4px"><span style="flex:1;font-size:15px;font-weight:600">Docker</span><span style="font-size:12px;color:#979797">{{ dockSum }}</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ docker }}" as="d" hint-placeholder-count="9">
+            <button onClick="{{ d.tap }}" style="{{ d.tile }}" style-active="transform:scale(0.96)">
+              <span style="display:flex;align-items:center;justify-content:space-between;width:100%"><span class="ms" style="{{ d.iconS }}">{{ d.icon }}</span><span style="{{ d.dot }}"></span></span>
+              <span style="display:flex;flex-direction:column;gap:0;width:100%;min-width:0;text-align:left"><span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.name }}</span><span style="font-size:11px;color:#979797;white-space:nowrap">{{ d.meta }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+      </div></sc-if>
+
+      <sc-if value="{{ sec.vm }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:6px 0;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 16px 4px"><span style="flex:1;font-size:15px;font-weight:600">Virtuelle maskiner</span><span style="font-size:12px;color:#979797">{{ vmSum }}</span></div>
+        <sc-for list="{{ vms }}" as="v" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:12px;min-height:60px;padding:0 8px 0 16px">
+            <span class="ms" style="font-size:22px;color:#c7c7c7">{{ v.icon }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="font-size:14px;font-weight:500">{{ v.name }}</span><span style="height:4px;border-radius:2px;background:#2f2f2f;overflow:hidden;display:block;max-width:160px"><span style="{{ v.bar }}"></span></span></span>
+            <span style="font-size:12px;color:#979797;white-space:nowrap">{{ v.meta }}</span>
+            <button onClick="{{ v.tap }}" style="{{ v.pw }}"><span class="ms" style="font-size:20px">power_settings_new</span></button>
+          </div>
+        </sc-for>
+      </div></sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isPve }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px;animation:fade .3s ease">
+      <sc-if value="{{ sec.guests }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:6px 0;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 16px 4px"><span style="flex:1;font-size:15px;font-weight:600">Gjester</span><span style="font-size:12px;color:#979797">{{ pveSum }}</span></div>
+        <sc-for list="{{ guests }}" as="g" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:12px;min-height:60px;padding:0 8px 0 12px">
+            <span style="{{ g.badge }}"><span style="font-size:10px;font-weight:600;letter-spacing:0.04em">{{ g.kind }}</span><span style="font-size:12px;font-weight:500">{{ g.id }}</span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.name }}</span><span style="display:flex;gap:4px;max-width:180px"><span style="height:4px;flex:1;border-radius:2px;background:#2f2f2f;overflow:hidden;display:block"><span style="{{ g.cpu }}"></span></span><span style="height:4px;flex:1;border-radius:2px;background:#2f2f2f;overflow:hidden;display:block"><span style="{{ g.ram }}"></span></span></span></span>
+            <span style="font-size:12px;color:#979797;white-space:nowrap">{{ g.meta }}</span>
+            <button onClick="{{ g.tap }}" style="{{ g.pw }}"><span class="ms" style="font-size:20px">power_settings_new</span></button>
+          </div>
+        </sc-for>
+        <div style="display:flex;gap:14px;padding:4px 16px 8px;font-size:11px;color:#979797"><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;border-radius:2px;background:rgb(115 185 242)"></span>CPU</span><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;border-radius:2px;background:rgb(174 150 230)"></span>Minne</span></div>
+      </div></sc-if>
+      <sc-if value="{{ sec.pstore }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:14px">
+        <span style="font-size:15px;font-weight:600">Lagring</span>
+        <sc-for list="{{ pveStore }}" as="p" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="flex:1;font-size:14px;font-weight:500">{{ p.name }}</span><span style="font-size:12px;color:#979797">{{ p.meta }}</span></div>
+            <div style="height:8px;border-radius:4px;background:#2f2f2f;overflow:hidden;display:flex"><span style="{{ p.bar }}"></span></div>
+          </div>
+        </sc-for>
+      </div></sc-if>
+      <sc-if value="{{ sec.backup }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:12px;min-height:64px;padding:0 16px 0 12px;border-radius:28px;background:#3a3a3a">
+        <span style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:rgb(102 209 158 / 0.16);color:rgb(102 209 158)"><span class="ms" style="font-size:20px">backup</span></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Backup i natt 03:00</span><span style="font-size:12px;color:#979797">6 av 6 fullført · 41 GB til nas-backup</span></span>
+      </div></sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isUnifi }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px;animation:fade .3s ease">
+      <sc-if value="{{ sec.wan }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
+        <span style="grid-column:1 / -1;display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:15px;font-weight:600">Internett</span><span style="font-size:12px;color:#979797">Telia Fiber · 6 ms</span></span>
+        <sc-for list="{{ wan }}" as="w" hint-placeholder-count="2">
+          <div style="display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:20px;background:#404040">
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#afafaf"><span class="ms" style="{{ w.iconS }}">{{ w.icon }}</span>{{ w.label }}</span>
+            <span style="display:flex;align-items:baseline;gap:3px"><span style="font-size:28px;font-weight:300;font-variant-numeric:tabular-nums">{{ w.value }}</span><span style="font-size:12px;color:#979797">Mbit/s</span></span>
+          </div>
+        </sc-for>
+      </div></sc-if>
+      <sc-if value="{{ sec.devs }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:6px 0;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 16px 4px"><span style="flex:1;font-size:15px;font-weight:600">Enheter</span><span style="font-size:12px;color:#979797">{{ devSum }}</span></div>
+        <sc-for list="{{ devs }}" as="d" hint-placeholder-count="4">
+          <div style="{{ d.wrap }}">
+            <button onClick="{{ d.tap }}" style="display:flex;align-items:center;gap:12px;min-height:56px;width:100%;padding:0 12px 0 12px;box-sizing:border-box;text-align:left">
+              <span style="{{ d.ic }}"><span class="ms" style="font-size:20px">{{ d.icon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.name }}</span><span style="font-size:12px;color:#979797">{{ d.model }}</span></span>
+              <span style="{{ d.metaS }}">{{ d.meta }}</span>
+              <span class="ms" style="{{ d.chev }}">expand_more</span>
+            </button>
+            <sc-if value="{{ d.open }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:10px;padding:2px 12px 14px;animation:fade .25s ease">
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+                  <sc-for list="{{ d.stats }}" as="x" hint-placeholder-count="6">
+                    <div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:#2f2f2f;min-width:0">
+                      <span style="display:flex;align-items:baseline;gap:2px;min-width:0"><span style="font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.v }}</span><span style="font-size:11px;color:#979797">{{ x.u }}</span></span>
+                      <span style="font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.l }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ d.hasBand }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:#2f2f2f">
+                    <sc-for list="{{ d.bands }}" as="b" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="width:52px;color:#afafaf">{{ b.l }}</span><span style="flex:1;height:6px;border-radius:3px;background:#404040;overflow:hidden;display:flex"><span style="{{ b.bar }}"></span></span><span style="width:76px;text-align:right;color:#c7c7c7;font-variant-numeric:tabular-nums">{{ b.v }}</span></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div style="display:flex;flex-direction:column;border-radius:16px;background:#2f2f2f;padding:0 12px">
+                  <sc-for list="{{ d.toggles }}" as="g" hint-placeholder-count="2">
+                    <div style="{{ g.row }}">
+                      <span class="ms" style="font-size:20px;color:#c7c7c7">{{ g.icon }}</span>
+                      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:500">{{ g.label }}</span><span style="font-size:11px;color:#979797">{{ g.sub }}</span></span>
+                      <button onClick="{{ g.tap }}" style="{{ g.track }}"><span style="{{ g.knob }}"></span></button>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <sc-for list="{{ d.actions }}" as="a" hint-placeholder-count="3"><button onClick="{{ a.tap }}" style="{{ a.style }}" style-active="transform:scale(0.96)"><span class="ms" style="font-size:18px">{{ a.icon }}</span>{{ a.label }}</button></sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div></sc-if>
+      <sc-if value="{{ sec.sw }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <sc-if value="{{ multiSw }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px">
+            <sc-for list="{{ swList }}" as="w" hint-placeholder-count="3">
+              <button onClick="{{ w.tap }}" style="{{ w.style }}" style-active="transform:scale(0.97)">
+                <span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:left">{{ w.short }}</span>
+                <span style="display:flex;gap:2px;width:100%"><sc-for list="{{ w.leds }}" as="l" hint-placeholder-count="8"><span style="{{ l.s }}"></span></sc-for></span>
+                <span style="{{ w.subS }}">{{ w.sub }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="display:flex;align-items:center;gap:8px"><span style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:15px;font-weight:600">{{ swCur.name }}</span><span style="font-size:12px;color:#979797">{{ swCur.model }} · {{ swCur.loc }}</span></span><span style="font-size:12px;color:#979797;text-align:right">{{ portSum }}</span></div>
+        <div style="{{ swCur.grid }}">
+          <sc-for list="{{ ports }}" as="p" hint-placeholder-count="16">
+            <button onClick="{{ p.tap }}" style="{{ p.tile }}"><span style="{{ p.led }}"></span><span>{{ p.n }}</span></button>
+          </sc-for>
+        </div>
+        <span style="font-size:12px;color:#afafaf;min-height:16px">{{ portInfo }}</span>
+      </div></sc-if>
+      <sc-if value="{{ sec.cams }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+        <sc-for list="{{ cams }}" as="c" hint-placeholder-count="4">
+          <div style="position:relative;aspect-ratio:16 / 10;border-radius:22px;background:#2f2f2f;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:10px 12px;box-sizing:border-box">
+            <span style="{{ c.rec }}"><span style="{{ c.recDot }}"></span>{{ c.state }}</span>
+            <span class="ms" style="position:absolute;inset:0;display:grid;place-items:center;font-size:26px;color:#545454">videocam</span>
+            <span style="position:relative;font-size:13px;font-weight:600">{{ c.name }}</span>
+          </div>
+        </sc-for>
+      </div></sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%);padding:10px 16px;border-radius:20px;background:#fafafa;color:#232323;font-size:13px;font-weight:500;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.35);animation:fade .2s ease">{{ toast }}</div>
+  </sc-if>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;velger&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Faner&quot;,&quot;Kort&quot;],&quot;default&quot;:&quot;Faner&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;tabHoyde&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:32,&quot;max&quot;:60,&quot;step&quot;:2,&quot;unit&quot;:&quot;px&quot;,&quot;default&quot;:44,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;prosa&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;,&quot;label&quot;:&quot;Setning under toppkortet&quot;}}">
+const PINK = 'rgb(242 133 201)', GR = 'rgb(102 209 158)', BL = 'rgb(115 185 242)', OR = 'rgb(242 181 115)', RD = 'rgb(242 128 115)', PU = 'rgb(174 150 230)';
+const a = (c, o) => c.replace(')', ` / ${o})`);
+const hap = t => window.haptic && window.haptic(t || 'light');
+const fmt = v => String(v).replace('.', ',');
+const series = (seed, base, amp) => Array.from({ length: 48 }, (_, i) => Math.max(0, base + Math.sin(i / 4 + seed) * amp * 0.6 + Math.sin(i / 1.7 + seed * 3) * amp * 0.4));
+const HOSTS0 = [
+  { k: 'unraid', name: 'Unraid', icon: 'dns', M: [['CPU', '%', series(1, 22, 14), RD], ['Minne', '%', series(2, 58, 6), PU], ['CPU-temp', '°', series(3, 46, 5), OR]] },
+  { k: 'pve', name: 'Proxmox', icon: 'view_in_ar', M: [['CPU', '%', series(4, 14, 9), RD], ['Minne', '%', series(5, 71, 4), PU], ['IO wait', '%', series(6, 2, 1.6), OR]] },
+  { k: 'unifi', name: 'UniFi', icon: 'router', M: [['Ned', 'Mbit', series(7, 180, 120), BL], ['Opp', 'Mbit', series(8, 40, 30), GR], ['Klienter', '', series(9, 42, 4), PU]] }];
+const HOSTS = [{ ...HOSTS0[2], name: 'Nettverk' }, HOSTS0[1], HOSTS0[0], { k: 'ha', name: 'HA', icon: 'home', M: [['CPU', '%', series(10, 9, 6), RD], ['Minne', '%', series(11, 44, 3), PU], ['Disk', '%', series(12, 38, 0.6), OR]] }];
+const PVE2 = [[100, 'CT', 'dispatcharr', 0, 0, true], [102, 'CT', 'radio', 10, 21], [103, 'CT', 'tunarr', 0, 0, true], [104, 'CT', 'speedtest-tracker', 1, 17], [105, 'CT', 'zigbee2mqtt', 5, 17], [106, 'CT', 'frigate', 24, 61], [107, 'CT', 'adguard', 1, 12], [108, 'CT', 'nginx-proxy', 2, 14], [109, 'CT', 'uptime-kuma', 1, 9], [110, 'CT', 'vaultwarden', 0, 6], [200, 'VM', 'homeassistant', 6, 52], [201, 'VM', 'opnsense', 0, 0, true]];
+const ADDONS = [['mosquitto', 'Mosquitto broker', 'hub', 1, 3], ['zwave', 'Z-Wave JS UI', 'settings_input_antenna', 2, 6], ['esphome', 'ESPHome', 'memory', 0, 4], ['nodered', 'Node-RED', 'account_tree', 3, 9], ['vscode', 'Studio Code Server', 'code', 0, 0, true], ['samba', 'Samba share', 'folder_shared', 0, 1], ['ssh', 'Terminal & SSH', 'terminal', 0, 1], ['matter', 'Matter Server', 'device_hub', 1, 5], ['music', 'Music Assistant', 'library_music', 2, 7], ['backup', 'Google Drive Backup', 'backup', 0, 0, true]];
+const UPD = [['home', 'Home Assistant Core', '2026.9.3', '2026.10.0'], ['memory', 'ESPHome', '2026.9.1', '2026.9.2'], ['account_tree', 'Node-RED', '19.0.1', '19.0.2'], ['dns', 'Home Assistant OS', '16.2', null]];
+const BAYS = [['P', 'Paritet', null, 36, 'par'], ['1', 'Disk 1', 90, 38], ['2', 'Disk 2', 74, 37], ['3', 'Disk 3', 52, 0, 'sleep'], ['4', 'Disk 4', 31, 0, 'sleep'], ['C', 'Cache NVMe', 44, 49, 'nvme']];
+const DOCK = [['plex', 'Plex', 'movie', 14], ['sonarr', 'Sonarr', 'tv', 2], ['radarr', 'Radarr', 'theaters', 2], ['qbit', 'qBittorrent', 'download', 6], ['jelly', 'Jellyseerr', 'search', 1], ['tautulli', 'Tautulli', 'insights', 1], ['nextcloud', 'Nextcloud', 'cloud', 3], ['immich', 'Immich', 'photo_library', 0, true], ['mqtt', 'Mosquitto', 'hub', 0]];
+const VMS = [['ubuntu', 'Ubuntu Server', 'terminal', 11, '4 vCPU · 8 GB'], ['win', 'Windows 11', 'desktop_windows', 0, '6 vCPU · 16 GB', true]];
+const PVE = [[100, 'VM', 'Home Assistant', 6, 52], [101, 'CT', 'AdGuard Home', 1, 28], [102, 'CT', 'Nginx Proxy Manager', 2, 34], [103, 'CT', 'Frigate', 24, 61], [104, 'VM', 'OPNsense', 0, 0, true]];
+const DEVS = [['router', 'Dream Machine Pro', 'UDM-Pro', '42 klienter', false, 'gw', { cpu: 14, ram: 61, temp: 52, up: '23 d 4 t', ip: '10.69.1.1', fw: '4.1.13' }],
+  ['wifi', 'AP Stue', 'U6-Pro', '14 klienter', false, 'ap', { cl: 14, ch: '36 / 6', tx: 'Auto', util5: 38, util2: 22, up: '11 d 2 t', ip: '10.69.1.21', fw: '6.6.77' }],
+  ['wifi', 'AP Loft', 'U6-Lite', '9 klienter', false, 'ap', { cl: 9, ch: '44 / 11', tx: 'Middels', util5: 21, util2: 31, up: '11 d 2 t', ip: '10.69.1.22', fw: '6.6.77' }],
+  ['wifi', 'AP Garasje', 'U6-Mesh', 'Frakoblet', true, 'ap', { cl: 0, ch: '–', tx: '–', util5: 0, util2: 0, up: 'Sist sett 2 t siden', ip: '10.69.1.23', fw: '6.6.65' }],
+  ['lan', 'Switch Pro 16 PoE', 'USW-Pro-16', '11 porter', false, 'sw', { poe: 48, poeMax: 180, temp: 44, fan: 'Stille', up: '41 d 9 t', ip: '10.69.1.2', fw: '7.1.26' }]];
+const CAMS = [['Inngang', true], ['Hage', true], ['Garasje', false], ['Ringeklokke', true]];
+const PORTS_MAIN = [[1, 'g', 'UDM-Pro uplink'], [2, 'g', 'AP Stue', true], [3, 'g', 'AP Loft', true], [4, 'f', 'Kamera Inngang', true], [5, 'f', 'Kamera Hage', true], [6, 'x', 'Unraid Tower'], [7, 'x', 'pve01'], [8, 'g', 'Stue TV'], [9, '', ''], [10, 'g', 'Kontor PC'], [11, 'f', 'Ringeklokke', true], [12, '', ''], [13, 'g', 'Hue Bridge'], [14, 'off', 'Deaktivert'], [15, '', ''], [16, 'g', 'Garasje AP', true]];
+const SWITCHES = [
+  { name: 'Switch Pro 16 PoE', model: 'USW-Pro-16-PoE', loc: 'Rack', poe: 48, poeMax: 180, ports: PORTS_MAIN },
+  { name: 'Switch Stue', model: 'USW-Lite-8-PoE', loc: 'Stue · TV-benk', poe: 9, poeMax: 52, ports: [[1, 'g', 'Uplink · Pro 16'], [2, 'g', 'Apple TV'], [3, 'g', 'Stue TV'], [4, 'g', 'Sonos Arc'], [5, 'f', 'Hue Bridge', true], [6, '', ''], [7, 'g', 'PS5'], [8, '', '']] },
+  { name: 'Switch Garasje', model: 'USW-Flex-Mini', loc: 'Garasje', poe: 0, poeMax: 0, off: true, ports: [[1, 'off', 'Uplink · Pro 16'], [2, '', ''], [3, '', ''], [4, '', ''], [5, '', '']] }];
+class Component extends DCLogic {
+  state = { devOpen: null, devFlag: {}, sub: {}, host: 0, metric: {}, scrub: null, dock: {}, vm: {}, pve: {}, port: null, arrOn: true, hold: 0, toast: null };
+  tst(m) { this.setState({ toast: m }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: null }), 1600); }
+  componentWillUnmount() { clearTimeout(this._t); cancelAnimationFrame(this._raf); }
+  renderVals() {
+    const s = this.state, P = this.props, cards = (P.velger ?? 'Faner') === 'Kort', H = HOSTS[s.host], mi = s.metric[s.host] || 0, tabH = P.tabHoyde ?? 44;
+    const dockRun = DOCK.filter(d => s.dock[d[0]] ?? !d[4]).length, pveRun = PVE2.filter(g => (s.run || {})['pvep' + g[0]] ?? !g[5]).length;
+    const updN = UPD.filter(u => u[3] && !(s.upd || {})[u[1]]).length;
+    const ST = { unraid: s.arrOn ? { t: 'Alt OK', ok: true } : { t: 'Array stoppet', ok: false }, pve: { t: pveRun + ' av ' + PVE2.length + ' kjører', ok: true }, unifi: { t: 'Online', ok: true }, ha: updN ? { t: updN + (updN === 1 ? ' oppdatering' : ' oppdateringer'), ok: false } : { t: 'Oppdatert', ok: true } }, status = HOSTS.map(h => ST[h.k]);
+    const hosts = HOSTS.map((h, i) => { const on = s.host === i, v = h.M[0][2][47], pct = h.k === 'unifi' ? Math.min(100, v / 10) : v, st = status[i];
+      return { name: h.name, icon: h.icon, sub: h.k === 'unifi' ? Math.round(v) + ' Mbit ned' : h.M[0][0] + ' ' + Math.round(v) + ' %', ringCol: st.ok ? h.M[0][3] : OR, dash: `${(pct / 100) * 106.8} 106.8`,
+        tap: () => { hap(); this.setState({ host: i, scrub: null, port: null }); },
+        dot: { width: 8, height: 8, borderRadius: 4, background: st.ok ? GR : OR, boxShadow: '0 0 0 3px ' + a(st.ok ? GR : OR, 0.2) },
+        subS: { fontSize: 12, color: '#979797', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' },
+        card: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 24, minWidth: 0, background: on ? '#404040' : '#3a3a3a', boxShadow: on ? 'inset 0 0 0 1.5px ' + PINK : 'inset 0 0 0 1px rgba(255,255,255,0.05)', transition: 'background .2s, box-shadow .2s, transform .12s' },
+        tab: { height: tabH, minWidth: 0, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: on ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: on ? '#3a3a3a' : '#c7c7c7', transition: 'background .2s' } }; });
+    const M = H.M[mi], data = M[2], max = Math.max(...data) * 1.15 || 1, min = Math.min(...data) * 0.7;
+    const pts = data.map((v, i) => [(i / 47) * 300, 80 - ((v - min) / (max - min)) * 66]);
+    const line = 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L'), idx = s.scrub ?? 47;
+    const fv = (m, i) => { const v = m[2][i]; return m[1] === '%' && v < 10 ? fmt(v.toFixed(1)) : String(Math.round(v)); };
+    const st = status[s.host];
+    const hero = { title: H.name, chip: st.t, chipIcon: st.ok ? 'check' : 'warning', big: fv(M, idx), unit: M[1] === '%' || M[1] === '°' ? M[1] : ' ' + M[1],
+      chipS: { display: 'inline-flex', alignItems: 'center', gap: 3, height: 22, padding: '0 9px 0 7px', borderRadius: 11, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: a(st.ok ? GR : OR, 0.16), color: st.ok ? GR : OR },
+      others: H.M.map((m, j) => ({ m, j })).filter(x => x.j !== mi).map(({ m, j }) => ({ value: fv(m, idx), unit: m[1] || ' ' + m[0].toLowerCase(), tap: () => { hap(); this.setState({ metric: { ...s.metric, [s.host]: j } }); } })),
+      time: s.scrub == null ? 'nå · ' + M[0].toLowerCase() : '−' + fmt(((47 - idx) / 2).toFixed(1).replace('.0', '')) + ' t · ' + M[0].toLowerCase(),
+      line, area: line + ' L300 84 L0 84 Z', color: M[3], fill: a(M[3], 0.14), hasMarker: s.scrub != null, mx: pts[idx][0],
+      move: e => { if (e.type === 'pointermove' && e.pointerType !== 'mouse' && !e.buttons) return; e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(), i = Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 47); if (i !== s.scrub) { if (i % 4 === 0) hap('selection'); this.setState({ scrub: i }); } },
+      leave: () => this.setState({ scrub: null }), stop: e => e.stopPropagation() };
+    const bays = BAYS.map(([n, title, pct, temp, kind]) => { const sl = kind === 'sleep' || !s.arrOn, par = kind === 'par', col = par ? PINK : kind === 'nvme' ? PU : pct >= 85 ? OR : BL;
+      return { name: n, title, sleep: sl && !par && kind !== 'nvme', pct: par ? '' : pct + '%', temp: sl && !par && kind !== 'nvme' ? 'hvile' : (s.arrOn || kind === 'nvme' ? temp + '°' : '–'),
+        tap: () => { hap(); this.tst(title + (par ? ' · gyldig' : ' · ' + pct + ' % brukt')); },
+        bay: { position: 'relative', width: '100%', height: 72, borderRadius: 12, background: '#2f2f2f', overflow: 'hidden', boxShadow: par ? 'inset 0 0 0 1.5px ' + a(PINK, 0.6) : 'inset 0 0 0 1px rgba(255,255,255,0.05)', opacity: sl && !par && kind !== 'nvme' ? 0.6 : 1 },
+        fill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: par ? '100%' : pct + '%', background: par ? a(PINK, 0.18) : a(col, sl ? 0.18 : 0.45), transition: 'height .5s' },
+        pctS: { position: 'absolute', left: 0, right: 0, bottom: 6, textAlign: 'center', fontSize: 11, fontWeight: 600, color: '#fafafa' },
+        tempS: { fontSize: 11, color: !sl && temp >= 45 ? OR : '#979797' } }; });
+    const hp = s.hold;
+    const arr = { sub: s.arrOn ? 'Startet · 32 TB · 2 i hvile' : 'Stoppet · Docker og VM-er er av', used: s.arrOn ? '20,8 TB brukt' : 'Utilgjengelig', free: s.arrOn ? '11,2 TB ledig' : '',
+      icon: s.arrOn ? 'stop' : 'play_arrow', label: hp ? 'Hold…' : s.arrOn ? 'Stopp' : 'Start',
+      bar: { width: s.arrOn ? '65%' : '0%', background: BL, borderRadius: 4, transition: 'width .5s' },
+      btn: { position: 'relative', overflow: 'hidden', height: 40, padding: '0 16px 0 12px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, background: '#545454', touchAction: 'none', userSelect: 'none' },
+      btnFill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: hp * 100 + '%', background: s.arrOn ? a(RD, 0.6) : a(GR, 0.6) },
+      holdDown: () => { hap(); const t0 = performance.now(); const step = () => { const p = Math.min(1, (performance.now() - t0) / 900); this.setState({ hold: p }); if (p < 1) this._raf = requestAnimationFrame(step); else { hap('medium'); this.setState({ hold: 0, arrOn: !this.state.arrOn }); this.tst(this.state.arrOn ? 'Array stoppet' : 'Array startet'); } }; this._raf = requestAnimationFrame(step); },
+      holdUp: () => { if (this.state.hold > 0 && this.state.hold < 1) { cancelAnimationFrame(this._raf); this.setState({ hold: 0 }); this.tst('Hold inne for å bekrefte'); } } };
+    const docker = DOCK.map(([k, name, icon, cpu, off]) => { const on = s.arrOn && (s.dock[k] ?? !off);
+      return { name, icon, meta: on ? cpu + ' % CPU' : 'Stoppet', tap: () => { if (!s.arrOn) return this.tst('Start arrayet først'); hap(); this.setState({ dock: { ...s.dock, [k]: !on } }); this.tst(name + (on ? ' stoppes' : ' startes')); },
+        tile: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10, height: 84, padding: '10px 10px 10px 12px', boxSizing: 'border-box', borderRadius: 20, minWidth: 0, background: on ? '#404040' : '#2f2f2f', transition: 'background .2s, transform .12s' },
+        iconS: { fontSize: 20, color: on ? '#e1e1e1' : '#696969' }, dot: { width: 7, height: 7, borderRadius: 4, background: on ? GR : '#545454' } }; });
+    const pw = on => ({ width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: on ? a(GR, 0.16) : '#2f2f2f', color: on ? GR : '#7f7f7f' });
+    const vms = VMS.map(([k, name, icon, cpu, meta, off]) => { const on = s.arrOn && (s.vm[k] ?? !off);
+      return { name, icon, meta: on ? cpu + ' % · ' + meta.split(' · ')[1] : 'Av', pw: pw(on), bar: { display: 'block', height: '100%', width: (on ? cpu : 0) + '%', background: BL, borderRadius: 2 },
+        tap: () => { if (!s.arrOn) return this.tst('Start arrayet først'); hap(); this.setState({ vm: { ...s.vm, [k]: !on } }); this.tst(name + (on ? ' slås av' : ' startes')); } }; });
+    const guests = PVE.map(([id, kind, name, cpu, ram, off]) => { const on = s.pve[id] ?? !off;
+      return { id: String(id), kind, name, meta: on ? cpu + ' %' : 'Av', pw: pw(on),
+        badge: { width: 44, height: 44, borderRadius: 14, flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1, background: kind === 'VM' ? a(BL, 0.16) : a(PU, 0.16), color: kind === 'VM' ? BL : PU, opacity: on ? 1 : 0.5 },
+        cpu: { display: 'block', height: '100%', width: (on ? Math.max(3, cpu * 2) : 0) + '%', background: BL }, ram: { display: 'block', height: '100%', width: (on ? ram : 0) + '%', background: PU },
+        tap: () => { hap(); this.setState({ pve: { ...s.pve, [id]: !on } }); this.tst(name + (on ? ' slås av' : ' startes')); } }; });
+    const pveStore = [['local-lvm', 38, '362 av 952 GB'], ['nas-backup', 61, '2,4 av 4 TB'], ['local', 12, '11 av 94 GB']].map(([name, p, meta]) => ({ name, meta, bar: { width: p + '%', background: p >= 80 ? OR : BL, borderRadius: 4 } }));
+    const wanN = HOSTS.find(h => h.k === 'unifi').M, wan = [['arrow_downward', 'Ned', BL, wanN[0][2][47]], ['arrow_upward', 'Opp', GR, wanN[1][2][47]]].map(([icon, label, c, v]) => ({ icon, label, value: String(Math.round(v)), iconS: { fontSize: 16, color: c } }));
+    const devs = DEVS.map(([icon, name, model, meta, off, kind, X]) => { const k = name, open = s.devOpen === k, F = s.devFlag[k] || {}, isOn = (f, d) => F[f] ?? d;
+      const swS = on => ({ track: { width: 46, height: 28, borderRadius: 14, flex: 'none', position: 'relative', background: on ? GR : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 22, height: 22, borderRadius: 11, background: '#fafafa', transition: 'left .2s' } });
+      const tg = (f, icon, label, sub, def) => { const on = isOn(f, def); return { icon, label, sub, ...swS(on), row: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, borderTop: '1px solid rgba(255,255,255,0.05)' }, tap: () => { hap(); this.setState({ devFlag: { ...s.devFlag, [k]: { ...F, [f]: !on } } }); this.tst(label + (on ? ' av' : ' på')); } }; };
+      const st = (v, u, l) => ({ v: String(v), u, l });
+      const stats = kind === 'gw' ? [st(X.cpu, '%', 'CPU'), st(X.ram, '%', 'Minne'), st(X.temp, '°', 'Temp'), st(42, '', 'Klienter'), st(X.up, '', 'Oppetid'), st(X.fw, '', 'Firmware')]
+        : kind === 'ap' ? [st(X.cl, '', 'Klienter'), st(X.ch, '', 'Kanal 5 / 2,4'), st(X.tx, '', 'Sendestyrke'), st(off ? '–' : '−' + (52 + X.cl), 'dBm', 'Snitt signal'), st(X.up, '', off ? 'Status' : 'Oppetid'), st(X.fw, '', 'Firmware')]
+        : [st(X.poe, 'W', 'PoE av ' + X.poeMax + ' W'), st(X.temp, '°', 'Temp'), st(X.fan, '', 'Vifte'), st('11 / 16', '', 'Porter oppe'), st(X.up, '', 'Oppetid'), st(X.fw, '', 'Firmware')];
+      const bands = kind === 'ap' ? [['5 GHz', X.util5], ['2,4 GHz', X.util2]].map(([l, p]) => ({ l, v: p + ' % bruk', bar: { width: p + '%', background: p > 60 ? OR : BL, borderRadius: 3 } }))
+        : kind === 'gw' ? [['Ned', 72], ['Opp', 18]].map(([l, p]) => ({ l, v: Math.round(p * 10) + ' Mbit', bar: { width: p + '%', background: l === 'Ned' ? BL : GR, borderRadius: 3 } })) : [];
+      const toggles = kind === 'gw' ? [tg('ids', 'shield', 'Trusselbeskyttelse', 'IDS/IPS · 3 blokkert i dag', true), tg('ad', 'block', 'Annonseblokkering', 'Gjelder alle nett', true), tg('guest', 'wifi_tethering', 'Gjestenett', 'Gjest · 2 klienter', false)]
+        : kind === 'ap' ? [tg('led', 'light_mode', 'LED-lys', 'Ring på enheten', true), tg('wlan', 'wifi', 'Wi-Fi sending', 'Alle SSID-er', !off), tg('guest', 'wifi_tethering', 'Gjestenett', 'Kun dette AP-et', false)]
+        : [tg('led', 'light_mode', 'LED-lys', 'Port-LED-er', true), tg('poeAll', 'bolt', 'PoE', 'Strøm ut på alle PoE-porter', true)];
+      const act = (icon, label, msg, hot) => ({ icon, label, tap: () => { hap(hot ? 'medium' : 'light'); this.tst(msg); }, style: { height: 40, padding: '0 14px 0 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, background: hot ? a(RD, 0.16) : '#404040', color: hot ? RD : '#e1e1e1' } });
+      const actions = [act('restart_alt', 'Start på nytt', name + ' starter på nytt', true), act('my_location', 'Finn', name + ' blinker'), ...(kind === 'ap' ? [act('tune', 'Optimaliser kanal', 'Kanalskanning startet')] : kind === 'gw' ? [act('speed', 'Fartstest', 'Fartstest kjører…')] : [act('power', 'PoE-sykle alle', 'PoE-porter sykles', true)]), act('system_update', 'Oppdater', X.fw + ' er nyeste')];
+      return { icon, name, model, meta, open, stats, bands, hasBand: bands.length > 0, toggles, actions,
+        tap: () => { hap(); this.setState({ devOpen: open ? null : k }); },
+        wrap: { borderRadius: 20, margin: '0 6px', background: open ? '#404040' : 'transparent', transition: 'background .2s' },
+        chev: { fontSize: 20, color: '#979797', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }, ic: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: off ? a(OR, 0.16) : '#404040', color: off ? OR : '#c7c7c7' }, metaS: { fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', color: off ? OR : '#979797' } }; });
+    const SPD = { g: GR, x: BL, f: OR };
+    const swI = Math.min(s.swSel || 0, SWITCHES.length - 1), SWc = SWITCHES[swI], PORTS = SWc.ports;
+    const swList = SWITCHES.map((w, i) => { const on = i === swI, up = w.ports.filter(p => ({ g: 1, x: 1, f: 1 })[p[1]]).length;
+      return { name: w.name, short: w.name.replace(/^Switch\s+/, ''), sub: w.off ? 'Frakoblet' : up + '/' + w.ports.length + (w.poeMax ? ' · ' + w.poe + ' W' : ''),
+        leds: w.ports.map(p => ({ s: { flex: 1, height: 4, borderRadius: 2, background: w.off ? a(OR, 0.35) : ({ g: GR, x: BL, f: OR })[p[1]] || '#545454' } })), tap: () => { hap('selection'); this.setState({ swSel: i, port: null }); },
+        style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, minWidth: 0, padding: '10px 12px', borderRadius: 18, background: on ? '#404040' : '#2f2f2f', boxShadow: on ? 'inset 0 0 0 1.5px ' + PINK : 'inset 0 0 0 1px rgba(255,255,255,0.04)', transition: 'background .2s, box-shadow .2s' },
+        ic: { width: 38, height: 38, borderRadius: 19, flex: 'none', display: 'grid', placeItems: 'center', background: w.off ? a(OR, 0.18) : on ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : '#404040', color: w.off ? OR : on ? '#3a3a3a' : '#c7c7c7' },
+        subS: { fontSize: 11, whiteSpace: 'nowrap', color: w.off ? OR : '#979797' } }; });
+    const swCur = { name: SWc.name, model: SWc.model, loc: SWc.loc, grid: { display: 'grid', gridTemplateColumns: 'repeat(' + Math.min(8, PORTS.length) + ',minmax(0,1fr))', gap: 5 } };
+    const ports = PORTS.map(([n, sp, dev, poe]) => { const sel = s.port === n, up = !!SPD[sp];
+      return { n: String(n), tap: () => { hap('selection'); this.setState({ port: sel ? null : n }); },
+        tile: { height: 40, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 11, fontWeight: 500, color: up ? '#e1e1e1' : '#696969', background: sp === 'off' ? 'repeating-linear-gradient(135deg,#3f3f3f 0 3px,#333 3px 6px)' : sel ? '#545454' : '#2f2f2f', boxShadow: sel ? 'inset 0 0 0 1.5px ' + PINK : poe ? 'inset 0 -2px 0 ' + a(OR, 0.7) : 'none' },
+        led: { width: 14, height: 3, borderRadius: 2, background: up ? SPD[sp] : '#454545' } }; });
+    const pSel = PORTS.find(p => p[0] === s.port);
+    const portInfo = pSel ? `Port ${pSel[0]} · ${pSel[1] === 'off' ? 'Deaktivert' : pSel[2] || 'Ledig'}${SPD[pSel[1]] ? ' · ' + ({ g: '1 G', x: '2,5 G', f: '100 M' })[pSel[1]] : ''}${pSel[3] ? ' · PoE' : ''}` : 'Grønn 1 G · blå 2,5 G · oransje 100 M · strek under = PoE';
+    const cams = CAMS.map(([name, rec]) => ({ name, state: rec ? 'Opptak' : 'Pause', rec: { position: 'relative', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, height: 22, padding: '0 8px', borderRadius: 11, fontSize: 11, fontWeight: 600, background: 'rgba(0,0,0,0.35)', color: rec ? '#fafafa' : '#afafaf' }, recDot: { width: 6, height: 6, borderRadius: 3, background: rec ? RD : '#7f7f7f' } }));
+    const SUBS = { unifi: [['Internett', ['wan']], ['Enheter', ['devs']], ['Switch', ['sw']]], pve: [['Gjester', ['glist']], ['Lagring', ['pstore']], ['Backup', ['backup']]], unraid: [['Array', ['array']], ['Gjester', ['glist']]], ha: [['Tillegg', ['glist']], ['Oppdateringer', ['haUpd']], ['System', ['haSys']]] };
+    const SL = SUBS[H.k], si = Math.min(s.sub[H.k] || 0, SL.length - 1), on = SL[si][1];
+    const sec = {}; ['array', 'docker', 'vm', 'guests', 'pstore', 'backup', 'wan', 'devs', 'sw', 'cams', 'glist', 'haUpd', 'haSys'].forEach(k => { sec[k] = on.includes(k); });
+    const subs = SL.map(([label], i) => ({ label, tap: () => { hap('selection'); this.setState({ sub: { ...s.sub, [H.k]: i }, port: null }); },
+      style: { height: 38, minWidth: 0, borderRadius: 19, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: si === i ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: si === i ? '#3a3a3a' : '#c7c7c7', transition: 'background .2s' } }));
+    const hk = H.k, RUN = s.run || {}, items = hk === 'pve' ? PVE2.map(([id, kind, name, cpu, ram, off]) => ({ key: 'p' + id, kind, tag: kind + ' ' + id, name, icon: kind === 'VM' ? 'desktop_windows' : 'deployed_code', cpu, ram, off }))
+      : hk === 'unraid' ? [...DOCK.map(([k, name, icon, cpu, off]) => ({ key: 'd' + k, kind: 'Docker', tag: 'Docker', name, icon, cpu, ram: cpu * 3 + 4, off })), ...VMS.map(([k, name, icon, cpu, meta, off]) => ({ key: 'v' + k, kind: 'VM', tag: 'VM', name, icon, cpu, ram: 40, off }))]
+      : hk === 'ha' ? ADDONS.map(([k, name, icon, cpu, ram, off]) => ({ key: 'a' + k, kind: 'Tillegg', tag: 'Tillegg', name, icon, cpu, ram, off })) : [];
+    const isRun = it => { const v = RUN[hk + it.key]; return (hk === 'unraid' && !s.arrOn) ? false : v ?? !it.off; };
+    const kinds = hk === 'pve' ? ['VM', 'CT'] : hk === 'unraid' ? ['Docker', 'VM'] : ['Kjører', 'Stoppet'];
+    const fK = (s.gf || {})[hk] || 'Alle', q = ((s.gq || {})[hk] || '').trim().toLowerCase();
+    const match = it => (fK === 'Alle' || (hk === 'ha' ? (fK === 'Kjører') === isRun(it) : it.kind === fK)) && (!q || it.name.toLowerCase().includes(q) || it.tag.toLowerCase().includes(q));
+    const vis = items.filter(match).sort((x, y) => (isRun(y) - isRun(x)));
+    const cnt = k => k === 'Alle' ? items.length : hk === 'ha' ? items.filter(it => (k === 'Kjører') === isRun(it)).length : items.filter(it => it.kind === k).length;
+    const runN = items.filter(isRun).length;
+    const gl = { icon: hk === 'ha' ? 'extension' : 'deployed_code', title: hk === 'ha' ? 'Tillegg' : 'Gjester', sum: runN + ' av ' + items.length + ' kjører', ph: hk === 'ha' ? 'Søk i tillegg' : 'Søk i gjester',
+      q: (s.gq || {})[hk] || '', hasQ: !!q, empty: vis.length === 0,
+      setQ: e => this.setState({ gq: { ...(s.gq || {}), [hk]: e.target.value } }), clearQ: () => this.setState({ gq: { ...(s.gq || {}), [hk]: '' } }),
+      chips: ['Alle', ...kinds].map(k => { const on = fK === k; return { label: k, n: String(cnt(k)), tap: () => { hap('selection'); this.setState({ gf: { ...(s.gf || {}), [hk]: k } }); },
+        style: { height: 38, minWidth: 0, borderRadius: 19, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', background: on ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: on ? '#3a3a3a' : '#c7c7c7', transition: 'background .2s' },
+        nS: { fontSize: 11, fontWeight: 500, color: on ? '#5a3a48' : '#979797' } }; }),
+      rows: vis.map(it => { const on = isRun(it), id = hk + it.key, isOpen = s.gOpen === id, GF = (s.gFlag || {})[id] || {};
+        const swS = v => ({ track: { width: 46, height: 28, borderRadius: 14, flex: 'none', position: 'relative', background: v ? GR : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: v ? 21 : 3, width: 22, height: 22, borderRadius: 11, background: '#fafafa', transition: 'left .2s' } });
+        const tg = (f, icon, label, sub, def) => { const v = GF[f] ?? def; return { icon, label, sub, ...swS(v), row: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 50, borderTop: '1px solid rgba(255,255,255,0.05)' }, tap: e => { e.stopPropagation(); hap(); this.setState({ gFlag: { ...(s.gFlag || {}), [id]: { ...GF, [f]: !v } } }); this.tst(label + (v ? ' av' : ' på')); } }; };
+        const seed = it.name.length, vc = it.kind === 'VM' ? 4 : it.kind === 'CT' ? 2 : 1, memT = it.kind === 'VM' ? 8 : it.kind === 'CT' ? 2 : 1, memU = on ? (memT * it.ram / 100) : 0, disk = it.kind === 'VM' ? 64 : it.kind === 'CT' ? 8 : 2, dU = Math.round(disk * (0.2 + (seed % 6) / 10));
+        const up = on ? (seed % 9 + 1) + ' d ' + (seed % 23) + ' t' : '–', ip = '10.69.1.' + (40 + seed * 3 % 180);
+        const stats = [{ v: on ? it.cpu : '–', u: on ? '%' : '', l: 'CPU · ' + vc + ' kjerner' }, { v: on ? fmt(memU.toFixed(1)) : '–', u: on ? 'GB' : '', l: 'RAM av ' + memT + ' GB' }, { v: dU, u: 'GB', l: 'Disk av ' + disk + ' GB' },
+          { v: up, u: '', l: 'Oppetid' }, { v: hk === 'ha' ? (it.key === 'avscode' ? '5.17' : '1.' + (seed % 20) + '.' + (seed % 7)) : ip, u: '', l: hk === 'ha' ? 'Versjon' : 'IP' }, { v: on ? (seed * 7 % 90 + 5) + ' / ' + (seed * 3 % 40 + 2) : '–', u: on ? 'kB/s' : '', l: 'Nett ned / opp' }];
+        const bar = (l, p, c, v) => ({ l, v, bar: { width: (on ? p : 0) + '%', background: c, borderRadius: 3, transition: 'width .4s' } });
+        const bars = [bar('CPU', Math.max(3, it.cpu * 2), BL, on ? it.cpu + ' %' : 'av'), bar('RAM', it.ram, PU, on ? fmt(memU.toFixed(1)) + ' / ' + memT + ' GB' : 'av'), { ...bar('Disk', 0, OR, dU + ' / ' + disk + ' GB'), bar: { width: Math.round(dU / disk * 100) + '%', background: OR, borderRadius: 3 } }];
+        const toggles = hk === 'ha' ? [tg('boot', 'power', 'Start ved oppstart', 'Starter når HA starter', true), tg('wd', 'pets', 'Watchdog', 'Restarter hvis den krasjer', true), tg('au', 'system_update', 'Automatisk oppdatering', 'Nye versjoner installeres', false), tg('sb', 'side_navigation', 'Vis i sidepanel', 'Snarvei i HA-menyen', it.key === 'avscode' || it.key === 'anodered')]
+          : hk === 'pve' ? [tg('boot', 'power', 'Start ved oppstart', 'Rekkefølge ' + (seed % 5 + 1), !it.off), tg('prot', 'lock', 'Beskyttelse', 'Hindrer sletting', false), tg('bk', 'backup', 'Med i nattlig backup', 'nas-backup · 03:00', true)]
+          : it.kind === 'VM' ? [tg('boot', 'power', 'Autostart', 'Når arrayet starter', !it.off), tg('bk', 'backup', 'Med i backup', 'Ukentlig · søndag', true)]
+          : [tg('boot', 'power', 'Autostart', 'Når arrayet starter', !it.off), tg('au', 'system_update', 'Automatisk oppdatering', 'CA Auto Update', true), tg('bk', 'backup', 'Med i appdata-backup', 'Daglig · 04:00', true)];
+        const act = (icon, label, msg, hot) => ({ icon, label, tap: e => { e.stopPropagation(); hap(hot ? 'medium' : 'light'); this.tst(msg); }, style: { height: 40, padding: '0 14px 0 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, background: hot ? a(RD, 0.16) : '#2f2f2f', color: hot ? RD : '#e1e1e1' } });
+        const actions = [act('restart_alt', 'Start på nytt', it.name + ' starter på nytt', true), act('article', 'Logg', 'Åpner logg for ' + it.name), act('terminal', hk === 'ha' ? 'Åpne' : 'Konsoll', 'Åpner ' + it.name),
+          hk === 'pve' ? act('photo_camera', 'Snapshot', 'Snapshot av ' + it.name + ' tatt') : hk === 'ha' ? act('backup', 'Backup', 'Backup av ' + it.name + ' startet') : act('system_update', 'Oppdater', it.name + ' er nyeste versjon')];
+        return { isOpen, stats, bars, toggles, actions, open: () => { hap(); this.setState({ gOpen: isOpen ? null : id }); },
+          wrap: { borderRadius: 20, background: '#404040', boxShadow: isOpen ? 'inset 0 0 0 1.5px ' + a(PINK, 0.5) : 'none', transition: 'box-shadow .2s' }, name: it.name, tag: it.tag, icon: it.icon, sub: on ? 'Kjører · CPU ' + it.cpu + ' % · RAM ' + it.ram + ' %' : 'Stoppet', tip: on ? 'Stopp' : 'Start',
+          subS: { fontSize: 12, color: on ? '#afafaf' : '#7f7f7f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+          row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 12px 0 10px', cursor: 'pointer' },
+          ic: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: on ? '#fafafa' : '#545454', color: on ? '#282828' : '#afafaf', transition: 'background .2s' },
+          track: { width: 50, height: 30, borderRadius: 15, flex: 'none', position: 'relative', background: on ? PINK : '#545454', transition: 'background .2s' },
+          knob: { position: 'absolute', top: 3, left: on ? 23 : 3, width: 24, height: 24, borderRadius: 12, background: '#fafafa', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left .2s' },
+          tap: e => { e.stopPropagation(); if (hk === 'unraid' && !s.arrOn) return this.tst('Start arrayet først'); hap('medium'); this.setState({ run: { ...RUN, [hk + it.key]: !on } }); this.tst(it.name + (on ? ' stoppes' : ' startes')); } }; }) };
+    const UD = s.upd || {};
+    const upd = UPD.map(([icon, name, cur, nw]) => { const done = !!UD[name] || !nw, busy = UD[name] === 'busy';
+      return { icon, name, ver: done ? (nw || cur) + ' · nyeste' : cur + ' → ' + nw, label: busy ? 'Installerer…' : done ? 'Oppdatert' : 'Installer',
+        btn: { height: 36, padding: '0 14px', borderRadius: 18, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', background: done ? 'transparent' : busy ? '#545454' : 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)', color: done ? '#979797' : busy ? '#e1e1e1' : '#3a3a3a', boxShadow: done ? 'inset 0 0 0 1px rgba(255,255,255,0.12)' : 'none' },
+        tap: () => { if (done || busy) return; hap('medium'); this.setState({ upd: { ...UD, [name]: 'busy' } }); setTimeout(() => { this.setState({ upd: { ...this.state.upd, [name]: true } }); this.tst(name + ' oppdatert'); }, 1800); } }; });
+    const updLeft = upd.filter(u => u.label === 'Installer').length;
+    const haSys = [['2026.9.3', 'Core'], ['16.2', 'OS'], ['14 d 6 t', 'Oppetid'], ['1,8 GB', 'Database'], ['1 284', 'Entiteter'], ['62', 'Integrasjoner']].map(([v, l]) => ({ v, l }));
+    const hAct = (icon, label, msg, hot) => ({ icon, label, tap: () => { hap(hot ? 'medium' : 'light'); this.tst(msg); }, style: { height: 40, padding: '0 14px 0 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, background: hot ? a(RD, 0.16) : '#3a3a3a', color: hot ? RD : '#e1e1e1' } });
+    const haActs = [hAct('restart_alt', 'Start HA på nytt', 'Home Assistant starter på nytt', true), hAct('fact_check', 'Sjekk config', 'Konfigurasjonen er gyldig'), hAct('backup', 'Ta backup', 'Backup startet'), hAct('power_settings_new', 'Start vert på nytt', 'Verten starter på nytt', true)];
+    const devOff = DEVS.filter(d => d[4]).length;
+    const prose = hk === 'unraid' ? { a: 'Arrayet er', c1: s.arrOn ? 'startet' : 'stoppet', b: 'og lagringen er', c2: (s.arrOn ? 65 : 0) + ' % full', c: '.' }
+      : hk === 'pve' ? { a: 'Proxmox kjører', c1: pveRun + ' av ' + PVE2.length + ' gjester', b: 'og lagringen er', c2: '38 % full', c: '.' }
+      : hk === 'ha' ? { a: 'Home Assistant har', c1: updN ? updN + ' oppdateringer' : 'ingen oppdateringer', b: 'og', c2: items.filter(isRun).length + ' tillegg', c: ' kjører.' }
+      : { a: 'Nettet er', c1: devOff ? devOff + ' enhet frakoblet' : 'helt oppe', b: 'og', c2: '42 klienter', c: ' er tilkoblet.' };
+    return { prose, showProse: P.prosa ?? true, gl, upd, updSum: updLeft ? updLeft + ' tilgjengelig' : 'Alt oppdatert', haSys, haActs, isHa: hk === 'ha', sec, subs, pickCards: cards, pickTabs: !cards, hosts, hero, openCustom: () => { hap(); this.tst('Tilpass server'); },
+      tabCog: { width: tabH + 8, height: tabH + 8, borderRadius: 999, flex: 'none', background: '#3a3a3a', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', display: 'grid', placeItems: 'center' },
+      isUnraid: H.k === 'unraid', isPve: H.k === 'pve', isUnifi: H.k === 'unifi',
+      arr, bays, docker, dockSum: (s.arrOn ? DOCK.filter(d => s.dock[d[0]] ?? !d[4]).length : 0) + ' av ' + DOCK.length + ' kjører', vms, vmSum: vms.filter(v => v.meta !== 'Av').length + ' av ' + vms.length + ' på',
+      guests, pveSum: pveRun + ' av ' + PVE2.length + ' kjører', pveStore, wan, devs, devSum: '4 av 5 online', ports, portSum: SWc.off ? 'Frakoblet' : PORTS.filter(p => SPD[p[1]]).length + ' av ' + PORTS.length + ' oppe' + (SWc.poeMax ? ' · ' + SWc.poe + ' / ' + SWc.poeMax + ' W PoE' : ''), swList, swCur, multiSw: SWITCHES.length > 1, portInfo, cams,
+      hasToast: !!s.toast, toast: s.toast };
+  }
+}
+</script>
+</body>
+</html>

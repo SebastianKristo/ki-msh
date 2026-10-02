@@ -34,7 +34,7 @@
   const GROUPS = [['alle', 'mdi:layers-outline', 'Alle'], ['rom', 'mdi:texture-box', 'Rom'], ['fn', 'mdi:apps', 'Funksjoner'], ['egne', 'mdi:star-outline', 'Egne']];
   const SRCL = { auto: 'Auto', yaml: 'YAML', custom: 'Egen' };
   const SRCLONG = { auto: 'generert', yaml: 'strategi-YAML', custom: 'Egen (ki-store)' };
-  const CHIP = { Auto: ['#afafaf', 'rgba(255,255,255,0.08)'], YAML: [C.blue, 'rgb(115 185 242 / 0.16)'], Egen: [C.green, 'rgb(102 209 158 / 0.16)'], Overstyrt: [C.orange, 'rgb(242 181 115 / 0.16)'], Skjult: ['#979797', 'rgba(255,255,255,0.06)'] };
+  const CHIP = { Auto: ['var(--ki-text-2, #afafaf)', 'rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))'], YAML: ['var(--ki-blue-text, ' + C.blue + ')', 'rgb(115 185 242 / 0.16)'], Egen: ['var(--ki-green-text, ' + C.green + ')', 'rgb(102 209 158 / 0.16)'], Overstyrt: ['var(--ki-orange-text, ' + C.orange + ')', 'rgb(242 181 115 / 0.16)'], Skjult: ['var(--ki-text-mid, #979797)', 'rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))'] };
   const chip = (l) => { const [c, b] = CHIP[l] || CHIP.Auto; return `<span class="ppchip" style="color:${c};background:${b}">${esc(l)}</span>`; };
   const Yp = (t) => M.yaml.parse(t), Yd = (v) => M.yaml.dump(v);
   const store = () => (M.store && M.store.get()) || {};
@@ -254,7 +254,7 @@
       const pill = document.createElement('button');
       pill.textContent = 'Tilbake til Tilpass Hjem';
       const R = M.dashRect();
-      Object.assign(pill.style, { position: 'fixed', left: R.left + R.width / 2 + 'px', transform: 'translateX(-50%)', bottom: 'calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px) + 16px)', zIndex: '20', height: '44px', padding: '0 20px', borderRadius: '22px', border: '0', background: PINK, color: '#2f2f2f', font: `600 14px ${M.FONT}`, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', cursor: 'pointer', pointerEvents: 'auto' });
+      Object.assign(pill.style, { position: 'fixed', left: R.left + R.width / 2 + 'px', transform: 'translateX(-50%)', bottom: 'calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px) + 16px)', zIndex: '20', height: '44px', padding: '0 20px', borderRadius: '22px', border: '0', background: PINK, color: 'var(--ki-on-accent, #2f2f2f)', font: `600 14px ${M.FONT}`, boxShadow: '0 8px 24px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.4*var(--ki-ka-k,1))))', cursor: 'pointer', pointerEvents: 'auto' });
       pill.addEventListener('click', (e) => { e.stopPropagation(); M.haptic('light'); endPreview(); });
       ['pointerdown', 'mousedown', 'touchstart'].forEach((t) => pill.addEventListener(t, (e) => e.stopPropagation()));
       M.overlayRoot().appendChild(pill);
@@ -297,64 +297,64 @@
     .pphd .done[disabled]{opacity:.35;pointer-events:none}
     .ppbar{display:flex;align-items:center;gap:6px}
     .ppbar .pgs{flex:1;min-width:0}
-    .ppnew{height:40px;padding:0 14px 0 10px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;background:${PINK};color:#2f2f2f;flex:none}
+    .ppnew{height:40px;padding:0 14px 0 10px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;background:${PINK};color:var(--ki-on-accent, #2f2f2f);flex:none}
     .ppmn{position:relative;flex:none}
-    .ppmenu{position:absolute;right:0;top:44px;z-index:5;min-width:230px;padding:6px;border-radius:18px;background:var(--gray300,#404040);box-shadow:0 12px 30px rgba(0,0,0,.45);display:flex;flex-direction:column}
+    .ppmenu{position:absolute;right:0;top:44px;z-index:5;min-width:230px;padding:6px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:0 12px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.45*var(--ki-ka-k,1))));display:flex;flex-direction:column}
     .ppmenu button{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:12px;font-size:14px;text-align:left}
-    .ppmenu button:hover{background:rgba(255,255,255,.06)}
-    .ppgh{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;padding:6px 6px 0}
+    .ppmenu button:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .ppgh{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);padding:6px 6px 0}
     .pr.ppr{gap:8px;padding:8px 6px 8px 10px}
     .ppr .ppm{display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-align:left}
-    .ppr .pph{width:22px;height:40px;flex:none;display:grid;place-items:center;color:#7f7f7f;cursor:grab;touch-action:none}
+    .ppr .pph{width:22px;height:40px;flex:none;display:grid;place-items:center;color:var(--ki-text-3, #7f7f7f);cursor:grab;touch-action:none}
     .ppchip{height:22px;padding:0 8px;border-radius:11px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;flex:none;white-space:nowrap}
     .ppr .sq.no{opacity:.3;pointer-events:none}
     .ppr.hov-t{box-shadow:inset 0 3px 0 ${PINK}} .ppr.hov-b{box-shadow:inset 0 -3px 0 ${PINK}}
-    .ppwarn{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:18px;background:rgb(242 181 115 / 0.14);color:${C.orange};font-size:13px;line-height:1.4}
-    .ppwarn.err{background:rgb(242 128 115 / 0.14);color:${C.red}}
+    .ppwarn{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:18px;background:rgb(242 181 115 / 0.14);color:var(--ki-orange-text, ${C.orange});font-size:13px;line-height:1.4}
+    .ppwarn.err{background:rgb(242 128 115 / 0.14);color:var(--ki-red-text, ${C.red})}
     .ppwarn b{font-weight:600}
-    .ppnote{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:18px;background:var(--gray200,#3a3a3a);color:#c7c7c7;font-size:13px;line-height:1.4}
-    .ppmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 4px;font-size:12px;color:#979797}
+    .ppnote{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-1, #c7c7c7);font-size:13px;line-height:1.4}
+    .ppmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 4px;font-size:12px;color:var(--ki-text-mid, #979797)}
     .ppcode{min-height:200px}
-    .ppta{display:flex;height:380px;border-radius:18px;background:var(--gray000,#232323);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
+    .ppta{display:flex;height:380px;border-radius:18px;background:var(--ki-bg, var(--gray000,#232323));overflow:hidden;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .ppta.ro{opacity:.85}
-    .ppgut{flex:none;min-width:30px;padding:12px 8px 12px 10px;text-align:right;color:#696969;font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;white-space:pre;background:rgba(255,255,255,0.03);-webkit-user-select:none;user-select:none}
-    .ppgut .bad{color:${C.red};font-weight:700}
-    .ppta textarea{flex:1;min-width:0;height:100%;box-sizing:border-box;resize:none;border:0;outline:0;margin:0;background:transparent;color:#fafafa;font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:12px 12px 12px 8px;white-space:pre;overflow:auto;tab-size:2;-webkit-user-select:text;user-select:text}
+    .ppgut{flex:none;min-width:30px;padding:12px 8px 12px 10px;text-align:right;color:var(--ki-text-lo, #696969);font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;white-space:pre;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.03*var(--ki-wa-k,1)),var(--ki-wa-max,1)));-webkit-user-select:none;user-select:none}
+    .ppgut .bad{color:var(--ki-red-text, ${C.red});font-weight:700}
+    .ppta textarea{flex:1;min-width:0;height:100%;box-sizing:border-box;resize:none;border:0;outline:0;margin:0;background:transparent;color:var(--ki-text, #fafafa);font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:12px 12px 12px 8px;white-space:pre;overflow:auto;tab-size:2;-webkit-user-select:text;user-select:text}
     .ppcode ha-code-editor{display:block;border-radius:18px;overflow:hidden;max-height:420px;overflow-y:auto}
     .ppacts{display:flex;flex-wrap:wrap;gap:8px}
-    .ppb{height:40px;padding:0 14px 0 12px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--gray200,#3a3a3a);color:#fafafa}
-    .ppb.red{background:rgb(242 128 115 / 0.18);color:${C.red}}
-    .ppb.redf{background:${C.red};color:#232323}
-    .ppf{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:var(--gray200,#3a3a3a)}
-    .ppf .in{background:var(--gray000,#232323)}
+    .ppb{height:40px;padding:0 14px 0 12px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, #fafafa)}
+    .ppb.red{background:rgb(242 128 115 / 0.18);color:var(--ki-red-text, ${C.red})}
+    .ppb.redf{background:${C.red};color:var(--ki-on-accent, #232323)}
+    .ppf{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .ppf .in{background:var(--ki-bg, var(--gray000,#232323))}
     .ppf .rw{display:flex;gap:8px;align-items:center}
-    .ppf .rv{min-width:44px;text-align:right;font-size:13px;color:#c7c7c7;font-variant-numeric:tabular-nums}
+    .ppf .rv{min-width:44px;text-align:right;font-size:13px;color:var(--ki-text-1, #c7c7c7);font-variant-numeric:tabular-nums}
     .ppsw{display:flex;flex-wrap:wrap;gap:6px}
-    .ppsw button{width:28px;height:28px;border-radius:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
-    .ppsw button.on{box-shadow:0 0 0 2px #fafafa}
+    .ppsw button{width:28px;height:28px;border-radius:14px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.15*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .ppsw button.on{box-shadow:0 0 0 2px var(--ki-text, #fafafa)}
     .ppt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .ppt button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:96px;padding:10px;border-radius:22px;background:var(--gray200,#3a3a3a);font-size:13px;font-weight:500;text-align:center}
-    .ppt button i{font-style:normal;font-size:11px;color:#979797;font-weight:400}
-    .ppt button.on{background:#545454;box-shadow:inset 0 0 0 2px ${PINK}}
+    .ppt button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:96px;padding:10px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:13px;font-weight:500;text-align:center}
+    .ppt button i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);font-weight:400}
+    .ppt button.on{background:var(--ki-ctrl, #545454);box-shadow:inset 0 0 0 2px ${PINK}}
     .ppbar .pg{height:36px;padding:0 12px 0 10px;font-size:13px}
-    .ppmiss{color:${C.red};font-style:normal}
+    .ppmiss{color:var(--ki-red-text, ${C.red});font-style:normal}
     .ppwarn .ppb{height:32px;margin-top:6px}
     .ppimp{display:flex;flex-direction:column;gap:8px}
-    .ppimp textarea{width:100%;box-sizing:border-box;height:160px;resize:vertical;border:0;outline:0;border-radius:18px;padding:12px;background:var(--gray000,#232323);color:#fafafa;font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
+    .ppimp textarea{width:100%;box-sizing:border-box;height:160px;resize:vertical;border:0;outline:0;border-radius:18px;padding:12px;background:var(--ki-bg, var(--gray000,#232323));color:var(--ki-text, #fafafa);font:12px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .ppfile{position:relative;overflow:hidden}
     .ppfile input{position:absolute;inset:0;opacity:0;cursor:pointer}
-    .ppchk{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:20px;background:var(--gray200,#3a3a3a);text-align:left;width:100%;box-sizing:border-box}
-    .ppchk .bx{width:24px;height:24px;border-radius:8px;flex:none;display:grid;place-items:center;box-shadow:inset 0 0 0 2px #7f7f7f}
-    .ppchk.on .bx{background:${PINK};box-shadow:none;color:#2f2f2f}
+    .ppchk{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;width:100%;box-sizing:border-box}
+    .ppchk .bx{width:24px;height:24px;border-radius:8px;flex:none;display:grid;place-items:center;box-shadow:inset 0 0 0 2px var(--ki-text-3, #7f7f7f)}
+    .ppchk.on .bx{background:${PINK};box-shadow:none;color:var(--ki-on-accent, #2f2f2f)}
     .ppchk.bad{opacity:.75}
     .ppchk .pn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .ppchk .pn b{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .ppchk .pn i{font-style:normal;font-size:12px;color:#979797}
+    .ppchk .pn i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797)}
     .ppicf{display:flex;gap:8px;align-items:center}
-    .ppconv{max-height:320px;overflow:auto;border-radius:16px;background:var(--gray000,#232323);padding:8px 0;font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--gray900,#c7c7c7);-webkit-user-select:text;user-select:text}
+    .ppconv{max-height:320px;overflow:auto;border-radius:16px;background:var(--ki-bg, var(--gray000,#232323));padding:8px 0;font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--ki-text-1, var(--gray900,#c7c7c7));-webkit-user-select:text;user-select:text}
     .ppconv>div{display:flex;gap:10px;padding:0 10px;white-space:pre}
     .ppconv>div.bad{background:rgb(242 128 115 / 0.18)}
-    .ppconv i{font-style:normal;color:var(--gray600,#7f7f7f);min-width:36px;text-align:right;flex:none}
+    .ppconv i{font-style:normal;color:var(--ki-text-3, var(--gray600,#7f7f7f));min-width:36px;text-align:right;flex:none}
     .ppicf ha-icon-picker{flex:1}
   `;
 
@@ -366,7 +366,7 @@
         <div class="pgs">${GROUPS.map(([id, icn, l]) => `<button class="pg ${g === id ? 'on' : ''}" data-a="popg" data-v="${id}" data-h="selection">${ic(icn, 18)}${l}</button>`).join('')}</div>
       </div>
       <div class="ppbar"><button class="ppnew press" data-a="ppnew" data-key="ppnew">${ic('mdi:plus', 18)}Ny popup</button><button class="b40 press" style="display:flex;align-items:center;gap:6px;flex:none" data-a="ppimport" data-key="ppimport">${ic('mdi:import', 18)}Importer</button>${M.powerPricePanel ? `<button class="b40 press" style="display:flex;align-items:center;gap:6px;flex:none" data-a="ppstrom" data-key="ppstrom">${ic('mdi:lightning-bolt', 18)}Strømpris</button>` : ''}<span style="flex:1"></span>
-        <div class="ppmn"><button class="sq" style="width:40px;height:40px;border-radius:20px;background:var(--gray200,#3a3a3a)" data-a="ppmenu" title="Mer">${ic('mdi:dots-vertical', 20)}</button>
+        <div class="ppmn"><button class="sq" style="width:40px;height:40px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a))" data-a="ppmenu" title="Mer">${ic('mdi:dots-vertical', 20)}</button>
         ${u.ppMenu ? `<div class="ppmenu"><button data-a="ppexport">${ic('mdi:export-variant', 20)}Eksporter alle som YAML</button>${customList().length ? `<button data-a="ppexportown">${ic('mdi:file-export-outline', 20)}Eksporter egne popups (fil)</button>` : ''}<button data-a="ppglobals">${ic('mdi:file-code-outline', 20)}Maler og globale innstillinger</button></div>` : ''}</div>
       </div>`;
     const own = customList(), ownCfg = own.map(cfgOf);
@@ -389,7 +389,7 @@
         ${e.source === 'custom' ? `<span class="pph" title="Dra for rekkefølge">${ic('mdi:drag', 20)}</span>` : ''}
         <button class="ppm" data-a="ppopen" data-v="${esc(e.hash)}"><span class="pi" style="background:${col}">${ic(e.icon, 22)}</span><span class="pn"><b>${esc(e.name)}</b><i>${esc(e.hash)}${e.source === 'custom' ? ' · ' + kortN(nCards(e.base)) : ''}${e.hidden ? ' · skjult' : ''}${e.replacesAuto ? ' · erstatter generert' : ''}${miss(e)}</i></span></button>
         ${chip(chipOf(e))}
-        <button class="sq ${lockHide ? 'no' : ''}" data-a="ppeye" data-v="${esc(e.hash)}" data-h="selection" title="${e.hidden ? 'Skjult' : 'Vises'}">${ic(e.hidden || hidUser ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18, `color:${e.hidden ? '#696969' : '#fafafa'}`)}</button>
+        <button class="sq ${lockHide ? 'no' : ''}" data-a="ppeye" data-v="${esc(e.hash)}" data-h="selection" title="${e.hidden ? 'Skjult' : 'Vises'}">${ic(e.hidden || hidUser ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18, `color:${e.hidden ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>
         <button class="sq" data-a="ppopen" data-v="${esc(e.hash)}" title="Åpne">${ic('mdi:chevron-right', 20)}</button>
       </div>`;
     };
@@ -401,12 +401,12 @@
     }
     // Generert popup som er erstattet av en egen (samme hash)
     const repRow = (x) => `<div class="pr ppr hid" data-key="pprep-${esc(x.hash)}">
-        <span class="ppm"><span class="pi" style="background:var(--gray400,#545454)">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · Erstattet av egen popup</i></span></span>
+        <span class="ppm"><span class="pi" style="background:var(--ki-ctrl, var(--gray400,#545454))">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · Erstattet av egen popup</i></span></span>
         <button class="ppb" data-a="ppprefer" data-v="${esc(x.hash)}" data-p="auto" data-h="selection">Bruk autogenerert</button>
       </div>`;
     // Egen popup som er slått av fordi brukeren valgte den genererte
     const inaRow = (x) => `<div class="pr ppr hid" data-key="ppina-${esc(x.hash)}">
-        <button class="ppm" data-a="ppopenraw" data-v="${x.index}"><span class="pi" style="background:var(--gray400,#545454)">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · ${x.by ? 'Erstattet av ' + esc(x.by) : 'av – autogenerert brukes'}</i></span></button>
+        <button class="ppm" data-a="ppopenraw" data-v="${x.index}"><span class="pi" style="background:var(--ki-ctrl, var(--gray400,#545454))">${ic(x.icon, 22)}</span><span class="pn"><b>${esc(x.name)}</b><i>${esc(x.hash)} · ${x.by ? 'Erstattet av ' + esc(x.by) : 'av – autogenerert brukes'}</i></span></button>
         <button class="ppb" data-a="ppprefer" data-v="${esc(x.hash)}" data-p="custom" data-h="selection">Bruk egen</button>
       </div>`;
     // Egen popup med ugyldig YAML (hoppes over i dashbordet) – kan åpnes og rettes
@@ -415,7 +415,7 @@
         <button class="sq" data-a="ppopenraw" data-v="${x.index}" title="Rett">${ic('mdi:chevron-right', 20)}</button></div>`; };
     const G = globalsObj(), gn = (k) => Object.keys(isObj(G[k]) ? G[k] : {}).length;
     const gSum = globalsText() ? [gn('button_card_templates') && `${gn('button_card_templates')} button-card`, gn('decluttering_templates') && `${gn('decluttering_templates')} decluttering`, isObj(G.paper_buttons_row) && 'paper-buttons-row', ...Object.keys(G).filter((k) => !GLOBAL_KEYS.includes(k))].filter(Boolean).join(' · ') || 'tom' : 'Ikke importert';
-    const gRow = `<div class="pr ppr" data-key="ppglob"><button class="ppm" data-a="ppglobals"><span class="pi" style="background:var(--gray300,#404040)">${ic('mdi:file-code-outline', 22)}</span><span class="pn"><b>Maler og globale innstillinger</b><i>${esc(gSum)}</i></span></button><button class="sq" data-a="ppglobals" title="Åpne">${ic('mdi:chevron-right', 20)}</button></div>`;
+    const gRow = `<div class="pr ppr" data-key="ppglob"><button class="ppm" data-a="ppglobals"><span class="pi" style="background:var(--ki-surface-2, var(--gray300,#404040))">${ic('mdi:file-code-outline', 22)}</span><span class="pn"><b>Maler og globale innstillinger</b><i>${esc(gSum)}</i></span></button><button class="sq" data-a="ppglobals" title="Åpne">${ic('mdi:chevron-right', 20)}</button></div>`;
     const extra = (id) => [
       ...(R.replaced || []).filter((x) => x.group === id).map(repRow),
       ...(id === 'egne' ? [...(R.inactive || []).map(inaRow), ...(R.invalid || []).filter((x) => x.source === 'custom').map(badRow)] : []),
@@ -465,7 +465,7 @@
     const rd = store().room_defaults, l = rd && Array.isArray(rd.open_on_start) ? rd.open_on_start : null;
     const on = (k) => (l ? l.includes(k) : k === 'lys');
     return `<div class="ppf" data-key="pprd"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:500">Rom-popups · åpen ved start</b><span class="hint">Seksjonene som er utvidet hver gang en rom-popup åpnes. Rommets egen «Tilpass rom» → Seksjoner overstyrer.</span></span>
-      <div class="ppacts">${F.map(([k, lbl]) => `<button class="ppb" aria-pressed="${on(k)}" data-a="pprdopen" data-v="${esc(k)}" data-h="selection" style="${on(k) ? `background:rgb(242 210 111 / 0.18);color:${C.yellow || '#f2d26f'}` : ''}">${ic(on(k) ? 'mdi:chevron-down-circle' : 'mdi:chevron-right-circle-outline', 18)}${esc(lbl)}</button>`).join('')}
+      <div class="ppacts">${F.map(([k, lbl]) => `<button class="ppb" aria-pressed="${on(k)}" data-a="pprdopen" data-v="${esc(k)}" data-h="selection" style="${on(k) ? `background:rgb(242 210 111 / 0.18);color:var(--ki-yellow-text, ${C.yellow || '#f2d26f'})` : ''}">${ic(on(k) ? 'mdi:chevron-down-circle' : 'mdi:chevron-right-circle-outline', 18)}${esc(lbl)}</button>`).join('')}
       ${l ? `<button class="ppb" data-a="pprdreset">${ic('mdi:restore', 18)}Standard</button>` : ''}</div></div>`;
   }
 
@@ -506,7 +506,7 @@
   }
   function colRow(f, label, cur) {
     return `<div class="fld"><span class="fl">${label}</span><div class="ppsw">${COLS.map((x) => `<button class="${cur === x ? 'on' : ''}" data-a="ppfcol" data-f="${f}" data-v="${esc(x)}" style="background:${M.color(x, x)}" title="${esc(x)}"></button>`).join('')}</div>
-      <input class="in" data-in="ppf" data-f="${f}" value="${esc(cur || '')}" placeholder="var(--gray200) / #3a3a3a"></div>`;
+      <input class="in" data-in="ppf" data-f="${f}" value="${esc(cur || '')}" placeholder="var(--gray200) / #3a3a3a"></div>`; // ki-hex-ok: eksempeltekst i plassholderen
   }
   function renderForm(ed, d) {
     if (d.src === 'auto') {
@@ -590,7 +590,7 @@
    * ellers tekstfelt med forhåndsvisning. */
   function iconField(d, obj) {
     const v = (obj && obj.icon) || '';
-    const pv = `<span class="pv2" style="background:var(--gray000,#232323)">${ic(v || 'mdi:card-outline', 22)}</span>`;
+    const pv = `<span class="pv2" style="background:var(--ki-bg, var(--gray000,#232323))">${ic(v || 'mdi:card-outline', 22)}</span>`;
     let f;
     if (M.iconPicker && (typeof M.iconPicker === 'function' || typeof M.iconPicker.open === 'function')) f = `${pv}<button class="in" style="flex:1;text-align:left" data-a="ppiconpick">${esc(v || 'Velg ikon')}</button>${v ? `<button class="std" data-a="ppiconclr">×</button>` : ''}`;
     else if (customElements.get('ha-icon-picker')) f = `<ha-icon-picker data-in="ppiconha" data-val="${esc(v)}" data-nomorph data-key="ppiconha-${d.id}"></ha-icon-picker>`;
@@ -670,7 +670,7 @@
       return esc(bits.join(' · ')) + (m.length ? `<br><span class="ppmiss">Mangler kort: ${esc(m.join(', '))}</span>` : '');
     };
     const sel = I.sel || {};
-    const chk = (k, on, bad, icon, name, sub) => `<button class="ppchk ${on ? 'on' : ''} ${bad ? 'bad' : ''}" data-a="ppimpchk" data-v="${k}" data-h="selection" ${bad ? 'disabled' : ''}><span class="bx">${on ? ic('mdi:check', 18) : ''}</span><span class="pi" style="background:var(--gray300,#404040)">${ic(icon, 22)}</span><span class="pn"><b>${esc(name)}</b><i>${sub}</i></span></button>`;
+    const chk = (k, on, bad, icon, name, sub) => `<button class="ppchk ${on ? 'on' : ''} ${bad ? 'bad' : ''}" data-a="ppimpchk" data-v="${k}" data-h="selection" ${bad ? 'disabled' : ''}><span class="bx">${on ? ic('mdi:check', 18) : ''}</span><span class="pi" style="background:var(--ki-surface-2, var(--gray300,#404040))">${ic(icon, 22)}</span><span class="pn"><b>${esc(name)}</b><i>${sub}</i></span></button>`;
     let list = '';
     if (A) {
       const G = A.globals && A.globals.obj, cnt = (k) => Object.keys((G && isObj(G[k]) && G[k]) || {}).length;

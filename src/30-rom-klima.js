@@ -186,15 +186,15 @@
             <div class="cursor" style="left:${(sel / 24) * 100}%;border-left:1px dashed ${M.alpha(gc, 0.6)}"></div>
             <div class="scrub"></div>
           </div>
-          <button class="gear press" data-act="customize" title="Tilpass">${M.icon('settings', 22, 'color:#fafafa')}</button>
+          <button class="gear press" data-act="customize" title="Tilpass">${M.icon('settings', 22, 'color:var(--ki-text, #fafafa)')}</button>
           <div class="top">
             <span class="nm ell">${esc(name)}</span>
-            <span class="chip" style="background:${M.alpha(hc, 0.18)};color:${hc}">${M.icon(chipIcon, 14)}${esc(chipText)}</span>
+            <span class="chip" style="background:${M.alpha(hc, 0.18)};color:${M.theme.accentText(hc)}">${M.icon(chipIcon, 14)}${esc(chipText)}</span>
           </div>
           <div class="vals">
             <div class="line">
-              <button class="t" data-act="tab" data-t="t" style="color:${isT ? '#fafafa' : '#7f7f7f'}"><span class="big num">${tv != null ? M.nf(tv, Math.round(tv * 10) % 10 === 0 ? 0 : 1) : '–'}</span><span class="deg">°</span></button>
-              <button class="h" data-act="tab" data-t="h" data-haptic="selection" style="background:${isT ? 'transparent' : M.alpha(C.blue, 0.2)};color:${isT ? '#afafaf' : '#fafafa'}"><span class="hv num">${hv != null ? M.nf(hv, 0) : '–'}</span><span class="pc">%</span></button>
+              <button class="t" data-act="tab" data-t="t" style="color:${isT ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-3, #7f7f7f)'}"><span class="big num">${tv != null ? M.nf(tv, Math.round(tv * 10) % 10 === 0 ? 0 : 1) : '–'}</span><span class="deg">°</span></button>
+              <button class="h" data-act="tab" data-t="h" data-haptic="selection" style="background:${isT ? 'transparent' : M.alpha(C.blue, 0.2)};color:${isT ? 'var(--ki-text-2, #afafaf)' : 'var(--ki-text, #fafafa)'}"><span class="hv num">${hv != null ? M.nf(hv, 0) : '–'}</span><span class="pc">%</span></button>
             </div>
             <span class="when">${esc(when)}</span>
           </div>
@@ -222,15 +222,15 @@
     }
     get styles() {
       return `
-        .hero{position:relative;height:184px;border-radius:28px;overflow:hidden;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);width:100%}
+        .hero{position:relative;height:184px;border-radius:28px;overflow:hidden;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));width:100%}
         .graph{position:absolute;left:0;right:0;bottom:0;height:84px}
         .graph svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
         .cursor{position:absolute;top:0;bottom:0;pointer-events:none}
         .scrub{position:absolute;inset:0;touch-action:none;cursor:crosshair}
-        .gear{position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.1);display:grid;place-items:center}
+        .gear{position:absolute;right:16px;top:16px;width:44px;height:44px;border-radius:22px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1)));display:grid;place-items:center}
         .gear:active{transform:scale(.92)}
         .top{position:absolute;left:18px;top:18px;right:120px;display:flex;align-items:center;gap:8px}
-        .nm{font-size:13px;color:var(--gray800,#afafaf)}
+        .nm{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .chip{height:26px;padding:0 10px 0 8px;border-radius:13px;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;white-space:nowrap;flex:none}
         .vals{position:absolute;left:18px;top:54px;display:flex;flex-direction:column;gap:2px}
         .line{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
@@ -239,8 +239,8 @@
         .deg{font-size:24px;font-weight:300}
         .h{display:flex;align-items:baseline;gap:1px;height:26px;padding:0 9px;border-radius:13px;transition:background .25s,color .25s}
         .hv{font-size:17px;font-weight:400}
-        .pc{font-size:12px;color:var(--gray700,#979797)}
-        .when{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+        .pc{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .when{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap}
       `;
     }
   }

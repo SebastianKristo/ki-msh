@@ -1,8 +1,8 @@
-// Testdata for Server (#server, msh-server-card, fiks 24.10 + 26: Protect, switch-porter, Proxmox/Unraid-kontroller): et realistisk homelab – UniFi Network (UDM Pro, PoE-switch,
+// Testdata for Server (#server, msh-server-card, fiks 24.10 + 26 + 35: Protect, flere switcher, HA/Supervisor, update.*): et realistisk homelab – UniFi Network (UDM Pro, PoE-switch,
 // to aksesspunkt der det ene er frakoblet, to WLAN med QR-kode, klienter med blokker-bryter), Proxmox VE (node, VM-er,
 // LXC-containere, lagring) og Unraid (array, disker, Docker og VM). Config entries (config_entries/get) + enhetsregister.
 // Diagnostikk/konfig-entiteter har entity_category som i HA, så de ikke dukker opp i andre kort. Bare test – aldri i kortet.
-window.mockExtend(({ add, D }) => {
+window.mockExtend(({ add, D, S }) => {
   const ago = (min) => new Date(Date.now() - min * 60000).toISOString();
   const dev = (id, name, model, manufacturer, ce) => { D[id] = { id, name, name_by_user: null, model, manufacturer, config_entries: [ce], area_id: null }; };
   const U = (id, st, at, d, cat) => add(id, st, at, { platform: 'unifi', device: d, category: cat || null });
@@ -188,6 +188,60 @@ window.mockExtend(({ add, D }) => {
   R('sensor.tower_docker_plex_memory', 22, { ...pct, friendly_name: 'Tower Plex memory' }, 'dev_tower', 'diagnostic');
   R('button.tower_docker_sonarr_update', 'unknown', { friendly_name: 'Tower Sonarr update' }, 'dev_tower', 'config');
 
+  /* Fiks 35: egne portnavn (UniFi navngir port-entitetene etter portnavnet i kontrolleren) */
+  [[1, 'AP Stue'], [4, 'Kamera Inngang']].forEach(([n, nm]) => { S[`switch.switch_kontor_port_${n}_poe`].attributes.friendly_name = `Switch Kontor ${nm} PoE`; });
+  /* Fiks 35: flere switcher – Switch Stue (2,5 G, PoE, deaktivert port) og Switch Garasje (frakoblet) */
+  dev('dev_usw2', 'Switch Stue', 'USW Pro 8 PoE', 'Ubiquiti Networks', 'ce_unifi');
+  U('device_tracker.switch_stue', 'home', { friendly_name: 'Switch Stue', mac: '74:ac:b9:00:00:05', ip: '192.168.1.5' }, 'dev_usw2');
+  U('sensor.switch_stue_uptime', ago(60 * 24 * 41 + 540), { device_class: 'timestamp', friendly_name: 'Switch Stue Uptime' }, 'dev_usw2', 'diagnostic');
+  U('sensor.switch_stue_temperature', 44, { ...tmp, friendly_name: 'Switch Stue Temperature' }, 'dev_usw2', 'diagnostic');
+  U('sensor.switch_stue_ac_power_budget', 64, { ...W, friendly_name: 'Switch Stue AC power budget' }, 'dev_usw2', 'diagnostic');
+  U('button.switch_stue_restart', 'unknown', { friendly_name: 'Switch Stue Restart' }, 'dev_usw2', 'config');
+  U('update.switch_stue', 'on', { friendly_name: 'Switch Stue', installed_version: '7.1.24', latest_version: '7.1.26' }, 'dev_usw2', 'config');
+  [[1, 2500, 'on', 'Apple TV'], [2, 1000, 'on', ''], [3, 1000, 'on', ''], [4, 100, 'on', 'Hue Bridge'], [5, 0, 'on', ''], [6, 1000, 'on', ''], [7, 0, 'on', ''], [8, 0, 'off', '']].forEach(([n, sp, en, nm]) => {
+    U(`switch.switch_stue_port_${n}`, en, { friendly_name: `Switch Stue ${nm || 'Port ' + n}` }, 'dev_usw2', 'config');
+    U(`sensor.switch_stue_port_${n}_link_speed`, sp, { unit_of_measurement: 'Mbit/s', friendly_name: `Switch Stue Port ${n} link speed` }, 'dev_usw2', 'diagnostic');
+  });
+  [[1, 'on', 6.5], [4, 'on', 2.5]].forEach(([n, s2, w]) => {
+    U(`switch.switch_stue_port_${n}_poe`, s2, { friendly_name: `Switch Stue ${n === 1 ? 'Apple TV' : 'Hue Bridge'} PoE` }, 'dev_usw2', 'config');
+    U(`sensor.switch_stue_port_${n}_poe_power`, w, { ...W, friendly_name: `Switch Stue Port ${n} PoE Power` }, 'dev_usw2', 'diagnostic');
+  });
+  dev('dev_usw3', 'Switch Garasje', 'USW Flex Mini 5', 'Ubiquiti Networks', 'ce_unifi');
+  U('device_tracker.switch_garasje', 'not_home', { friendly_name: 'Switch Garasje', mac: '74:ac:b9:00:00:06' }, 'dev_usw3');
+  U('sensor.switch_garasje_state', 'disconnected', { friendly_name: 'Switch Garasje State', device_class: 'enum' }, 'dev_usw3', 'diagnostic');
+  U('button.switch_garasje_restart', 'unknown', { friendly_name: 'Switch Garasje Restart' }, 'dev_usw3', 'config');
+  [1, 2, 3, 4, 5].forEach((n) => U(`sensor.switch_garasje_port_${n}_link_speed`, 'unavailable', { unit_of_measurement: 'Mbit/s', friendly_name: `Switch Garasje Port ${n} link speed` }, 'dev_usw3', 'diagnostic'));
+
+  /* Fiks 35: Home Assistant (hassio-integrasjonen: Core/OS/Supervisor/Host + tillegg), systemmonitor og uptime */
+  const HA = (id, st, at, d, cat) => add(id, st, at, { platform: 'hassio', device: d, category: cat || null });
+  const hdev = (id, name, model, manufacturer, slug) => { D[id] = { id, name, name_by_user: null, model, manufacturer, config_entries: ['ce_hassio'], area_id: null, identifiers: [['hassio', slug]] }; };
+  hdev('dev_ha_core', 'Home Assistant Core', 'Home Assistant Core', 'Home Assistant', 'core');
+  HA('update.home_assistant_core_update', 'on', { friendly_name: 'Home Assistant Core Update', title: 'Home Assistant Core', installed_version: '2026.9.3', latest_version: '2026.10.0', in_progress: false }, 'dev_ha_core', 'config');
+  HA('sensor.home_assistant_core_cpu_percent', 9, { ...pct, friendly_name: 'Home Assistant Core CPU-prosent' }, 'dev_ha_core');
+  HA('sensor.home_assistant_core_memory_percent', 44, { ...pct, friendly_name: 'Home Assistant Core Minneprosent' }, 'dev_ha_core');
+  hdev('dev_ha_os', 'Home Assistant Operating System', 'Home Assistant Operating System', 'Home Assistant', 'OS');
+  HA('update.home_assistant_operating_system_update', 'off', { friendly_name: 'Home Assistant Operating System Update', title: 'Home Assistant Operating System', installed_version: '16.2', latest_version: '16.2', in_progress: false }, 'dev_ha_os', 'config');
+  HA('sensor.home_assistant_operating_system_version', '16.2', { friendly_name: 'Home Assistant Operating System Version' }, 'dev_ha_os', 'diagnostic');
+  hdev('dev_ha_sup', 'Home Assistant Supervisor', 'Home Assistant Supervisor', 'Home Assistant', 'supervisor');
+  HA('update.home_assistant_supervisor_update', 'off', { friendly_name: 'Home Assistant Supervisor Update', title: 'Home Assistant Supervisor', installed_version: '2026.09.1', latest_version: '2026.09.1', in_progress: false }, 'dev_ha_sup', 'config');
+  hdev('dev_ha_host', 'Home Assistant Host', 'Home Assistant Host', 'Home Assistant', 'host');
+  HA('sensor.home_assistant_host_disk_used', 38.2, { unit_of_measurement: 'GB', friendly_name: 'Home Assistant Host Disk used' }, 'dev_ha_host');
+  HA('sensor.home_assistant_host_disk_total', 100, { unit_of_measurement: 'GB', friendly_name: 'Home Assistant Host Disk total' }, 'dev_ha_host');
+  window.__svAddons = [['core_mosquitto', 'Mosquitto broker', 'mosquitto_broker', true, 1.2, 3, '6.4.1', null], ['a0d7b954_esphome', 'ESPHome', 'esphome', true, 0.4, 4, '2026.9.1', '2026.9.2'],
+    ['a0d7b954_nodered', 'Node-RED', 'node_red', true, 3, 9, '19.0.1', '19.0.2'], ['a0d7b954_vscode', 'Studio Code Server', 'studio_code_server', false, 0, 0, '5.17.0', null], ['core_samba', 'Samba share', 'samba_share', true, 0.1, 1, '12.3.2', null]];
+  window.__svAddons.forEach(([slug, name, o, run, cpu, mem, ver, nv]) => {
+    hdev('dev_ad_' + o, name, 'Home Assistant Add-on', slug.startsWith('core_') ? 'Official add-ons' : 'Home Assistant Community Add-ons', slug);
+    HA(`binary_sensor.${o}_running`, run ? 'on' : 'off', { friendly_name: `${name} Running`, device_class: 'running' }, 'dev_ad_' + o);
+    HA(`sensor.${o}_cpu_percent`, cpu, { ...pct, friendly_name: `${name} CPU-prosent` }, 'dev_ad_' + o);
+    HA(`sensor.${o}_memory_percent`, mem, { ...pct, friendly_name: `${name} Minneprosent` }, 'dev_ad_' + o);
+    HA(`sensor.${o}_version`, ver, { friendly_name: `${name} Version` }, 'dev_ad_' + o, 'diagnostic');
+    HA(`update.${o}_update`, nv ? 'on' : 'off', { friendly_name: `${name} Update`, title: name, installed_version: ver, latest_version: nv || ver, in_progress: false }, 'dev_ad_' + o, 'config');
+  });
+  add('sensor.system_monitor_processor_use', 9, { ...pct, friendly_name: 'System Monitor Prosessorbruk' }, { platform: 'systemmonitor' });
+  add('sensor.system_monitor_memory_usage', 44, { ...pct, friendly_name: 'System Monitor Minnebruk' }, { platform: 'systemmonitor' });
+  add('sensor.system_monitor_disk_usage', 38.2, { ...pct, friendly_name: 'System Monitor Diskbruk /' }, { platform: 'systemmonitor' });
+  add('sensor.uptime', ago(60 * 24 * 14 + 360), { device_class: 'timestamp', friendly_name: 'Oppetid' }, { platform: 'uptime' });
+
   function S_last(id, min) { window.__svLast = window.__svLast || {}; window.__svLast[id] = ago(min); }
 });
 (function () {
@@ -198,15 +252,33 @@ window.mockExtend(({ add, D }) => {
     { entry_id: 'ce_unraid', domain: 'unraid', title: 'Tower', state: 'loaded', source: 'user' },
     { entry_id: 'ce_protect', domain: 'unifiprotect', title: 'UniFi Protect', state: 'loaded', source: 'user' },
     { entry_id: 'ce_unifi2', domain: 'unifi', title: 'UniFi Hytta', state: 'loaded', source: 'user' },
+    { entry_id: 'ce_hassio', domain: 'hassio', title: 'Supervisor', state: 'loaded', source: 'system' },
   ];
   window.mockHass = function () {
     const h = prev();
     Object.entries(window.__svLast || {}).forEach(([id, t]) => { if (h.states[id]) h.states[id] = { ...h.states[id], last_changed: t }; });
+    h.services = { ...(h.services || {}), homeassistant: { restart: {}, check_config: {}, toggle: {} }, hassio: { addon_start: {}, addon_stop: {}, addon_restart: {}, backup_full: {}, backup_partial: {}, host_reboot: {} }, update: { install: {} }, button: { press: {} } };
     const ws = h.callWS;
     h.callWS = (m) => {
       if (m && m.type === 'config_entries/get' && (!m.domain || ENTRIES.some((e) => e.domain === m.domain))) {
         if (window.__svNoEntries) return Promise.reject(new Error('Unauthorized'));
         return Promise.resolve(ENTRIES.filter((e) => !m.domain || e.domain === m.domain));
+      }
+      // Supervisor (WS supervisor/api) – window.__svNoSup = true simulerer HA uten Supervisor
+      if (m && m.type === 'supervisor/api') {
+        window.__calls.push(['ws', m.type, m]);
+        if (window.__svNoSup) return Promise.reject(new Error('Unknown command'));
+        const A = window.__svAddons || [], ep = m.endpoint || '';
+        window.__svOpts = window.__svOpts || {};
+        if (ep === '/addons') return Promise.resolve({ addons: A.map(([slug, name, , run, , , ver, nv]) => ({ slug, name, state: run ? 'started' : 'stopped', version: ver, version_latest: nv || ver, update_available: !!nv, icon: false })) });
+        if (ep === '/core/info') return Promise.resolve({ version: '2026.9.3', version_latest: '2026.10.0', machine: 'generic-x86-64' });
+        if (ep === '/os/info') return Promise.resolve({ version: '16.2', version_latest: '16.2', board: 'generic-x86-64' });
+        if (ep === '/host/info') return Promise.resolve({ hostname: 'homeassistant', disk_total: 100, disk_used: 38.2, disk_free: 61.8 });
+        const mm = /^\/addons\/([^/]+)\/(info|stats|options)$/.exec(ep), a = mm && A.find((x) => x[0] === mm[1]);
+        if (a && mm[2] === 'info') return Promise.resolve({ slug: a[0], name: a[1], version: a[6], state: a[3] ? 'started' : 'stopped', boot: 'auto', watchdog: a[0] !== 'core_samba', auto_update: false, ingress: a[0] !== 'core_mosquitto', ingress_panel: a[0] === 'a0d7b954_nodered', ...(window.__svOpts[a[0]] || {}) });
+        if (a && mm[2] === 'stats') return Promise.resolve({ cpu_percent: a[4], memory_usage: a[5] * 41e6, memory_limit: 4.1e9, memory_percent: a[5], network_rx: 12.4e6, network_tx: 3.1e6, blk_read: 0, blk_write: 0 });
+        if (a && mm[2] === 'options') { window.__svOpts[a[0]] = { ...(window.__svOpts[a[0]] || {}), ...(m.data || {}) }; return Promise.resolve({}); }
+        return Promise.reject(new Error('Not found'));
       }
       return ws(m);
     };

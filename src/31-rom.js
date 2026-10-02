@@ -23,7 +23,13 @@
   const PINK = C.accent;
   // 17.6: farger for på-enheter når flere er på (rosa → blå → lilla → oransje → grønn, så på nytt)
   const MULTI = ['linear-gradient(135deg, #f294c8, #f5cfd0)', 'var(--blue, rgb(115 185 242))', 'var(--purple, rgb(174 150 230))', 'var(--orange, rgb(242 181 115))', 'var(--green, rgb(102 209 158))'];
-  const G = { g200: 'var(--gray200, #3a3a3a)', g300: 'var(--gray300, #404040)', g400: 'var(--gray400, #545454)', g500: 'var(--gray500, #696969)', g600: 'var(--gray600, #7f7f7f)', g700: 'var(--gray700, #979797)', g800: 'var(--gray800, #afafaf)', g900: 'var(--gray900, #c7c7c7)', w: 'var(--white, #fafafa)' };
+  // Fiks 34 (Del A) · tokens fra ki-theme (00-a-theme.js, definert bare i lys modus) med dagens mørke farge som fallback –
+  // mørk modus er uendret. Grå TEKST følger regel 5 (MSH.theme.grayText); #7f7f7f-tekst bruker --ki-text-mid i lys (≥ 4,5:1).
+  const G = { g200: 'var(--ki-surface, var(--gray200, #3a3a3a))', g300: 'var(--ki-surface-2, var(--gray300, #404040))', g400: 'var(--ki-ctrl, var(--gray400, #545454))', g500: 'var(--ki-text-lo, var(--gray500, #696969))', g600: 'var(--ki-text-mid, var(--gray600, #7f7f7f))', g700: 'var(--ki-text-mid, var(--gray700, #979797))', g800: 'var(--ki-text-2, var(--gray800, #afafaf))', g900: 'var(--ki-text-1, var(--gray900, #c7c7c7))', w: 'var(--ki-text, var(--white, #fafafa))' };
+  const TH = M.theme || null;
+  // Regel 4 · gjennomsiktig hvit (flate/kant) → svart i lys modus; mørk uendret
+  const wa = (a) => (TH && TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
+  const ON_ACC = 'var(--ki-on-accent, var(--gray000, #232323))';
 
   // Seksjoner (design-rekkefølge; toppkortet er eget kort: msh-rom-klima-card)
   const SECS = [['curtain', 'Rullegardin', 'blinds'], ['scenes', 'Scener', 'auto_awesome'], ['lys', 'Lys', 'floor_lamp'], ['dev', 'Enheter', 'radio'], ['klima', 'Klima', 'thermostat'], ['media', 'Media', 'speaker'], ['sens', 'Sensorer', 'directions_walk']];
@@ -95,7 +101,10 @@
   const CALM = ['connectivity', 'plug', 'power', 'running'];
   const SENS_ICON = { motion: 'directions_walk', occupancy: 'sensor_occupied', presence: 'sensor_occupied', door: 'door_front', garage_door: 'garage', window: 'window', opening: 'door_front', moisture: 'water_damage', smoke: 'detector_smoke', gas: 'mdi:gas-cylinder', carbon_monoxide: 'co2', illuminance: 'light_mode', humidity: 'humidity_percentage', temperature: 'thermometer', vibration: 'mdi:vibrate', sound: 'graphic_eq', lock: 'lock', battery: 'battery_full', carbon_dioxide: 'co2', power: 'bolt' };
 
-  const SPACING = { gap: 8, pad_top: -10, pad_bottom: 150 };
+  // 33.6 · padT (Rom v4.dc.html): lagret verdi −4 = 0 px fra Bubble-headeren til toppkortet (vist verdi = lagret + 4).
+  // Standard −4 (0 px); forvalg Standard 0 · Litt 10 · Luftig 24 · Ekstra 48. Brukerens egen pad_top overstyrer.
+  const PAD_T_OFF = 4;
+  const SPACING = { gap: 8, pad_top: -4, pad_bottom: 150 };
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const obj = (id) => String(id).split('.').slice(1).join('.');
 
@@ -301,7 +310,7 @@
       const out = [
         { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
           { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
-          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: SPACING.pad_top, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [44, 'Luftig 44']] },
+          { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 116, default: SPACING.pad_top, offset: PAD_T_OFF, presets: [[-4, 'Standard 0'], [6, 'Litt 10'], [20, 'Luftig 24'], [44, 'Ekstra 48']] },
           { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: SPACING.pad_bottom, presets: [[0, 'Ingen 0'], [60, 'Litt 60'], [150, 'Standard 150'], [300, 'Maks 300']] },
         ] },
         { type: 'section', id: 'look', label: 'Utseende', icon: 'mdi:palette', meta: (hh, cc) => (cc.look && cc.look.col ? '' : 'Standardfarge'), fields: [
@@ -327,7 +336,7 @@
           { type: 'select', name: 'graph_width', label: 'Toppkort · linje', options: [[1.5, 'Tynn'], [2, 'Normal'], [3, 'Tykk']], default: 2 },
           { type: 'boolean', name: 'header_icon', label: 'Rommets ikon i popup-headeren', default: true },
           { type: 'color', name: 'klima_bg', label: 'Klima-kort · bakgrunn', auto: () => '#2a2a2a' },
-          { type: 'color', name: 'klima_ring', label: 'Klima-kort · knappfarge', auto: () => 'rgba(255,255,255,0.22)' },
+          { type: 'color', name: 'klima_ring', label: 'Klima-kort · knappfarge', auto: () => 'rgb(255 255 255 / 0.22)' },
           { type: 'select', name: 'klima_btn', label: 'Klima-kort · knapp', options: [['outline', 'Kontur'], ['fill', 'Fylt']], default: 'outline' },
           { type: 'boolean', name: 'klima_mode', label: 'Farg etter modus', help: 'Rød ved oppvarming, blå ved kjøling' },
         ] },
@@ -468,6 +477,14 @@
     static getStubConfig() { return { ...super.getStubConfig(), customize_button: false }; }
     // Mellomrom-standard (MSH._applySpacing): bare rom uten lagret verdi får disse.
     static get spacingDefaults() { return SPACING; }
+    // 33.6: pad_top lagres som designets padT (−4 = inntil headeren, 0 px) → faktisk avstand = pad_top + 4 px.
+    _applySpacing() {
+      const c = this._config;
+      if (!c || c.embedded) return super._applySpacing();
+      const top = c.pad_top != null && c.pad_top !== '' && !isNaN(Number(c.pad_top)) ? Number(c.pad_top) : SPACING.pad_top;
+      this._config = { ...c, pad_top: top + PAD_T_OFF };
+      try { super._applySpacing(); } finally { this._config = c; }
+    }
     static get schema() { return buildSchema(null); }
     // «Tilpass rom» lagres per område i ki-store: rooms.<area_id> (uavhengig av card_id)
     static storeKey(cfg, card) { const a = (cfg && cfg.area) || (card && card.isConnected && M.roomArea(card)); return a ? 'rooms.' + a : null; }
@@ -572,10 +589,12 @@
       if (!ids.length) return '';
       const multi = ids.length > 1, open = multi && !!this.ui.cvOpen;
       const v0 = this._cvPos(ids[0]);
-      const rest = open ? ids.slice(1).map((id) => { const v = this._cvPos(id); return `<div class="cvr2" data-key="cv-${esc(id)}"><span class="cvn2 ell">${esc(this._nm(id))}</span>${this._cvSlider(id, v)}<span class="cvp2 num">${v}%</span></div>`; }).join('') : '';
+      const rest = open ? ids.slice(1).map((id) => { const v = this._cvPos(id); return `<div class="cvr2" data-key="cv-${esc(id)}"><span class="cvn2">${esc(this._nm(id))}</span>${this._cvSlider(id, v)}<span class="cvp2 num">${v}%</span></div>`; }).join('') : '';
+      // 35.6: forvalg-knappen som matcher ALLE gardinene er aktiv (rosa + --ki-on-accent)
+      const all = open ? ids.map((id) => this._cvPos(id)) : [];
       return `<section class="cvbox" data-key="sec-curtain">
-        <div class="cvr"><span class="cvn ell">${esc(this._nm(ids[0]))}</span>${this._cvSlider(ids[0], v0)}<span class="cvp num">${v0}%</span>${multi ? `<button class="cvx" data-act="cvx" data-haptic="selection">${this._chev(open)}</button>` : ''}</div>
-        ${open ? `<div class="cvo"><div class="cvpre">${[0, 25, 50, 75, 100].map((v) => `<button class="pre press" data-act="cvall" data-v="${v}">${v}%</button>`).join('')}</div>${rest}</div>` : ''}
+        <div class="cvr"><span class="cvn">${esc(this._nm(ids[0]))}</span>${this._cvSlider(ids[0], v0)}<span class="cvp num">${v0}%</span>${multi ? `<button class="cvx" data-act="cvx" data-haptic="selection">${this._chev(open)}</button>` : ''}</div>
+        ${open ? `<div class="cvo"><div class="cvpre">${[0, 25, 50, 75, 100].map((v) => { const on = all.length && all.every((x) => x === v); return `<button class="pre press ${on ? 'on' : ''}" data-act="cvall" data-v="${v}" aria-pressed="${on ? 'true' : 'false'}">${v}%</button>`; }).join('')}</div>${rest}</div>` : ''}
       </section>`;
     }
 
@@ -675,20 +694,20 @@
         const anim = act && kindA && lvl !== 'off' ? `animation:${kindA} ${lvl === 'calm' ? ANIM[kindA].replace(/^[\d.]+/, (x) => String(Number(x) * 2)) : ANIM[kindA]} infinite` : '';
         const icon = lk.icon || (P && P.icon) || icon0;
         const mc = multi && isOn && !unav && !P && !ownRule && !(lk.background_color || lk.bg) ? MULTI[ci++ % MULTI.length] : null;
-        // 20.15: av (eller hvitevare som hviler under terskelen) → mørk pille #2f2f2f, ikon-sirkel #3a3a3a, lyst ikon #e1e1e1
+        // 20.15: av (eller hvitevare som hviler under terskelen) → pille --ki-surface-3, ikon-sirkel --ki-surface, ikon --ki-text-1
         const off = !unav && !ownRule && !(lk.background_color || lk.bg) && !(P ? act : isOn);
         return M.universal({
           // Tilstandsregel 1 (som sensorene): på → grønn; hvitevare aktiv → profilfargen. Hvitevare på men hviler = vanlig rad.
-          state_rule_1_condition: ownRule ? undefined : P ? act : isOn && !unav, state_rule_1_background_color: P ? P.col : mc || 'var(--green)', state_rule_1_text_color: 'var(--gray000)',
+          state_rule_1_condition: ownRule ? undefined : P ? act : isOn && !unav, state_rule_1_background_color: P ? P.col : mc || 'var(--green)', state_rule_1_text_color: 'var(--ki-on-accent, var(--gray000))',
           ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
           act: unav ? null : lk.mode && lk.mode !== 'sensor' ? undefined : 'dtoggle', id, haptic: 'success',
           cls: `msh-inner${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}${mc ? ' d-on' : ''}${off ? ' d-off' : ''}`,
           icon_html: M.icon(icon, 30, anim ? anim + ';' : ''),
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : status),
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : '',
-          background_color: lk.background_color || lk.bg || (off ? 'var(--gray100, #2f2f2f)' : undefined), text_color: lk.text_color || (off ? 'var(--white, #fafafa)' : undefined),
-          circle_color: lk.cell || (mc ? 'rgba(255,255,255,0.18)' : act ? 'rgba(0,0,0,0.12)' : off ? 'var(--gray200, #3a3a3a)' : undefined),
-          icon_color: lk.icon_color || (off ? 'var(--gray1000, #e1e1e1)' : P && !act && P.col ? P.col : undefined) });
+          background_color: lk.background_color || lk.bg || (off ? 'var(--ki-surface-3, var(--gray100, #2f2f2f))' : undefined), text_color: lk.text_color || (off ? 'var(--ki-text, var(--white, #fafafa))' : undefined),
+          circle_color: lk.cell || (mc ? 'rgb(255 255 255 / 0.18)' : act ? 'rgb(0 0 0 / 0.12)' : off ? 'var(--ki-surface, var(--gray200, #3a3a3a))' : undefined),
+          icon_color: lk.icon_color || (off ? 'var(--ki-text-1, var(--gray1000, #e1e1e1))' : P && !act && P.col ? P.col : undefined) });
       }).join('');
       // 19.21: egen effektsensor på en enhet → summen regnes fra sensorene (KI Rom-teksten kjenner ikke overstyringen)
       const pOv = ids.some((id) => M.roomDevOv(this.config, id).power);
@@ -712,12 +731,12 @@
       if (!ids.length && !hasW) { const n = fans.filter((id) => M.isOn(this.s(id))).length; sum = `${n} på - ${fans.length - n} av`; }
       let body = '';
       if (open) {
-        const bg = M.color(c.klima_bg, M.INNER_ROW ? M.INNER_ROW.bg : 'var(--gray100, #2f2f2f)'), fill = c.klima_btn === 'fill';
+        const bg = M.color(c.klima_bg, M.INNER_ROW ? M.INNER_ROW.bg : 'var(--ki-surface-3, var(--gray100, #2f2f2f))'), fill = c.klima_btn === 'fill';
         // 17.3 (Rom v4 climCards → ctl): ikke-varmer-stepperen er gjennomsiktig med lys kant (klimaLook.ring, standard .22) –
         // ingen fylling/gradient/skygge (grå fylling fra 16.1/17.1 gjelder bare romkortene på Hjem). «Fylt» (klima_btn: fill)
         // gir background: ring uten kant. Varmer-tilstanden styres av .kc.heat (uendret fra 16.8).
-        const ring = M.color(c.klima_ring, 'rgba(255,255,255,0.22)');
-        const ctl = `box-shadow:${fill ? 'none' : `inset 0 0 0 1px ${ring}`};background:${fill ? ring : 'transparent'};color:${fill && c.klima_ring ? C.popup : '#fafafa'}`;
+        const ring = M.color(c.klima_ring, wa(0.22));
+        const ctl = `box-shadow:${fill ? 'none' : `inset 0 0 0 1px ${ring}`};background:${fill ? ring : 'transparent'};color:${fill && c.klima_ring ? C.popup : G.w}`;
         const rc = M.roomClimate(this.hass, this._area, c);
         if (rc.hum.id) this.s(rc.hum.id);
         if (rc.temp.id) this.s(rc.temp.id);
@@ -778,7 +797,7 @@
       const btn = (d, ic, dis) => `<button class="fbtn msh-inner-c" data-act="fanstep" data-d="${d}" data-id="${esc(id)}" data-haptic="selection" ${dis ? 'disabled' : ''} aria-label="${d > 0 ? 'Øk' : 'Senk'} hastighet">${M.icon(ic, 22)}</button>`;
       const side = F.speed && !F.unav ? btn(-1, 'mdi:minus', !F.isOn) + btn(1, 'mdi:plus', F.isOn && F.pct >= 100) : '';
       return M.universal({
-        state_rule_1_condition: F.isOn && !F.unav, state_rule_1_background_color: 'var(--blue, rgb(115 185 242))', state_rule_1_text_color: 'var(--gray000)',
+        state_rule_1_condition: F.isOn && !F.unav, state_rule_1_background_color: 'var(--blue, rgb(115 185 242))', state_rule_1_text_color: 'var(--ki-on-accent, var(--gray000))',
         ...lk, mode: 'sensor', size: 'small', entity: id, st: F.s, key: 'f-' + id,
         act: F.unav ? null : 'dtoggle', id, haptic: 'success', cls: `msh-inner fan${F.isOn ? ' on' : ''}${F.unav ? ' d-unav' : ''}`,
         icon_html: M.icon(lk.icon || (F.isOn ? 'mdi:fan' : 'mdi:fan-off'), 30, anim),
@@ -898,7 +917,7 @@
         // 17.5: lux-sensor → oransje rad med sol-ikon og «6.3 lx» (egen farge/ikon i «Tilpass rom» vinner)
         const lux = !bin && M.luxOpts && (!lk.mode || lk.mode === 'sensor') && (lk.size || 'small') === 'small' ? M.luxOpts(s) || {} : {};
         return M.universal({
-          state_rule_1_condition: ownRule ? undefined : hot, state_rule_1_background_color: 'var(--green)', state_rule_1_text_color: 'var(--gray000)',
+          state_rule_1_condition: ownRule ? undefined : hot, state_rule_1_background_color: 'var(--green)', state_rule_1_text_color: 'var(--ki-on-accent, var(--gray000))',
           text_color: lux.text_color, ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 's-' + id, icon: lk.icon || lux.icon || icon0,
           cls: 'msh-inner' + (lux.cls ? ' ' + lux.cls : ''), // 16.6: felles «indre rad-flate» (M.INNER_ROW)
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : lux.main_text || dflt.main_text), symbol: lk.symbol != null && lk.symbol !== '' ? lk.symbol : lk.main_text || lk.label || lk.mode === 'bar' ? null : lux.symbol || dflt.symbol,
@@ -1062,22 +1081,25 @@
         .unav{opacity:.5}
         /* rullegardin */
         .cvbox{border-radius:33px;background:${G.g200}}
-        .cvr{display:flex;align-items:center;gap:14px;height:66px;padding:0 14px 0 22px}
-        .cvn{font-size:15px;font-weight:500;max-width:120px;flex:none}
+        /* 35.5 / 35.7 regel 7: navnet kuttes aldri – fast kolonne 112 px, to linjer ved behov («Gardiner / Venstre») */
+        .cvr{display:flex;align-items:center;gap:14px;min-height:66px;padding:8px 14px 8px 22px;box-sizing:border-box}
+        .cvn,.cvn2{flex:0 0 112px;width:112px;min-width:0;line-height:1.2;overflow-wrap:anywhere;word-break:normal;text-wrap:balance;white-space:normal;hyphens:manual}
+        .cvn{font-size:15px;font-weight:500}
         .cvp{font-size:15px;min-width:40px;text-align:right}
         .cvs,.vs{position:relative;flex:1;min-width:0;height:28px;display:flex;align-items:center;touch-action:none;cursor:pointer;user-select:none}
         .vs{height:24px}
-        .cvt{position:absolute;left:0;right:0;height:8px;border-radius:4px;background:${C.popup}}
+        .cvt{position:absolute;left:0;right:0;height:8px;border-radius:4px;background:var(--ki-surface-3, var(--ki-popup, #282828))}
         .cvf{position:absolute;left:0;height:8px;border-radius:4px;background:${PINK};transition:width .3s}
-        .knob{position:absolute;width:22px;height:22px;border-radius:11px;background:${G.w};box-shadow:0 2px 6px rgba(0,0,0,0.4);transition:left .3s}
+        .knob{position:absolute;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, var(--white, #fafafa));box-shadow:0 2px 6px ${TH && TH.blackA ? TH.blackA(0.4) : 'rgb(0 0 0 / 0.4)'};transition:left .3s}
         .drag .cvf,.drag .knob{transition:none}
         .cvx{width:36px;height:36px;display:grid;place-items:center;flex:none}
         .cvo{display:flex;flex-direction:column;gap:14px;padding:4px 12px 16px}
         .cvpre{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-        .pre{height:40px;border-radius:20px;background:#2a2a2a;font-size:14px}
+        .pre{height:40px;border-radius:20px;background:var(--ki-surface-2, #2a2a2a);color:var(--ki-text, #fafafa);font-size:14px;transition:background .2s,color .2s}
+        .pre.on{background:${PINK};color:var(--ki-on-accent, #2a1720)}
         .pre:active{transform:scale(.95)}
         .cvr2{display:flex;align-items:center;gap:14px;padding:0 6px 0 10px}
-        .cvn2{font-size:14px;font-weight:500;max-width:100px;flex:none}
+        .cvn2{font-size:14px;font-weight:500}
         .cvp2{font-size:14px;min-width:40px;text-align:right}
         /* scener */
         .scn{display:flex;gap:8px;width:100%;overflow-x:auto;overflow-y:hidden;margin:0;padding:0;border-radius:0;scroll-padding-left:0;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none}
@@ -1094,7 +1116,7 @@
         .box>.bd,.box>.cw,.cvo{animation:accin .22s cubic-bezier(.3,.9,.3,1)}
         @keyframes accin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
         @media (prefers-reduced-motion:reduce){.box>.bd,.box>.cw,.cvo{animation:none}}
-        /* lys (mysmart-light-control inni radens #3a3a3a-flate – ingen egen bakgrunn/padding) */
+        /* lys (mysmart-light-control inni radens --ki-surface-flate – ingen egen bakgrunn/padding) */
         .lts{display:flex;flex-direction:column;gap:12px;padding:0 8px 6px}
         .lt{display:flex;flex-direction:column;gap:8px}
         .lth{display:flex;align-items:center;gap:12px}
@@ -1121,18 +1143,18 @@
         .d-unav{opacity:.55}
         /* 17.6: flere enheter på – fargerekkefølge, navn øverst (17/500), status under (15, .65), ikon-sirkel .18 + lys kant */
         .u.d-on.d-on{box-shadow:none;transition:background .3s,transform .2s}
-        .d-on .u-i{border:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25)}
+        .d-on .u-i{border:none;box-shadow:inset 0 0 0 1px rgb(255 255 255 / 0.25)}
         .u-small.d-on .u-l{grid-area:n;align-self:start;padding-top:2px;font-size:15px;font-weight:400;opacity:.65}
         .u-small.d-on .u-n{grid-area:l;align-self:end;padding-top:0;font-size:17px;font-weight:500;opacity:1}
         .d-unav .u-l,.d-unav .u-i{opacity:1}
-        /* 20.15: av – pille #2f2f2f, tekst #fafafa, undertekst #979797, ikon-sirkel #3a3a3a med svak lys kant, 250 ms */
+        /* 20.15: av – pille --ki-surface-3, tekst --ki-text, undertekst --ki-text-mid, ikon-sirkel --ki-surface med svak kant, 250 ms */
         .u.d-off{transition:background .25s,transform .2s}
-        .d-off .u-i{border:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
-        .d-off .u-n{color:var(--gray700, #979797);opacity:1}
-        .fbtn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:var(--gray1000, #e1e1e1);flex:none;transition:transform .15s,background .25s}
+        .d-off .u-i{border:none;box-shadow:inset 0 0 0 1px ${wa(0.06)}}
+        .d-off .u-n{color:${G.g700};opacity:1}
+        .fbtn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:var(--ki-text-1, var(--gray1000, #e1e1e1));flex:none;transition:transform .15s,background .25s}
         .fbtn:active{transform:scale(.92)}
         .fbtn[disabled]{opacity:.35}
-        .fan.on .fbtn{background:rgba(0,0,0,0.12);border-color:transparent;color:var(--gray000, #232323)}
+        .fan.on .fbtn{background:rgb(0 0 0 / 0.12);border-color:transparent;color:${ON_ACC}}
         @media (prefers-reduced-motion:reduce){.u ha-icon{animation:none !important}}
         /* karuseller (klima/media) */
         .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
@@ -1155,11 +1177,11 @@
         .kc.heat .kv{font-size:56px;color:#2a1720}
         .kc.heat .kh{font-size:14px;color:rgba(42,23,32,0.6)}
         .kctl{position:absolute;right:10px;top:10px;bottom:10px;width:64px;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:6px 0;transition:background .3s,box-shadow .3s,color .3s}
-        .kc.heat .kctl{background:rgba(255,255,255,0.18);box-shadow:inset 0 0 0 1px rgba(42,23,32,0.45);color:#1f1f1f}
+        .kc.heat .kctl{background:rgb(255 255 255 / 0.18);box-shadow:inset 0 0 0 1px rgba(42,23,32,0.45);color:#1f1f1f}
         /* 16.1: trykk = #4a4a4a på pilen (~120 ms) */
         .kbtn{width:64px;height:44px;display:grid;place-items:center;color:inherit;transition:transform .15s,background .12s ease-out}
-        .kbtn:active{transform:scale(.9);background:#4a4a4a;transition:transform .15s,background 0s}
-        .kc.heat .kbtn:active{background:rgba(255,255,255,0.3)}
+        .kbtn:active{transform:scale(.9);background:var(--ki-ctrl, #4a4a4a);transition:transform .15s,background 0s}
+        .kc.heat .kbtn:active{background:rgb(255 255 255 / 0.3)}
         .kbtn[disabled]{opacity:.35}
         .kset{font-size:17px;font-weight:500}
         /* media */
@@ -1173,7 +1195,7 @@
         .mctl{display:flex;align-items:center;justify-content:space-between;margin-top:28px}
         .mb{width:44px;height:44px;display:grid;place-items:center}
         .mp{width:64px;height:64px;border-radius:32px;display:grid;place-items:center}
-        .vs .cvt{background:var(--gray200, #3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)} /* 18.9: samme spor som Media (kortfarge) */
+        .vs .cvt{background:${G.g200};box-shadow:inset 0 0 0 1px ${wa(0.05)}} /* 18.9: samme spor som Media (kortfarge) */
         .mp:active{transform:scale(.94)}
         .mv{display:flex;align-items:center;gap:16px;padding:16px 12px 6px 20px}
         .mvl{font-size:14px;font-weight:500}
@@ -1200,35 +1222,35 @@
         .car.pkc .mc{padding-right:6px;box-sizing:border-box}
         .mv .mvl{font-size:15px}
         .vs .cvt,.vs .cvf{height:6px;border-radius:3px}
-        .mcw .dots{--dot-bg:${G.g400};--dot-on-bg:${G.g700}} /* 17.4: aktiv #979797; inaktiv #545454 (spesifisert #3a3a3a er usynlig på seksjonsflaten #3a3a3a) */
+        .mcw .dots{--dot-bg:${G.g400};--dot-on-bg:${G.g700}} /* 17.4: aktiv gray700; inaktiv gray400 (spesifisert gray200 er usynlig på seksjonsflaten) */
         .mvp{font-size:14px;min-width:36px;text-align:right}
-        /* 19.16: TV – volum − / + (pille 40 px #232323, runde knapper 34 px), logo i avrundet firkant (72, r18, contain) */
-        .tvv{flex:1;min-width:0;height:40px;border-radius:20px;background:var(--gray000, #232323);display:flex;align-items:center;justify-content:space-between;padding:0 3px}
-        .tvb{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:${G.w};touch-action:manipulation;transition:transform .12s}
+        /* 19.16: TV – volum − / + (pille 40 px gray000 / lys: --ki-surface, runde knapper 34 px), logo i avrundet firkant (72, r18, contain) */
+        .tvv{flex:1;min-width:0;height:40px;border-radius:20px;background:var(--ki-surface, var(--gray000, #232323));display:flex;align-items:center;justify-content:space-between;padding:0 3px}
+        .tvb{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:${wa(0.08)};color:${G.w};touch-action:manipulation;transition:transform .12s}
         .tvb:active{transform:scale(.9)}
         .tvl{display:flex;align-items:center;gap:6px;font-size:14px;color:${G.w}}
         .ms2{font-size:13px;color:${G.g800}}
         .mt.pk .ms2{color:rgba(42,23,32,0.6)}
         .mt.pk.lg .mh{padding-right:78px}
-        .mt.pk .art.logo{right:-6px;top:-6px;width:72px;height:72px;border-radius:18px;padding:8px;box-sizing:border-box;overflow:hidden;background:rgba(255,255,255,0.9);box-shadow:none;border:none}
+        .mt.pk .art.logo{right:-6px;top:-6px;width:72px;height:72px;border-radius:18px;padding:8px;box-sizing:border-box;overflow:hidden;background:rgb(255 255 255 / 0.9);box-shadow:none;border:none}
         .art.logo img{object-fit:contain}
         .mctl.m7 .mb{width:38px;height:38px}
         .mt.pk .mctl.m7 .mb{width:40px;height:40px;border-radius:20px}
         .mctl.m7 .mp{width:56px;height:56px;border-radius:28px}
         /* 20.17 (retter 17.4): kompakt spiller-kort ~140 px, albumbildet (54) helt inni kortet 8 px fra hjørnet – aldri ned i
-           kontrollraden; teksten har padding-right 62 så den ikke går under bildet. Av = #2a2a2a. */
+           kontrollraden; teksten har padding-right 62 så den ikke går under bildet. Av = #2a2a2a (lys: --ki-surface-2). */
         .mt,.mt.pk{position:relative;overflow:hidden;border-radius:26px;padding:18px 16px 14px 20px;min-height:0;transition:background .3s}
-        .mt.msh-inner{background:#2a2a2a}
+        .mt.msh-inner{background:var(--ki-surface-2, #2a2a2a)}
         .mh,.mt.pk .mh,.mt.pk.lg .mh{gap:4px;padding-right:62px}
         .mn,.mt.pk .mn{font-size:13px;color:${G.g800}}
         .mt.pk .mn{color:rgba(42,23,32,0.7)}
         .ms,.mt.pk .ms{font-size:16px;font-weight:500;line-height:1.3}
-        .art,.mt.pk .art,.mt.pk .art.logo{position:absolute;right:8px;top:8px;width:54px;height:54px;border-radius:27px;overflow:hidden;display:grid;place-items:center;border:none;box-shadow:none;background:var(--gray000, #232323);color:${G.g800};--mdc-icon-size:24px}
-        .mt.pk .art{background:rgba(42,23,32,0.85);color:#fafafa}
+        .art,.mt.pk .art,.mt.pk .art.logo{position:absolute;right:8px;top:8px;width:54px;height:54px;border-radius:27px;overflow:hidden;display:grid;place-items:center;border:none;box-shadow:none;background:var(--ki-surface-3, var(--gray000, #232323));color:${G.g800};--mdc-icon-size:24px}
+        .mt.pk .art{background:rgba(42,23,32,0.85);color:rgb(250 250 250)}
         .mt.pk .art.img{background:rgba(42,23,32,0.12)}
-        .mt.pk .art.logo{border-radius:14px;padding:6px;box-sizing:border-box;background:rgba(255,255,255,0.9)}
+        .mt.pk .art.logo{border-radius:14px;padding:6px;box-sizing:border-box;background:rgb(255 255 255 / 0.9)}
         .mctl,.mt.pk .mctl{margin-top:18px;justify-content:space-between}
-        .mctl:not(.m7) .mb{width:42px;height:42px;border-radius:21px;background:var(--gray200, #3a3a3a);color:${G.w}}
+        .mctl:not(.m7) .mb{width:42px;height:42px;border-radius:21px;background:${G.g200};color:${G.w}}
         .mt.pk .mctl:not(.m7) .mb{background:rgba(42,23,32,0.08);color:#2a1720}
         .mctl:not(.m7) .mb.mo,.mt.pk .mctl:not(.m7) .mb.mo{background:none}
         .mctl .mp,.mt.pk .mctl .mp,.mctl.m7 .mp{width:56px;height:56px;border-radius:28px}

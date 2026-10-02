@@ -23,6 +23,14 @@
   const esc = M.esc, C = M.C;
   const HASH = '#energi';
   const CYAN = 'var(--cyan-color, #4dd0e1)';
+  // Fiks 35 (tema): aksent som tekst mørknes i lys modus (AT), tone-bakgrunner .12→.18 (TONE), gjennomsiktig hvit/svart
+  // etter regel 4/3 (WA/KA). Grafer: linje/fyll i aksent, markør --ki-text-2, tomme spor --ki-surface-3. Mørk = som før.
+  const TH = M.theme || {};
+  const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
+  // Tekst på tone-pille: mørknet aksent blandes ytterligere med svart i lys modus (--ki-accent-mix 60 %) → ≥ 4,5:1
+  const ATP = (c) => `color-mix(in srgb, ${AT(c)} var(--ki-accent-mix, 100%), black)`;
+  const TONE = (c, a) => (TH.tone ? TH.tone(c, undefined, a).bg : M.alpha(c, a));
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   const SECS = [['house', 'Huset'], ['tiles', 'Snarveier'], ['power', 'Strøm'], ['price', 'Strømpriser'], ['top', 'Toppforbrukere'], ['water', 'Vann']];
   const SECL = Object.fromEntries(SECS);
   const PERIODS = [['dag', 'I dag'], ['uke', 'Uke'], ['mnd', 'Måned'], ['aar', 'År']];
@@ -333,9 +341,9 @@
     let hl = '', marks = '';
     const mark = o.sel != null ? o.sel : o.now;
     if (mark != null && vals[mark] != null) {
-      hl = `<rect x="${x(mark).toFixed(1)}" y="0" width="${(W / n).toFixed(1)}" height="${H}" fill="#fff" fill-opacity=".08"/>`;
+      hl = `<rect x="${x(mark).toFixed(1)}" y="0" width="${(W / n).toFixed(1)}" height="${H}" fill="var(--ki-text-2, #fff)" fill-opacity=".08"/>`;
       const L = ((mark + 0.5) / n) * 100, T = (y(vals[mark]) / H) * 100, lv = levelOf(vals[mark], a);
-      marks = `<i class="dot" style="left:${L.toFixed(2)}%;top:${T.toFixed(2)}%;background:${lv != null ? LEVELS[lv][1] : '#fafafa'}"></i>`;
+      marks = `<i class="dot" style="left:${L.toFixed(2)}%;top:${T.toFixed(2)}%;background:${lv != null ? LEVELS[lv][1] : 'var(--ki-text-2, #fafafa)'}"></i>`;
     }
     const yl = [top, (top + mn) / 2, mn].map((v) => `<span style="top:${((y(v) / H) * 100).toFixed(2)}%">${M.nf(v, v >= 10 ? 0 : 2)}</span>`).join('');
     const xt = [[0, '00'], [6, '06'], [12, '12'], [18, '18'], [24, '00']].map(([i, t]) => `<span style="left:${((i / 24) * 100).toFixed(2)}%">${t}</span>`).join('');
@@ -344,8 +352,8 @@
 
   /* ------------------------------------------------------------ editor (Tilpass energi, 21.5) */
   const EXP = new Map(); // utvidet snarvei per kort (card_id → tile-id), felles for arket og GUI-editoren
-  const BADGE = { energi: ['Energi', C.green], auto: ['Auto', C.purple], overstyrt: ['Overstyrt', C.blue], mangler: ['Mangler', C.orange], henter: ['Henter …', 'var(--gray600, #7f7f7f)'] };
-  const badge = (k) => { const [t, col] = BADGE[k] || BADGE.mangler; return `<span style="flex:none;height:22px;padding:0 9px;border-radius:11px;display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:#232323;background:${col}">${t}</span>`; };
+  const BADGE = { energi: ['Energi', C.green], auto: ['Auto', C.purple], overstyrt: ['Overstyrt', C.blue], mangler: ['Mangler', C.orange], henter: ['Henter …', 'var(--ki-text-3, var(--gray600, #7f7f7f))'] };
+  const badge = (k) => { const [t, col] = BADGE[k] || BADGE.mangler; return `<span style="flex:none;height:22px;padding:0 9px;border-radius:11px;display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:var(--ki-on-accent, #232323);background:${col}">${t}</span>`; };
   const orderOf = (c) => { const keys = SECS.map((s) => s[0]); const o = (Array.isArray(c.order) ? c.order : []).filter((k) => keys.includes(k)); keys.forEach((k) => { if (!o.includes(k)) o.push(k); }); return o; };
   // Dra-håndtak i editoren (touch-action none + stopPropagation, fallgruve 2). Én gang per editor-element.
   function installEd(ed) {
@@ -365,7 +373,7 @@
       e.stopPropagation(); e.preventDefault();
       d = { list: hd.dataset.edrag, k: item.dataset.edk, item, y0: e.clientY, id: e.pointerId, over: null };
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px ' + (TH.blackA ? TH.blackA(0.4, TH.mode()) : 'rgb(0 0 0 / .4)'); // konkret (regel 3) – bare under draget
       M.haptic('medium');
     });
     R.addEventListener('pointermove', (e) => {
@@ -397,7 +405,7 @@
     R.addEventListener('pointercancel', end);
   }
   const rowCss = 'height:48px;gap:10px';
-  const hdl = (list) => `<span data-edrag="${list}" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:6px 0">${M.icon('mdi:drag', 20)}</span>`;
+  const hdl = (list) => `<span data-edrag="${list}" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:var(--ki-text-mid, #979797);padding:6px 0">${M.icon('mdi:drag', 20)}</span>`;
 
   function editorSchema(h, c) {
     c = c || {};
@@ -411,9 +419,9 @@
         const RR = hh ? sourcesOf(hh, cc) : null, ov = (cc.sources || {})[k];
         const kind = ov ? 'overstyrt' : !RR || !RR.loaded ? 'henter' : RR.from[k];
         const cur = RR ? (k === 'ev' || k === 'price' || k === 'power' ? RR[k] : (RR[k] || []).join(', ')) : null;
-        return `<div class="f" style="gap:4px"><div class="line">${M.icon(icon, 20, 'color:#afafaf')}<span style="flex:1;font-size:14px;font-weight:500">${esc(label)}</span>${badge(kind)}</div>
+        return `<div class="f" style="gap:4px"><div class="line">${M.icon(icon, 20, 'color:var(--ki-text-2, #afafaf)')}<span style="flex:1;font-size:14px;font-weight:500">${esc(label)}</span>${badge(kind)}</div>
           <span class="help">${esc(cur || (kind === 'henter' ? 'Leser Energi-oppsettet …' : 'Ikke satt opp i Energi'))}</span>
-          ${ov ? `<button class="btn" style="height:36px;border-radius:18px;font-size:13px;background:#2f2f2f" data-a="fn" data-k="${key}" data-v="${k}">${M.icon('mdi:restore', 18)}Fra Energi-oppsettet</button>` : ''}</div>`;
+          ${ov ? `<button class="btn" style="height:36px;border-radius:18px;font-size:13px;background:var(--ki-surface-3, #2f2f2f)" data-a="fn" data-k="${key}" data-v="${k}">${M.icon('mdi:restore', 18)}Fra Energi-oppsettet</button>` : ''}</div>`;
       }, click: (dd, ed) => { M.haptic('selection'); ed._set('sources.' + dd.v, undefined); } },
       { type: 'entity', name: 'sources.' + k, label: k === 'power' ? 'Effektsensor (overstyr)' : 'Overstyr med annen entitet', domains: doms, domain: doms.length === 1 ? doms[0] : undefined, device_class: k === 'power' ? 'power' : undefined,
         auto: (hh, cc) => { const RR = hh ? sourcesOf(hh, cc) : null; return RR ? (RR.auto[k] || null) : null; } },
@@ -450,8 +458,8 @@
         installEd(ed);
         const RR = hh ? sourcesOf(hh, cc) : null, ent = t.entity || tileAuto(hh, RR, t.id), open = EXP.get(cc.card_id || '_') === t.id;
         return `<div class="ordrow" data-edk="${esc(t.id)}" data-elist="tile" style="${rowCss};${t.hidden ? 'opacity:.5' : ''}">${hdl('tile')}
-          <span style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;flex:none;background:${esc(M.color(t.color, C.blue))};color:#232323">${M.icon(t.icon || 'mdi:flash', 18)}</span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name || 'Snarvei')}</span><span style="font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ent || 'Velg entitet')}</span></span>
+          <span style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;flex:none;background:${esc(M.color(t.color, C.blue))};color:var(--ki-on-accent, #232323)">${M.icon(t.icon || 'mdi:flash', 18)}</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name || 'Snarvei')}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ent || 'Velg entitet')}</span></span>
           <button class="ib" data-a="fn" data-k="${key}" data-op="eye" data-v="${esc(t.id)}" aria-label="${t.hidden ? 'Vis' : 'Skjul'}">${M.icon(t.hidden ? 'mdi:eye-off' : 'mdi:eye', 18)}</button>
           <button class="ib" data-a="fn" data-k="${key}" data-op="exp" data-v="${esc(t.id)}" aria-expanded="${open}" aria-label="Rediger">${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20)}</button></div>`;
       }, click: tClick });
@@ -462,7 +470,7 @@
           { type: 'entity', name: p + 'entity', label: 'Entitet', auto: (hh, cc) => tileAuto(hh, hh ? sourcesOf(hh, cc) : null, t.id) },
           { type: 'icon', name: p + 'icon', label: 'Ikon' },
           { type: 'color', name: p + 'color', label: 'Farge' },
-          { type: 'html', html: (hh, cc, key) => `<button class="btn" style="height:44px;color:var(--red,#f28073)" data-a="fn" data-k="${key}" data-op="rm" data-v="${esc(t.id)}">${M.icon('mdi:delete-outline', 20)}Fjern snarvei</button>`, click: tClick },
+          { type: 'html', html: (hh, cc, key) => `<button class="btn" style="height:44px;color:var(--ki-red-text, var(--red,#f28073))" data-a="fn" data-k="${key}" data-op="rm" data-v="${esc(t.id)}">${M.icon('mdi:delete-outline', 20)}Fjern snarvei</button>`, click: tClick },
         );
       }
     });
@@ -475,7 +483,7 @@
         const H = M.energiHus, cur = cc.house_style || 'enebolig';
         return `<div class="f"><label>Hustype</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${STYLES.map(([k, l]) => {
           let th = ''; try { th = H && H.thumb ? H.thumb(k) : ''; } catch (e) { th = ''; }
-          return `<button data-a="fn" data-k="${key}" data-v="${k}" aria-pressed="${k === cur}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;border-radius:16px;background:#2f2f2f;box-shadow:${k === cur ? 'inset 0 0 0 2px #f285c9' : 'none'};font-size:12px;color:${k === cur ? '#fafafa' : '#afafaf'}"><span style="width:100%;aspect-ratio:16/10;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:#232323">${th || M.icon('mdi:home-lightning-bolt', 28, 'color:#7f7f7f')}</span>${esc(l)}</button>`;
+          return `<button data-a="fn" data-k="${key}" data-v="${k}" aria-pressed="${k === cur}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;border-radius:16px;background:var(--ki-surface-3, #2f2f2f);box-shadow:${k === cur ? 'inset 0 0 0 2px var(--pink, #f285c9)' : 'none'};font-size:12px;color:${k === cur ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-2, #afafaf)'}"><span style="width:100%;aspect-ratio:16/10;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:var(--ki-bg, #232323)">${th || M.icon('mdi:home-lightning-bolt', 28, 'color:var(--ki-text-3, #7f7f7f)')}</span>${esc(l)}</button>`;
         }).join('')}</div></div>`;
       }, click: (dd, ed) => { M.haptic('selection'); ed._set('house_style', dd.v); } },
       { type: 'boolean', name: 'labels.ev', label: 'Etikett: Elbillader', default: true },
@@ -594,7 +602,7 @@
         return `<div class="house">${inner}</div>`;
       }
       const L = [['ev', 'Elbillader', C.orange], ['grid', 'Nett', C.blue], ['home', 'Hjem', C.yellow]].filter(([k]) => lab[k] !== false && values[k] != null);
-      return `<div class="house ph"><div class="phl">${L.map(([k, l, col]) => `<div class="hl"><b class="num">${esc(values[k])}</b><span><i style="background:${col}"></i>${l}</span></div>`).join('')}</div>${M.icon('mdi:home-lightning-bolt-outline', 96, 'color:#545454')}<span class="phs">${w != null ? fW(w) + ' nå' : ''}</span></div>`;
+      return `<div class="house ph"><div class="phl">${L.map(([k, l, col]) => `<div class="hl"><b class="num">${esc(values[k])}</b><span><i style="background:${col}"></i>${l}</span></div>`).join('')}</div>${M.icon('mdi:home-lightning-bolt-outline', 96, 'color:var(--ki-ctrl, #545454)')}<span class="phs">${w != null ? fW(w) + ' nå' : ''}</span></div>`;
     }
     // Snarveier / status-fliser (21.1, 21.9)
     _s_tiles(R) {
@@ -643,7 +651,7 @@
       }
       const busy = !D && R.loaded && (R.grid_in.length || R.power);
       return `<section class="sec">
-        <div class="sh"><span class="st">Strøm</span>${cost && kr != null ? `<span class="cp" style="background:rgba(115,185,242,.16);color:${C.blue}">${fKr(kr)}</span>` : ''}</div>
+        <div class="sh"><span class="st">Strøm</span>${cost && kr != null ? `<span class="cp" style="background:${TONE(C.blue, 0.16)};color:${ATP(C.blue)}">${fKr(kr)}</span>` : ''}</div>
         <div class="card pc">
           <div class="ph2"><div class="big">${M.icon('mdi:flash', 22, `color:${C.blue}`)}<span class="num"><b>${fKwh(imp)}</b> kWh</span></div><span class="rd num">${esc(read || rg.title)}</span></div>
           <span class="lb">Importert${busy ? ' · henter …' : ''}</span>
@@ -665,7 +673,7 @@
       const showI = sel != null ? sel : day === 'today' ? hr : null;
       const v = showI != null ? vals[showI] : avg;
       const lv = levelOf(v, avgOf(pr.P.today), sel == null && day === 'today' ? (h.states[ent].attributes.price_level || null) : null);
-      const col = lv != null ? LEVELS[lv][1] : '#fafafa';
+      const col = lv != null ? AT(LEVELS[lv][1]) : 'var(--ki-text, #fafafa)'; // tekst/ikon: aksent mørknet i lys modus
       const sub = sel != null ? `kl ${M.pad(sel)}–${M.pad((sel + 1) % 24)} · snitt ${M.nf(avg, 2)} kr` : day === 'today' ? `${60 - now.getMinutes()} minutter igjen · snitt ${M.nf(avg, 2)} kr` : `Snitt i morgen · ${M.nf(avg, 2)} kr`;
       const L = vals.map((x, i) => [x, i]).filter(([x]) => x != null);
       const lo = L.length ? L.reduce((a, b) => (b[0] < a[0] ? b : a)) : null, hi = L.length ? L.reduce((a, b) => (b[0] > a[0] ? b : a)) : null;
@@ -675,7 +683,7 @@
           <div class="ptop" data-ent="${esc(ent)}">
             <span class="pic" style="color:${col}">${M.icon('mdi:cash', 22)}</span>
             <div class="grow"><div class="pv num"><b style="color:${col}">${v != null ? M.nf(v, 2) : '–'}</b> kr/kWh</div><span class="lb num">${esc(sub)}</span></div>
-            ${lv != null ? `<span class="lvl" style="color:${LEVELS[lv][1]};background:color-mix(in srgb, ${LEVELS[lv][1]} 16%, transparent)">${LEVELS[lv][0]}</span>` : ''}
+            ${lv != null ? `<span class="lvl" style="color:${AT(LEVELS[lv][1])};background:color-mix(in srgb, ${LEVELS[lv][1]} 16%, transparent)">${LEVELS[lv][0]}</span>` : ''}
           </div>
           ${priceChartHTML(vals, avgOf(pr.P.today), { now: day === 'today' ? hr : null, sel })}
           <div class="pchips">${chip(C.green, 'Lavest', lo)}${chip(C.red, 'Høyest', hi)}</div>
@@ -692,7 +700,7 @@
       const n = Number(c.top_n != null ? c.top_n : 3), all = n === 0 || this.ui.all;
       const show = all ? devs : devs.slice(0, n);
       const mx = devs.length ? devs[0].kwh || 1 : 1;
-      const RANK = ['#b8e674', '#d5dc72', '#f2d26f'];
+      const RANK = ['#b8e674', '#d5dc72', '#f2d26f']; // ki-hex-ok: medaljefarger (fyll), tekst = --ki-on-accent
       const meta = devs.length ? `${devs.length} målt${pct != null ? ` · ${M.clamp(pct, 0, 100)} % av forbruket` : ''}` : '';
       const row = (d, i) => {
         const s = this.s(d.id), ic = (s && s.attributes.icon) || (EV_RX.test(d.id + ' ' + (d.name || '')) ? 'mdi:ev-station' : VVB_RX.test(d.id) ? 'mdi:water-boiler' : 'mdi:power-plug');
@@ -719,9 +727,9 @@
       const sel = this._sel('water');
       const read = sel != null && vals[sel] != null ? `${rg.lab(sel)} · ${fL(vals[sel])} L${cost && D.wcost && D.wcost[sel] != null ? ' · ' + fKr(D.wcost[sel]) : ''}` : '';
       return `<section class="sec">
-        <div class="sh"><span class="st">Vann</span>${cost && kr != null ? `<span class="cp" style="background:rgba(77,208,225,.16);color:${CYAN}">${fKr(kr)}</span>` : ''}</div>
+        <div class="sh"><span class="st">Vann</span>${cost && kr != null ? `<span class="cp" style="background:${TONE(CYAN, 0.16)};color:${AT(CYAN)}">${fKr(kr)}</span>` : ''}</div>
         <div class="card pc">
-          <div class="ph2"><div class="big">${M.icon('mdi:water', 22, `color:${CYAN}`)}<span class="num"><b>${fL(tot)}</b> L</span></div><span class="rd num">${esc(read || rg.title)}</span></div>
+          <div class="ph2"><div class="big">${M.icon('mdi:water', 22, `color:${AT(CYAN)}`)}<span class="num"><b>${fL(tot)}</b> L</span></div><span class="rd num">${esc(read || rg.title)}</span></div>
           <span class="lb">Forbrukt</span>
           ${plotHTML('water', vals, { kind: 'bars', color: CYAN, h: 96, sel, now: rg.cur && rg.p === 'hour' ? new Date().getHours() : null, ticks: ticksOf(rg, rg.n) })}
         </div></section>`;
@@ -761,78 +769,81 @@
       return `
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
-        .setup{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:26px;background:rgba(242,181,115,.14);color:${C.orange};font-size:14px;font-weight:500;text-align:left}
+        .setup{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-radius:26px;background:${TONE(C.orange, 0.14)};color:${AT(C.orange)};font-size:14px;font-weight:500;text-align:left}
         .house{position:relative;width:100%;min-height:340px;border-radius:28px;overflow:hidden}
-        .house.ph{height:340px;display:grid;place-items:center;background:var(--gray200,#3a3a3a);box-shadow:${C.edge}}
+        /* Fiks 35: husscenen er en mørk øy (52-energi-hus) – i lys modus får den egen mørk flate med kortenes radius, så
+           etikettene (lys tekst) står på mørk bakgrunn. --ki-pill-bg finnes bare i lys modus → mørk = gjennomsiktig som før. */
+        .house:not(.ph){background-color:var(--ki-pill-bg, transparent)}
+        .house.ph{height:340px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge}}
         .phl{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;gap:8px}
         .hl{display:flex;flex-direction:column;gap:2px}
         .hl b{font-size:17px;font-weight:600}
-        .hl span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--gray800,#afafaf)}
+        .hl span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .hl i{width:8px;height:8px;border-radius:50%}
-        .phs{position:absolute;bottom:14px;font-size:12px;color:var(--gray700,#979797)}
+        .phs{position:absolute;bottom:14px;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .prow{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:calc(14px - var(--msh-gap,8px))}
-        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;flex:1;min-width:0;position:relative;touch-action:pan-y;background:var(--gray200,#3a3a3a)}
-        .seg .sg{flex:1 1 0;min-width:0;height:36px;padding:0 4px;border-radius:18px;font-size:13px;white-space:nowrap;color:var(--gray800,#afafaf);background:transparent;transition:background .25s,color .25s}
-        .seg .sg.on{background:${C.accent};color:#2a1720;font-weight:500}
+        .seg{display:flex;gap:2px;padding:4px;border-radius:22px;flex:1;min-width:0;position:relative;touch-action:pan-y;background:var(--ki-surface-3, var(--gray200,#3a3a3a))}
+        .seg .sg{flex:1 1 0;min-width:0;height:36px;padding:0 4px;border-radius:18px;font-size:13px;white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent;transition:background .25s,color .25s}
+        .seg .sg.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
         .seg .sg:disabled{opacity:.4;cursor:default}
         .seg.sm{flex:none}
         .seg.sm .sg{height:30px;padding:0 12px;flex:none}
-        .nb{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:var(--white,#fafafa);flex:none}
+        .nb{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:var(--ki-text, var(--white,#fafafa));flex:none}
         .nb:disabled{opacity:.3;cursor:default}
-        .gear{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);flex:none}
+        .gear{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, var(--white,#fafafa));flex:none}
         .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-        .tile{display:flex;align-items:center;gap:8px;height:66px;padding:0 10px 0 5px;border-radius:33px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};text-align:left;min-width:0}
-        .ti{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;flex:none;color:#232323}
+        .tile{display:flex;align-items:center;gap:8px;height:66px;padding:0 10px 0 5px;border-radius:33px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:${C.edge};text-align:left;min-width:0}
+        .ti{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;flex:none;color:var(--ki-on-accent, #232323)}
         .tt{display:flex;flex-direction:column;gap:2px;min-width:0}
         .tt b{font-size:14px;font-weight:600}
-        .tt i{font-style:normal;font-size:12px;color:var(--gray800,#afafaf)}
+        .tt i{font-style:normal;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .sec{display:flex;flex-direction:column;gap:8px}
         .sh{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 4px}
         .st{flex:1;font-size:18px;font-weight:500}
-        .meta{font-size:12px;color:var(--gray700,#979797)}
+        .meta{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .cp{height:26px;padding:0 10px;border-radius:13px;display:inline-flex;align-items:center;font-size:13px;font-weight:600;flex:none}
-        .cp.sm{height:22px;padding:0 8px;font-size:11px;background:rgba(255,255,255,.08);color:var(--gray900,#c7c7c7)}
+        .cp.sm{height:22px;padding:0 8px;font-size:11px;background:${WA(0.08)};color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .card.pc,.card.pr,.card.tops{padding:16px;display:flex;flex-direction:column;gap:6px}
         .ph2{display:flex;align-items:center;gap:8px}
-        .big{flex:1;display:flex;align-items:center;gap:8px;font-size:15px;color:var(--gray800,#afafaf)}
-        .big b{font-size:26px;font-weight:500;color:var(--white,#fafafa)}
-        .rd{font-size:12px;color:var(--gray800,#afafaf);text-align:right}
-        .lb{font-size:12px;color:var(--gray700,#979797)}
+        .big{flex:1;display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .big b{font-size:26px;font-weight:500;color:var(--ki-text, var(--white,#fafafa))}
+        .rd{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));text-align:right}
+        .lb{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .plot{position:relative;width:100%;margin-top:6px;touch-action:pan-y;cursor:crosshair}
         .plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-        .plot .vl{position:absolute;top:0;bottom:0;width:0;border-left:1px solid rgba(255,255,255,.55);transform:translateX(-.5px);pointer-events:none}
-        .plot .vl.dash{border-left:1px dashed rgba(255,255,255,.45)}
-        .plot .dot{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 3px rgba(40,40,40,.9)}
-        .plot .dot.ring{background:#282828;border:2px solid;box-sizing:border-box}
-        .empty-plot{display:grid;place-items:center;color:var(--gray600,#7f7f7f)}
+        .plot .vl{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--ki-text-2, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.55*var(--ki-wa-k,1)),var(--ki-wa-max,1))));transform:translateX(-.5px);pointer-events:none}
+        .plot .vl.dash{border-left:1px dashed var(--ki-text-2, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(.45*var(--ki-wa-k,1)),var(--ki-wa-max,1))))}
+        .plot .dot{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 3px var(--ki-surface, rgba(40,40,40,.9))}
+        .plot .dot.ring{background:var(--ki-surface, #282828);border:2px solid;box-sizing:border-box}
+        .empty-plot{display:grid;place-items:center;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .xax{position:relative;height:16px;margin-top:4px}
-        .xax span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--gray600,#7f7f7f);white-space:nowrap}
+        .xax span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap}
         .xax span:first-child{transform:none}
         .xax span:last-child:not(:first-child){transform:translateX(-100%)}
         .ptop{display:flex;align-items:center;gap:12px}
-        .pic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--gray300,#404040);flex:none}
-        .pv{font-size:13px;color:var(--gray800,#afafaf)}
+        .pic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+        .pv{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .pv b{font-size:24px;font-weight:500}
         .lvl{height:28px;padding:0 12px;border-radius:14px;display:inline-flex;align-items:center;font-size:13px;font-weight:600;flex:none}
         .pwrap{display:flex;gap:6px;margin-top:4px}
         .yax{position:relative;width:30px;flex:none;height:180px;margin-top:6px}
-        .yax span{position:absolute;right:0;transform:translateY(-50%);font-size:10px;color:var(--gray600,#7f7f7f)}
+        .yax span{position:absolute;right:0;transform:translateY(-50%);font-size:10px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
         .pcol{flex:1;min-width:0}
         .pchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-        .pchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;background:var(--gray300,#404040);font-size:12px;color:var(--gray900,#c7c7c7)}
+        .pchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:12px;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .pchip i{width:8px;height:8px;border-radius:50%}
-        .empty0{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:14px 8px;color:var(--gray700,#979797);font-size:13px;text-align:center}
+        .empty0{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:14px 8px;color:var(--ki-text-mid, var(--gray700,#979797));font-size:13px;text-align:center}
         .tops{gap:4px}
         .trow{display:flex;align-items:center;gap:12px;padding:6px 0;text-align:left;width:100%}
-        .tic{position:relative;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--gray300,#404040);flex:none}
-        .rk{position:absolute;top:-2px;right:-4px;width:18px;height:18px;border-radius:9px;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:#232323}
+        .tic{position:relative;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
+        .rk{position:absolute;top:-2px;right:-4px;width:18px;height:18px;border-radius:9px;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:var(--ki-on-accent, #232323)}
         .tcol{display:flex;flex-direction:column;gap:6px}
         .tl{display:flex;align-items:center;gap:8px;min-width:0}
         .tl b{flex:1;min-width:0;font-size:14px;font-weight:500}
-        .tk{font-size:13px;color:var(--gray800,#afafaf);flex:none}
-        .bar{height:6px;border-radius:3px;background:var(--gray300,#404040);overflow:hidden}
+        .tk{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));flex:none}
+        .bar{height:6px;border-radius:3px;background:var(--ki-surface-3, var(--gray300,#404040));overflow:hidden}
         .bar i{display:block;height:100%;border-radius:3px;background:${C.lime}}
-        .more{height:40px;border-radius:20px;background:var(--gray300,#404040);font-size:13px;font-weight:500;margin-top:6px}
+        .more{height:40px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:13px;font-weight:500;margin-top:6px}
       `;
     }
   }

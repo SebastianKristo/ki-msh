@@ -151,7 +151,7 @@ const ok = (name, cond, info) => { if (!cond) fail++; console.log(`${cond ? 'OK 
   const x = r.res;
   ok('fanelinje #3a3a3a uten backdrop', x.tbox.bg === 'rgb(58, 58, 58)' && (x.tbox.bf === 'none' || !x.tbox.bf) && x.tbox.r === '30px' && x.tbox.pad === '6px', x.tbox);
   ok('fanelinje gap 4', x.gap === '4px', x.gap);
-  ok('tannhjul 52 px #3a3a3a', x.gear.w === '52px' && x.gear.bg === 'rgb(58, 58, 58)' && (x.gear.bf === 'none' || !x.gear.bf), x.gear);
+  ok('tannhjul = sporets høyde (66 px, 35.8) #3a3a3a', x.gear.w === '66px' && x.gear.bg === 'rgb(58, 58, 58)' && (x.gear.bf === 'none' || !x.gear.bf), x.gear);
   ok('Åpne med = synlige faner', JSON.stringify(x.selOpts) === JSON.stringify(x.tabs), [x.selOpts, x.tabs]);
   ok('Husk siste fane-bryter finnes', x.hasRemember);
   ok('Åpne med bytter straks + stjerne synk', x.afterSel.cur === x.afterSel.draft && x.afterSel.star === x.afterSel.draft, x.afterSel);

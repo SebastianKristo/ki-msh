@@ -95,14 +95,14 @@
   const ST_SEEN = {}; // entitet → Set av tilstander sett i denne økten («sett i historikken»)
   /* Fiks 21.2 · lås/garasje/alarm: ÉN variant per tilstand – bakgrunn, ikon, tittel og undertekst kommer alltid fra samme
    * variant (aldri undertekst fra «solid» på nøytral bakgrunn). busy = nøytral + ikonet pulserer svakt (opasitet 1 → 0,5). */
-  const TV_N = { bg: 'var(--gray100, #2f2f2f)', fg: 'var(--white, #fafafa)', icon: null, circle: null, sub: 'var(--gray600, #7f7f7f)', flat: false };
+  const TV_N = { bg: 'var(--ki-surface, var(--gray100, #2f2f2f))', fg: 'var(--ki-text, var(--white, #fafafa))', icon: null, circle: null, sub: 'var(--ki-text-2, var(--gray600, #7f7f7f))', flat: false };
   const TILE_VAR = {
-    solid: { bg: 'var(--green, #66d19e)', fg: '#2f2f2f', icon: '#2f2f2f', circle: 'rgba(0,0,0,0.1)', sub: 'rgba(31,42,36,0.75)', flat: true },
+    solid: { bg: 'var(--green, #66d19e)', fg: 'var(--ki-on-accent, #2f2f2f)', icon: 'var(--ki-on-accent, #2f2f2f)', circle: 'rgb(0 0 0/0.1)', sub: 'rgba(31,42,36,0.75)', flat: true },
     neutral: TV_N,
     busy: { ...TV_N, blink: true },
-    error: { ...TV_N, icon: 'var(--red, #f28073)' },
-    alert: { bg: 'var(--red, #f28073)', fg: '#2f2f2f', icon: '#2f2f2f', circle: 'rgba(0,0,0,0.1)', sub: 'rgba(42,23,23,0.75)', flat: true }, // alarm utløst
-    pink: { bg: C.accent, fg: '#2f2f2f', icon: '#2f2f2f', circle: 'rgba(42,23,32,0.1)', sub: 'rgba(42,23,32,0.7)', flat: true }, // alarm armert
+    error: { ...TV_N, icon: 'var(--ki-red-text, var(--red, #f28073))' },
+    alert: { bg: 'var(--red, #f28073)', fg: 'var(--ki-on-accent, #2f2f2f)', icon: 'var(--ki-on-accent, #2f2f2f)', circle: 'rgb(0 0 0/0.1)', sub: 'rgba(42,23,23,0.75)', flat: true }, // alarm utløst
+    pink: { bg: C.accent, fg: 'var(--ki-on-accent, #2f2f2f)', icon: 'var(--ki-on-accent, #2f2f2f)', circle: 'rgba(42,23,32,0.1)', sub: 'rgba(42,23,32,0.7)', flat: true }, // alarm armert
   };
   const tileVariant = (kind, v) => {
     v = String(v || '');
@@ -169,6 +169,40 @@
   const hmMin = (v) => { const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(String(v == null ? '' : v).trim()); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null; };
   const inWin = (from, to, d) => { const f = hmMin(from), t = hmMin(to); if (f == null || t == null || f === t) return false; const n = (d || new Date()).getHours() * 60 + (d || new Date()).getMinutes(); return f < t ? n >= f && n < t : n >= f || n < t; };
   const hhmm = (t) => { const d = new Date(t); return isNaN(d) ? '' : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  /* Fiks 35.8 · Støvsuger-kortet: rommet roboten er i (ikke gjettet) – attributtet current_room/room/… (eller segment-id slått
+   * opp i attributtet rooms/segments), ellers en sensor på samme enhet (…current_room / …_room / …segment), ellers
+   * områdets navn i registeret. Liten forbokstav («Rengjør stue»). '' når ingenting finnes. */
+  const vacRoom = (hass, id) => {
+    const st = hass && hass.states[id], a = (st && st.attributes) || {};
+    const lc = (x) => { const t = String(x == null ? '' : x).trim(); return !t || /^(unknown|unavailable|none|null|-)$/i.test(t) ? '' : t[0].toLowerCase() + t.slice(1); };
+    for (const k of ['current_room', 'current_room_name', 'room_name', 'room', 'current_segment_name', 'segment_name', 'cleaning_room']) { const v = a[k]; if (typeof v === 'string' && lc(v)) return lc(v); if (v && typeof v === 'object' && v.name) return lc(v.name); }
+    const seg = a.current_segment != null ? a.current_segment : a.segment_id != null ? a.segment_id : a.current_segment_id;
+    if (seg != null && seg !== '' && typeof seg !== 'object') {
+      let hit = '';
+      const walk = (v) => {
+        if (hit || !v || typeof v !== 'object') return;
+        if (Array.isArray(v)) return v.forEach((x) => { if (hit || !x || typeof x !== 'object') return; if (String(x.id != null ? x.id : x.segment_id) === String(seg)) hit = x.name || x.room_name || ''; else walk(x); });
+        Object.keys(v).forEach((k) => { const x = v[k]; if (hit) return; if (k === String(seg)) hit = typeof x === 'string' ? x : (x && x.name) || ''; else if (Array.isArray(x)) walk(x); });
+      };
+      walk(a.rooms || a.segments);
+      if (lc(hit)) return lc(hit);
+    }
+    const e = M.regEntry(hass, id), dev = e && e.device_id, obj = id.split('.')[1];
+    const sib = Object.keys(hass.states).filter((x) => /^(sensor|select)\./.test(x) && (dev ? (M.regEntry(hass, x) || {}).device_id === dev : x.split('.')[1].startsWith(obj + '_')) && /current_room|_room$|current_segment|_segment$/.test(x));
+    for (const x of sib) { const v = lc(hass.states[x].state); if (v && !M.isNum(v)) return v; }
+    const ar = M.areaOf(hass, id);
+    return ar ? lc(M.areaName(hass, ar)) : '';
+  };
+  // Popupen kortet åpner: den (synlige) strategi-popupen med msh-stovsuger-card (helst med samme entitet), ellers
+  // strategiens standardhash for kortet (M.FUNCTION_POPUPS → #rolf), ellers #stovsuger.
+  const vacHash = (id) => {
+    const R = M.popupReport;
+    const hasCard = (cfg) => { let hit = 0; const w = (o, d) => { if (!o || typeof o !== 'object' || d > 8 || hit === 2) return; if (o.type === 'custom:msh-stovsuger-card') hit = Math.max(hit, (o.entities || {}).vacuum === id || o.entity === id ? 2 : 1); Object.keys(o).forEach((k) => w(o[k], d + 1)); }; w(cfg, 0); return hit; };
+    if (R && Array.isArray(R.entries)) { const L = R.entries.filter((x) => !x.hidden && x.config).map((x) => [x.hash, hasCard(x.config)]).filter((x) => x[1]).sort((p, q) => q[1] - p[1]); if (L.length) return L[0][0]; }
+    const F = (M.FUNCTION_POPUPS || []).find((x) => x[3] === 'msh-stovsuger-card');
+    return F ? F[0] : '#stovsuger';
+  };
+  M.hjemVac = { room: vacRoom, hash: vacHash };
   const listOf = (x) => (Array.isArray(x) ? x : x && typeof x === 'object' ? Object.keys(x).sort().map((k) => x[k]) : []);
 
   /* Fiks 17.11 · Ruter-flisen: neste avgang fra entur-sensoren (M.enturDepartures fra 47-ruter.js, lastes før render).
@@ -204,9 +238,9 @@
       if (!val) return;
       text += pre + val; html += M.esc(pre) + (col ? `<span style="color:${col}">${M.esc(val)}</span>` : M.esc(val));
     };
-    put('delay', dl, 'var(--orange, #f2b573)', ' · ');
+    put('delay', dl, 'var(--ki-orange-text, var(--orange, #f2b573))', ' · ');
     put('next', nx ? nx : '', '', ', deretter ');
-    put('avvik', av, 'var(--red, #f28073)', ' · ');
+    put('avvik', av, 'var(--ki-red-text, var(--red, #f28073))', ' · ');
     return { text: text.replace(/\s+·\s*$/, ''), html };
   };
 
@@ -583,50 +617,50 @@
 
 
   /* Fiks 31.4 · CSS for fanestilene (kortet og forhåndsvisningen i «Tilpass Hjem» → Faner → Fanestil). Prefiks hts-. */
-  const PK = C.accent, RD = 'var(--red,#f28073)', EDGE = 'inset 0 0 0 1px rgba(255,255,255,0.05)';
+  const PK = C.accent, RD = 'var(--red,#f28073)', RDT = 'var(--ki-red-text, var(--red,#f28073))', EDGE = 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))';
   M.HJEM_TABS_CSS = `
     ${M.tabBar ? M.tabBar.CSS : ''}
     .hts-glide,.hts-chips,.hts-top,.hts-sub{user-select:none;-webkit-user-select:none;touch-action:pan-y}
     .hts-glide>*,.hts-chips>*,.hts-top>*,.hts-sub>*,.hts-bat,.hts-pt{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;cursor:pointer;font-family:inherit;border:0;margin:0;box-sizing:border-box}
     .hts-ic{display:inline-flex;flex:none;line-height:0}
-    .hts-glide{position:relative;display:grid;padding:4px;border-radius:26px;background:var(--gray100,#2f2f2f);box-shadow:${EDGE};box-sizing:border-box;min-width:0}
+    .hts-glide{position:relative;display:grid;padding:4px;border-radius:26px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));box-shadow:${EDGE};box-sizing:border-box;min-width:0}
     .hts-thumb{position:absolute;top:4px;bottom:4px;border-radius:22px;background:${PK};box-shadow:0 6px 16px rgb(242 133 201 / 0.25);transition:left .28s cubic-bezier(.2,.8,.2,1);pointer-events:none}
     .hts-glide.tr-drag .hts-thumb{opacity:.35}
-    .hts-gt{position:relative;z-index:1;height:56px;min-width:0;padding:0 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:transparent;color:var(--gray800,#afafaf);font-size:11px;font-weight:500;transition:color .2s}
-    .hts-gt.on{color:var(--gray100,#2f2f2f)}
+    .hts-gt{position:relative;z-index:1;height:56px;min-width:0;padding:0 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:transparent;color:var(--ki-text-2, var(--gray800,#afafaf));font-size:11px;font-weight:500;transition:color .2s}
+    .hts-gt.on{color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
     .hts-gl{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-    .hts-gt.warn:not(.on) .hts-ic{color:${RD}}
+    .hts-gt.warn:not(.on) .hts-ic{color:${RDT}}
     .hts-chips{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -2px;padding:0 2px;min-width:0}
     .hts-chips::-webkit-scrollbar,.hts-sub::-webkit-scrollbar{display:none}
-    .hts-ch{flex:none;height:56px;padding:0 16px 0 12px;border-radius:28px;display:flex;align-items:center;gap:10px;background:var(--gray100,#2f2f2f);color:var(--white,#fafafa);box-shadow:${EDGE};transition:background .2s;text-align:left}
-    .hts-ch .hts-ic{color:var(--gray800,#afafaf)}
-    .hts-ch.on{background:${PK};color:var(--gray100,#2f2f2f);box-shadow:none}
-    .hts-ch.on .hts-ic{color:var(--gray100,#2f2f2f)}
+    .hts-ch{flex:none;height:56px;padding:0 16px 0 12px;border-radius:28px;display:flex;align-items:center;gap:10px;background:var(--ki-surface, var(--gray100,#2f2f2f));color:var(--ki-text, var(--white,#fafafa));box-shadow:${EDGE};transition:background .2s;text-align:left}
+    .hts-ch .hts-ic{color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .hts-ch.on{background:${PK};color:var(--ki-on-accent, var(--gray100,#2f2f2f));box-shadow:none}
+    .hts-ch.on .hts-ic{color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
     .hts-cx{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
     .hts-cl{font-size:14px;font-weight:500;white-space:nowrap;line-height:1.2}
-    .hts-cm{font-size:11px;white-space:nowrap;color:var(--gray700,#979797);line-height:1.2}
+    .hts-cm{font-size:11px;white-space:nowrap;color:var(--ki-text-mid, var(--gray700,#979797));line-height:1.2}
     .hts-ch.on .hts-cm{color:rgba(47,47,47,0.75)}
-    .hts-ch.warn:not(.on) .hts-ic,.hts-ch.warn:not(.on) .hts-cm{color:${RD}}
+    .hts-ch.warn:not(.on) .hts-ic,.hts-ch.warn:not(.on) .hts-cm{color:${RDT}}
     .hts-to{display:flex;flex-direction:column;gap:10px;min-width:0}
     .hts-tor{display:flex;align-items:center;gap:8px;min-width:0}
-    .hts-top{flex:1;min-width:0;display:grid;gap:2px;padding:4px;border-radius:26px;background:var(--gray100,#2f2f2f);box-shadow:${EDGE};box-sizing:border-box}
-    .hts-tt{height:48px;border-radius:22px;min-width:0;padding:0 6px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;background:transparent;color:var(--gray900,#c7c7c7);transition:background .2s}
-    .hts-tt.on{background:${PK};color:var(--gray100,#2f2f2f)}
+    .hts-top{flex:1;min-width:0;display:grid;gap:2px;padding:4px;border-radius:26px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));box-shadow:${EDGE};box-sizing:border-box}
+    .hts-tt{height:48px;border-radius:22px;min-width:0;padding:0 6px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;background:transparent;color:var(--ki-text-2, var(--gray900,#c7c7c7));transition:background .2s}
+    .hts-tt.on{background:${PK};color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
     .hts-tl{overflow:hidden;text-overflow:ellipsis}
-    .hts-bat{position:relative;width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;padding:0;background:var(--gray100,#2f2f2f);color:var(--gray800,#afafaf);box-shadow:${EDGE};transition:background .2s}
-    .hts-bat.warn{color:${RD}}
-    .hts-bat.on{background:${RD};color:var(--gray100,#2f2f2f)}
-    .hts-bn{position:absolute;top:4px;right:4px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:${RD};color:var(--gray100,#2f2f2f);font-size:11px;font-weight:600;display:grid;place-items:center;line-height:1}
-    .hts-bat.on .hts-bn{background:var(--gray100,#2f2f2f);color:${RD}}
+    .hts-bat{position:relative;width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;padding:0;background:var(--ki-surface, var(--gray100,#2f2f2f));color:var(--ki-text-2, var(--gray800,#afafaf));box-shadow:${EDGE};transition:background .2s}
+    .hts-bat.warn{color:${RDT}}
+    .hts-bat.on{background:${RD};color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
+    .hts-bn{position:absolute;top:4px;right:4px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:${RD};color:var(--ki-on-accent, var(--gray100,#2f2f2f));font-size:11px;font-weight:600;display:grid;place-items:center;line-height:1}
+    .hts-bat.on .hts-bn{background:var(--ki-surface, var(--gray100,#2f2f2f));color:${RDT}}
     .hts-sub{display:flex;gap:6px;padding:0 4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;min-width:0}
-    .hts-st{flex:none;height:36px;padding:0 16px;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;background:transparent;box-shadow:inset 0 0 0 1px var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);display:flex;align-items:center}
-    .hts-st.on{background:var(--gray300,#404040);box-shadow:inset 0 0 0 1.5px var(--pink,#f285c9);color:var(--white,#fafafa)}
-    .hts-pp{padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;box-sizing:border-box;overflow-x:auto;scrollbar-width:none}
+    .hts-st{flex:none;height:36px;padding:0 16px;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;background:transparent;box-shadow:inset 0 0 0 1px var(--ki-surface-2, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));display:flex;align-items:center}
+    .hts-st.on{background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:inset 0 0 0 1.5px var(--pink,#f285c9);color:var(--ki-text, var(--white,#fafafa))}
+    .hts-pp{padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));align-self:flex-start;max-width:100%;box-sizing:border-box;overflow-x:auto;scrollbar-width:none}
     .hts-pp.full{align-self:stretch}
     .hts-ppr{display:flex;gap:0}
-    .hts-pt{flex:0 0 auto;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;border-radius:999px;color:var(--gray800,#afafaf)}
+    .hts-pt{flex:0 0 auto;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;border-radius:999px;color:var(--ki-text-2, var(--gray800,#afafaf))}
     .hts-pp.full .hts-pt{flex:1 0 auto}
-    .hts-pt.on{background:${PK};color:var(--gray100,#2f2f2f)}
+    .hts-pt.on{background:${PK};color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
   `;
 
   /* ------------------------------------------------------------ kort */
@@ -691,7 +725,7 @@
               f.push({ type: 'select', name: nm + '.slide', label: `Vis først når … ${i + 1} · ${sn} karusell · kort`, options: carSlides(c, t.id, sd), default: 'rooms' });
               f.push({ type: 'html', html: (hh, cc, key, ed) => {
                 const cur = get(cc, nm + '.condition'), ok = M.condParse(cur), res = ok.value ? M.condEval(hh, ok.value, { onChange: ed ? ed.__crCb || (ed.__crCb = () => ed._render && ed._render()) : null }) : null;
-                const badge = `<div class="small" style="padding:0 6px;color:${res === true ? '#8fd9a8' : '#979797'}">${res === true ? 'Slår til nå' : ok.error ? 'Ugyldig: ' + M.esc(ok.error) : 'Nei nå'}</div>`;
+                const badge = `<div class="small" style="padding:0 6px;color:${res === true ? 'var(--ki-green-text, #8fd9a8)' : 'var(--ki-text-mid, #979797)'}">${res === true ? 'Slår til nå' : ok.error ? 'Ugyldig: ' + M.esc(ok.error) : 'Nei nå'}</div>`;
                 if (ed && !ed._inline && customElements.get('ha-selector')) return `<div class="f"><ha-selector data-name="${M.esc(nm + '.condition')}" data-nomorph data-selector="${M.esc(JSON.stringify({ condition: {} }))}" data-label="Betingelse (HA-condition)"></ha-selector></div>${badge}`;
                 return `<div class="small" style="padding:0 6px">Betingelsen redigeres i «Tilpass Hjem» → Kort → Swipe-kort.</div>${badge}`;
               } });
@@ -773,7 +807,9 @@
         if (rest.length) tapF.push({ type: 'section', id: 'zone-off', label: 'Ikke på Hjem', icon: 'mdi:eye-off', meta: `${rest.length} kort`, fields: rest.map(tileF) });
         KIND_ORDER.filter((kd) => TILE_DOM[kd]).forEach((kd) => tapF.push({ type: 'button', label: '+ Legg til ' + KINDS[kd][1].toLowerCase(), icon: 'mdi:plus', run: (h, cc, ed) => {
           const id = M.hjemNewTileId(cc, kd);
-          ed._set('tile_cfg.' + id, { kind: kd, side: 'R', pos: 'bottom' });
+          // 35.8: nytt Støvsuger-kort → første vacuum.* som ikke allerede har et kort (samme regel som «Tilpass Hjem»)
+          const vac = kd === 'vacr' ? (() => { const tk = new Set([tileCfg(cc, 'vacr').entity || tileEnts(h, cc).vacr, ...extraIds(cc).filter((x) => kindOf(cc, x) === 'vacr').map((x) => tileCfg(cc, x).entity)].filter(Boolean)); return M.all(h, 'vacuum').find((x) => !tk.has(x)); })() : null;
+          ed._set('tile_cfg.' + id, { kind: kd, side: 'R', pos: 'bottom', ...(vac ? { entity: vac } : {}) });
           const hc = get(cc, 'tabs.hjem.cards');
           if (Array.isArray(hc)) ed._set('tabs.hjem.cards', [...hc, id]);
         } }));
@@ -1105,11 +1141,14 @@
             ic: () => { M.call(hass, 'media_player', 'toggle', { entity_id: id }); this._toast(on ? 'TV slått av' : 'TV slått på'); } });
         }
         case 'vacr': {
+          // Fiks 35.8 · Støvsuger-kort (Hjem v3 · kind 'vacr'): tittel = robotnavn, «Rengjør stue · 62 %» (grønn) /
+          // «Pauset i stue» (amber) / øvrige tilstander. Rom fra attributter → søsken-sensor → registeret (vacRoom), aldri gjettet.
+          // Trykk på kortet = Sir Sweeps-popupen (vacHash), ikon = vacuum.start / vacuum.pause.
           const id = E.vacr, st = s(id); if (!id) return null;
-          const v = st ? st.state : '', bat = st && st.attributes.battery_level != null ? ` · ${st.attributes.battery_level} %` : '';
-          const run = v === 'cleaning';
-          const sub = run ? `Rengjør${bat}` : v === 'paused' ? 'Pauset' : v === 'returning' ? 'Kjører hjem' : v === 'error' ? 'Feil' : v === 'idle' ? 'Klar' : v === 'docked' ? 'I laderen' : '–';
-          return T({ ent: id, title: M.name(hass, id), sub, aIcon: this._aIcon('vacuum', run, { done: M.applianceDone && M.applianceDone(id, run, v === 'returning') }), tone: run ? C.green : v === 'paused' || v === 'returning' ? C.orange : v === 'error' ? C.red : null, hide: v === 'docked',
+          const v = st ? st.state : '', A = st ? st.attributes : {}, b = A.battery_level != null && M.isNum(A.battery_level) ? Math.round(Number(A.battery_level)) : null;
+          const run = v === 'cleaning', rm = st ? vacRoom(hass, id) : '', bat = b != null ? ` · ${b} %` : '';
+          const sub = !st || M.unavailable(st) ? 'Utilgjengelig' : run ? `Rengjør${rm ? ' ' + rm : ''}${bat}` : v === 'paused' ? (rm ? `Pauset i ${rm}` : 'Pauset') : v === 'returning' ? `Kjører hjem${bat}` : v === 'error' ? ['Feil', A.error || A.status].filter((x) => x && String(x).toLowerCase() !== 'error').join(' · ') : v === 'idle' ? `Klar${bat}` : v === 'docked' ? `I laderen${bat}` : String(A.status || v || '–');
+          return T({ ent: id, title: M.name(hass, id), sub, aIcon: this._aIcon('vacuum', run, { done: M.applianceDone && M.applianceDone(id, run, v === 'returning') }), tone: run ? C.green : v === 'paused' || v === 'returning' ? C.orange : v === 'error' ? C.red : null, hide: v === 'docked', cardHash: vacHash(id),
             ic: () => { M.call(hass, 'vacuum', run ? 'pause' : 'start', { entity_id: id }); this._toast(run ? 'Støvsuger pauset' : 'Støvsuger starter'); } });
         }
         case 'dish': case 'wash': case 'dry': {
@@ -1235,12 +1274,12 @@
     // Snarvei-flis = universal small-rad (07-universal.js) i tileV-form (Hjem v2): klassen «ht» gir pille 64 px / radius 32 (Fiks 15.3)
     // på samme element som bakgrunnen, ikon-sirkel 56/28, ikon 24. Ikon-sirkelen er egen knapp (data-w="ic").
     _tileHTML(t, key) {
-      const o = { background_color: null, text_color: 'var(--white, #fafafa)', icon_color: null, circle_color: null, style: '' };
-      if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)', style: 'box-shadow:none;--ht-sub:rgba(31,42,36,0.75)' });
-      else if (t.tone === 'pink') Object.assign(o, { background_color: C.accent, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(42,23,32,0.1)', style: 'box-shadow:none;--ht-sub:rgba(42,23,32,0.7)' });
+      const o = { background_color: null, text_color: 'var(--ki-text, var(--white, #fafafa))', icon_color: null, circle_color: null, style: '' };
+      if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--ki-on-accent, var(--gray100, #2f2f2f))', circle_color: 'rgb(0 0 0/0.1)', style: 'box-shadow:none;--ht-sub:rgba(31,42,36,0.75)' });
+      else if (t.tone === 'pink') Object.assign(o, { background_color: C.accent, text_color: 'var(--ki-on-accent, var(--gray100, #2f2f2f))', circle_color: 'rgba(42,23,32,0.1)', style: 'box-shadow:none;--ht-sub:rgba(42,23,32,0.7)' });
       else if (t.camStyle === 'icon' && t.tone) Object.assign(o, { icon_color: t.tone });
       else if (t.camStyle === 'tint' && t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.16), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.35)}` });
-      else if (t.camStyle === 'solid' && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--gray100, #2f2f2f)', circle_color: 'rgba(0,0,0,0.1)', style: 'box-shadow:none;--ht-sub:rgba(35,35,35,0.75)' });
+      else if (t.camStyle === 'solid' && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--ki-on-accent, var(--gray100, #2f2f2f))', circle_color: 'rgb(0 0 0/0.1)', style: 'box-shadow:none;--ht-sub:rgba(35,35,35,0.75)' });
       else if (t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.14), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}` });
       // Fiks 21.2: lås/garasje/alarm – hele flisen fra én variant (TILE_VAR), ingen universal-tilstandsregler som kan
       // treffe en annen tilstand enn den flisen viser (f.eks. «Låser opp …» mens HA fortsatt sier locked).
@@ -1538,8 +1577,8 @@
       return `<div class="apg">${cards.map((A) => {
         const p = A.mode === 'done' ? 100 : A.secs != null ? M.clamp((1 - A.secs / 60 / A.nominal) * 100, 2, 100) : 100;
         const time = A.mode === 'done' ? 'Ferdig' : A.secs != null ? hms(A.secs) : A.mode === 'paused' ? 'Pauset' : 'Kjører';
-        const col = A.mode === 'done' ? C.green : A.mode === 'paused' ? 'var(--gray800,#afafaf)' : 'var(--white,#fafafa)';
-        const bar = A.mode === 'done' ? C.green : A.mode === 'paused' ? 'var(--gray700,#979797)' : 'var(--white,#fafafa)';
+        const col = A.mode === 'done' ? 'var(--ki-green-text, ' + C.green + ')' : A.mode === 'paused' ? 'var(--ki-text-2, var(--gray800,#afafaf))' : 'var(--ki-text, var(--white,#fafafa))';
+        const bar = A.mode === 'done' ? C.green : A.mode === 'paused' ? 'var(--ki-text-mid, var(--gray700,#979797))' : 'var(--ki-text, var(--white,#fafafa))';
         return `<div class="ap" data-key="ap-${A.kind}" data-ent="${esc(A.ent)}">
           <div class="ap-h"><span class="ap-n ell">${esc(A.name)}</span><button class="ap-b" data-act="appl" data-k="${A.kind}" title="${A.mode === 'done' ? 'Tøm' : A.mode === 'run' ? 'Pause' : 'Fortsett'}">${this._applIcon(A, 20) || M.icon(A.icon, 20)}</button></div>
           <span style="flex:1"></span><span class="ap-t num" style="color:${col}">${time}</span>
@@ -1558,11 +1597,11 @@
         <section class="bl">${list.length ? list.map((b, i) => {
           const col = b.bin ? C.red : b.pct < 15 ? C.red : b.pct < 30 ? C.orange : C.green, warn = b.bin || b.pct < 30;
           return `<div class="br" data-key="b-${esc(b.id)}" data-ent="${esc(b.id)}" data-act="more" data-id="${esc(b.id)}" style="${i ? '' : 'border-top:0'}">
-            ${M.icon(b.icon, 22, `width:26px;color:${warn ? col : 'var(--gray800,#afafaf)'}`)}
+            ${M.icon(b.icon, 22, `width:26px;color:${warn ? (M.theme ? M.theme.accentText(col) : col) : 'var(--ki-text-2, var(--gray800,#afafaf))'}`)}
             <span class="bn"><span class="bnn ell">${esc(b.name)}</span><span class="bnr ell">${esc([b.room, b.id].filter(Boolean).join(' · '))}</span></span>
             <span class="bb"><span style="width:${b.bin ? 100 : M.clamp(b.pct, 0, 100)}%;background:${col}"></span></span>
-            <span class="bp num" style="color:${warn ? col : 'var(--white,#fafafa)'}">${b.bin ? 'Lavt' : M.nf(b.pct, 0) + ' %'}</span></div>`;
-        }).join('') : `<div class="br" style="border-top:0;color:var(--gray700,#979797);font-size:13px">Ingen batterier under ${lim} %</div>`}</section></div>`;
+            <span class="bp num" style="color:${warn ? (M.theme ? M.theme.accentText(col) : col) : 'var(--ki-text, var(--white,#fafafa))'}">${b.bin ? 'Lavt' : M.nf(b.pct, 0) + ' %'}</span></div>`;
+        }).join('') : `<div class="br" style="border-top:0;color:var(--ki-text-mid, var(--gray700,#979797));font-size:13px">Ingen batterier under ${lim} %</div>`}</section></div>`;
     }
 
     /* ---------- render */
@@ -1748,22 +1787,22 @@
         .hf:not(.fold){max-width:420px;margin:0 auto}
         .hf.fold{max-width:none;margin:0}
         .sec{display:flex;flex-direction:column;gap:12px}
-        .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
+        .tabs{position:relative;padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));align-self:flex-start;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden;user-select:none;-webkit-user-select:none;cursor:pointer}
         .tabs.full{align-self:stretch}
         ${M.TAB_ROW_CSS || ''}
         ${M.HJEM_TABS_CSS}
         .tg{position:relative;border-radius:999px}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),width .35s cubic-bezier(.34,1.2,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s,opacity .2s}
-        .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;text-transform:none;color:var(--gray800,#afafaf);transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
+        .tab{position:relative;z-index:1;flex:0 0 auto;min-width:max-content;scroll-snap-align:start;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;text-transform:none;color:var(--ki-text-2, var(--gray800,#afafaf));transition:color .25s,transform .25s cubic-bezier(.34,1.6,.64,1),background .2s;border-radius:999px}
         .tabs.full .tab{flex:1 0 auto}
-        .tab.on{color:var(--gray100,#2f2f2f)}
+        .tab.on{color:var(--ki-on-accent, var(--gray100,#2f2f2f))}
         .tg:not([data-ip])>.tab.on{background:${C.accent}}
-        .tg.drag .ind{background:linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35);backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
-        .tg.drag .tab{color:var(--gray800,#afafaf)}
+        .tg.drag .ind{background:linear-gradient(180deg, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.3*var(--ki-wa-k,1)),var(--ki-wa-max,1))), rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1))));box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.6*var(--ki-wa-k,1)),var(--ki-wa-max,1))), inset 0 -1px 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.15*var(--ki-wa-k,1)),var(--ki-wa-max,1))), inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.35*var(--ki-wa-k,1)),var(--ki-wa-max,1))), 0 8px 20px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))));backdrop-filter:blur(6px) saturate(200%);-webkit-backdrop-filter:blur(6px) saturate(200%);transform:scale(1.12,1.1);transition:transform .25s cubic-bezier(.34,1.8,.64,1),background .2s,width .2s}
+        .tg.drag .tab{color:var(--ki-text-2, var(--gray800,#afafaf))}
         .tg.drag .tab.near{color:#fff}
         .tg.tr-drag .ind{opacity:0}
-        .tg.tr-drag .tab{color:var(--gray800,#afafaf)}
-        .tg.tr-drag>.tab.tr-lift{color:#fff !important;background:rgba(255,255,255,0.14);box-shadow:0 8px 20px rgba(0,0,0,0.35)}
+        .tg.tr-drag .tab{color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .tg.tr-drag>.tab.tr-lift{color:#fff !important;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));box-shadow:0 8px 20px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
         .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:start}
         .col{display:flex;flex-direction:column;gap:8px;min-width:0}
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
@@ -1774,11 +1813,11 @@
         .u-i[data-act]:active{transform:scale(.9)}
         /* tileV (Hjem v2 · Fiks 15.3 MySmartHome): pille 64 px høy, ikon-sirkel 56, 4 px til venstre – faste px, ikke
            tema-radius. Radius, bakgrunn og overflow på samme element. */
-        .u.ht{height:64px;padding:0 14px 0 4px;border-radius:32px;overflow:hidden;column-gap:12px;row-gap:2px;align-content:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);grid-template-columns:56px minmax(0,1fr) !important;grid-template-rows:min-content min-content !important;transition:background .25s,transform .15s}
+        .u.ht{height:64px;padding:0 14px 0 4px;border-radius:32px;overflow:hidden;column-gap:12px;row-gap:2px;align-content:center;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)));grid-template-columns:56px minmax(0,1fr) !important;grid-template-rows:min-content min-content !important;transition:background .25s,transform .15s}
         .u.ht[data-act]:active{transform:scale(.97)}
-        .u.ht .u-i{width:56px;height:56px;border-radius:28px;margin:0;border:0;align-self:center;background:var(--gray200,#3a3a3a)}
+        .u.ht .u-i{width:56px;height:56px;border-radius:28px;margin:0;border:0;align-self:center;background:var(--ki-surface-2, var(--gray200,#3a3a3a))}
         .u.ht .u-l{align-self:end !important;font-size:15px;font-weight:500;line-height:1.25}
-        .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,#7f7f7f);transition:none}
+        .u.ht .u-n{align-self:start;padding-top:0;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:var(--ht-sub,var(--ki-text-3, #7f7f7f));transition:none}
         .u.ht:not(:has(.u-n)){grid-template-rows:1fr !important}
         /* Fiks 16.7: to soner (ikon/kort) med hold – ingen tekstmarkering eller kontekstmeny, ring på ikonet under holdet */
         .u.ht.hz{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -1801,42 +1840,42 @@
         .slot{flex:none;width:100%;min-width:0}
         /* Karusell-prikker (MySmartHome): aktiv 12 px #696969, andre 9 px #404040, gap 10 */
         /* prikkrader: felles .msh-dots i BASE_CSS (18.3: 10/12 px, gap 8 px) */
-        .tile{display:flex;align-items:center;gap:12px;height:64px;padding:0 14px 0 4px;border-radius:32px;width:100%;box-sizing:border-box;background:var(--gray100,#2f2f2f);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04);color:var(--white,#fafafa);cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
-        .tic{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);color:var(--white,#fafafa);cursor:pointer;transition:transform .2s}
+        .tile{display:flex;align-items:center;gap:12px;height:64px;padding:0 14px 0 4px;border-radius:32px;width:100%;box-sizing:border-box;background:var(--ki-surface, var(--gray100,#2f2f2f));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text, var(--white,#fafafa));cursor:pointer;transition:background .25s;user-select:none;-webkit-user-select:none}
+        .tic{width:56px;height:56px;border-radius:28px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray200,#3a3a3a));color:var(--ki-text, var(--white,#fafafa));cursor:pointer;transition:transform .2s}
         .tic:active{transform:scale(.9)}
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
         .tt{font-size:15px;font-weight:500}
-        .ts{font-size:12px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .ts{font-size:12px;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .sl{flex:none;width:100%;height:220px;padding:18px;display:flex;flex-direction:column}
-        .sl-top{font-size:15px;color:var(--gray800,#afafaf)}
+        .sl-top{font-size:15px;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .sl-ti{font-size:30px;font-weight:300;letter-spacing:-0.01em;line-height:1.15;text-transform:uppercase}
-        .sl-bar{width:16px;height:1.5px;background:var(--gray800,#afafaf);margin-bottom:12px;flex:none}
+        .sl-bar{width:16px;height:1.5px;background:var(--ki-text-2, var(--gray800,#afafaf));margin-bottom:12px;flex:none}
         .sl-l1{font-size:14px;font-weight:500;white-space:nowrap}
-        .sl-l2{font-size:13px;color:var(--gray800,#afafaf);padding-top:4px}
+        .sl-l2{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));padding-top:4px}
         .apg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
-        .ap{position:relative;height:150px;border-radius:26px;background:var(--gray100,#2f2f2f);overflow:hidden;display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04)}
+        .ap{position:relative;height:150px;border-radius:26px;background:var(--ki-surface, var(--gray100,#2f2f2f));overflow:hidden;display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .ap-h{display:flex;align-items:flex-start;gap:8px;padding:14px 12px 0 16px}
-        .ap-n{flex:1;min-width:0;font-size:13px;color:var(--gray900,#c7c7c7);padding-top:4px}
-        .ap-b{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);transition:transform .2s}
+        .ap-n{flex:1;min-width:0;font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7));padding-top:4px}
+        .ap-b{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray200,#3a3a3a));transition:transform .2s}
         .ap-b:active{transform:scale(.9)}
         .ap-t{font-size:34px;font-weight:300;letter-spacing:-0.02em;line-height:1;padding:0 16px}
-        .ap-s{font-size:11px;color:var(--gray700,#979797);padding:2px 16px 10px}
+        .ap-s{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));padding:2px 16px 10px}
         .ap-bar{position:relative;height:26px;background:repeating-linear-gradient(135deg, #5c5c5c 0 2px, transparent 2px 7px);flex:none}
         .ap-bar span{position:absolute;left:0;top:0;bottom:0;transition:width 1s linear}
         .bv{display:flex;flex-direction:column}
         .bh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:0 4px 8px}
         .bh-t{font-size:15px;font-weight:500;white-space:nowrap;flex:none}
-        .bh-m{font-size:12px;color:var(--gray500,#696969);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-        .bl{display:flex;flex-direction:column;padding:4px 16px;border-radius:24px;background:var(--gray100,#2f2f2f)}
-        .br{display:flex;align-items:center;gap:12px;min-height:58px;border-top:1px solid rgba(255,255,255,0.05);cursor:pointer}
+        .bh-m{font-size:12px;color:var(--ki-text-lo, var(--gray500,#696969));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+        .bl{display:flex;flex-direction:column;padding:4px 16px;border-radius:24px;background:var(--ki-surface, var(--gray100,#2f2f2f))}
+        .br{display:flex;align-items:center;gap:12px;min-height:58px;border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));cursor:pointer}
         .bn{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
         .bnn{font-size:14px;font-weight:500}
-        .bnr{font-size:11px;color:var(--gray600,#7f7f7f)}
-        .bb{width:56px;height:8px;border-radius:4px;background:var(--gray200,#3a3a3a);overflow:hidden;flex:none}
+        .bnr{font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .bb{width:56px;height:8px;border-radius:4px;background:var(--ki-surface-2, var(--gray200,#3a3a3a));overflow:hidden;flex:none}
         .bb span{display:block;height:100%;border-radius:4px}
         .bp{font-size:14px;font-weight:600;min-width:44px;text-align:right}
-        .akt0{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:#979797;font-size:14px;line-height:1.4;text-align:center}
-        .none{padding:22px 16px;border-radius:24px;background:var(--gray100,#2f2f2f);color:var(--gray700,#979797);font-size:13px;text-align:center}
+        .akt0{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:var(--ki-text-mid, #979797);font-size:14px;line-height:1.4;text-align:center}
+        .none{padding:22px 16px;border-radius:24px;background:var(--ki-surface, var(--gray100,#2f2f2f));color:var(--ki-text-mid, var(--gray700,#979797));font-size:13px;text-align:center}
       `;
     }
   }

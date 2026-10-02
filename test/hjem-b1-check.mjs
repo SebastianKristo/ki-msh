@@ -51,7 +51,7 @@ const tile = (k) => p.evaluate((k) => { const el = window.__c.shadowRoot.querySe
 const ru = await tile('ruter');
 ok('17.11 ruter-flis finnes', !!ru, ru);
 ok('17.11 undertekst «Linje N om N min»', ru && /^Linje \d+ (om \d+ min|nå)/.test(ru.sub || ''), ru && ru.sub);
-ok('17.11 avvik rødt', ru && /avvik/.test(ru.sub) && /color:var\(--red/.test(ru.subHtml), ru && ru.subHtml);
+ok('17.11 avvik rødt', ru && /avvik/.test(ru.sub) && /color:var\(--(ki-red-text, var\(--)?red/.test(ru.subHtml), ru && ru.subHtml);
 ok('17.11 neste etter', ru && /deretter \d+ min/.test(ru.sub), ru && ru.sub);
 const ruNo = await p.evaluate(async () => { const c = document.createElement('msh-hjem-faner-card'); c.hass = window.__h; c.setConfig({ ...window.__cfg, card_id: 'x2', tile_cfg: { ruter: { entity: 'sensor.finnes_ikke' } }, overrides: { ruter: 'sensor.finnes_ikke' } }); const m = c._tileModel('ruter', { ruter: 'sensor.finnes_ikke' }); return m && [m.title, m.sub]; });
 ok('17.11 uten sensor: «Ruter / Velg stopp»', ruNo && ruNo[0] === 'Ruter' && ruNo[1] === 'Velg stopp', ruNo);

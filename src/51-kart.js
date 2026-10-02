@@ -20,6 +20,10 @@
   const esc = M.esc, C = M.C;
   const HASH = '#kart';
   const PINK = C.accent;
+  // Fiks 34/35 · tema: gjennomsiktig hvit/svart etter regel 3/4 (mørk = uendret)
+  const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const AT = (c) => { const r = M.theme && M.theme.accentText ? M.theme.accentText(c) : c; return /^color-mix/.test(r) ? c : r; }; // Del A pkt. 6: aksent som tekst/ikon (ukjente farger beholdes)
+  const isLight = () => !!(M.theme && M.theme.isLight && M.theme.isLight());
   const DEF = { persons: [], cars: [], zones: 'all', transit: true, lines: [], start: 'fit', style: 'dark' };
   const LAYERS = [['persons', 'Personer', 'mdi:account-multiple'], ['cars', 'Biler', 'mdi:car'], ['zones', 'Soner', 'mdi:map-marker-radius'], ['transit', 'Kollektiv', 'mdi:bus']];
   const LEAF_JS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
@@ -27,7 +31,7 @@
   // Fiks 23.3: kjernen av leaflet.css (1.9.4) ligger ALLTID i kortets shadow root (dokumentets <link> når ikke inn hit, og
   //   CDN-en kan svikte). Uten den mangler .leaflet-container touch-action: none, og nettleseren tar pan/knip-gestene.
   const LEAF_BASE = `.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
-    .leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline:0;background:#1d1d1d;font-family:inherit}
+    .leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline:0;background:var(--ki-surface-3, #1d1d1d);font-family:inherit}
     .leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
     .leaflet-marker-icon,.leaflet-marker-shadow{display:block}
     .leaflet-container .leaflet-overlay-pane svg{max-width:none!important;max-height:none!important}
@@ -52,7 +56,8 @@
     light: ['https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', CARTO_ATT],
     satellite: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'Bilder © Esri'],
   };
-  const styleOf = (c) => (c.tile_url ? 'custom' : c.style === 'standard' ? 'light' : TILES[c.style] ? c.style : 'dark'); // «standard» (fiks 20) = light
+  const styleOf = (c) => (c && c.__autoStyle && isLight() && !c.tile_url ? 'light' : styleOf0(c));
+  const styleOf0 = (c) => (c.tile_url ? 'custom' : c.style === 'standard' ? 'light' : TILES[c.style] ? c.style : 'dark'); // «standard» (fiks 20) = light
   const tileDef = (c) => { const st = styleOf(c); return st === 'custom' ? [String(c.tile_url), c.tile_attribution || '© OpenStreetMap contributors'] : TILES[st]; };
   // Transportmiddel → linjefarge (samme som Ruter-kortet) når Entur ikke gir presentation.colour
   const MODE_COL = { metro: 'oklch(0.66 0.16 45)', tram: 'oklch(0.62 0.13 245)', bus: 'oklch(0.6 0.17 25)', coach: 'oklch(0.6 0.17 25)', rail: 'oklch(0.55 0.12 260)', water: 'oklch(0.6 0.1 220)', ferry: 'oklch(0.6 0.1 220)' };
@@ -126,7 +131,7 @@
       const kmh = spd != null && spd >= 0 ? Math.round(spd * 3.6) : null;
       const moving = (kmh != null && kmh >= 7) || (act && MOVE_RX.test(String(h.states[act].state)));
       const pic = a.entity_picture ? (M.hjemPicUrl ? M.hjemPicUrl(h, a.entity_picture) : a.entity_picture) : null;
-      return { id, kind: 'p', name: M.name(h, id), first: String(M.name(h, id)).split(/\s+/)[0], pos, st, moving, kmh, bat, acc: num(a.gps_accuracy != null ? a.gps_accuracy : pa.gps_accuracy), since: s.last_changed, upd: (ph && h.states[ph].last_updated) || s.last_updated, pic, user: a.user_id || null, col: moving ? C.orange : st.color || (st.kind === 'away' ? C.purple : 'var(--gray600,#7f7f7f)') };
+      return { id, kind: 'p', name: M.name(h, id), first: String(M.name(h, id)).split(/\s+/)[0], pos, st, moving, kmh, bat, acc: num(a.gps_accuracy != null ? a.gps_accuracy : pa.gps_accuracy), since: s.last_changed, upd: (ph && h.states[ph].last_updated) || s.last_updated, pic, user: a.user_id || null, col: moving ? C.orange : st.color || (st.kind === 'away' ? C.purple : 'var(--ki-text-3, var(--gray600,#7f7f7f))') };
     });
   };
   M.kartCarsAuto = function (h) {
@@ -267,20 +272,21 @@
   /* ------------------------------------------------------------ markører (divIcon, bare inline-stil) */
   const PULSE_CSS = '<style>@keyframes mshKartPulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.9);opacity:0}}</style>';
   const BAD = new Set(); // bilder som feilet → forbokstav
-  const avatar = (p, sz) => (p.pic && !BAD.has(p.pic) ? `<img src="${esc(p.pic)}" alt="" draggable="false" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%">` : `<span style="font:600 ${Math.round(sz * 0.36)}px/1 inherit;color:#fafafa">${esc((p.first || '?').slice(0, 1).toUpperCase())}</span>`);
+  const avatar = (p, sz, fg = 'var(--ki-text, #fafafa)') => (p.pic && !BAD.has(p.pic) ? `<img src="${esc(p.pic)}" alt="" draggable="false" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%">` : `<span style="font:600 ${Math.round(sz * 0.36)}px/1 inherit;color:${fg}">${esc((p.first || '?').slice(0, 1).toUpperCase())}</span>`);
   function personIcon(p, sel) {
     const sz = 52, ring = p.col;
-    return `<div style="position:relative;width:${sz}px;display:flex;flex-direction:column;align-items:center;font-family:${M.FONT || 'inherit'}">
+    // Markørene ligger på kartflisene (eget bilde): faste farger i begge moduser – mørke øyer (data-ki-island)
+    return `<div data-ki-island style="position:relative;width:${sz}px;display:flex;flex-direction:column;align-items:center;font-family:${M.FONT || 'inherit'}">
       ${p.moving ? `${PULSE_CSS}<span style="position:absolute;left:0;top:0;width:${sz}px;height:${sz}px;border-radius:50%;background:${ring};animation:mshKartPulse 1.6s ease-out infinite"></span>` : ''}
-      <span style="position:relative;width:${sz}px;height:${sz}px;border-radius:50%;box-sizing:border-box;border:3px solid ${ring};background:var(--gray300,#404040);display:grid;place-items:center;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45)${sel ? ',0 0 0 3px #fafafa' : ''}">${avatar(p, sz)}</span>
-      <span style="margin-top:4px;padding:2px 8px;border-radius:10px;background:rgba(35,35,35,.88);color:#fafafa;font-size:12px;font-weight:600;white-space:nowrap">${esc(p.first)}</span></div>`;
+      <span style="position:relative;width:${sz}px;height:${sz}px;border-radius:50%;box-sizing:border-box;border:3px solid ${ring};background:var(--gray300,#404040);display:grid;place-items:center;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.45)${sel ? ',0 0 0 3px #fafafa' : ''}">${avatar(p, sz, '#fafafa')}</span><!-- ki-hex-ok: kartmarkør (mørk øy) -->
+      <span style="margin-top:4px;padding:2px 8px;border-radius:10px;background:rgba(35,35,35,.88);color:#fafafa;font-size:12px;font-weight:600;white-space:nowrap">${esc(p.first)}</span></div>`; // ki-hex-ok: kartmarkør (mørk øy)
   }
-  const carIcon = (c, sel) => `<div style="width:34px;height:34px;border-radius:50%;background:#fafafa;color:#232323;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.45)${sel ? ',0 0 0 3px ' + C.pink : ''}">${M.icon('mdi:car', 20)}</div>`;
-  const zoneLabel = (z, sel) => `<div style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px 0 6px;border-radius:13px;background:rgba(35,35,35,.88);color:#fafafa;font:500 12px/1 ${M.FONT || 'inherit'};white-space:nowrap;box-shadow:inset 0 0 0 1px ${sel ? '#fafafa' : 'rgba(255,255,255,.08)'};transform:translate(-50%,-50%)"><span style="color:${z.col};display:grid">${M.icon(z.icon, 16)}</span>${esc(z.name)}</div>`;
+  const carIcon = (c, sel) => `<div data-ki-island style="width:34px;height:34px;border-radius:50%;background:#fafafa;color:#232323;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.45)${sel ? ',0 0 0 3px ' + C.pink : ''}">${M.icon('mdi:car', 20)}</div>`; // ki-hex-ok: kartmarkør (fast farge)
+  const zoneLabel = (z, sel) => `<div data-ki-island style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px 0 6px;border-radius:13px;background:rgba(35,35,35,.88);color:#fafafa;font:500 12px/1 ${M.FONT || 'inherit'};white-space:nowrap;box-shadow:inset 0 0 0 1px ${sel ? '#fafafa' : 'rgba(255,255,255,.08)'};transform:translate(-50%,-50%)"><span style="color:${z.col};display:grid">${M.icon(z.icon, 16)}</span>${esc(z.name)}</div>`; // ki-hex-ok: kartmarkør (mørk øy)
   const lineCol = (v) => (v.line && v.line.col) || MODE_COL[v.mode] || MODE_COL.bus;
   const vehIcon = (v, sel) => {
     const round = v.mode !== 'bus' && v.mode !== 'coach';
-    return `<div style="min-width:28px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:${round ? 12 : 5}px;background:${lineCol(v)};color:${(v.line && v.line.tcol) || '#fff'};display:grid;place-items:center;font:700 12px/1 ${M.FONT || 'inherit'};box-shadow:0 2px 8px rgba(0,0,0,.5)${sel ? ',0 0 0 2px #fafafa' : ''};position:relative">${v.bearing != null ? `<span data-bearing="${Math.round(v.bearing)}" style="position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(${Math.round(v.bearing)}deg);pointer-events:none"><span style="position:absolute;left:-5px;top:-24px;border:5px solid transparent;border-bottom:7px solid ${lineCol(v)}"></span></span>` : ''}${esc(v.code || '?')}</div>`;
+    return `<div data-ki-island style="min-width:28px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:${round ? 12 : 5}px;background:${lineCol(v)};color:${(v.line && v.line.tcol) || '#fff'};display:grid;place-items:center;font:700 12px/1 ${M.FONT || 'inherit'};box-shadow:0 2px 8px rgba(0,0,0,.5)${sel ? ',0 0 0 2px #fafafa' : ''};position:relative">${v.bearing != null ? `<span data-bearing="${Math.round(v.bearing)}" style="position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(${Math.round(v.bearing)}deg);pointer-events:none"><span style="position:absolute;left:-5px;top:-24px;border:5px solid transparent;border-bottom:7px solid ${lineCol(v)}"></span></span>` : ''}${esc(v.code || '?')}</div>`; // ki-hex-ok: linjefarge (Entur) på kartet
   };
 
   /* ============================================================ kortet */
@@ -328,6 +334,7 @@
       this._mk = new Map(); // nøkkel → { m, html, pos }
       this._key = (e) => { if (e.key === 'Escape' && this.isOpen && location.hash === HASH && !document.querySelector('.msh-overlay-root, ki-overlay-root')) { M.closePopup(); } };
       this._tr = () => { if (this.isOpen) this.update(); };
+      this._th = () => this.update(); // Fiks 35: lys/mørk → kartstil og :host([data-ki-light])
       this._rs = () => { this._fitHeight(); clearTimeout(this._rsT); this._rsT = setTimeout(() => this._fitHeight(), 350); };
       // 23.3: navbaren melder ledig flate ('ki-nav-rect') → padding til fitBounds/flyTo og ny måling av headeren
       this._nr = (e) => { if (e && e.detail) this._occ = { ...e.detail }; if (this.isOpen) this._fitHeight(); };
@@ -341,6 +348,7 @@
       super.connectedCallback();
       window.addEventListener('keydown', this._key);
       window.addEventListener('msh-kart-transit', this._tr);
+      window.addEventListener('ki-theme-change', this._th);
       window.addEventListener('resize', this._rs);
       window.addEventListener('msh-kart-focus', this._fc);
       window.addEventListener('ki-nav-rect', this._nr);
@@ -358,6 +366,7 @@
       window.removeEventListener('hashchange', this._hc);
       window.removeEventListener('keydown', this._key);
       window.removeEventListener('msh-kart-transit', this._tr);
+      window.removeEventListener('ki-theme-change', this._th);
       window.removeEventListener('resize', this._rs);
       window.removeEventListener('msh-kart-focus', this._fc);
     }
@@ -496,8 +505,11 @@
       return { P, K, Z, V };
     }
     _find(D, sel) { if (!sel) return null; const L = sel.k === 'p' ? D.P : sel.k === 'c' ? D.K : sel.k === 'z' ? D.Z : D.V; return L.find((x) => x.id === sel.id) || null; }
+    // Fiks 35: config med __autoStyle når kortet ikke har egen kartstil (da følger kartflisene lys/mørk modus)
+    get _tc() { const c = this.config, r = this._rawConfig || {}; return r.style == null && !c.tile_url ? { ...c, __autoStyle: true } : c; }
     render() {
       const h = this.hass, c = this.config, D = this._data(), Ly = this.layers;
+      this.toggleAttribute('data-ki-light', isLight()); // lys-regler (gradient/tekstskygge) uten å røre mørk modus
       this._D = D;
       const home = D.P.filter((p) => p.st.kind === 'home').length, away = D.P.length - home;
       const hp = homePos(h), near = hp ? D.V.filter((v) => dist(v.pos, hp) < 5000).length : D.V.length;
@@ -509,7 +521,7 @@
         const on = cur && cur.id === x.id;
         if (x.kind === 'p') {
           const sub = x.moving ? `${x.kmh != null && x.kmh > 0 ? 'Kjører · ' + x.kmh + ' km/t' : 'I bevegelse'}` : `${esc(x.st.label || x.st.place || '–')}${x.since ? ' · siden ' + hm(x.since) : ''}`;
-          return `<button class="pl ${on ? 'on' : ''}" data-act="sel" data-k="p" data-id="${esc(x.id)}" data-key="pl-${esc(x.id)}"><span class="pa" style="box-shadow:0 0 0 2px ${x.col}">${avatar(x, 40)}</span><span class="pt"><b>${esc(x.name)}</b><i><span style="color:${x.col}">●</span> ${sub}</i></span></button>`;
+          return `<button class="pl ${on ? 'on' : ''}" data-act="sel" data-k="p" data-id="${esc(x.id)}" data-key="pl-${esc(x.id)}"><span class="pa" style="box-shadow:0 0 0 2px ${x.col}">${avatar(x, 40)}</span><span class="pt"><b>${esc(x.name)}</b><i><span style="color:${AT(x.col)}">●</span> ${sub}</i></span></button>`;
         }
         const sub = [x.moving ? `Kjører${x.kmh != null ? ' · ' + Math.round(x.kmh) + ' km/t' : ''}` : 'Parkert', x.bat != null ? Math.round(x.bat) + ' %' : null].filter(Boolean).join(' · ');
         return `<button class="pl ${on ? 'on' : ''}" data-act="sel" data-k="c" data-id="${esc(x.id)}" data-key="pl-${esc(x.id)}"><span class="pa car">${x.pic && !BAD.has(x.pic) ? `<img src="${esc(x.pic)}" alt="" draggable="false">` : M.icon('mdi:car', 22)}</span><span class="pt"><b>${esc(x.name)}</b><i>${esc(sub)}</i></span></button>`;
@@ -536,7 +548,7 @@
         <div class="bot" data-key="bot">
           ${cur ? this._detail(cur) : ''}
           ${row ? `<div class="row noscroll" data-key="row">${row}</div>` : ''}
-          <div class="att" data-key="att">${esc(tileDef(c)[1])}</div>
+          <div class="att" data-key="att">${esc(tileDef(this._tc)[1])}</div>
         </div>
       </div>`;
     }
@@ -544,7 +556,7 @@
       const h = this.hass, st = (l, v) => `<div class="kv"><span>${esc(l)}</span><b>${v == null || v === '' ? '–' : esc(v)}</b></div>`;
       let head = '', body = '', acts = '';
       if (x.kind === 'p') {
-        head = `<span class="da" style="box-shadow:0 0 0 2px ${x.col}">${avatar(x, 44)}</span><div class="dt"><b>${esc(x.name)}</b><i><span style="color:${x.col}">●</span> ${esc(x.moving ? 'I bevegelse' : x.st.label || x.st.place || '–')}${x.since ? ' · siden ' + hm(x.since) : ''}</i></div>`;
+        head = `<span class="da" style="box-shadow:0 0 0 2px ${x.col}">${avatar(x, 44)}</span><div class="dt"><b>${esc(x.name)}</b><i><span style="color:${AT(x.col)}">●</span> ${esc(x.moving ? 'I bevegelse' : x.st.label || x.st.place || '–')}${x.since ? ' · siden ' + hm(x.since) : ''}</i></div>`;
         body = st('Batteri', x.bat != null ? Math.round(x.bat) + ' %' : null) + st('Fart', x.kmh != null ? x.kmh + ' km/t' : null) + st('Nøyaktighet', x.acc != null ? '± ' + Math.round(x.acc) + ' m' : null) + st('Oppdatert', x.upd ? M.relTime(x.upd) : null);
         if (x.pos) acts = `<button class="db" data-act="route" data-id="${esc(x.id)}">${M.icon('mdi:directions', 20)}Veibeskrivelse</button>`;
       } else if (x.kind === 'c') {
@@ -553,7 +565,7 @@
         if (x.pos) acts = `<button class="db" data-act="route" data-id="${esc(x.id)}">${M.icon('mdi:directions', 20)}Veibeskrivelse</button>`;
       } else if (x.kind === 'z') {
         const who = (this._D ? this._D.P : []).filter((p) => p.st.zone === x.id || (x.id === 'zone.home' && p.st.kind === 'home'));
-        head = `<span class="da" style="background:${M.alpha(x.col, 0.25)};color:${x.col}">${M.icon(x.icon, 24)}</span><div class="dt"><b>${esc(x.name)}</b><i>Sone · ${Math.round(x.r)} m</i></div>`;
+        head = `<span class="da" style="background:${M.theme ? M.theme.tone(x.col, undefined, 0.25).bg : M.alpha(x.col, 0.25)};color:${AT(x.col)}">${M.icon(x.icon, 24)}</span><div class="dt"><b>${esc(x.name)}</b><i>Sone · ${Math.round(x.r)} m</i></div>`;
         body = `<div class="who">${who.length ? who.map((p) => `<span class="wp"><span class="wa" style="box-shadow:0 0 0 2px ${p.col}">${avatar(p, 28)}</span>${esc(p.first)}</span>`).join('') : '<span class="dim">Ingen er her nå</span>'}</div>`;
       } else {
         const q = this._qi && this._qi.stop === x.stop ? this._qi.r : null;
@@ -628,7 +640,7 @@
         if (customElements.get('ha-map') && c.engine !== 'leaflet') {
           const hm2 = document.createElement('ha-map');
           hm2.style.cssText = 'display:block;width:100%;height:100%';
-          hm2.hass = this.hass; hm2.darkMode = styleOf(c) !== 'light'; hm2.themeMode = styleOf(c) === 'light' ? 'light' : 'dark'; hm2.zoom = 13; hm2.interactiveZones = false; hm2.autoFit = false;
+          hm2.hass = this.hass; hm2.darkMode = styleOf(this._tc) !== 'light'; hm2.themeMode = styleOf(this._tc) === 'light' ? 'light' : 'dark'; hm2.zoom = 13; hm2.interactiveZones = false; hm2.autoFit = false;
           box.appendChild(hm2);
           for (let i = 0; i < 100 && !(hm2.leafletMap && hm2.Leaflet); i++) await new Promise((r) => setTimeout(r, 50));
           if (hm2.leafletMap && hm2.Leaflet) {
@@ -664,7 +676,7 @@
       this._focus();
     }
     _setStyle() {
-      const L = this._L, map = this._map, st = styleOf(this.config), T = tileDef(this.config), key = st + '|' + T[0];
+      const L = this._L, map = this._map, st = styleOf(this._tc), T = tileDef(this._tc), key = st + '|' + T[0];
       if (!L || !map || this._styleNow === key) return;
       this._styleNow = key;
       if (this._tiles) { map.removeLayer(this._tiles); this._tiles = null; }
@@ -742,57 +754,59 @@
         :host{display:block;width:100%;height:var(--kart-h,100vh);position:relative}
         :host([data-pop]){position:absolute;left:0;right:0;top:0;bottom:0;inset:0;width:auto;height:var(--kart-h,100%)} /* 23.3: fyller popupens flate */
         ha-card{height:100%}
-        .kart{position:relative;height:100%;overflow:hidden;background:#1d1d1d;font-family:${M.FONT || 'inherit'}}
+        .kart{position:relative;height:100%;overflow:hidden;background:var(--ki-surface-3, #1d1d1d);font-family:${M.FONT || 'inherit'}}
         .map,.map .lf{position:absolute;inset:0;touch-action:none}
         #map,#map .leaflet-container,#map ha-map{touch-action:none!important}
-        .map .lf{background:#1d1d1d}
+        .map .lf{background:var(--ki-surface-3, #1d1d1d)}
         .msh-mk{background:none;border:0}
         ${LEAF_BASE}
-        .err{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--gray700,#979797);font-size:13px;text-align:center;padding:0 40px}
+        .err{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--ki-text-mid, var(--gray700,#979797));font-size:13px;text-align:center;padding:0 40px}
         /* 23.3: én gradient (mørk øverst, gjennomsiktig fra ca. 160 px). Overleggene slipper trykk gjennom til kartet;
            bare knapper, chips og kort tar imot (pointer-events: auto). */
         .grad{position:absolute;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 160px);z-index:999;pointer-events:none;background:linear-gradient(180deg,rgba(35,35,35,.94) 0%,rgba(35,35,35,.7) 45%,rgba(35,35,35,0) 100%)}
+        :host([data-ki-light]) .grad{background:linear-gradient(180deg,color-mix(in srgb,var(--ki-popup, #f0f0f0) 94%,transparent) 0%,color-mix(in srgb,var(--ki-popup, #f0f0f0) 70%,transparent) 45%,transparent 100%)}
+        :host([data-ki-light]) .sm{text-shadow:none}
         .acts{position:absolute;z-index:1001;top:var(--kart-act-top,calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 8px));right:var(--kart-act-right,calc(var(--kart-occ-right,var(--ki-nav-occ-right,0px)) + 16px));display:flex;gap:8px;pointer-events:none}
         .acts>*{pointer-events:auto}
         :host([data-bh]) .acts .x{display:none} /* Bubble-headeren har × */
         .top{position:absolute;left:var(--kart-occ-left,var(--ki-nav-occ-left,0px));right:var(--kart-occ-right,var(--ki-nav-occ-right,0px));top:var(--kart-hd,calc(env(safe-area-inset-top,0px) + var(--kart-occ-top,var(--ki-nav-occ-top,0px)) + 64px));z-index:1000;padding:0 16px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
         .top .chips{pointer-events:none}
         .top .chip{pointer-events:auto}
-        .rb{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:rgba(58,58,58,.9);color:#fafafa;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
-        .rb.sm{width:36px;height:36px;background:var(--gray300,#404040)}
+        .rb{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--ki-surface, rgba(58,58,58,.9));color:var(--ki-text, #fafafa);box-shadow:var(--ki-pill-sh, none);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+        .rb.sm{width:36px;height:36px;background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:none}
         .rb:active,.sb:active,.chip:active,.pl:active,.db:active{transform:scale(.95)}
-        .sm{font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none}
+        .sm{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px ${BA(0.6)};pointer-events:none}
         .chips{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;margin:0 -16px;padding:0 16px}
-        .chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:rgba(58,58,58,.9);color:#e1e1e1;font-size:13px;font-weight:500;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap}
+        .chip{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--ki-surface, rgba(58,58,58,.9));color:var(--ki-text-1, #e1e1e1);box-shadow:var(--ki-pill-sh, none);font-size:13px;font-weight:500;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap}
         .chip b{font-weight:600;opacity:.7}
-        .chip.on{background:${PINK};color:#2f2f2f}
+        .chip.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
         .side{position:absolute;right:calc(var(--kart-occ-right,var(--ki-nav-occ-right,0px)) + 12px);top:calc(50% + (var(--kart-occ-top,var(--ki-nav-occ-top,0px)) - var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px))) / 2);transform:translateY(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
         .side>*{pointer-events:auto}
-        .sb{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(58,58,58,.9);color:#fafafa;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 2px 10px rgba(0,0,0,.35)}
+        .sb{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--ki-surface, rgba(58,58,58,.9));color:var(--ki-text, #fafafa);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 2px 10px ${BA(0.35)}}
         .bot{position:absolute;left:var(--kart-occ-left,var(--ki-nav-occ-left,0px));right:var(--kart-occ-right,var(--ki-nav-occ-right,0px));bottom:calc(var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px)) + 12px);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
         .bot .det,.bot .pl{pointer-events:auto}
         .row{display:flex;gap:8px;overflow-x:auto;touch-action:pan-x;padding:0 12px;pointer-events:none}
-        .pl{flex:none;display:flex;align-items:center;gap:10px;height:64px;padding:0 16px 0 12px;border-radius:32px;background:rgba(58,58,58,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left;box-shadow:0 4px 14px rgba(0,0,0,.35);max-width:260px}
-        .pl.on{box-shadow:0 0 0 2px #fafafa,0 4px 14px rgba(0,0,0,.35)}
-        .pa,.da,.wa{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;background:var(--gray300,#404040);color:#fafafa}
+        .pl{flex:none;display:flex;align-items:center;gap:10px;height:64px;padding:0 16px 0 12px;border-radius:32px;background:var(--ki-surface, rgba(58,58,58,.92));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:left;box-shadow:0 4px 14px ${BA(0.35)};max-width:260px}
+        .pl.on{box-shadow:0 0 0 2px var(--ki-text, #fafafa),0 4px 14px ${BA(0.35)}}
+        .pa,.da,.wa{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, #fafafa)}
         .pa img,.da img,.wa img{width:100%;height:100%;object-fit:cover}
-        .pa.car,.da.car{background:#fafafa;color:#232323}
+        .pa.car,.da.car{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323)}
         .pt{display:flex;flex-direction:column;min-width:0}
         .pt b,.dt b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .pt i,.dt i{font-style:normal;font-size:12px;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .att{align-self:flex-end;margin:0 12px;padding:1px 6px;border-radius:6px;background:rgba(35,35,35,.6);color:var(--gray700,#979797);font-size:10px;pointer-events:none}
-        .det{margin:0 12px;padding:14px;border-radius:24px;background:rgba(40,40,40,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 24px rgba(0,0,0,.45),${C.edge};display:flex;flex-direction:column;gap:12px;max-width:520px;max-height:calc(var(--kart-h,100vh) - var(--kart-hd,64px) - var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px)) - 140px);overflow-y:auto;overscroll-behavior:contain}
+        .pt i,.dt i{font-style:normal;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .att{align-self:flex-end;margin:0 12px;padding:1px 6px;border-radius:6px;background:var(--ki-surface, rgba(35,35,35,.6));color:var(--ki-text-mid, var(--gray700,#979797));font-size:10px;pointer-events:none}
+        .det{margin:0 12px;padding:14px;border-radius:24px;background:var(--ki-popup, rgba(40,40,40,.96));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 24px ${BA(0.45)},${C.edge};display:flex;flex-direction:column;gap:12px;max-width:520px;max-height:calc(var(--kart-h,100vh) - var(--kart-hd,64px) - var(--kart-occ-bottom,var(--ki-nav-occ-bottom,0px)) - 140px);overflow-y:auto;overscroll-behavior:contain}
         .dh{display:flex;align-items:center;gap:12px}
         .da{width:44px;height:44px;background:none}
         .dt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .dg{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
-        .kv{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:var(--gray200,#3a3a3a)}
-        .kv span{font-size:11px;color:var(--gray700,#979797)}
+        .kv{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .kv span{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .kv b{font-size:14px;font-weight:600}
         .who{display:flex;flex-wrap:wrap;gap:10px;grid-column:1/-1}
         .wp{display:inline-flex;align-items:center;gap:6px;font-size:13px}
         .wa{width:28px;height:28px}
-        .db{height:44px;border-radius:22px;background:#fafafa;color:#232323;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600}
+        .db{height:44px;border-radius:22px;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323);display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600}
       `;
     }
   }
@@ -814,8 +828,9 @@
 .bubble-pop-up.bubble-pop-up > .bubble-header-container *{pointer-events:none}
 .bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button,.bubble-pop-up.bubble-pop-up > .bubble-header-container .close-pop-up,.bubble-pop-up.bubble-pop-up > .bubble-header-container .bubble-close-button *{pointer-events:auto!important}
 .bubble-pop-up #header-container > div > div,.bubble-pop-up.bubble-pop-up .bubble-header{background:transparent!important;box-shadow:none!important}
-.bubble-pop-up.bubble-pop-up .bubble-name{font-size:30px!important;font-weight:500;line-height:1.4!important;padding:8px 0!important;text-shadow:0 1px 4px rgba(0,0,0,.5)}
-.bubble-pop-up.bubble-pop-up .bubble-close-button{background-color:rgba(58,58,58,.9)!important;border-radius:50%}
+.bubble-pop-up.bubble-pop-up[data-ki-theme=light] #header-container > div > div{background:transparent!important}
+.bubble-pop-up.bubble-pop-up .bubble-name{font-size:30px!important;font-weight:500;line-height:1.4!important;padding:8px 0!important;text-shadow:0 1px 4px ${BA(0.5)}}
+.bubble-pop-up.bubble-pop-up .bubble-close-button{background-color:var(--ki-surface-2, rgba(58,58,58,.9))!important;border-radius:50%}
 .bubble-pop-up.bubble-pop-up > .bubble-pop-up-container{position:absolute!important;inset:0!important;height:auto!important;max-height:none!important;padding:0!important;margin:0!important;border-radius:0!important;clip-path:none!important;-webkit-clip-path:none!important;mask-image:none!important;-webkit-mask-image:none!important;overflow:hidden!important;overscroll-behavior:none!important;touch-action:none!important;z-index:1;gap:0!important;--vertical-stack-card-gap:0px!important}
 ${KE}`;
   const KART_ICON = '.icon-container {background-color:var(--gray1000)!important;}\n.icon-container > ha-icon {color:var(--black)!important;opacity:1!important}';

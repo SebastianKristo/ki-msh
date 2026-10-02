@@ -11,6 +11,11 @@
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
+  // Del A (Fiks 34): regel 3/4 – gjennomsiktig hvit/svart følger modus (mørk uendret), aksent som tekst mørknes i lys modus
+  const TH = M.theme || {};
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(255 255 255 / ${a})`);
+  const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0 / ${a})`);
+  const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
   const DAY = 86400000;
   const pad = M.pad;
   const dkey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
@@ -828,7 +833,7 @@
     { id: 'kran', re: /kran|tap|faucet|sink|handvask|håndvask|oppvask|matlaging|kitchen/, navn: 'Kran', ikon: 'mdi:faucet', farge: 'var(--yellow, #f2d26f)' },
     { id: 'hage', re: /hage|garden|utend|outdoor|vanning|irrig/, navn: 'Hage', ikon: 'mdi:sprinkler-variant', farge: 'var(--green, #66d19e)' },
   ];
-  const HV_UFORKLART = { id: 'uforklart', navn: 'Uforklart', ikon: 'mdi:help', farge: 'var(--gray600, #7f7f7f)' };
+  const HV_UFORKLART = { id: 'uforklart', navn: 'Uforklart', ikon: 'mdi:help', farge: 'var(--ki-text-mid, var(--gray600, #7f7f7f))' };
   const hvKat = (x) => { const t = String(x || '').toLowerCase(); return (t && HV_KAT.find((k) => k.id === t || k.re.test(t))) || HV_UFORKLART; };
   // Standardverdier (ki-cards setConfig + KI Vann)
   const DEF = { varigheter: [5, 10, 15, 30], skjul_ubrukte: true, historikk_dager: 30, mal: 400 };
@@ -851,7 +856,11 @@
     if (Array.isArray(c.tabs) && c.tabs.length) { const hid = new Set((c.hidden_tabs || []).map((k) => OLD_TAB[k] || k)); const l = c.tabs.map((k) => OLD_TAB[k] || k).filter((k) => FANER.includes(k) && !hid.has(k)); if (l.length) return l; }
     return FANER.slice();
   };
-  const fanevisning = (c) => c.fanevisning || (c.vis_fanenavn === false ? 'ikoner' : 'begge');
+  const FANEVIS = [['begge', 'Ikon + tekst'], ['tekst', 'Tekst'], ['ikoner', 'Ikoner'], ['aktiv', 'Ikon + aktiv']];
+  const fanevisning = (c) => { const v = c.fanevisning || (c.vis_fanenavn === false ? 'ikoner' : 'begge'); return FANEVIS.some(([k]) => k === v) ? v : 'begge'; };
+  // 35.8 · Tilpass → Faner: tannhjul i toppkortet (standard) eller ved fanene, fanestil Fylt / Kontur
+  const cogPos = (c) => (c.cog_position === 'tab' ? 'tab' : 'top');
+  const faneStil = (c) => (c.tab_look === 'kontur' ? 'kontur' : 'fylt');
   // Sonenøkkel: «S05» (OpenSprinkler/KI Vanning), ellers objekt-id-en (reserve).
   const zKey = (z) => z.kode || String(z.id || '').split('.').pop();
   // Sonelisten til Tilpass → Soner (samme kilde som kortet)
@@ -1106,7 +1115,12 @@
       if (c.haptikk === false) html = html.replace(/\sdata-haptic="[^"]*"/g, '').replace(/data-act=/g, 'data-haptic="off" data-act=');
       return html;
     }
-    _cog() { return `<button class="cog press" data-act="customize" data-haptic="light" aria-label="Tilpass Vanning" title="Tilpass Vanning">${M.icon('mdi:cog', 22)}</button>`; }
+    // Tannhjulet: i toppkortet (cog_position: top, standard) eller ved fanene (tab) – aldri begge steder
+    _cog(where) {
+      const pos = cogPos(this.config);
+      if ((where || 'top') !== pos) return '';
+      return `<button class="cog${pos === 'tab' ? ' cog-tab' : ''} press" data-act="customize" data-haptic="light" aria-label="Tilpass Vanning" title="Tilpass Vanning">${M.icon('mdi:cog', pos === 'tab' ? 24 : 22)}</button>`;
+    }
     // Toppkort · hagescenen (Nå/Soner/Program)
     _heroHage(V) {
       const z = V.aktiv, c = this.config;
@@ -1120,9 +1134,9 @@
       const pct = V.iDag != null && V.estimat ? Math.min(100, (V.iDag / V.estimat) * 100) : z ? 100 : 0;
       const u = V.unit || 'L';
       const label = V.iDag != null ? `${nf(V.iDag)} L av ${V.estimat ? nf(V.estimat) + ' ' + u : '–'} i dag` : V.estimat ? `– av ${nf(V.estimat)} ${u} i dag` : '–';
-      return `<section class="scene ${cls}" data-key="hero-hage" ${z ? `data-act="scene" data-haptic="warning" title="Trykk for å stoppe"` : ''}>${SCENE}${SKYER}
+      return `<section class="scene ${cls}" data-key="hero-hage" data-ki-island ${z ? `data-act="scene" data-haptic="warning" title="Trykk for å stoppe"` : ''}>${SCENE}${SKYER}
         <div class="tekst"><div class="tittel ell">${esc(tittel)}</div><div class="under ell">${esc(under)}</div></div>
-        ${this._cog()}${c.demo ? '<div class="demo">DEMO</div>' : ''}
+        ${this._cog('top')}${c.demo ? '<div class="demo">DEMO</div>' : ''}
         <div class="bunn"><div class="sp"><i style="width:${pct.toFixed(1)}%"></i></div><div class="tall num">${esc(label)}</div></div>
       </section>`;
     }
@@ -1132,26 +1146,31 @@
       const L = v ? v.totalt : null;
       const fyll = L != null ? Math.max(4, Math.min(42, (L / mal) * 42)) : 4;
       const wave = (k) => `<div class="wave ${k}">${[0, 1].map(() => `<svg viewBox="0 0 400 18" preserveAspectRatio="none"><path d="M0 9 q50 -9 100 0 t100 0 t100 0 t100 0 V18 H0 Z" fill="rgba(115,185,242,.42)"/></svg>`).join('')}</div>`;
-      const chips = v ? v.deler.slice(0, 3).map((k) => `<span class="vc" data-ent="${esc(k.ent)}">${M.icon(k.ikon, 16, `color:${k.farge}`)}<span class="num">${nf(k.liter)} L</span></span>`).join('') : '';
+      const chips = v ? v.deler.slice(0, 3).map((k) => `<span class="vc" data-ent="${esc(k.ent)}">${M.icon(k.ikon, 16, `color:${AT(k.farge)}`)}<span class="num">${nf(k.liter)} L</span></span>`).join('') : '';
       let meter = '';
       if (c.vis_vannmaler !== false && V.maler) {
         const ms = this._st(V.maler);
         if (ms && M.isNum(ms.state)) { const u = String((ms.attributes || {}).unit_of_measurement || 'm³'); const m3 = /^l$/i.test(u) ? Number(ms.state) / 1000 : Number(ms.state); meter = `<div class="vm num" data-ent="${esc(V.maler)}">${esc(m3.toLocaleString('nb-NO', { maximumFractionDigits: 1 }))} m³ · målt ${esc(M.hm(ms.last_updated || ms.last_changed || Date.now()))}</div>`; }
       }
-      return `<section class="vhero" data-key="hero-vann" style="--fyll:${fyll.toFixed(1)}%">
+      return `<section class="vhero" data-key="hero-vann" data-ki-island style="--fyll:${fyll.toFixed(1)}%">
         <div class="vfill"></div>${wave('b2')}${wave('b1')}
         <div class="vt"><div class="vl">Vann i dag</div><div class="vv num">${L != null ? nf(L) : '–'}<span>L</span></div>
           ${v ? `<div class="vs">${nf((L / mal) * 100)} % av målet${v.kr != null ? ` · ${esc(M.nf(v.kr, 1))} kr` : ''}</div>` : `<button class="vs pick press" data-act="customize" data-section="entiteter">${M.icon('mdi:plus', 16)}Velg KI Vann-prefiks i Tilpass</button>`}</div>
-        ${this._cog()}
+        ${this._cog('top')}
         <div class="vb"><div class="vch">${chips}</div>${meter}</div>
       </section>`;
     }
+    // 33.4 (oppfølging): fanelinja = felles MSH.tabBar (pop · sticky · Fylt/Kontur · «Ikon + aktiv» · tannhjul i sporets
+    // høyde) med Vanning-variablene i styles (samme utseende som før i mørk modus); fanehøyde = MSH.tabH (tab_height)
     _faneRad(tabs, cur) {
-      const vis = fanevisning(this.config);
-      return `<div class="tbox" data-key="tbox"><div class="tabs v-${vis}" role="tablist" data-glass-drag="x" aria-label="Vanning-faner">${tabs.map((k) => {
-        const [l, ic] = FANE[k], on = k === cur;
-        return `<button class="tab${on ? ' on' : ''}" role="tab" aria-selected="${on}" ${on ? 'data-active' : ''} data-act="tab" data-t="${k}" data-haptic="selection" aria-label="${esc(l)}" data-key="t-${k}">${vis !== 'tekst' ? M.icon(ic, vis === 'ikoner' ? 22 : 20) : ''}${vis !== 'ikoner' ? `<span class="tl">${esc(l)}</span>` : ''}</button>`;
-      }).join('')}</div></div>`;
+      const c = this.config, vis = fanevisning(c), lk = faneStil(c), pos = cogPos(c);
+      const items = tabs.map((k) => ({ key: k, label: FANE[k][0], icon: FANE[k][1] }));
+      return M.tabBar.html(items, cur, {
+        variant: 'pop', mode: vis, look: lk, sticky: true, popup: true, th: M.tabH && M.tabH.own(c), key: 'trow', label: 'Vanning-faner',
+        cls: `trow v-${vis} lk-${lk} cp-${pos}`, rowCls: `tbox tabs v-${vis}`, tabCls: 'tab', labelCls: 'tl', keyPrefix: 't-', trackAttrs: 'data-key="tbox"',
+        attrs: (t) => `data-act="tab" data-t="${esc(t.key)}" data-haptic="selection"`,
+        gear: pos === 'tab', gearCls: 'cog cog-tab press', gearIcon: 'mdi:cog', gearLabel: 'Tilpass Vanning', gearAttrs: 'data-act="customize" data-haptic="light" title="Tilpass Vanning"',
+      });
     }
     _tg(on, act, attrs) { return `<button class="tg ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" data-act="${act}" data-haptic="selection" ${attrs || ''}><i></i></button>`; }
 
@@ -1177,7 +1196,7 @@
           <div class="nh"><div class="col grow" style="gap:4px;min-width:0"><div class="lab">Neste vanning</div><div class="nwhen ell">${esc(n ? n.naar + (V.regnPa ? ' · utsettes' : '') : 'Ingen planlagt')}</div></div><div class="big num">${esc(n && n.tid ? n.tid : '–')}</div></div>
           ${n && n.forste ? `<div class="nr"><span class="nri">${M.icon(n.forste.ikon, 20)}</span><div class="sx"><b class="ell">${esc(n.forste.navn)}</b><span class="ell">${esc(n.forste.kind || '–')}</span></div><div class="amt num">${esc(n.forste.amount || '')}</div></div>`
             : n && n.prog ? `<div class="nr"><span class="nri">${M.icon('mdi:calendar-clock', 20)}</span><div class="sx"><b class="ell">${esc(n.prog)}</b><span>${esc(n.sub || '–')}</span></div></div>`
-              : !n ? `<button class="nr pick2 press" data-act="customize" data-section="entiteter"><span class="nri">${M.icon('mdi:calendar-clock', 20)}</span><div class="sx"><b>–</b><span>Velg entitet · KI Vanning, OpenSprinkler eller vanningskalender</span></div>${M.icon('mdi:chevron-right', 20, 'color:#979797')}</button>` : ''}
+              : !n ? `<button class="nr pick2 press" data-act="customize" data-section="entiteter"><span class="nri">${M.icon('mdi:calendar-clock', 20)}</span><div class="sx"><b>–</b><span>Velg entitet · KI Vanning, OpenSprinkler eller vanningskalender</span></div>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-mid, #979797)')}</button>` : ''}
           <div class="brow"><button class="bigbtn press" data-act="kjorneste" data-haptic="success" style="${n || (V.m && V.m.zones.length) ? '' : 'opacity:.55'}">${M.icon('mdi:play', 22)}Kjør nå</button>${V.kanHoppe && n ? `<button class="bigbtn ghost press" data-act="hopp" data-haptic="selection">${M.icon('mdi:skip-next', 22)}${V.m && V.m.skipOn ? 'Angre hopp' : 'Hopp over'}</button>` : ''}</div>
         </div>`;
       }
@@ -1199,8 +1218,8 @@
       // Strøm + sist vannet
       const power = V.strom ? `${Math.round(V.strom.mA)} mA <small>· ca. ${esc(V.strom.W.toLocaleString('nb-NO', { maximumFractionDigits: 1 }))} W</small>` : V.stromW != null ? `${nf(V.stromW)} W` : '–';
       o += `<div class="g2" data-key="tiles">
-        <div class="tile" ${V.stromId ? `data-ent="${esc(V.stromId)}"` : ''}><div class="th">${M.icon('mdi:lightning-bolt', 16, `color:${C.yellow}`)}Strøm</div><div class="tv num">${power}</div></div>
-        <div class="tile" ${V.sist && V.sist.id ? `data-ent="${esc(V.sist.id)}"` : ''}><div class="th">${M.icon('mdi:history', 16, `color:${C.blue}`)}Sist vannet</div><div class="tv">${V.sist ? V.sist.tekst : '–'}</div></div>
+        <div class="tile" ${V.stromId ? `data-ent="${esc(V.stromId)}"` : ''}><div class="th">${M.icon('mdi:lightning-bolt', 16, `color:${AT(C.yellow)}`)}Strøm</div><div class="tv num">${power}</div></div>
+        <div class="tile" ${V.sist && V.sist.id ? `data-ent="${esc(V.sist.id)}"` : ''}><div class="th">${M.icon('mdi:history', 16, `color:${AT(C.blue)}`)}Sist vannet</div><div class="tv">${V.sist ? V.sist.tekst : '–'}</div></div>
       </div>`;
       return o;
     }
@@ -1250,7 +1269,7 @@
       };
       return groups.filter((g) => g.list.length).map((g) => {
         const av = g.list.filter((z) => z.av).length, f = !!fold[g.id];
-        return `<div class="grp" data-key="g-${esc(g.id)}"><button class="gh" data-act="fold" data-g="${esc(g.id)}" data-haptic="selection" aria-expanded="${!f}"><span class="gn ell">${esc(g.navn)}</span><span class="gm">${g.list.length} ${g.list.length === 1 ? 'sone' : 'soner'}${av ? ` · ${av} av` : ''}</span>${M.icon('mdi:chevron-down', 20, `color:#979797;transition:transform .2s;transform:rotate(${f ? -90 : 0}deg)`)}</button>${f ? '' : g.list.map(row).join('')}</div>`;
+        return `<div class="grp" data-key="g-${esc(g.id)}"><button class="gh" data-act="fold" data-g="${esc(g.id)}" data-haptic="selection" aria-expanded="${!f}"><span class="gn ell">${esc(g.navn)}</span><span class="gm">${g.list.length} ${g.list.length === 1 ? 'sone' : 'soner'}${av ? ` · ${av} av` : ''}</span>${M.icon('mdi:chevron-down', 20, `color:var(--ki-text-mid, #979797);transition:transform .2s;transform:rotate(${f ? -90 : 0}deg)`)}</button>${f ? '' : g.list.map(row).join('')}</div>`;
       }).join('');
     }
 
@@ -1301,7 +1320,7 @@
       const view = this.ui.fvis === 'kalender' ? 'kalender' : 'liste', v = V.vann, c = this.config, mal = Number(c.mal) || 400;
       let o = this._seg('fvis', view, [['liste', 'Liste'], ['kalender', 'Kalender']]);
       if (!v) {
-        o += `<div class="card" data-key="vtom"><div class="b48 num">–<span>L</span></div><button class="nr pick2 press" data-act="customize" data-section="entiteter"><span class="nri">${M.icon('mdi:water-plus', 20)}</span><div class="sx"><b>Velg entitet</b><span>Velg KI Vann-prefiks i Tilpass</span></div>${M.icon('mdi:chevron-right', 20, 'color:#979797')}</button></div>`;
+        o += `<div class="card" data-key="vtom"><div class="b48 num">–<span>L</span></div><button class="nr pick2 press" data-act="customize" data-section="entiteter"><span class="nri">${M.icon('mdi:water-plus', 20)}</span><div class="sx"><b>Velg entitet</b><span>Velg KI Vann-prefiks i Tilpass</span></div>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-mid, #979797)')}</button></div>`;
         return o + (view === 'liste' ? this._hvor(V) : '') + this._hagevanning(V);
       }
       if (view === 'kalender') return o + this._fKalender(V, v, mal);
@@ -1430,7 +1449,7 @@
           const meta = [x.L != null ? `${nf(x.L)} L` : '', x.min != null ? `${Math.max(1, Math.round(x.min))} min` : '', x.opptatt].filter(Boolean).join(' · ');
           const kc = x.konf == null || k.id === 'uforklart' ? null : Math.round(x.konf);
           const chip = kc == null ? `<span class="hvc uk">Ukjent</span>` : `<span class="hvc${kc >= 85 ? ' hoy' : ''}">${kc} %</span>`;
-          return `<div class="hvr"><span class="hvk num">${esc(x.t != null ? M.hm(x.t) : x.tt)}</span><span class="hvi" style="background:${M.alpha(k.farge, 0.16)};color:${k.farge}">${M.icon(k.ikon, 18)}</span><div class="hvx"><b class="ell">${esc(tittel)}</b><span class="ell">${esc(meta)}</span></div>${chip}</div>`;
+          return `<div class="hvr"><span class="hvk num">${esc(x.t != null ? M.hm(x.t) : x.tt)}</span><span class="hvi" style="background:${M.alpha(k.farge, 0.16)};color:${AT(k.farge)}">${M.icon(k.ikon, 18)}</span><div class="hvx"><b class="ell">${esc(tittel)}</b><span class="ell">${esc(meta)}</span></div>${chip}</div>`;
         }).join('') + (rows.length > 8 ? `<button class="hva press" data-act="hvoralle" data-haptic="selection">${alle ? 'Vis færre' : `Vis alle (${rows.length})`}</button>` : '');
       }
       return `<div class="hvor" data-key="hvor" data-kilde="${D.kilde || 'tom'}">${head}${body}</div>`;
@@ -1496,7 +1515,7 @@
       o += `<div class="card" data-key="h14" style="gap:14px">
         <div class="nh"><div class="col" style="gap:4px"><span class="lab">Siste 14 dager</span><div class="b34 num">${perDag ? nf(hsum) : '–'}<span> ${unit}</span></div></div><div class="col" style="gap:4px;align-items:flex-end"><span class="num" style="font-size:15px;font-weight:500">${pris && unit === 'L' && perDag ? `${(hsum / 1000 * pris).toFixed(2).replace('.', ',')} kr` : '–'}</span><span class="lab">${dg.length} av 14 døgn med vanning</span></div></div>
         ${feil ? `<div class="lab">Fikk ikke hentet statistikken: ${esc(feil)}</div>` : ''}
-        <div class="h14">${snitt ? `<div class="mline" style="bottom:${((snitt / hmax) * 100).toFixed(1)}%"><span>snitt ${nf(snitt)} ${unit}</span></div>` : ''}${h14.map((x, i) => `<div class="b" title="${esc(x.k + ': ' + nf(x.v) + ' ' + unit)}" style="height:${x.v > 0.5 ? Math.max(6, (x.v / hmax) * 100).toFixed(1) + '%' : '4px'};background:${x.v > 0.5 ? C.blue : i === 13 ? C.inner : '#282828'}"></div>`).join('')}</div>
+        <div class="h14">${snitt ? `<div class="mline" style="bottom:${((snitt / hmax) * 100).toFixed(1)}%"><span>snitt ${nf(snitt)} ${unit}</span></div>` : ''}${h14.map((x, i) => `<div class="b" title="${esc(x.k + ': ' + nf(x.v) + ' ' + unit)}" style="height:${x.v > 0.5 ? Math.max(6, (x.v / hmax) * 100).toFixed(1) + '%' : '4px'};background:${x.v > 0.5 ? C.blue : i === 13 ? C.inner : 'var(--ki-popup, #282828)'}"></div>`).join('')}</div>
         <div class="sp lab"><span>${esc(dShort(h14[0].k))}</span><span>I dag</span></div>
       </div>`;
       return o;
@@ -1667,13 +1686,13 @@
       if ((!running || !this.isOpen) && this._tick) { clearInterval(this._tick); this._tick = null; }
       if (this.isOpen && !this._last) this._load();
       // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (faner = synlige i rekkefølge), sideveis dra = Liquid Glass-valg
-      if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.tbox>.tabs'), {
+      if (M.tabRow) M.tabRow(this, this.shadowRoot.querySelector('.trow .mtb-tabs'), {
         idOf: (b) => b.dataset.t, active: () => this.__cur, order: () => faneOrden(this.config),
         save: (full) => { const vis = new Set(fanerCfg(this.config)); return M.mshPatchConfig(this, { faner: full.filter((k) => vis.has(k)) }); },
       });
     }
     get styles() {
-      const PINK = C.accent, INK = '#2a1720';
+      const PINK = C.accent, INK = 'var(--ki-on-accent, #2a1720)';
       return (M.STEPPER_CSS || '') + `
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,8px)}
         .body{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
@@ -1682,11 +1701,11 @@
         .ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
         .col{display:flex;flex-direction:column}
         .row{display:flex;align-items:center}
-        .bt{border-top:1px solid rgba(255,255,255,0.06)}
-        .lab{font-size:12px;color:#979797}
-        .lab.blue{color:${C.blue}}
+        .bt{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .lab{font-size:12px;color:var(--ki-text-mid, #979797)}
+        .lab.blue{color:${AT(C.blue)}}
         .sp{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0}
-        .hr{height:1px;background:rgba(255,255,255,0.08);flex:none}
+        .hr{height:1px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));flex:none}
         /* ---- toppkort: hagescenen (kiVaScene, 184 px / r28) ---- */
         .scene{position:relative;height:184px;border-radius:28px;overflow:hidden;isolation:isolate;color:#eaf6ff;flex:none;background:linear-gradient(180deg,#1d2b3a 0%,#22415a 52%,#1d3a33 100%);transition:background .8s cubic-bezier(.2,.8,.2,1);box-shadow:${C.edge}}
         .scene.vanner{background:linear-gradient(180deg,#1b3550 0%,#1e5a7a 50%,#1c4a3c 100%);cursor:pointer}
@@ -1695,14 +1714,14 @@
         .scene svg{position:absolute;inset:0;width:100%;height:100%;transition:filter .8s}
         .scene.regn svg{filter:brightness(.62) saturate(.75)}
         .scene .tekst{position:absolute;left:18px;right:72px;top:16px;z-index:3;pointer-events:none;display:flex;flex-direction:column;gap:3px}
-        .scene .tittel{font-size:19px;font-weight:600;letter-spacing:-0.01em;text-shadow:0 1px 10px rgba(0,0,0,.45)}
-        .scene .under{font-size:13px;color:#e1e1e1;text-shadow:0 1px 8px rgba(0,0,0,.45)}
+        .scene .tittel{font-size:19px;font-weight:600;letter-spacing:-0.01em;text-shadow:0 1px 10px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))))}
+        .scene .under{font-size:13px;color:var(--ki-text-1, #e1e1e1);text-shadow:0 1px 8px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))))}
         .scene .bunn{position:absolute;left:18px;right:18px;bottom:14px;z-index:3;display:flex;align-items:center;gap:12px}
-        .scene .bunn .sp{display:block;flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.22);overflow:hidden}
+        .scene .bunn .sp{display:block;flex:1;height:4px;border-radius:2px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.22*var(--ki-wa-k,1)),var(--ki-wa-max,1)));overflow:hidden}
         .scene .bunn .sp i{display:block;height:100%;background:#fff;opacity:.9;transition:width 1s linear}
-        .scene .bunn .tall{font-size:12px;white-space:nowrap;text-shadow:0 1px 6px rgba(0,0,0,.4)}
-        .demo{position:absolute;right:18px;bottom:34px;z-index:4;font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.2)}
-        .cog{position:absolute;right:14px;top:14px;z-index:5;width:44px;height:44px;border-radius:22px;background:rgba(0,0,0,.35);display:grid;place-items:center;color:#fafafa}
+        .scene .bunn .tall{font-size:12px;white-space:nowrap;text-shadow:0 1px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.4*var(--ki-ka-k,1))))}
+        .demo{position:absolute;right:18px;bottom:34px;z-index:4;font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:6px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.2*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .cog{position:absolute;right:14px;top:14px;z-index:5;width:44px;height:44px;border-radius:22px;background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))));display:grid;place-items:center;color:var(--ki-text, #fafafa)}
         .sol{animation:va-sol 9s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
         @keyframes va-sol{from{transform:translateY(0)}to{transform:translateY(-6px)}}
         .scene.regn .sol,.scene.regn .sky2{opacity:0}
@@ -1745,23 +1764,24 @@
         .wave.b2{animation-duration:14s;animation-direction:reverse;opacity:.55;bottom:calc(var(--fyll,4%) + 3px)}
         @keyframes vn-rull{from{transform:translateX(0)}to{transform:translateX(-50%)}}
         .vt{position:absolute;left:18px;right:72px;top:16px;z-index:2;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
-        .vl{font-size:13px;color:#afafaf}
+        .vl{font-size:13px;color:var(--ki-text-2, #afafaf)}
         .vv{font-size:44px;font-weight:300;letter-spacing:-0.03em;line-height:1.05}
-        .vv span{font-size:18px;color:#afafaf;margin-left:4px;letter-spacing:0}
-        .vs{font-size:13px;color:#e1e1e1}
-        .vs.pick{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 8px;border-radius:15px;background:rgba(0,0,0,.28);margin-top:4px}
+        .vv span{font-size:18px;color:var(--ki-text-2, #afafaf);margin-left:4px;letter-spacing:0}
+        .vs{font-size:13px;color:var(--ki-text-1, #e1e1e1)}
+        .vs.pick{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 8px;border-radius:15px;background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.28*var(--ki-ka-k,1))));margin-top:4px}
         .vb{position:absolute;left:14px;right:14px;bottom:12px;z-index:2;display:flex;align-items:center;gap:8px}
         .vch{display:flex;gap:6px;flex:1;min-width:0;overflow:hidden}
-        .vc{height:30px;padding:0 10px 0 8px;border-radius:15px;background:rgba(0,0,0,.3);display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;flex:none}
-        .vm{font-size:11px;color:#e1e1e1;white-space:nowrap;flex:none}
-        /* ---- faner (Liquid Glass-pille) ---- */
-        .tbox{padding:4px;border-radius:30px;background:${C.card};box-shadow:${C.edge},0 8px 20px rgba(0,0,0,.3);position:sticky;top:8px;z-index:6}
-        .tabs{display:flex;gap:2px;position:relative;border-radius:26px}
-        .tab{flex:1 1 0;min-width:0;height:56px;padding:0 4px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#979797;font-size:11px;font-weight:500;transition:background .25s,color .25s}
-        .tab .tl{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .tab.on{background:${PINK};color:${INK};font-weight:600}
-        .tabs.v-tekst .tab{height:44px;font-size:13px}
-        .tabs.v-ikoner .tab{height:48px}
+        .vc{height:30px;padding:0 10px 0 8px;border-radius:15px;background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1))));display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;flex:none}
+        .vm{font-size:11px;color:var(--ki-text-1, #e1e1e1);white-space:nowrap;flex:none}
+        /* ---- faner: felles MSH.tabBar (05-tab-bar.js) med Vanning-utseendet – 35.8 Fylt/Kontur, tannhjul ved fanene; 33.4 fanehøyde ---- */
+        ${M.tabBar ? M.tabBar.CSS : ''}
+        .trow.mtb{--mtb-pad:4px;--mtb-r:30px;--mtb-tr:calc(${M.tabH ? M.tabH.v('th', 52) : '52px'} / 2);--mtb-h0:56px;--mtb-fs0:11px;--mtb-fg:var(--ki-text-2, var(--gray700, #979797));--mtb-on-fg:${INK}}
+        .trow.mtb.v-tekst{--mtb-h0:44px;--mtb-fs0:13px} .trow.mtb.v-ikoner,.trow.mtb.v-aktiv{--mtb-h0:48px} .trow.mtb.v-aktiv{--mtb-fs0:13px}
+        .trow .mtb-t{min-width:0;line-height:inherit;transition:background .25s,color .25s,flex-grow .25s}
+        .trow .mtb-t.on{font-weight:600}
+        .trow.mtb-m-b .mtb-t{gap:3px}
+        .cog.cog-tab{position:static;flex:none;--g:calc(var(--mtb-h) + 2 * var(--mtb-pad));width:var(--g);height:var(--g);border-radius:50%;background:${C.card};box-shadow:${C.edge},0 8px 20px ${KA(0.3)};color:${C.text}}
+        .lk-kontur .cog.cog-tab{box-shadow:inset 0 0 0 1px ${WA(0.14)},0 8px 20px ${KA(0.3)}}
         /* ---- kort ---- */
         .card{position:relative;overflow:hidden;background:${C.card};box-shadow:${C.edge};border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
         .card.run{box-shadow:inset 0 0 0 1px ${M.alpha(C.blue, 0.45)}}
@@ -1771,54 +1791,54 @@
         .nwhen{font-size:15px;font-weight:500}
         .big{font-size:52px;font-weight:300;letter-spacing:-0.04em;line-height:.9;white-space:nowrap}
         .nr{position:relative;display:flex;align-items:center;gap:12px;min-width:0;width:100%;text-align:left}
-        .nri{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:${M.alpha(C.blue, 0.16)};color:${C.blue};flex:none}
-        .nri.or{background:${M.alpha(C.orange, 0.18)};color:${C.orange}}
+        .nri{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:${M.alpha(C.blue, 0.16)};color:${AT(C.blue)};flex:none}
+        .nri.or{background:${M.alpha(C.orange, 0.18)};color:${AT(C.orange)}}
         .sx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .sx b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .sx span{font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .amt{font-size:12px;color:#979797;white-space:nowrap;flex:none}
+        .sx span{font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .amt{font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;flex:none}
         .brow{position:relative;display:flex;gap:8px}
         .bigbtn{flex:1;min-width:0;height:52px;border-radius:26px;background:${C.inner};display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500;white-space:nowrap}
-        .bigbtn.ghost{background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);color:#afafaf}
+        .bigbtn.ghost{background:transparent;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text-2, #afafaf)}
         .bigbtn.stop{background:${C.blue};color:#141416;font-weight:600}
         .bigbtn.pri{background:${PINK};color:${INK};font-weight:600}
         .mini{height:36px;padding:0 14px;border-radius:18px;background:${C.inner};font-size:13px;font-weight:600;flex:none}
         .pick2{padding:4px 0}
         .d7t{font-size:14px;font-weight:500}
-        .d7s{font-size:12px;color:#979797;max-width:100%}
+        .d7s{font-size:12px;color:var(--ki-text-mid, #979797);max-width:100%}
         .wk{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end}
         .wkc{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:96px;min-width:0;padding:0}
         .wkb{width:100%;max-width:34px;border-radius:8px;background:${M.alpha(C.blue, 0.45)};transition:height .3s,background .2s}
-        .wkb.tom{background:#282828}
+        .wkb.tom{background:var(--ki-popup, #282828)}
         .wkb.sel{background:${C.blue}}
         .wkb.tom.sel{background:${C.inner}}
-        .wkl{font-size:11px;color:#7f7f7f;white-space:nowrap}
-        .wkl.sel{color:#fafafa;font-weight:600}
+        .wkl{font-size:11px;color:var(--ki-text-mid, #7f7f7f);white-space:nowrap}
+        .wkl.sel{color:var(--ki-text, #fafafa);font-weight:600}
         .srow{display:flex;align-items:center;gap:12px;min-height:64px}
         .si{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:${C.inner};flex:none}
         .sx b{font-size:15px}
         .tg{position:relative;width:44px;height:26px;border-radius:13px;background:${C.ctrl};flex:none;transition:background .2s}
-        .tg i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+        .tg i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1))));transition:left .2s}
         .tg.on{background:${C.pink}}
         .tg.on i{left:21px}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .tile{background:${C.card};box-shadow:${C.edge};border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
-        .th{display:flex;align-items:center;gap:6px;font-size:12px;color:#979797}
+        .th{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-mid, #979797)}
         .tv{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .tv small{font-size:12px;color:#979797;font-weight:400}
+        .tv small{font-size:12px;color:var(--ki-text-mid, #979797);font-weight:400}
         /* ---- soner ---- */
         .grp{display:flex;flex-direction:column;gap:8px}
         .gh{display:flex;align-items:center;gap:8px;padding:8px 4px 0;width:100%;text-align:left;min-width:0}
-        .gn{flex:1;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#979797}
-        .gm{font-size:12px;color:#7f7f7f;white-space:nowrap}
+        .gn{flex:1;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-mid, #979797)}
+        .gm{font-size:12px;color:var(--ki-text-mid, #7f7f7f);white-space:nowrap}
         .zc{background:${C.card};box-shadow:${C.edge};border-radius:24px;padding:12px;display:flex;flex-direction:column;gap:12px;transition:opacity .2s;min-width:0}
         .zc.dis{opacity:.6}
         .zc.on{box-shadow:inset 0 0 0 1px ${M.alpha(C.blue, 0.45)}}
         .zm{display:flex;align-items:center;gap:12px;min-width:0;cursor:pointer}
         .zi{position:relative;width:52px;height:52px;border-radius:26px;display:grid;place-items:center;flex:none;overflow:hidden}
-        .zi.prog{background:${M.alpha(C.green, 0.18)};color:${C.green}}
-        .zi.man{background:rgba(255,255,255,.08);color:#afafaf}
-        .zi.run{background:conic-gradient(${C.blue} calc(var(--p) * 1%),rgba(255,255,255,.12) 0);color:#fafafa}
+        .zi.prog{background:${M.alpha(C.green, 0.18)};color:${AT(C.green)}}
+        .zi.man{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text-2, #afafaf)}
+        .zi.run{background:conic-gradient(${C.blue} calc(var(--p) * 1%),rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1))) 0);color:var(--ki-text, #fafafa)}
         .zin{position:absolute;inset:4px;border-radius:50%;overflow:hidden;background:#1f3446}
         .wf{position:absolute;left:0;right:0;bottom:0;background:${M.alpha(C.blue, 0.55)};transition:height 1s linear}
         .dp{position:absolute;top:-6px;left:30%;width:4px;height:6px;border-radius:2px 2px 3px 3px;background:#bfe9ff;animation:va-dp 1.2s linear infinite}
@@ -1826,94 +1846,94 @@
         @keyframes va-dp{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(46px);opacity:0}}
         .zt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
         .zk{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .zk .kode{font-size:12px;color:#979797;font-weight:500;margin-right:5px}
-        .zs{font-size:12px;color:#979797}
-        .zs.run{color:${C.blue}}
+        .zk .kode{font-size:12px;color:var(--ki-text-mid, #979797);font-weight:500;margin-right:5px}
+        .zs{font-size:12px;color:var(--ki-text-mid, #979797)}
+        .zs.run{color:${AT(C.blue)}}
         .zn{display:flex;flex-direction:column;align-items:flex-end;flex:none;max-width:26%;gap:2px}
         .zn .t{font-size:20px;font-weight:300;line-height:1}
-        .zn .p{font-size:11px;color:#7f7f7f;max-width:100%}
+        .zn .p{font-size:11px;color:var(--ki-text-mid, #7f7f7f);max-width:100%}
         .zb{width:48px;height:48px;border-radius:24px;background:${C.inner};display:grid;place-items:center;flex:none}
         .zb.on{background:${C.blue};color:#141416}
         .akt{height:40px;padding:0 14px;border-radius:20px;background:${C.inner};font-size:13px;font-weight:600;flex:none}
         .zx{display:flex;flex-direction:column;gap:10px}
-        .seg{display:flex;padding:3px;border-radius:18px;background:#282828;gap:2px;position:relative;min-width:0}
-        .seg .sg{flex:1 1 0;min-width:0;height:36px;border-radius:15px;font-size:13px;font-weight:500;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;transition:background .2s,color .2s}
-        .seg .sg.on{background:${C.ctrl};color:#fafafa}
+        .seg{display:flex;padding:3px;border-radius:18px;background:var(--ki-popup, #282828);gap:2px;position:relative;min-width:0}
+        .seg .sg{flex:1 1 0;min-width:0;height:36px;border-radius:15px;font-size:13px;font-weight:500;color:var(--ki-text-2, #afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;transition:background .2s,color .2s}
+        .seg .sg.on{background:${C.ctrl};color:var(--ki-text, #fafafa)}
         .seg.top{background:${C.card};box-shadow:${C.edge};padding:4px;border-radius:20px}
         .seg.top .sg{height:40px}
         .start{height:52px;border-radius:26px;background:${PINK};color:${INK};font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
-        .zline{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#979797;min-width:0}
-        .deakt{height:34px;padding:0 12px;border-radius:17px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);font-size:12px;font-weight:500;color:#afafaf;flex:none}
+        .zline{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--ki-text-mid, #979797);min-width:0}
+        .deakt{height:34px;padding:0 12px;border-radius:17px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)));font-size:12px;font-weight:500;color:var(--ki-text-2, #afafaf);flex:none}
         /* ---- program ---- */
         .sh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 4px 0;min-width:0}
-        .st{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#979797;white-space:nowrap}
-        .sm{font-size:12px;color:#7f7f7f;min-width:0}
+        .st{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-mid, #979797);white-space:nowrap}
+        .sm{font-size:12px;color:var(--ki-text-mid, #7f7f7f);min-width:0}
         .sm small{font-size:12px}
         .nyt{height:36px;padding:0 14px 0 10px;border-radius:18px;background:${C.inner};font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
         .pc{display:flex;align-items:center;gap:12px;padding:14px 14px 14px 16px;border-radius:24px;background:${C.card};box-shadow:${C.edge};transition:opacity .2s;min-width:0}
         .pc.off{opacity:.55}
         .pt{display:flex;flex-direction:column;width:64px;flex:none;gap:4px}
         .pt .num{font-size:24px;font-weight:300;letter-spacing:-0.02em;line-height:1}
-        .pd{font-size:11px;color:#7f7f7f}
+        .pd{font-size:11px;color:var(--ki-text-mid, #7f7f7f)}
         .pm2{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
         .pn{font-size:15px;font-weight:500}
-        .ps{font-size:12px;color:#7f7f7f}
+        .ps{font-size:12px;color:var(--ki-text-mid, #7f7f7f)}
         .ag{padding:12px 0}
         .agd{font-size:14px;font-weight:500}
         .agr{display:flex;align-items:center;gap:12px;padding:5px 0;font-size:13px;min-width:0}
-        .agt{width:40px;flex:none;font-size:13px;color:#afafaf}
+        .agt{width:40px;flex:none;font-size:13px;color:var(--ki-text-2, #afafaf)}
         .agdot{width:6px;height:6px;border-radius:3px;background:${C.blue};flex:none}
-        .stpl>.msh-stp-row+.msh-stp-row{border-top:1px solid rgba(255,255,255,0.06)}
+        .stpl>.msh-stp-row+.msh-stp-row{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .ed .fr2{display:grid;grid-template-columns:1fr 124px;gap:8px}
-        .fl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#979797;min-width:0}
-        .fi{height:44px;border-radius:14px;background:#282828;border:0;color:#fafafa;padding:0 12px;font:inherit;font-size:15px;width:100%;box-sizing:border-box;outline:none;color-scheme:dark}
+        .fl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ki-text-mid, #979797);min-width:0}
+        .fi{height:44px;border-radius:14px;background:var(--ki-popup, #282828);border:0;color:var(--ki-text, #fafafa);padding:0 12px;font:inherit;font-size:15px;width:100%;box-sizing:border-box;outline:none;color-scheme:var(--ki-scheme, dark)}
         .frow{display:flex;flex-direction:column;gap:8px}
         .days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-        .dy{height:40px;border-radius:20px;background:#282828;font-size:13px;font-weight:600;color:#979797}
+        .dy{height:40px;border-radius:20px;background:var(--ki-popup, #282828);font-size:13px;font-weight:600;color:var(--ki-text-mid, #979797)}
         .dy.on{background:${PINK};color:${INK}}
         .zsel{display:flex;flex-direction:column}
         .zs2{display:flex;align-items:center;gap:10px;min-height:48px}
         .cb{width:26px;height:26px;border-radius:8px;box-shadow:inset 0 0 0 2px ${C.ctrl};display:grid;place-items:center;flex:none}
         .cb.on{background:${C.pink};box-shadow:none;color:${INK}}
-        .pmb{width:34px;height:34px;border-radius:17px;background:#282828;font-size:18px;flex:none}
+        .pmb{width:34px;height:34px;border-radius:17px;background:var(--ki-popup, #282828);font-size:18px;flex:none}
         .pv{width:56px;text-align:center;font-size:13px;flex:none}
-        .sum{font-size:13px;color:#afafaf}
-        .slett{height:44px;border-radius:22px;color:${C.red};box-shadow:inset 0 0 0 1px ${M.alpha(C.red, 0.35)};display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500}
+        .sum{font-size:13px;color:var(--ki-text-2, #afafaf)}
+        .slett{height:44px;border-radius:22px;color:${AT(C.red)};box-shadow:inset 0 0 0 1px ${M.alpha(C.red, 0.35)};display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500}
         /* ---- forbruk / historikk ---- */
-        .chip{height:26px;padding:0 10px;border-radius:13px;background:${M.alpha(C.green, 0.16)};color:${C.green};font-size:12px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap}
-        .chip.over{background:${M.alpha(C.orange, 0.18)};color:${C.orange}}
+        .chip{height:26px;padding:0 10px;border-radius:13px;background:${M.alpha(C.green, 0.16)};color:${AT(C.green)};font-size:12px;font-weight:600;display:inline-flex;align-items:center;white-space:nowrap}
+        .chip.over{background:${M.alpha(C.orange, 0.18)};color:${AT(C.orange)}}
         .b48{font-size:48px;font-weight:300;letter-spacing:-0.035em;line-height:1}
-        .b48 span{font-size:15px;color:#979797;margin-left:8px;letter-spacing:0}
+        .b48 span{font-size:15px;color:var(--ki-text-mid, #979797);margin-left:8px;letter-spacing:0}
         .b34{font-size:34px;font-weight:300;letter-spacing:-0.025em;line-height:1}
-        .b34 span{font-size:15px;color:#979797}
+        .b34 span{font-size:15px;color:var(--ki-text-mid, #979797)}
         .band{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden}
         .band i{display:block;min-width:4px;border-radius:2px}
         .kl{display:flex;flex-direction:column;gap:2px}
         .kr{display:flex;align-items:center;gap:10px;font-size:14px;min-height:30px;min-width:0}
         .dot{width:10px;height:10px;border-radius:5px;flex:none}
         .kn{flex:1}
-        .kv{color:#e1e1e1}
-        .foot{font-size:13px;color:#afafaf}
-        .warn{color:${C.orange}}
-        .warnrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:${M.alpha(C.orange, 0.14)};color:${C.orange};font-size:13px}
+        .kv{color:var(--ki-text-1, #e1e1e1)}
+        .foot{font-size:13px;color:var(--ki-text-2, #afafaf)}
+        .warn{color:${AT(C.orange)}}
+        .warnrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:${M.alpha(C.orange, 0.14)};color:${AT(C.orange)};font-size:13px}
         .lr{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:14px;min-width:0}
         /* «Hvor gikk vannet» (26.13) */
         .hvor{background:${C.card};box-shadow:${C.edge};border-radius:28px;padding:16px;display:flex;flex-direction:column;min-width:0}
         .hvh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:4px}
-        .hvt{font-size:13px;color:#afafaf}.hvs{font-size:12px;color:#7f7f7f;white-space:nowrap}
+        .hvt{font-size:13px;color:var(--ki-text-2, #afafaf)}.hvs{font-size:12px;color:var(--ki-text-mid, #7f7f7f);white-space:nowrap}
         .hvr{display:flex;align-items:center;gap:10px;padding:10px 0;min-width:0}
-        .hvr+.hvr{border-top:1px solid rgba(255,255,255,.06)}
-        .hvk{width:40px;flex:none;font-size:13px;color:#979797;font-variant-numeric:tabular-nums}
+        .hvr+.hvr{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .hvk{width:40px;flex:none;font-size:13px;color:var(--ki-text-mid, #979797);font-variant-numeric:tabular-nums}
         .hvi{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;flex:none;--mdc-icon-size:18px}
         .hvx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-        .hvx b{font-size:14px;font-weight:500;color:#fafafa}.hvx span{font-size:12px;color:#979797}
+        .hvx b{font-size:14px;font-weight:500;color:var(--ki-text, #fafafa)}.hvx span{font-size:12px;color:var(--ki-text-mid, #979797)}
         .hvx .ell,.hvx b,.hvx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .hvc{height:24px;padding:0 9px;border-radius:12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;flex:none;white-space:nowrap;background:rgba(255,255,255,.08);color:#afafaf}
-        .hvc.hoy{background:${M.alpha(C.green, 0.16)};color:${C.green}}
-        .hvc.uk{background:${M.alpha(C.orange, 0.18)};color:${C.orange}}
-        .hvv{height:34px;padding:0 14px;border-radius:17px;background:${C.inner};color:#fafafa;font-size:13px;font-weight:500;flex:none;border:0;font-family:inherit;cursor:pointer}
-        .hva{align-self:flex-start;background:none;border:0;color:${C.pink};font-size:13px;font-weight:500;padding:10px 0 2px;cursor:pointer;font-family:inherit}
-        .zbar{position:relative;height:4px;border-radius:2px;background:#282828;overflow:hidden}
+        .hvc{height:24px;padding:0 9px;border-radius:12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;flex:none;white-space:nowrap;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text-2, #afafaf)}
+        .hvc.hoy{background:${M.alpha(C.green, 0.16)};color:${AT(C.green)}}
+        .hvc.uk{background:${M.alpha(C.orange, 0.18)};color:${AT(C.orange)}}
+        .hvv{height:34px;padding:0 14px;border-radius:17px;background:${C.inner};color:var(--ki-text, #fafafa);font-size:13px;font-weight:500;flex:none;border:0;font-family:inherit;cursor:pointer}
+        .hva{align-self:flex-start;background:none;border:0;color:${AT(C.pink)};font-size:13px;font-weight:500;padding:10px 0 2px;cursor:pointer;font-family:inherit}
+        .zbar{position:relative;height:4px;border-radius:2px;background:var(--ki-popup, #282828);overflow:hidden}
         .zbar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:${C.blue}}
         .cal{padding:14px 12px 16px;gap:10px}
         .mh{display:flex;align-items:center;justify-content:space-between;grid-column:1/-1}
@@ -1923,20 +1943,20 @@
         .wd{text-align:center;font-size:11px;color:#696969;padding:4px 0}
         .cc{height:48px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;padding:0}
         .cc .cn{font-size:14px}
-        .cc .cl{font-size:9px;color:#e1e1e1;white-space:nowrap;min-height:10px}
-        .cc.sel{box-shadow:inset 0 0 0 1.5px #fafafa}
+        .cc .cl{font-size:9px;color:var(--ki-text-1, #e1e1e1);white-space:nowrap;min-height:10px}
+        .cc.sel{box-shadow:inset 0 0 0 1.5px var(--ki-text, #fafafa)}
         .cc.td .cn{font-weight:700}
         .cc.ut{opacity:.3}
         .cdot{width:5px;height:5px;border-radius:3px;background:${C.green}}
-        .lg{gap:14px;font-size:11px;color:#979797;padding:0 6px;grid-column:1/-1}
+        .lg{gap:14px;font-size:11px;color:var(--ki-text-mid, #979797);padding:0 6px;grid-column:1/-1}
         .lg span{display:inline-flex;align-items:center;gap:6px}
         .lg i{width:8px;height:8px;border-radius:4px;display:inline-block}
         .lg i.pl{box-shadow:inset 0 0 0 1.5px ${C.green}}
         .cal>.hr,.cal>.sp,.cal>.kr,.cal>.agr,.cal>.lab{grid-column:1/-1}
         .h14{position:relative;display:grid;grid-template-columns:repeat(14,1fr);gap:4px;height:110px;align-items:end}
         .h14 .b{border-radius:6px}
-        .mline{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(255,255,255,.4);pointer-events:none;z-index:1}
-        .mline span{position:absolute;right:0;bottom:3px;font-size:10px;color:#afafaf;background:${C.card};padding:0 4px;border-radius:4px}
+        .mline{position:absolute;left:0;right:0;border-top:1.5px dashed rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.4*var(--ki-wa-k,1)),var(--ki-wa-max,1)));pointer-events:none;z-index:1}
+        .mline span{position:absolute;right:0;bottom:3px;font-size:10px;color:var(--ki-text-2, #afafaf);background:${C.card};padding:0 4px;border-radius:4px}
         @media (prefers-reduced-motion: reduce){.wave,.sky,.rd,.dp,.straa,.blomst,.sol,.sky2{animation:none !important}}
       `;
     }
@@ -1947,9 +1967,9 @@
   /* ============================================================ «Tilpass Vanning» (Faner · Soner · Entiteter · Avansert) */
   // Samme skjema i kortets eget ark (MSH.openEditor → utkast + Ferdig, portalt ut av popupen) og i HAs GUI-editor.
   const cidOf = (ed) => ((ed && ed._config && ed._config.card_id) || '_');
-  const hdl = (list) => `<span class="vdrag" data-vdrag="${list}" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:8px 2px;flex:none">${M.icon('mdi:drag', 20)}</span>`;
+  const hdl = (list) => `<span class="vdrag" data-vdrag="${list}" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:var(--ki-text-mid, #979797);padding:8px 2px;flex:none">${M.icon('mdi:drag', 20)}</span>`;
   const sw = (on, attrs, label) => `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" aria-label="${esc(label || '')}" ${attrs}></button>`;
-  const rowCss = 'min-height:56px;border-radius:28px;background:#3a3a3a;display:flex;align-items:center;gap:8px;padding:0 12px 0 8px';
+  const rowCss = 'min-height:56px;border-radius:28px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;gap:8px;padding:0 12px 0 8px';
   // Rekkefølge-lister i arket
   const faneOrden = (c) => { const vis = fanerCfg(c); return [...vis, ...FANER.filter((k) => !vis.includes(k))]; };
   const soneOrden = (h, c) => { const L = soneListe(h, c), o = Array.isArray(c.soneorden) ? c.soneorden : []; return L.map((z, i) => ({ ...z, i })).sort((a, b) => { const x = o.indexOf(a.key), y = o.indexOf(b.key); return (x < 0 ? 1e3 + a.i : x) - (y < 0 ? 1e3 + b.i : y); }); };
@@ -1977,7 +1997,7 @@
       e.stopPropagation(); e.preventDefault();
       d = { list: hd.dataset.vdrag, k: item.dataset.vk, item, y0: e.clientY, id: e.pointerId, over: null };
       try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgba(0,0,0,.4)';
+      item.style.position = 'relative'; item.style.zIndex = '2'; item.style.boxShadow = '0 6px 18px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.4*var(--ki-ka-k,1))))';
       M.haptic('medium');
     });
     R.addEventListener('pointermove', (e) => {
@@ -2019,7 +2039,7 @@
       return `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${faneOrden(cc).map((k) => {
         const [l, ic] = FANE[k], on = vis.has(k);
         return `<div class="ordrow" data-vk="${k}" data-vl="fane" data-key="vf-${k}" style="${rowCss};${on ? '' : 'opacity:.55'}">${hdl('fane')}
-          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(ic, 20)}</span>
+          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface-2, #404040);flex:none">${M.icon(ic, 20)}</span>
           <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(l)}</span>${sw(on, `data-a="fn" data-k="${key}" data-op="fane" data-v="${k}"`, 'Vis ' + l)}</div>`;
       }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Forbruk viser KI Vann, vannmåleren og «Hvor gikk vannet» (tom-tilstand uten sensor), Historikk vises når KI Vanning fører statistikk.</span></div>`;
     }, click: (dd, ed) => {
@@ -2030,7 +2050,11 @@
         return ed._set('faner', ord.filter((x) => x === dd.v || vis.includes(x)));
       }
     } };
-    const fanevis = { type: 'select', name: 'fanevisning', label: 'Fanene viser', options: [['begge', 'Ikon + tekst'], ['tekst', 'Tekst'], ['ikoner', 'Ikoner']], default: 'begge' };
+    const fanevis = { type: 'select', name: 'fanevisning', label: 'Faner viser', options: FANEVIS, default: 'begge' };
+    const cogFelt = { type: 'select', name: 'cog_position', label: 'Tannhjul', options: [['top', 'I toppkortet'], ['tab', 'Ved fanene']], default: 'top' };
+    const lookFelt = { type: 'select', name: 'tab_look', label: 'Fanestil', options: [['fylt', 'Fylt'], ['kontur', 'Kontur']], default: 'fylt' };
+    // 33.4: fanehøyde – felles felt (forhåndsvisning med Vanning-fanene i valgt visning/stil)
+    const fanehoyde = M.tabH ? M.tabH.field({ items: (hh, cc) => fanerCfg(cc).map((k) => ({ key: k, label: FANE[k][0], icon: FANE[k][1] })), mode: (cc) => fanevisning(cc), look: (cc) => faneStil(cc), gear: (cc) => cogPos(cc) === 'tab', native: (cc) => ({ begge: 40, tekst: 44 }[fanevisning(cc)] || 48) }) : null;
     // Soner · grupper (navn, pil opp, slett, + Ny gruppe)
     const grupper = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
@@ -2061,11 +2085,11 @@
       return `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none"><span class="help" style="padding:0 6px">Soner (${L.length})</span>${L.map((z) => {
         const hid = skj.has(z.key);
         const chips = G.length ? `<div class="chips" style="padding:0 6px 10px 44px;flex-wrap:wrap">${[{ id: '', navn: 'Ingen' }, ...G].map((g) => { const on = (sg[z.key] || '') === g.id; return `<button class="chip ${on ? 'on' : ''}" aria-selected="${on}" data-a="fn" data-k="${key}" data-op="sgrp" data-v="${esc(z.key)}" data-g="${esc(g.id)}" style="height:30px;font-size:12px">${esc(g.navn || 'Gruppe')}</button>`; }).join('')}</div>` : '';
-        return `<div data-vk="${esc(z.key)}" data-vl="sone" data-key="vs-${esc(z.key)}" style="border-radius:24px;background:#3a3a3a;${hid ? 'opacity:.55' : ''}">
+        return `<div data-vk="${esc(z.key)}" data-vl="sone" data-key="vs-${esc(z.key)}" style="border-radius:24px;background:var(--ki-surface, #3a3a3a);${hid ? 'opacity:.55' : ''}">
           <div style="display:flex;align-items:center;gap:6px;min-height:56px;padding:0 10px 0 8px">${hdl('sone')}
-            ${z.kode ? `<span style="font-size:12px;color:#979797;width:30px;flex:none;font-variant-numeric:tabular-nums">${esc(z.kode)}</span>` : ''}
+            ${z.kode ? `<span style="font-size:12px;color:var(--ki-text-mid, #979797);width:30px;flex:none;font-variant-numeric:tabular-nums">${esc(z.kode)}</span>` : ''}
             <input class="inp" data-name="sonenavn.${esc(z.key)}" value="${esc(nv[z.key] || '')}" placeholder="${esc(z.navn)}" style="flex:1;min-width:0;height:40px">
-            <button class="ib" data-a="fn" data-k="${key}" data-op="eye" data-v="${esc(z.key)}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(z.navn)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? '#696969' : '#fafafa'}`)}</button></div>${chips}</div>`;
+            <button class="ib" data-a="fn" data-k="${key}" data-op="eye" data-v="${esc(z.key)}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(z.navn)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? '#696969' : 'var(--ki-text, #fafafa)'}`)}</button></div>${chips}</div>`;
       }).join('')}<span class="help">Dra for rekkefølge. Tomt navn = navnet fra anlegget. Uten egne grupper grupperes sonene etter boks.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {};
@@ -2096,7 +2120,7 @@
     const innst = { type: 'html', html: (hh, cc, key) => {
       if (!hh) return '';
       const P = L0(hh, cc)._panelInnstillinger();
-      const rad = (r) => `<div class="line" data-key="vi-${esc(r.id)}" style="min-height:52px;border-radius:26px;background:#3a3a3a;padding:0 8px 0 16px;gap:10px"><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px">${esc(r.navn)}</span><span style="font-size:11px;color:#979797">${esc(r.tekst != null ? String(r.tekst) : '')}</span></span>${r.type === 'bryter' ? sw(r.pa, `data-a="fn" data-k="${key}" data-op="inn" data-t="bryter" data-v="${esc(r.id)}"`, r.navn) : `<button class="btn" style="height:40px;padding:0 14px" data-a="fn" data-k="${key}" data-op="inn" data-t="${r.type}" data-v="${esc(r.id)}">${M.icon(r.type === 'knapp' ? 'mdi:play-circle-outline' : 'mdi:pencil', 18)}${r.type === 'knapp' ? esc(r.tekst || 'Kjør') : 'Endre'}</button>`}</div>`;
+      const rad = (r) => `<div class="line" data-key="vi-${esc(r.id)}" style="min-height:52px;border-radius:26px;background:var(--ki-surface, #3a3a3a);padding:0 8px 0 16px;gap:10px"><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px">${esc(r.navn)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(r.tekst != null ? String(r.tekst) : '')}</span></span>${r.type === 'bryter' ? sw(r.pa, `data-a="fn" data-k="${key}" data-op="inn" data-t="bryter" data-v="${esc(r.id)}"`, r.navn) : `<button class="btn" style="height:40px;padding:0 14px" data-a="fn" data-k="${key}" data-op="inn" data-t="${r.type}" data-v="${esc(r.id)}">${M.icon(r.type === 'knapp' ? 'mdi:play-circle-outline' : 'mdi:pencil', 18)}${r.type === 'knapp' ? esc(r.tekst || 'Kjør') : 'Endre'}</button>`}</div>`;
       if (!P.deler.length && !P.varsler.length) return `<div class="f"><span class="help">Installer KI Vanning for regnpause, stopp alt, programplan, kalibrering og varsler her.</span></div>`;
       return `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${P.deler.map(rad).join('')}${P.mangler ? '<span class="help">Fant ikke regnpause og hovedbryter – oppdater KI Vanning til 3.0.0 og last integrasjonen på nytt.</span>' : ''}
         ${P.varsler.length ? `<span class="help" style="padding:8px 6px 0">Varsler</span>${P.varsler.map(rad).join('')}` : ''}${P.ki ? '<span class="help">Regnpause og hovedbryter kommer fra KI Vanning – ingen entiteter å skrive inn.</span>' : ''}</div>`;
@@ -2119,7 +2143,7 @@
     ];
     return [
       { type: 'tabs', id: 'vanning', tabs: [
-        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [faner, fanevis] },
+        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [cogFelt, lookFelt, fanevis, ...(fanehoyde ? [fanehoyde] : []), faner] },
         { key: 'soner', label: 'Soner', icon: 'mdi:sprinkler-variant', focus: ['soner'], fields: [grupper, soner, stdMin] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted', focus: ['entiteter', 'overrides', 'reserve'], fields: entiteter },
         { key: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', focus: ['avansert', 'innstillinger', 'spacing'], fields: avansert },

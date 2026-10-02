@@ -144,7 +144,7 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
 }
 /* ---------------- 19.9: hold og dra for å omorganisere navbar-ikonene */
 {
-  const { p, errs } = await setup({ width: 390, height: 844 }, { hidden: ['basseng'] });
+  const { p, errs } = await setup({ width: 390, height: 844 }, { hidden: ['ruter'] }); // standard bar: vanning, media, klima, ruter (basseng er fjernet)
   const order = () => p.evaluate(() => deepAll('nav.nb .it').map((b) => b.dataset.id));
   const o0 = await order();
   const pts = await p.evaluate(() => deepAll('nav.nb .it').map((b) => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }));
@@ -158,7 +158,7 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
   const bar = await p.evaluate(() => deep('msh-navbar-card').config.bar);
   ok('19.9 hold + dra → løftet ikon (scale 1.12)', !!lift && /matrix\(1\.12/.test(lift), lift);
   ok('19.9 ny rekkefølge i navbaren', o1[0] === o0[1] && o1[1] === o0[2] && o1[2] === o0[0], { o0, o1 });
-  ok('19.9 lagret i config.bar, skjult ikon beholder plassen', Array.isArray(bar) && bar[3] === 'basseng' && bar.indexOf(o0[0]) === 2, bar);
+  ok('19.9 lagret i config.bar, skjult ikon beholder plassen', Array.isArray(bar) && bar[3] === 'ruter' && bar.indexOf(o0[0]) === 2, bar);
   ok('19.9 draget åpnet ingen popup', await p.evaluate(() => location.hash === window.__hash0));
   // vanlig trykk virker som før
   await tap(p, `nav.nb [data-id="${o1[0]}"]`);
@@ -406,7 +406,7 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
 /* ---------------- Fiks 22.6: «Mer»-menyen – trykk åpner, hold 380 ms + dra flytter ikonet (lagres i more) */
 for (const [vp, style] of [[{ width: 390, height: 844 }, 'white'], [{ width: 390, height: 844 }, 'glass'], [{ width: 1280, height: 800 }, 'white']]) {
   const tag = `22.6 ${vp.width}/${style}`;
-  const { p, errs } = await setup(vp, { style, bar: ['media', 'klima'], more: ['gjoremal', 'basseng', 'vanning', 'ruter'], hidden: ['basseng'] });
+  const { p, errs } = await setup(vp, { style, bar: ['media', 'klima'], more: ['gjoremal', 'kart', 'vanning', 'ruter'], hidden: ['kart'] });
   await p.waitForTimeout(1500); // mock-sjekken i test/mock/10-navbar.js er ferdig
   const c = await p.context().newCDPSession(p);
   const T = (type, x, y) => c.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
@@ -420,7 +420,7 @@ for (const [vp, style] of [[{ width: 390, height: 844 }, 'white'], [{ width: 390
   await T('touchEnd'); await p.waitForTimeout(700);
   const more = await p.evaluate(() => deep('msh-navbar-card').config.more);
   ok(`${tag}: hold → løftet (scale 1.08)`, !!lift && /matrix\(1\.08/.test(lift), lift);
-  ok(`${tag}: slipp → ny rekkefølge lagret i more, skjult beholder plassen`, Array.isArray(more) && more[0] === i0[1].id && more[1] === 'basseng' && more[2] === i0[2].id && more[3] === i0[0].id, { more, i0: i0.map((x) => x.id) });
+  ok(`${tag}: slipp → ny rekkefølge lagret i more, skjult beholder plassen`, Array.isArray(more) && more[0] === i0[1].id && more[1] === 'kart' && more[2] === i0[2].id && more[3] === i0[0].id, { more, i0: i0.map((x) => x.id) });
   ok(`${tag}: draget åpnet ingen popup, menyen er åpen`, await p.evaluate(() => !location.hash && !!deep('.mbox')));
   ok(`${tag}: menyen viser ny rekkefølge`, JSON.stringify((await items()).slice(0, 3).map((x) => x.id)) === JSON.stringify([i0[1].id, i0[2].id, i0[0].id]));
   // verktøyene under streken står fast

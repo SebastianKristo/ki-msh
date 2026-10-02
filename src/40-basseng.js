@@ -1,4 +1,4 @@
-/* Basseng-popup #badebasseng (alias #basseng, fiks 30.1). Kilde: Basseng v4 popup, variant a (fiks 26.14/28.14/30.1). Basseng v3 er utgått
+/* Basseng-kortet msh-basseng-card. Kilde: Basseng v4 popup, variant a (fiks 26.14/28.14/30.1). Basseng v3 er utgått
  * (bare den gamle localStorage-nøkkelen basseng-v3-cfg leses én gang for migrering).
  * ÉTT kort i popupen: msh-basseng-card tegner toppkort (msh-basseng-hero-card, innebygd via MSH.HEROES) → prosalinje
  * «Vannet er …» → glass-faner (Oversikt · Varme · Klor · Spreder) → innholdet i fanen (Oversikt: hurtigknapper Lys ·
@@ -7,9 +7,13 @@
  * device_class. Overstyring: overrides.<rolle> (bytt), exclude: [rolle|entitet], include: [{ entity, navn, ikon }] /
  * include.hurtig (ekstra hurtigknapper), include.flagg / include.personer. Gammel config (`hurtig:`, ki-basseng-nøkler,
  * basseng-v3-cfg i localStorage) migreres én gang til config (M.poolNorm). Bunnluft: MSH.popupBottomPad (ingen gap-card).
+ * Bassengpopupene (#badebasseng/#basseng) er slettet: strategien lager dem ikke lenger – kortet legges manuelt i en egen
+ * Bubble-popup (README → Manuelt). Se «bassengpopupene er slettet» nederst (engangsmigrering av ki-store).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
+  // Fiks 34 (Del A) · semantiske tokens med dagens mørke verdier som fallback (mørk modus uendret)
+  const K = { card: 'var(--ki-surface, var(--gray200, #3a3a3a))', inner: 'var(--ki-surface-2, var(--gray300, #404040))', ctrl: 'var(--ki-ctrl, var(--gray400, #545454))' };
 
   /* ------------------------------------------------------------ felles hjelpere (kan brukes av andre kort) */
   M.txt = M.txt || function (hass, id) {
@@ -168,6 +172,7 @@
     o.prio = f(['switch', 'input_boolean'], /prio/);
     o.night = f(['switch', 'input_boolean'], /natt|night|senk/);
     o.winter = f(['switch', 'input_boolean'], /vinter|winter/);
+    o.eta = sens.find((id) => /(^|[_ .])eta($|[_ .])|time_to_target|tid_til_(mal|mål)|oppvarmingstid|heat(ing)?_time/.test(T(id))) || null;
     o.heat_loss = sens.find((id) => /varmetap|heat_loss|heatloss/.test(T(id))) || null;
     o.solar = sens.find((id) => dc(id) === 'irradiance' || /(^|[_ .])sol|solar/.test(T(id))) || null;
     o.target = (o.heat && /^(climate|water_heater)\./.test(o.heat)) ? o.heat : f(['number', 'input_number'], /mal|mål|target|settpunkt|setpunkt|setpoint/);
@@ -215,7 +220,7 @@
     ['cover', 'Pooltak', ['cover', 'switch', 'input_boolean', 'binary_sensor']], ['light', 'Lys', ['light', 'switch']], ['spr', 'Spreder', ['switch', 'valve', 'input_boolean']], ['power', 'Effekt · pumpe', 'sensor', 'power'],
     ['heat_power', 'Effekt · varmepumpe', 'sensor', 'power'], ['ph', 'pH', 'sensor'], ['klor', 'Klor (mg/L / ORP)', 'sensor'], ['target', 'Måltemperatur', ['climate', 'water_heater', 'number', 'input_number']],
     ['turnover', 'Omsetninger i dag', 'sensor'], ['pumped', 'Pumpet i dag (timer)', 'sensor'], ['savings', 'Spart i dag', 'sensor'], ['cost', 'Strømkostnad i dag', 'sensor'],
-    ['mode', 'Driftsmodus', ['select', 'input_select']], ['night', 'Nattsenking', ['switch', 'input_boolean']], ['winter', 'Vintermodus', ['switch', 'input_boolean']], ['heat_loss', 'Varmetap', 'sensor'],
+    ['eta', 'Tid til mål (ETA, valgfri)', 'sensor'], ['mode', 'Driftsmodus', ['select', 'input_select']], ['night', 'Nattsenking', ['switch', 'input_boolean']], ['winter', 'Vintermodus', ['switch', 'input_boolean']], ['heat_loss', 'Varmetap', 'sensor'],
     ['solar', 'Sol inn', 'sensor'], ['spr_duration', 'Spreder · varighet', ['number', 'input_number']], ['klor_calendar', 'Klorkalender (logg)', 'calendar'], ['klor_last', 'Siste klortablett (uten kalender)', ['input_datetime', 'counter']],
   ];
   const ovrFields = (keys) => OVR.filter((x) => !keys || keys.includes(x[0])).map(([name, label, domain, device_class]) => ({ name, label, domains: [].concat(domain), device_class, auto: (h, c) => M.poolAuto(h, c)[name] }));
@@ -251,11 +256,11 @@
       const pumpS = this.s(e.pump);
       const status = !pumpS ? ['help', 'Ingen pumpe'] : pump ? ['autorenew', 'Filtrerer'] : ['pause', 'Står'];
       const chips = [['pump', 'water_pump', 'Pumpe', C.pink], ['heat', 'heat_pump', 'Varmepumpe', C.red], ['cover', 'roofing', 'Pooltak', C.blue], ['light', 'lightbulb', 'Lys', C.yellow]]
-        .filter(([k]) => e[k]).map(([k, ic, l, col]) => { const o = on(k); return `<span class="chip" data-key="${k}" title="${esc(l + ': ' + (o ? 'på' : 'av'))}" style="background:${o ? col : 'rgba(0,0,0,0.3)'};color:${o ? '#282828' : '#7f8c90'}">${M.icon(ic, 14)}</span>`; }).join('');
+        .filter(([k]) => e[k]).map(([k, ic, l, col]) => { const o = on(k); return `<span class="chip" data-key="${k}" title="${esc(l + ': ' + (o ? 'på' : 'av'))}" style="background:${o ? col : 'rgba(0,0,0,0.3)'};color:${o ? '#282828' : '#7f8c90'}">${M.icon(ic, 14)}</span>`; }).join(''); /* ki-hex-ok: mørk øy */
       const bubbles = [18, 40, 62, 84, 106].map((x, i) => `<span class="bub" style="left:${x}px;width:${4 + (i % 2) * 2}px;height:${4 + (i % 2) * 2}px;animation:${P ? `bub ${1.6 + (i % 3) * 0.4}s ease-in ${i * 0.35}s infinite` : 'none'}"></span>`).join('');
       const waves = [0, 1, 2].map((i) => `<span class="hw" style="right:${16 + i * 9}px;animation:${H ? `heatw 1.8s ease-out ${i * 0.5}s infinite` : 'none'}"></span>`).join('');
       return `
-        <section class="hero press0" data-ent="${esc(e.water || e.pump || '')}">
+        <section class="hero press0" data-theme="dark" data-ki-island data-ent="${esc(e.water || e.pump || '')}">
           <div class="scene">
             <div class="pool">
               <span class="glow" style="opacity:${light ? 1 : 0};animation:${light && A ? 'glowp 3s ease-in-out infinite' : 'none'}"></span>
@@ -288,13 +293,13 @@
         @keyframes glowp{0%,100%{opacity:.6}50%{opacity:1}}
         @keyframes flow{to{stroke-dashoffset:-24}}
         @keyframes ring{from{transform:scale(.7);opacity:.8}to{transform:scale(1.6);opacity:0}}
-        .hero{position:relative;height:176px;border-radius:30px;overflow:hidden;background:linear-gradient(160deg,#1b2b30,#22383e 60%,#1e3237);width:100%}
+        .hero{position:relative;height:176px;border-radius:30px;overflow:hidden;background:linear-gradient(160deg,#1b2b30,#22383e 60%,#1e3237);width:100%;color:#fafafa} /* mørk øy: lys tekst i begge moduser */ /* ki-hex-ok: mørk øy */
         .scene{position:absolute;inset:0;pointer-events:none}
-        .pool{position:absolute;right:56px;bottom:22px;width:150px;height:58px;border-radius:8px;overflow:hidden;background:linear-gradient(180deg,#48a3ba,#2b6f84);box-shadow:inset 0 3px 0 rgba(255,255,255,0.22),0 0 0 3px #4d5b60}
+        .pool{position:absolute;right:56px;bottom:22px;width:150px;height:58px;border-radius:8px;overflow:hidden;background:linear-gradient(180deg,#48a3ba,#2b6f84);box-shadow:inset 0 3px 0 rgba(255,255,255,0.22),0 0 0 3px #4d5b60} /* ki-hex-ok: mørk øy */
         .glow{position:absolute;inset:-20px;background:radial-gradient(60% 70% at 50% 60%,rgb(140 240 255 / 0.9),transparent 70%);transition:opacity .6s}
-        .wave{position:absolute;left:0;top:0;height:10px;width:200%;background:repeating-radial-gradient(circle at 10px -4px,rgba(255,255,255,0.35) 0 6px,transparent 7px 20px);background-size:20px 10px}
-        .bub{position:absolute;bottom:4px;border-radius:50%;background:rgba(255,255,255,0.7);opacity:0}
-        .cov{position:absolute;left:0;top:0;bottom:0;background:repeating-linear-gradient(90deg,#8e9ba0 0 9px,#76858a 9px 11px);box-shadow:2px 0 6px rgba(0,0,0,0.4);transition:width .9s cubic-bezier(.4,0,.2,1)}
+        .wave{position:absolute;left:0;top:0;height:10px;width:200%;background:repeating-radial-gradient(circle at 10px -4px,rgba(255,255,255,0.35) 0 6px,transparent 7px 20px);background-size:20px 10px} /* ki-hex-ok: mørk øy */
+        .bub{position:absolute;bottom:4px;border-radius:50%;background:rgba(255,255,255,0.7);opacity:0} /* ki-hex-ok: mørk øy */
+        .cov{position:absolute;left:0;top:0;bottom:0;background:repeating-linear-gradient(90deg,#8e9ba0 0 9px,#76858a 9px 11px);box-shadow:2px 0 6px rgba(0,0,0,0.4);transition:width .9s cubic-bezier(.4,0,.2,1)} /* ki-hex-ok: mørk øy */
         .pipe{position:absolute;right:20px;bottom:30px;width:60px;height:40px;overflow:visible}
         .hp{position:absolute;right:12px;bottom:22px;width:34px;height:58px;border-radius:6px;background:#39464a;display:grid;place-items:center;transition:box-shadow .4s}
         .hw{position:absolute;bottom:84px;width:4px;height:12px;border-radius:2px;background:${M.alpha(C.red, 0.7)};opacity:0}
@@ -302,7 +307,7 @@
         .ring{position:absolute;inset:-2px;border-radius:50%;border:2px solid ${M.alpha(C.pink, 0.7)};opacity:0}
         .tl{position:absolute;left:16px;top:16px;display:flex;flex-direction:column;gap:8px}
         .lbl{font-size:12px;color:#c9d6d9}
-        .st{height:22px;padding:0 9px 0 7px;border-radius:11px;background:rgba(0,0,0,0.3);display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;align-self:flex-start;white-space:nowrap}
+        .st{height:22px;padding:0 9px 0 7px;border-radius:11px;background:rgba(0,0,0,0.3);display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;align-self:flex-start;white-space:nowrap} /* ki-hex-ok: mørk øy */
         .chips{display:flex;gap:4px}
         .chip{width:26px;height:26px;border-radius:13px;display:grid;place-items:center;transition:background .3s}
         .bl{position:absolute;left:16px;bottom:14px;display:flex;flex-direction:column;gap:3px}
@@ -399,7 +404,7 @@
     if (Object.keys(labels).length) n.labels = labels;
     return n;
   };
-  // Popup-oppsett fra et importert/gammelt Bubble-popup (#badebasseng med ki-basseng-card, ki-basseng-hero-card og
+  // Popup-oppsett fra et importert/gammelt Bubble-popup (med ki-basseng-card, ki-basseng-hero-card og
   // gap-card) → config for ÉTT msh-basseng-card. null = ikke et gammelt basseng-popup.
   const LEG_TAGS = ['ki-basseng-card', 'ki-basseng-hero-card', 'msh-basseng-hero-card'];
   const tagOfC = (c) => String((c && c.type) || '').replace(/^custom:/, '');
@@ -423,6 +428,7 @@
   };
   M.bassengLegacyTest = (popup) => cardsDeep(popup && popup.cards).some((c) => LEG_TAGS.includes(tagOfC(c)));
 
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px'); // 33.4: fanehøyde-variabler (05-tab-bar.js)
   class Basseng extends M.Card {
     static get cardName() { return 'Basseng'; }
     static get defaults() { return { controls: CTL_STD.slice(), hidden_controls: CTL_HID.slice(), tabs: ['ov', 'heat', 'klor', 'spr'] }; }
@@ -442,7 +448,7 @@
           { type: 'boolean', name: 'anim', label: 'Animasjoner (bølger, bobler, vifte og varme)', default: true },
           { type: 'boolean', name: 'chips', label: 'Statusikoner (pumpe, varme, tak og lys i bildet)', default: true },
         ] },
-        { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }] },
+        { type: 'section', label: 'Visning', icon: 'mdi:eye-outline', fields: [{ type: 'boolean', name: 'show_sentence', label: 'Setning i Oversikt', help: '«Vannet når 25° om ca …»', default: true }, { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true }, { type: 'gap' }, ...(M.tabH ? [M.tabH.field({ items: (h, c) => (Array.isArray(c.tabs) && c.tabs.length ? c.tabs : Object.keys(TABS)).filter((k) => TABS[k]).map((k) => TABS[k]), native: 34, gear: true })] : [])] }, // 33.4: fanehøyde i Visning (ingen Faner-fane)
       ];
     }
     get cardSize() { return 10; }
@@ -516,33 +522,57 @@
       const tl = this._tabs(e), cur = tl.includes(this.ui.tab) ? this.ui.tab : tl[0] || 'ov';
       this._tl = tl; this._cur = cur;
       const idx = Math.max(0, tl.indexOf(cur)), n = tl.length || 1;
-      const tabs = tl.map((k, i) => `<span class="gti" role="tab" aria-selected="${i === idx}" data-key="${k}" style="color:${i === idx ? '#3a3a3a' : '#afafaf'}">${esc(TABS[k])}</span>`).join('');
+      const tabs = tl.map((k, i) => `<span class="gti" role="tab" aria-selected="${i === idx}" data-key="${k}" style="color:${i === idx ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, #afafaf)'}">${esc(TABS[k])}</span>`).join('');
       const body = cur === 'heat' ? this._heat(e) : cur === 'klor' ? this._klorTab(e) : cur === 'spr' ? this._spr(e) : this._ov(e);
       // toppkort (MSH.HEROES-sloten) → prosalinje → faner → innholdet i fanen
       return `<div class="wrap">
-        <div class="prose ptop" data-key="prose">${this._prose(e)}</div>
-        <div class="tabrow">
+        <div class="tabrow" data-section="tabs"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>
           ${tl.length ? `<div class="gt"><div class="gtg" style="grid-template-columns:repeat(${n},minmax(64px,1fr))"><span class="ind" style="left:${(idx / n) * 100}%;width:${100 / n}%"></span>${tabs}</div></div>` : ''}
           <button class="cfg press" data-act="customize" title="Tilpass basseng" aria-label="Tilpass basseng">${M.icon('settings', 20)}</button>
         </div>
         ${tl.length ? body : M.emptyState('Alle faner er skjult', 'sections')}
       </div>`;
     }
-    // Prosalinjen under toppkortet: «Vannet er 27,5° og 1,5° over målet. Pumpa går nå.»
-    _prose(e) {
-      const tw = this.n(e.water), tgt = this._target(e), pumpS = this.s(e.pump), pump = M.onState(pumpS);
-      let rel = '';
-      if (tw != null && tgt != null) { const d = tw - tgt; rel = Math.abs(d) <= 0.3 ? ' og på målet' : d < 0 ? ` og ${M.nf(-d, 1)}° under målet` : ` og ${M.nf(d, 1)}° over målet`; }
-      return tw != null
-        ? `Vannet er <span class="pill num">${M.nf(tw, 1)}°</span>${rel}. ${pumpS ? (pump ? 'Pumpa går nå.' : 'Pumpa står.') : ''}`
-        : `Vannet er <span class="pill num">–</span>. <button class="lnk" data-act="customize" data-section="overrides">Velg entitet</button>`;
+    /* Fiks 33.1 · setningen i Oversikt (fasit Basseng v4 popup linje 135, showSent): ÉN flytende <p class="sent"> med
+     * inline-piller – aldri flex/grid, aldri løse tekstnoder. «Vannet når [mål°] om ca [X t Y min]. Pumpa går nå.» /
+     * «Vannet holder [mål°] · [ingen oppvarming]. …». Mål = climate/water_heater.temperature (eller number), vanntemp =
+     * vanntemperatursensoren, ETA = integrasjonens sensor (rollen eta) eller beregnet som i designet (210 min/°,
+     * boost ×0,7, eco ×1,4). Mangler data → pille «–», setningen skjules aldri stille. Av/på: show_sentence. */
+    _etaMin(e, diff) {
+      const s = this.s(e.eta);
+      if (s && s.state != null && !['unknown', 'unavailable', ''].includes(s.state)) {
+        const dc = s.attributes.device_class, u = String(s.attributes.unit_of_measurement || '').toLowerCase();
+        if (dc === 'timestamp') { const t = new Date(s.state).getTime(); if (!isNaN(t)) return Math.max(0, Math.round((t - Date.now()) / 60000)); }
+        else if (M.isNum(s.state)) { const v = Number(s.state); return Math.max(0, Math.round(/^(h|t|timer|hours?)$/.test(u) ? v * 60 : /^(s|sek|sec|seconds?)$/.test(u) ? v / 60 : /^d/.test(u) ? v * 1440 : v)); }
+      }
+      if (diff == null) return null;
+      const md = String((this.s(e.mode) || {}).state || '').toLowerCase();
+      return Math.round(diff * 210 * (/boost|turbo|maks/.test(md) ? 0.7 : /eco|spar/.test(md) ? 1.4 : 1));
+    }
+    _sentParts(e) {
+      const tw = this.n(e.water), tgt = this._target(e), pumpS = this.s(e.pump);
+      const diff = tw != null && tgt != null ? tgt - tw : null;
+      const hold = diff != null && diff <= 0;
+      let eta = '–';
+      if (!hold) { const m = this._etaMin(e, diff); if (m != null) eta = `${Math.floor(m / 60)} t ${m % 60} min`; }
+      return {
+        sentA: hold ? 'Vannet holder' : 'Vannet når', targetTxt: tgt != null ? `${M.nf(tgt, tgt % 1 ? 1 : 0)}°` : '–',
+        sentB: hold ? '·' : 'om ca', eta: hold ? 'ingen oppvarming' : eta, pumpSent: pumpS ? (M.onState(pumpS) ? 'Pumpa går nå.' : 'Pumpa står.') : '',
+      };
+    }
+    _sent(e) {
+      const c = this.config, on = c.show_sentence != null ? c.show_sentence : c.showSent != null ? c.showSent : c.sent; // showSent/sent = designets navn
+      if (on === false) return '';
+      const p = this._sentParts(e), pill = (t) => `<span class="pill">${esc(t)}</span>`;
+      // én linje uten linjeskift/innrykk inni <p>: ingen tomme tekstnoder, punktum rett etter eta-pillen
+      return `<p class="sent num" data-section="sent" data-key="sent">${esc(p.sentA)} ${pill(p.targetTxt)} ${esc(p.sentB)} ${pill(p.eta)}.${p.pumpSent ? ' ' + esc(p.pumpSent) : ''}</p>`;
     }
     // Hurtigknapper (Lys · Pumpe · Varme · Stille · Stikkontakt + ekstra fra include)
     _quick(e) {
       const cl = this._ctls(e);
       const btn = (key, id, ic, l, bg, title) => {
         const st = this.s(id), on = M.onState(st);
-        return `<button class="tile press" data-key="${esc(key)}" data-act="ctl" data-k="${esc(key)}" data-ent="${esc(id)}" title="${esc(title || l)}" aria-pressed="${on}" style="background:${on ? bg : C.card};color:${on ? '#3a3a3a' : '#fafafa'}">${M.icon(ic, 24)}<span class="tl ell">${esc(l)}</span></button>`;
+        return `<button class="tile press" data-key="${esc(key)}" data-act="ctl" data-k="${esc(key)}" data-ent="${esc(id)}" title="${esc(title || l)}" aria-pressed="${on}" style="background:${on ? bg : K.card};color:${on ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text, #fafafa)'}">${M.icon(ic, 24)}<span class="tl ell">${esc(l)}</span></button>`;
       };
       const L = cl.map((k) => { const [ic, l, bg, t] = CTL[k]; return btn(k, e[k], ic, l, bg, t ? `${l} · ${t}` : l); });
       (e.extra || []).forEach((x) => { const s = this.s(x.entity); L.push(btn('x:' + x.entity, x.entity, x.ikon || (s && s.attributes.icon) || M.domainIcon(x.entity, s), x.navn || M.name(this.hass, x.entity, M.areaName(this.hass, e.area)), C.accent)); });
@@ -567,30 +597,30 @@
       else if (this._pumpedSec != null) pumped = M.nf(this._pumpedSec / 3600, 1);
       const turnT = M.parseNum(this._v('turnovers'), 3.75);
       const today = [
-        ['Pumpet', pumped, 't', 'chevron_right', '#979797', e.pumped || e.pump],
+        ['Pumpet', pumped, 't', 'chevron_right', 'var(--ki-text-mid, #979797)', e.pumped || e.pump],
         ['Omsetninger', val(e.turnover, 2), `av ${M.nf(turnT, 2)}`, 'arrow_forward', C.orange, e.turnover],
         ['Spart', val(e.savings, 0), unit(e.savings, 'kr'), 'expand_more', C.green, e.savings],
       ].map(([l, v, u, ic, col, id], i) => `<div class="tr ${i ? 'bt' : ''}" data-key="${l}" ${id ? `data-act="more" data-id="${esc(id)}"` : ''}><span class="trl">${esc(l)}</span><span class="trv num">${esc(v)}</span><span class="tru">${esc(u)}</span>${M.icon(ic, 18, `color:${col};margin-left:6px;align-self:center`)}</div>`).join('');
       // moduser
       const ms = this.s(e.mode), opts = (ms && ms.attributes.options) || [];
-      const modes = ms ? `<div class="hs noscroll">${opts.map((o) => `<button class="md press" data-key="${esc(o)}" data-act="mode" data-v="${esc(o)}" data-haptic="selection" style="background:${ms.state === o ? C.accent : C.card};color:${ms.state === o ? '#3a3a3a' : '#fafafa'}">${M.icon(modeIcon(o), 24)}<span class="ell" style="max-width:80px">${esc(o)}</span></button>`).join('')}</div>` : M.emptyState('Fant ingen driftsmodus (select) i bassengområdet', 'overrides');
+      const modes = ms ? `<div class="hs noscroll">${opts.map((o) => `<button class="md press" data-key="${esc(o)}" data-act="mode" data-v="${esc(o)}" data-haptic="selection" style="background:${ms.state === o ? C.accent : K.card};color:${ms.state === o ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text, #fafafa)'}">${M.icon(modeIcon(o), 24)}<span class="ell" style="max-width:80px">${esc(o)}</span></button>`).join('')}</div>` : M.emptyState('Fant ingen driftsmodus (select) i bassengområdet', 'overrides');
       // brytere
       const known = { [e.auto]: ['smart_toy', 'Automatikk'], [e.price]: ['price_change', 'Prisstyring'], [e.prio]: ['heat', 'Varmeprioritet'] };
       const flags = e.flags.map((id) => {
         const s = this.s(id), on = M.isOn(s), k = known[id] || [M.domainIcon(id, s), M.name(this.hass, id, M.areaName(this.hass, e.area))];
-        return `<button class="fl press" data-key="${esc(id)}" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" style="background:${on ? C.accent : C.card};color:${on ? '#3a3a3a' : '#fafafa'}"><span class="fli" style="background:${on ? 'rgba(42,23,32,0.12)' : C.inner}">${M.icon(k[0], 22)}</span><span class="flt"><span class="fln ell">${esc(k[1])}</span><span class="fls">${s ? (on ? 'På' : 'Av') : '–'}</span></span></button>`;
+        return `<button class="fl press" data-key="${esc(id)}" data-act="toggle" data-id="${esc(id)}" data-ent="${esc(id)}" style="background:${on ? C.accent : K.card};color:${on ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text, #fafafa)'}"><span class="fli" style="background:${on ? 'rgba(42,23,32,0.12)' : K.inner}">${M.icon(k[0], 22)}</span><span class="flt"><span class="fln ell">${esc(k[1])}</span><span class="fls">${s ? (on ? 'På' : 'Av') : '–'}</span></span></button>`;
       });
       if (this._tl.includes('klor')) {
         const last = this._lastKlor();
-        flags.push(`<button class="fl press" data-key="klor" data-act="gotab" data-t="klor" style="background:${C.card}"><span class="fli" style="background:${C.inner}">${M.icon('pill', 22)}</span><span class="flt"><span class="fln">Klor</span><span class="fls">${last ? esc(M.relTime(new Date(last.t0).toISOString())) : '–'}</span></span></button>`);
+        flags.push(`<button class="fl press" data-key="klor" data-act="gotab" data-t="klor" style="background:${K.card}"><span class="fli" style="background:${K.inner}">${M.icon('pill', 22)}</span><span class="flt"><span class="fln">Klor</span><span class="fls">${last ? esc(M.relTime(new Date(last.t0).toISOString())) : '–'}</span></span></button>`);
       }
       // temperaturgraf siste døgn med maks og min
       const g = this._chart(e, tw, tgt);
       const graph = `<div class="hc" data-key="ovgraf" ${e.water ? `data-ent="${esc(e.water)}"` : ''}>
-          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:#979797">Siste døgn</span><span class="num" style="font-size:22px;color:${g.dcol}">${esc(g.delta)}</span></span><span class="num" style="font-size:11px;color:#979797;text-align:right;line-height:1.5">${esc(g.mx || 'maks –')}<br>${esc(g.mn || 'min –')}</span></div>
+          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">Siste døgn</span><span class="num" style="font-size:22px;color:${g.dcol}">${esc(g.delta)}</span></span><span class="num" style="font-size:11px;color:var(--ki-text-mid, #979797);text-align:right;line-height:1.5">${esc(g.mx || 'maks –')}<br>${esc(g.mn || 'min –')}</span></div>
           ${g.chart}
         </div>`;
-      return `
+      return `${this._sent(e)}
         ${this._quick(e)}
         <div class="g2">${ovCards}</div>
         <div class="dh">${M.icon('home', 20)}<span class="dht">I dag</span><span class="dhd">${esc(date)}</span></div>
@@ -626,13 +656,13 @@
           const day = new Date(); day.setHours(0, 0, 0, 0); day.setDate(day.getDate() + k);
           const a = day.getTime() + ht * 3600000, b = day.getTime() + (hf < ht ? 24 + hf : hf) * 3600000;
           const xa = Math.max(0, X(a)), xb = Math.min(300, X(b));
-          if (xb > xa) rects += `<rect x="${xa.toFixed(1)}" y="0" width="${(xb - xa).toFixed(1)}" height="90" fill="rgba(255,255,255,0.05)"></rect>`;
+          if (xb > xa) rects += `<rect x="${xa.toFixed(1)}" y="0" width="${(xb - xa).toFixed(1)}" height="90" style="fill:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))"></rect>`;
         }
         chart = `<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="chart">${rects}
-          ${tgt != null ? `<line x1="0" x2="300" y1="${Y(tgt).toFixed(1)}" y2="${Y(tgt).toFixed(1)}" stroke="rgba(255,255,255,0.35)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>` : ''}
+          ${tgt != null ? `<line x1="0" x2="300" y1="${Y(tgt).toFixed(1)}" y2="${Y(tgt).toFixed(1)}" style="stroke:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.35*var(--ki-wa-k,1)),var(--ki-wa-max,1)))" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>` : ''}
           <path d="${path} L300,90 L0,90 Z" style="fill:${M.alpha(C.green, 0.18)}"></path>
           <path d="${path}" fill="none" stroke-width="2" vector-effect="non-scaling-stroke" style="stroke:${C.green}"></path></svg>`;
-      } else chart = `<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="chart"><line x1="0" x2="300" y1="45" y2="45" stroke="rgba(255,255,255,0.2)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line></svg>`;
+      } else chart = `<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="chart"><line x1="0" x2="300" y1="45" y2="45" style="stroke:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.2*var(--ki-wa-k,1)),var(--ki-wa-max,1)))" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line></svg>`;
       return { chart, delta, dcol, mx, mn };
     }
     /* ---------------- Varme */
@@ -641,7 +671,7 @@
       const hp = this.n(e.heat_power);
       const cards = [['device_thermostat', 'Mål', tgt != null ? M.nf(tgt, tgt % 1 ? 1 : 0) : '–', '°C', e.target], ['bolt', 'Effekt nå', hp != null ? M.nf(hp, 0) : '–', 'W', e.heat_power]]
         .map(([ic, l, v, u, id]) => `<div class="kc" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="kci">${M.icon(ic, 24)}</span><span class="grow"></span><span class="kcl">${esc(l)}</span><span class="kcv num">${esc(v)}<span class="kcu"> ${esc(u)}</span></span></div>`).join('');
-      const temps = nums(this._v('targets'), '23 24 25 26 27').slice(0, 5).map((t) => `<button class="sq press" data-key="${t}" data-act="target" data-v="${t}" data-haptic="selection" style="${tgt === t ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(t, t % 1 ? 1 : 0)}°</button>`).join('');
+      const temps = nums(this._v('targets'), '23 24 25 26 27').slice(0, 5).map((t) => `<button class="sq press" data-key="${t}" data-act="target" data-v="${t}" data-haptic="selection" style="${tgt === t ? `background:${C.accent};color:var(--ki-on-accent, #3a3a3a)` : ''}">${M.nf(t, t % 1 ? 1 : 0)}°</button>`).join('');
       const cost = this.s(e.cost);
       const pill = (t) => `<span class="pill num">${esc(t)}</span>`;
       let prose = tw != null ? `Vannet er ${pill(M.nf(tw, 1) + '°')}` : 'Vanntemperaturen er ukjent';
@@ -654,14 +684,14 @@
       const outV = outS ? (outS.entity_id.startsWith('weather.') ? outS.attributes.temperature : M.isNum(outS.state) ? Number(outS.state) : null) : null;
       const fmtU = (id, d) => { const s = this.s(id); if (!s || !M.isNum(s.state)) return '–'; const v = Number(s.state), u = s.attributes.unit_of_measurement || ''; return u === 'W' && v >= 1000 && d === 'kw' ? `${M.nf(v / 1000, 1)} kW` : `${M.nf(v, v % 1 && v < 100 ? 1 : 0)} ${u}`.trim(); };
       const stats = [[outV != null ? M.nf(outV, 1) + '°' : '–', 'Ute', e.ute], [fmtU(e.heat_loss, 'kw'), 'Varmetap', e.heat_loss], [fmtU(e.solar), 'Sol inn', e.solar]]
-        .map(([v, l, id]) => `<div class="hsx" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="num" style="font-size:15px">${esc(v)}</span><span style="font-size:11px;color:#979797">${esc(l)}</span></div>`).join('');
-      const sw = (on, col) => `<span class="trk" style="background:${on ? col || '#fafafa' : C.ctrl}"><span class="knb" style="left:${on ? 21 : 3}px;background:${on ? '#282828' : '#c7c7c7'}"></span></span>`;
+        .map(([v, l, id]) => `<div class="hsx" data-key="${l}" ${id ? `data-ent="${esc(id)}"` : ''}><span class="num" style="font-size:15px">${esc(v)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(l)}</span></div>`).join('');
+      const sw = (on, col) => `<span class="trk" style="background:${on ? col || M.SWITCH_ON || C.pink : K.ctrl}"><span class="knb" style="left:${on ? 21 : 3}px;background:var(--ki-knob, #fff)"></span></span>`; // brytere er rosa, knott alltid hvit
       const tg = [['night', 'Nattsenking', (on) => (on ? 'Senker' : 'Holder varmen'), 'Gjenoppvarming koster like mye som den sparer'], ['cover', 'Pooltak', (on) => (on ? 'Lukket' : 'Åpent'), 'Sparer varme når det er lukket'], ['winter', 'Vintermodus', (on) => (on ? 'På' : 'Av'), '']]
         .map(([k, l, vf, sub]) => {
           const id = e[k], s = this.s(id), on = M.onState(s);
-          return `<button class="htg press" data-key="${k}" ${id ? `data-act="ctl" data-k="${k}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="overrides"'} style="${k === 'night' ? 'grid-column:span 2;' : ''}${k === 'winter' ? 'background:linear-gradient(180deg,#232a4a,#303a60);' : ''}">
-            <span style="font-size:12px;color:#afafaf;text-align:left">${esc(l)}</span><span class="grow"></span>
-            <span class="htb"><span class="col" style="text-align:left"><span style="font-size:24px">${s ? esc(vf(on)) : '–'}</span><span style="font-size:10px;color:#979797">${esc(s ? sub : 'Velg entitet')}</span></span>${sw(on)}</span></button>`;
+          return `<button class="htg press" data-key="${k}" ${id ? `data-act="ctl" data-k="${k}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="overrides"'} style="${k === 'night' ? 'grid-column:span 2;' : ''}${k === 'winter' ? 'background:linear-gradient(180deg,#232a4a,#303a60);color:#fafafa" data-ki-island="' : ''}">
+            <span style="font-size:12px;color:var(--ki-text-2, #afafaf);text-align:left">${esc(l)}</span><span class="grow"></span>
+            <span class="htb"><span class="col" style="text-align:left"><span style="font-size:24px">${s ? esc(vf(on)) : '–'}</span><span style="font-size:10px;color:var(--ki-text-mid, #979797)">${esc(s ? sub : 'Velg entitet')}</span></span>${sw(on)}</span></button>`;
         }).join('');
       return `
         <div class="g2">${cards}</div>
@@ -669,7 +699,7 @@
         ${/^(number|input_number)\./.test(e.target || '') ? `<div class="stpc">${M.stepperHTML(this.hass, e.target, { label: 'Måltemperatur', key: 'stp-target' })}</div>` : ''}
         <div class="prose">${prose}</div>
         <div class="hc" ${e.water ? `data-ent="${esc(e.water)}"` : ''}>
-          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:#979797">Endring siste døgn</span><span class="num" style="font-size:22px;color:${dcol}">${esc(delta)}</span></span><span class="num" style="font-size:11px;color:#979797;text-align:right;line-height:1.5">${esc(mx)}<br>${esc(mn)}</span></div>
+          <div class="hch"><span class="col" style="gap:3px"><span style="font-size:13px;font-weight:500">Vanntemperatur</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">Endring siste døgn</span><span class="num" style="font-size:22px;color:${dcol}">${esc(delta)}</span></span><span class="num" style="font-size:11px;color:var(--ki-text-mid, #979797);text-align:right;line-height:1.5">${esc(mx)}<br>${esc(mn)}</span></div>
           ${chart}
           <div class="g3">${stats}</div>
         </div>
@@ -697,14 +727,14 @@
       const qty = this.ui.qty || 1;
       const people = e.people.map((id, i) => {
         const nm = names[i], cnt = monthEv.filter((ev) => (ev.summary || '').toLowerCase().includes(nm.toLowerCase())).reduce((t, ev) => t + this._qtyOf(ev), 0);
-        return `<button class="pp press" data-key="${esc(id)}" data-act="log" data-name="${esc(nm)}" data-haptic="success"><span class="ppa">${M.icon('person', 20)}</span><span class="ppn ell">${esc(nm)}</span><span style="font-size:12px;color:#979797">${cal ? cnt : '–'}</span></button>`;
+        return `<button class="pp press" data-key="${esc(id)}" data-act="log" data-name="${esc(nm)}" data-haptic="success"><span class="ppa">${M.icon('person', 20)}</span><span class="ppn ell">${esc(nm)}</span><span style="font-size:12px;color:var(--ki-text-mid, #979797)">${cal ? cnt : '–'}</span></button>`;
       }).join('');
-      const qtys = [[1, '1 stk', 'pill'], [2, '2 stk', 'pill'], [3, '3 stk', 'pill'], [0, 'Angre siste', 'undo']].map(([q, l, ic]) => `<button class="qt press" data-key="q${q}" data-act="${q ? 'qty' : 'undo'}" data-q="${q}" data-haptic="selection" style="${qty === q ? `background:${C.accent};color:#3a3a3a` : ''}">${M.icon(ic, 16)}${esc(l)}</button>`).join('');
+      const qtys = [[1, '1 stk', 'pill'], [2, '2 stk', 'pill'], [3, '3 stk', 'pill'], [0, 'Angre siste', 'undo']].map(([q, l, ic]) => `<button class="qt press" data-key="q${q}" data-act="${q ? 'qty' : 'undo'}" data-q="${q}" data-haptic="selection" style="${qty === q ? `background:${C.accent};color:var(--ki-on-accent, #3a3a3a)` : ''}">${M.icon(ic, 16)}${esc(l)}</button>`).join('');
       const off = (new Date(y, m, 1).getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
       const logged = new Set(monthEv.map((ev) => new Date(ev.t0).getDate()));
       const days = Array.from({ length: Math.ceil((off + dim) / 7) * 7 }, (_, i) => {
         const d = i - off + 1, inM = d >= 1 && d <= dim, lg = inM && logged.has(d), td = d === now.getDate();
-        return `<span class="cd" style="background:${lg ? C.green : 'transparent'};color:${lg ? '#3a3a3a' : '#afafaf'};${td && inM ? 'box-shadow:inset 0 0 0 1.5px #fafafa;' : ''}font-weight:${lg || td ? 600 : 400}">${inM ? d : ''}</span>`;
+        return `<span class="cd" style="background:${lg ? C.green : 'transparent'};color:${lg ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, #afafaf)'};${td && inM ? 'box-shadow:inset 0 0 0 1.5px var(--ki-text, #fafafa);' : ''}font-weight:${lg || td ? 600 : 400}">${inM ? d : ''}</span>`;
       }).join('');
       const monthName = now.toLocaleDateString('nb-NO', { month: 'long' });
       const left = next ? Math.ceil((next.getTime() - Date.now()) / 86400000) : null;
@@ -712,17 +742,17 @@
         ['notifications_active', 'Påminnelse', `Hver ${M.nf(every, every % 1 ? 1 : 0)}. dag${left != null ? ` · ${left > 0 ? `om ${left} d` : left === 0 ? 'i dag' : `${-left} d på overtid`}` : ''}`, 'styr'],
         ['event_note', 'Klorloggen', cal ? M.name(this.hass, cal) : 'Velg en kalender under Tilpass', 'overrides'],
         ['groups', 'Navn i klorloggen', names.join(', ') || 'Ingen personer', 'entities'],
-      ].map(([ic, l, sub, sec]) => `<button class="kr press" data-key="${l}" data-act="customize" data-section="${sec}"><span class="kri">${M.icon(ic, 22)}</span><span class="col grow" style="gap:1px;text-align:left"><span style="font-size:14px;font-weight:600">${esc(l)}</span><span class="ell" style="font-size:11px;color:#979797">${esc(sub)}</span></span>${M.icon('chevron_right', 22, 'color:#979797')}</button>`).join('');
+      ].map(([ic, l, sub, sec]) => `<button class="kr press" data-key="${l}" data-act="customize" data-section="${sec}"><span class="kri">${M.icon(ic, 22)}</span><span class="col grow" style="gap:1px;text-align:left"><span style="font-size:14px;font-weight:600">${esc(l)}</span><span class="ell" style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(sub)}</span></span>${M.icon('chevron_right', 22, 'color:var(--ki-text-mid, #979797)')}</button>`).join('');
       const nextTxt = next ? `Neste klortablett ${next.toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\.(?=\s)/, '')}` : cal ? 'Ingen klortablett logget ennå' : 'Neste klortablett –';
       const lastTxt = last ? `${M.cap(M.relTime(new Date(last.t0).toISOString()))}${lastWho ? ` · ${lastWho} la i sist` : ''}` : cal ? 'Logg første tablett under' : 'Velg klorkalender for å logge';
       return `
-        <div class="kn"><span class="kni">${M.icon('pill', 22)}</span><span class="col" style="gap:1px"><span style="font-size:14px;font-weight:600">${esc(nextTxt)}</span><span style="font-size:11px;color:#979797">${esc(lastTxt)}</span></span></div>
+        <div class="kn"><span class="kni">${M.icon('pill', 22)}</span><span class="col" style="gap:1px"><span style="font-size:14px;font-weight:600">${esc(nextTxt)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(lastTxt)}</span></span></div>
         <span class="hint">Hvem la i? Trykk på navnet.</span>
         ${people ? `<div class="g2">${people}</div>` : ''}
         <button class="la press" data-act="log" data-name="" data-haptic="success"><span class="lai">${M.icon('pill', 22)}</span>Logg klortablett uten navn</button>
         <div class="qts">${qtys}</div>
         <div class="kal">
-          <div class="row" style="gap:10px">${M.icon('calendar_month', 20)}<span class="grow" style="font-size:15px;font-weight:500">Kalender</span><span style="font-size:12px;color:#979797">${cal ? `${monthEv.reduce((t, ev) => t + this._qtyOf(ev), 0)} stk i ${esc(monthName)}` : '–'}</span></div>
+          <div class="row" style="gap:10px">${M.icon('calendar_month', 20)}<span class="grow" style="font-size:15px;font-weight:500">Kalender</span><span style="font-size:12px;color:var(--ki-text-mid, #979797)">${cal ? `${monthEv.reduce((t, ev) => t + this._qtyOf(ev), 0)} stk i ${esc(monthName)}` : '–'}</span></div>
           <div class="calg">${['ma', 'ti', 'on', 'to', 'fr', 'lø', 'sø'].map((w) => `<span class="wd">${w}</span>`).join('')}${days}</div>
         </div>
         ${rows}`;
@@ -738,9 +768,9 @@
       this._dur = dur;
       const frost = this._v('spr_frost');
       const rows = [['schedule', 'Start hver', 'Mellom 10 og 20', this._v('spr_every')], ['hourglass_top', 'Maks per døgn', 'Spreder stopper når tiden er brukt', this._v('spr_max')], ['timer', 'Varighet', 'Hvor lenge den går hver gang', `${M.nf(dur, 0)} min`], ['ac_unit', 'Frostvakt', 'Starter ikke når det er under 2 °C ute', frost === true || frost === 'true' ? 'På' : 'Av']]
-        .map(([ic, l, sub, v]) => `<button class="kr sr press" data-key="${l}" data-act="customize" data-section="styr"><span class="kri" style="width:44px;height:44px">${M.icon(ic, 20)}</span><span class="col grow" style="gap:1px;text-align:left"><span style="font-size:14px;font-weight:600">${esc(l)}</span><span class="ell" style="font-size:11px;color:#979797">${esc(sub)}</span></span><span style="font-size:13px">${esc(String(v))}</span>${M.icon('expand_more', 20, 'color:#979797')}</button>`).join('');
+        .map(([ic, l, sub, v]) => `<button class="kr sr press" data-key="${l}" data-act="customize" data-section="styr"><span class="kri" style="width:44px;height:44px">${M.icon(ic, 20)}</span><span class="col grow" style="gap:1px;text-align:left"><span style="font-size:14px;font-weight:600">${esc(l)}</span><span class="ell" style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(sub)}</span></span><span style="font-size:13px">${esc(String(v))}</span>${M.icon('expand_more', 20, 'color:var(--ki-text-mid, #979797)')}</button>`).join('');
       return `
-        <div class="spx" ${id ? `data-ent="${esc(id)}"` : ''}>
+        <div class="spx" data-theme="dark" data-ki-island ${id ? `data-ent="${esc(id)}"` : ''}>
           <span class="sun"></span>
           <svg viewBox="0 0 300 50" preserveAspectRatio="none" class="spw"><path d="M0,20 C50,5 100,35 150,20 S250,5 300,20 L300,50 L0,50 Z" fill="#3a93bf" opacity="0.7"></path></svg>
           <span class="pole"></span>
@@ -748,7 +778,7 @@
           <span class="sps"><span style="font-size:26px">${s ? (on ? 'Sprer' : 'Står') : '–'}</span><span style="font-size:11px;color:#c9d6e2">${s ? `Klar for ${M.nf(dur, 0)} min` : 'Velg spreder i tilpass'}</span></span>
         </div>
         <button class="sb press" data-act="sprstart" data-haptic="success"><span class="sbi">${M.icon(on ? 'stop' : 'play_arrow', 22)}</span>${s ? (on ? 'Stopp' : `Start i ${M.nf(dur, 0)} min`) : 'Velg spreder'}</button>
-        <div class="g5">${durs.map((d) => `<button class="sq press" data-key="${d}" data-act="dur" data-v="${d}" data-haptic="selection" style="${d === dur ? `background:${C.accent};color:#3a3a3a` : ''}">${M.nf(d, 0)}</button>`).join('')}</div>
+        <div class="g5">${durs.map((d) => `<button class="sq press" data-key="${d}" data-act="dur" data-v="${d}" data-haptic="selection" style="${d === dur ? `background:${C.accent};color:var(--ki-on-accent, #3a3a3a)` : ''}">${M.nf(d, 0)}</button>`).join('')}</div>
         ${e.spr_duration ? `<div class="stpc">${M.stepperHTML(this.hass, e.spr_duration, { label: 'Varighet', sub: 'Hvor lenge spreder går hver gang', key: 'stp-spr' })}</div>` : ''}
         ${rows}`;
     }
@@ -815,8 +845,8 @@
         const paint = (x) => {
           const n = this._tl.length, pos = Math.max(0.5 / n, Math.min(1 - 0.5 / n, x)), nr = Math.max(0, Math.min(n - 1, Math.floor(x * n)));
           const ind = gt.querySelector('.ind');
-          Object.assign(ind.style, { left: ((pos - 0.5 / n) * 100) + '%', background: 'linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(255,255,255,0.15), inset 0 0 0 0.5px rgba(255,255,255,0.35), 0 8px 20px rgba(0,0,0,0.35)', backdropFilter: 'blur(6px) saturate(200%)', transform: 'scale(1.12, 1.1)', transition: 'transform .25s cubic-bezier(.34,1.8,.64,1), background .2s' });
-          gt.querySelectorAll('.gti').forEach((s, i) => { s.style.color = i === nr ? '#fff' : '#afafaf'; });
+          Object.assign(ind.style, { left: ((pos - 0.5 / n) * 100) + '%', background: 'linear-gradient(180deg, rgb(255 255 255 / .3), rgb(255 255 255 / .1))', boxShadow: 'inset 0 1px 0 rgb(255 255 255 / .6), inset 0 -1px 1px rgb(255 255 255 / .15), inset 0 0 0 0.5px rgb(255 255 255 / .35), 0 8px 20px rgb(0 0 0 / .35)', backdropFilter: 'blur(6px) saturate(200%)', transform: 'scale(1.12, 1.1)', transition: 'transform .25s cubic-bezier(.34,1.8,.64,1), background .2s' });
+          gt.querySelectorAll('.gti').forEach((s, i) => { s.style.color = i === nr ? 'var(--ki-text, #fff)' : 'var(--ki-text-2, #afafaf)'; });
           if (nr !== near) { if (near >= 0) M.haptic('selection'); near = nr; }
         };
         // Dra (≥ 8 px) = glassboblen følger fingeren; vanlig trykk = linse-animasjon (MSH.glassMorph, Fiks 4 · 3)
@@ -847,39 +877,42 @@
     }
     get styles() {
       return (M.STEPPER_CSS || '') + `
-        .stpc{border-radius:24px;background:${C.card}}
+        .stpc{border-radius:24px;background:${K.card}}
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,10px)}
         .ctl{display:grid;gap:8px}
         .tile{height:72px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:0 4px;transition:background .2s,color .2s}
         .tile .tl{font-size:10.5px;font-weight:500;max-width:100%;opacity:.85}
-        .ptop{padding:2px 6px 0}
         .tabrow{display:flex;justify-content:center;align-items:center;gap:6px;min-width:0}
-        .gt{padding:4px;border-radius:24px;${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgba(255,255,255,0.18)') : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+        /* 33.4: fanehøyde (MSH.tabH) – pille H (34), sporet H + 8, tannhjul = sporets høyde */
+        .gt{padding:4px;border-radius:calc(${TV('th', 40)} / 2 + 4px);${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}max-width:calc(100% - 50px);overflow-x:auto;scrollbar-width:none;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
         .gt::-webkit-scrollbar{display:none}
         .gtg{position:relative;display:grid;width:max-content}
         .ind{position:absolute;top:0;bottom:0;border-radius:999px;pointer-events:none;background:${C.accent};transition:left .5s cubic-bezier(.34,1.4,.64,1),transform .45s cubic-bezier(.34,1.8,.64,1),background .35s}
-        .gti{position:relative;z-index:1;height:34px;padding:0 12px;display:grid;place-items:center;font-size:13px;font-weight:500;white-space:nowrap;transition:color .25s}
-        .cfg{width:42px;height:42px;border-radius:21px;flex:none;display:grid;place-items:center;background:${C.card};color:#c7c7c7}
+        .gti{position:relative;z-index:1;height:${TV('th', 34)};padding:0 ${TV('tp', 12)};display:grid;place-items:center;font-size:${TV('tf', 13)};font-weight:500;white-space:nowrap;transition:color .25s}
+        .cfg{width:calc(${TV('th', 34)} + 8px);height:calc(${TV('th', 34)} + 8px);border-radius:calc(${TV('th', 34)} / 2 + 4px);flex:none;display:grid;place-items:center;background:${K.card};color:#c7c7c7}
         .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
         .g5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-        .kc{height:150px;padding:12px;border-radius:28px;background:${C.card};display:flex;flex-direction:column;min-width:0}
-        .kci{width:48px;height:48px;border-radius:24px;background:${C.inner};display:grid;place-items:center}
-        .kcl{font-size:13px;color:#afafaf;padding-left:6px}
+        .kc{height:150px;padding:12px;border-radius:28px;background:${K.card};display:flex;flex-direction:column;min-width:0}
+        .kci{width:48px;height:48px;border-radius:24px;background:${K.inner};display:grid;place-items:center}
+        .kcl{font-size:13px;color:var(--ki-text-2, #afafaf);padding-left:6px}
         .kcv{font-size:30px;font-weight:300;line-height:1.1;padding-left:6px;white-space:nowrap}
         .kcu{font-size:12px}
+        /* Fiks 33.1 · flytende setning: blokk-avsnitt, inline-piller (ingen flex/grid/gap, ingen width:100%) */
+        p.sent{display:block;margin:6px 4px 2px;padding:0;font-size:19px;line-height:1.75;text-wrap:pretty;color:var(--ki-text, #fafafa);font-weight:400}
+        p.sent .pill{display:inline;height:auto;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #141414);border-radius:999px;padding:2px 10px;font-weight:500;white-space:nowrap;vertical-align:baseline;line-height:inherit;-webkit-box-decoration-break:clone;box-decoration-break:clone}
         .prose{font-size:19px;line-height:1.9;padding:0 6px}
-        .pill{display:inline-flex;height:30px;padding:0 12px;border-radius:15px;background:#fafafa;color:#282828;font-weight:600;align-items:center;vertical-align:middle;line-height:1}
+        .pill{display:inline-flex;height:30px;padding:0 12px;border-radius:15px;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828);font-weight:600;align-items:center;vertical-align:middle;line-height:1}
         .lnk{text-decoration:underline;font-size:inherit}
         .dh{display:flex;align-items:center;gap:8px;padding:4px 8px 0}
         .dht{font-size:15px;font-weight:500}
-        .dhd{font-size:12px;color:#979797}
-        .today{display:flex;flex-direction:column;padding:0 16px;border-radius:26px;background:${C.card}}
+        .dhd{font-size:12px;color:var(--ki-text-mid, #979797)}
+        .today{display:flex;flex-direction:column;padding:0 16px;border-radius:26px;background:${K.card}}
         .tr{display:flex;align-items:baseline;gap:6px;padding:16px 0;cursor:pointer}
-        .bt{border-top:1px solid rgba(255,255,255,0.07)}
-        .trl{flex:1;font-size:14px;color:#afafaf}
+        .bt{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.07*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .trl{flex:1;font-size:14px;color:var(--ki-text-2, #afafaf)}
         .trv{font-size:22px;font-weight:300}
-        .tru{font-size:11px;color:#979797}
+        .tru{font-size:11px;color:var(--ki-text-mid, #979797)}
         .hs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
         .hs::-webkit-scrollbar{display:none}
         .md{flex:none;width:90px;height:84px;border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500}
@@ -888,131 +921,119 @@
         .flt{display:flex;flex-direction:column;gap:1px;text-align:left;min-width:0}
         .fln{font-size:14px;font-weight:600}
         .fls{font-size:11px;opacity:.75}
-        .sq{height:70px;border-radius:22px;font-size:15px;font-weight:500;background:${C.card};color:#fafafa;box-shadow:inset 0 6px 0 -4px rgba(255,255,255,0.08)}
-        .hc{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:28px;background:${C.card}}
+        .sq{height:70px;border-radius:22px;font-size:15px;font-weight:500;background:${K.card};color:var(--ki-text, #fafafa);box-shadow:inset 0 6px 0 -4px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+        .hc{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:28px;background:${K.card}}
         .hch{display:flex;justify-content:space-between;align-items:flex-start}
         .chart{width:100%;height:110px;display:block}
-        .hsx{padding:10px 12px;border-radius:14px;background:var(--gray100,#2f2f2f);display:flex;flex-direction:column;gap:2px;min-width:0}
-        .htg{height:140px;padding:14px;border-radius:26px;display:flex;flex-direction:column;background:${C.card};min-width:0}
+        .hsx{padding:10px 12px;border-radius:14px;background:var(--ki-surface-3, #2f2f2f);display:flex;flex-direction:column;gap:2px;min-width:0}
+        .htg{height:140px;padding:14px;border-radius:26px;display:flex;flex-direction:column;background:${K.card};min-width:0}
         .htb{display:flex;align-items:flex-end;justify-content:space-between;width:100%;gap:6px}
         .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;transition:background .2s}
         .knb{position:absolute;top:3px;width:20px;height:20px;border-radius:10px;transition:left .2s}
-        .kn{display:flex;align-items:center;gap:12px;height:62px;padding:0 16px 0 6px;border-radius:31px;background:${C.card}}
-        .kni{width:50px;height:50px;border-radius:25px;background:${M.alpha(C.green, 0.25)};color:${C.green};display:grid;place-items:center;flex:none}
-        .hint{font-size:12px;color:#979797;padding:0 8px}
-        .pp{display:flex;align-items:center;gap:10px;height:60px;padding:0 14px 0 8px;border-radius:30px;background:${C.card};min-width:0}
-        .ppa{width:40px;height:40px;border-radius:20px;background:${C.inner};display:grid;place-items:center;flex:none}
+        .kn{display:flex;align-items:center;gap:12px;height:62px;padding:0 16px 0 6px;border-radius:31px;background:${K.card}}
+        .kni{width:50px;height:50px;border-radius:25px;background:${M.alpha(C.green, 0.25)};color:var(--ki-green-text, ${C.green});display:grid;place-items:center;flex:none}
+        .hint{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 8px}
+        .pp{display:flex;align-items:center;gap:10px;height:60px;padding:0 14px 0 8px;border-radius:30px;background:${K.card};min-width:0}
+        .ppa{width:40px;height:40px;border-radius:20px;background:${K.inner};display:grid;place-items:center;flex:none}
         .ppn{flex:1;font-size:15px;font-weight:500;text-align:left}
-        .la{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:${C.green};color:#3a3a3a;font-size:15px;font-weight:600}
+        .la{display:flex;align-items:center;gap:12px;height:60px;padding:0 16px 0 6px;border-radius:30px;background:${C.green};color:var(--ki-on-accent, #3a3a3a);font-size:15px;font-weight:600}
         .lai{width:48px;height:48px;border-radius:24px;background:rgba(0,0,0,0.1);display:grid;place-items:center}
         .qts{display:flex;gap:6px;flex-wrap:wrap}
-        .qt{height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;white-space:nowrap;flex:none;font-size:13px;font-weight:500;background:${C.card}}
-        .kal{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:26px;background:${C.card}}
-        .calg{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:10px;border-radius:18px;background:var(--gray100,#2f2f2f)}
-        .wd{text-align:center;font-size:10px;color:#7f7f7f}
+        .qt{height:38px;padding:0 14px 0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;white-space:nowrap;flex:none;font-size:13px;font-weight:500;background:${K.card}}
+        .kal{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:26px;background:${K.card}}
+        .calg{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:10px;border-radius:18px;background:var(--ki-surface-3, #2f2f2f)}
+        .wd{text-align:center;font-size:10px;color:var(--ki-text-3, #7f7f7f)}
         .cd{height:38px;border-radius:10px;display:grid;place-items:center;font-size:12px}
-        .kr{display:flex;align-items:center;gap:12px;min-height:62px;padding:0 16px 0 6px;border-radius:31px;background:${C.card};width:100%}
+        .kr{display:flex;align-items:center;gap:12px;min-height:62px;padding:0 16px 0 6px;border-radius:31px;background:${K.card};width:100%}
         .kr.sr{min-height:60px;border-radius:30px}
-        .kri{width:48px;height:48px;border-radius:24px;background:${C.inner};display:grid;place-items:center;flex:none}
-        .spx{position:relative;height:130px;border-radius:28px;overflow:hidden;background:linear-gradient(180deg,#1b2a3c,#23405a 60%,#2f6c8f)}
+        .kri{width:48px;height:48px;border-radius:24px;background:${K.inner};display:grid;place-items:center;flex:none}
+        .spx{position:relative;height:130px;border-radius:28px;overflow:hidden;background:linear-gradient(180deg,#1b2a3c,#23405a 60%,#2f6c8f);color:#fafafa} /* mørk øy */
         .sun{position:absolute;right:30px;top:12px;width:22px;height:22px;border-radius:11px;background:#e6dfc4}
         .spw{position:absolute;left:0;right:0;bottom:0;width:100%;height:60px}
         .pole{position:absolute;left:50%;top:26px;width:6px;height:44px;margin-left:-3px;border-radius:3px;background:#b8c4cc}
         .spl{position:absolute;left:14px;top:12px;font-size:12px;color:#c9d6e2}
         .sps{position:absolute;left:14px;bottom:12px;display:flex;flex-direction:column}
         .sb{display:flex;align-items:center;gap:12px;height:56px;padding:0 16px 0 6px;border-radius:28px;background:${C.blue};color:#12243a;font-size:15px;font-weight:600}
-        .sbi{width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.25);display:grid;place-items:center}
+        .sbi{width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,0.25);display:grid;place-items:center} /* ki-hex-ok: på blå aksentknapp */
       `;
     }
   }
-  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng-popup (ÉTT kort): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
+  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng (ÉTT kort, legges manuelt i en egen popup): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
 
-  /* ------------------------------------------------------------ popup #badebasseng · alias #basseng (fiks 26.14/28.14/30.1) */
-  // Fiks 30.1 · nøyaktig ÉN bassengpopup: strategien lager #badebasseng med ÉTT msh-basseng-card (card_id pop-basseng, som
-  // før – oppsettet beholdes). #basseng (og #pool/#svommebasseng) er bare alias: hashchange/location-changed dit →
-  // history.replaceState til #badebasseng (gamle lenker, navbar-config og varsler virker). 28.14-tvillingen (en kopi av
-  // popupen på #badebasseng ved siden av #basseng) er fjernet. En importert/egen popup med de gamle kortene – på en av
-  // hashene – erstattes av den genererte (MSH.POPUP_ALIAS flytter alias-hashen til #badebasseng, MSH.POPUP_SUPERSEDE lar
-  // den genererte vinne til brukeren velger «Bruk egen»), og fjernes fra ki-store én gang (M.bassengMigrateStore).
-  const PHASH = '#badebasseng', OLD_HASH = ['#basseng', '#pool', '#svommebasseng'], ALL_HASH = [PHASH, ...OLD_HASH];
-  M.HASH_ALIAS = M.HASH_ALIAS || {};
-  OLD_HASH.forEach((h) => { M.HASH_ALIAS[h] = PHASH; });
-  M.POPUP_CARD_ID = M.POPUP_CARD_ID || {};
-  M.POPUP_CARD_ID[PHASH] = 'pop-basseng';
-  M.BASSENG_HASH = PHASH;
-  const KEEP = ['navn', 'name', 'hurtig', 'varmepumpe', 'pumpe', 'lys', 'stillemodus', 'stikkontakt', 'vanntemp', 'ute', 'pooltak', 'forvalg', 'overrides', 'exclude', 'include', 'area'];
+  /* ------------------------------------------------------------ bassengpopupene er slettet (brukerens beslutning) */
+  // Strategien lager ingen bassengpopup lenger – verken #badebasseng eller #basseng – og ingen rom-popup for et område
+  // som heter «Basseng»/«Pool» (MSH.ROOM_BLOCK). Navbaren har ingen innebygd basseng-knapp, og onboarding foreslår den
+  // ikke. msh-basseng-card finnes fortsatt og kan legges manuelt i en egen popup (README → Manuelt); alias-elementene
+  // ki-basseng-card/ki-basseng-hero-card rendrer det for manuelle dashbord. Omdirigeringen #basseng → #badebasseng er
+  // fjernet (det finnes ikke noe mål).
+  //   · MSH.POPUP_DROP.basseng: gamle/importerte bassengpopups i dashbord-config (strategi-YAML custom_popups, ki-store
+  //     custom_popups) droppes av strategien (MSH.mergePopups → report.dropped) i stedet for å tas over.
+  //   · M.bassengMigrateStore: engangsmigrering av ki-store (migrations.basseng_fjernet), se under.
+  const ALL_HASH = ['#badebasseng', '#basseng', '#pool', '#svommebasseng'];
+  M.BASSENG_HASHES = ALL_HASH;
   const cfgOf = (e) => { try { return M.customPopupConfig ? M.customPopupConfig(e).cfg : e; } catch (x) { return null; } };
-  const popLists = (config) => [(M.store && (M.store.get('custom_popups') || [])) || [], (config && config.custom_popups) || []];
   const hashN = (cfg) => { const s = String((cfg && cfg.hash) || '').trim(); return s ? s.replace(/^#?/, '#') : ''; };
+  const isPoolHash = (v) => { const s = String(v == null ? '' : v).trim(); return !!s && ALL_HASH.includes(s.replace(/^#?/, '#')); };
   const hasMainC = (cfg) => cardsDeep(cfg && cfg.cards).some((c) => tagOfC(c) === 'msh-basseng-card');
   // Ser ut som en bassengpopup: gamle/nye bassengkort, eller navn/ikon/innhold om basseng (f.eks. decluttering-maler)
   const POOLISH_RX = /basseng|baseng|pool|sv[øo]mme/i;
   const poolish = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengLegacyTest(cfg) || hasMainC(cfg) || POOLISH_RX.test(`${cfg.name || ''} ${cfg.icon || ''}`) || (() => { try { return POOLISH_RX.test(JSON.stringify(cfg.cards || [])); } catch (e) { return false; } })());
-  // Gammel bassengpopup: på en alias-hash (#basseng …) og basseng-aktig, eller på #badebasseng med de gamle kortene
-  const isLegacyPop = (cfg) => { const h = hashN(cfg); return OLD_HASH.includes(h) ? poolish(cfg) : h === PHASH && M.bassengLegacyTest(cfg); };
-  M.bassengIsOldPopup = isLegacyPop;
-  const extraOf = (cfg) => {
-    const card = M.bassengLegacyCard(cfg) || cardsDeep(cfg && cfg.cards).find((c) => tagOfC(c) === 'msh-basseng-card') || {}, out = {};
-    KEEP.forEach((k) => { if (card[k] != null) out[k] = card[k]; });
-    return out;
-  };
-  M.bassengExtra = function (config) {
-    for (const L of popLists(config)) for (const e of (Array.isArray(L) ? L : [])) {
-      const cfg = cfgOf(e);
-      if (!isLegacyPop(cfg)) continue;
-      const out = extraOf(cfg);
-      if (Object.keys(out).length) return out;
-    }
-    return undefined;
-  };
-  M.bassengLegacy = (config) => popLists(config).some((L) => (Array.isArray(L) ? L : []).some((e) => isLegacyPop(cfgOf(e))));
-  M.POPUP_SUPERSEDE = M.POPUP_SUPERSEDE || {};
-  M.POPUP_SUPERSEDE[PHASH] = { name: 'Basseng', test: (cfg) => M.bassengLegacyTest(cfg) || (!hasMainC(cfg) && poolish(cfg)) };
-  M.POPUP_EXTRA = M.POPUP_EXTRA || {};
-  M.POPUP_EXTRA[PHASH] = (config) => M.bassengExtra(config);
-  M.POPUP_LEGACY_CARD = M.POPUP_LEGACY_CARD || {};
-  M.POPUP_LEGACY_CARD[PHASH] = (popup, tag) => (tag === 'msh-basseng-card' && M.bassengLegacyTest(popup) ? M.bassengLegacyCard(popup) : null); // manuelt dashbord (M.buildPopups)
-  M.POPUP_ALIAS = M.POPUP_ALIAS || {};
-  OLD_HASH.forEach((h) => { M.POPUP_ALIAS[h] = { to: PHASH, tag: 'msh-basseng-card', test: (cfg) => poolish(cfg) }; });
-  /* Fiks 28.14 · gamle kort i en importert/overstyrt popup (strategi-YAML custom_popups, ki-store custom_popups/
-   * popup_overrides): ki-basseng-card, ki-basseng-hero-card, msh-basseng-hero-card og gap-card → ÉTT msh-basseng-card med
-   * innstillingene fra de gamle kortene (M.bassengLegacyCard). Andre egne kort i popupen røres ikke. null = ingenting å gjøre.
-   * Strategien kaller den for popupen #badebasseng (MSH.POPUP_MIGRATE). */
-  const isGapC = (c) => tagOfC(c) === 'gap-card';
-  const isPoolC = (c) => LEG_TAGS.includes(tagOfC(c)) || isGapC(c) || tagOfC(c) === 'msh-basseng-card';
-  const onlyPool = (c) => isPoolC(c) || (Array.isArray(c && c.cards) && c.cards.length > 0 && c.cards.every(onlyPool));
-  M.bassengMigratePopup = function (cfg, want) {
-    if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.cards)) return null;
-    const deep = cardsDeep(cfg.cards), hasMain = deep.some((c) => tagOfC(c) === 'msh-basseng-card');
-    const legacy = M.bassengLegacyTest(cfg), gaps = deep.some(isGapC), mains = deep.filter((c) => tagOfC(c) === 'msh-basseng-card').length;
-    if (!legacy && !(hasMain && gaps) && mains < 2) return null;
-    const w = want && typeof want === 'object' ? want : { type: 'custom:msh-basseng-card', card_id: 'pop-basseng' };
-    const own = deep.find((c) => tagOfC(c) === 'msh-basseng-card');
-    const main = { ...w, ...(M.bassengLegacyCard(cfg) || {}), type: 'custom:msh-basseng-card', card_id: (own && own.card_id) || w.card_id || 'pop-basseng' };
-    const at = cfg.cards.findIndex(onlyPool), rest = cfg.cards.filter((c) => !onlyPool(c));
-    rest.splice(Math.max(0, Math.min(at < 0 ? 0 : at, rest.length)), 0, main);
-    return { ...cfg, cards: rest };
-  };
-  M.POPUP_MIGRATE = M.POPUP_MIGRATE || {};
-  M.POPUP_MIGRATE[PHASH] = (cfg, gen) => M.bassengMigratePopup(cfg, gen && Array.isArray(gen.cards) ? gen.cards[0] : null);
+  // Gammel/importert bassengpopup (droppes av strategien): de gamle kortene (ki-basseng-*, msh-basseng-hero-card), eller
+  // basseng-aktig på en av bassenghashene uten msh-basseng-card. En egen popup med msh-basseng-card (manuelt) beholdes.
+  M.bassengIsOldPopup = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengLegacyTest(cfg) || (ALL_HASH.includes(hashN(cfg)) && !hasMainC(cfg) && poolish(cfg)));
+  // Alle bassengpopups (engangsmigreringen av ki-store): også de med msh-basseng-card, på hvilken som helst hash
+  M.bassengIsPoolPopup = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengIsOldPopup(cfg) || hasMainC(cfg) || (ALL_HASH.includes(hashN(cfg)) && poolish(cfg)));
+  M.POPUP_DROP = M.POPUP_DROP || {};
+  M.POPUP_DROP.basseng = { name: 'Basseng (slettet)', test: (cfg) => M.bassengIsOldPopup(cfg) };
+  // Ingen rom-popup for et område som heter basseng/pool (id eller navn)
+  const POOL_AREA_RX = /basseng|baseng|(^|[\s_-])pool([\s_-]|$)|sv[øo]mmebasseng/i;
+  M.ROOM_BLOCK = M.ROOM_BLOCK || [];
+  M.ROOM_BLOCK.push((hass, id) => { const a = (hass && hass.areas && hass.areas[id]) || {}; return POOL_AREA_RX.test(String(id || '')) || POOL_AREA_RX.test(String(a.name || '')); });
 
-  /* Fiks 30.1 · engangsmigrering av ki-store (frontend/set_user_data, per HA-bruker). Kjøres av strategien ved generering;
-   * merket i ki-store `migrations.basseng30` (kjører aldri igjen) og logget i konsollen:
-   *   1. custom_popups: gamle bassengpopups (#basseng/#pool/#svommebasseng, eller #badebasseng med gamle kort) fjernes;
-   *      innstillingene (navn, hurtig, roller …) flyttes til kortets config (cards.pop-basseng, bare nøkler som mangler).
-   *   2. popup_overrides: #basseng/basseng → #badebasseng/badebasseng; gamle kort (ki-basseng-*, gap-card) → ÉTT kort.
-   *   3. popups (Tilpass Hjem → Popups: navn/ikon/farge/skjult/header_gap): basseng → badebasseng.
-   *   4. Lenker i alle kortconfiger (navbar, Hjem-kort, prosa-piller, varsler): '#basseng' → '#badebasseng'.
-   *   5. Admin: Lovelace-ressursene ki-basseng-card.js/ki-basseng-hero-card.js fjernes (lovelace/resources/delete).
+  /* Engangsmigrering av ki-store (frontend/set_user_data, per HA-bruker). Kjøres av strategien ved generering; merket i
+   * ki-store `migrations.basseng_fjernet` (kjører aldri igjen) og logget i konsollen:
+   *   1. custom_popups: ALLE bassengpopups fjernes (gamle kort, msh-basseng-card, eller basseng-aktig på #basseng/
+   *      #badebasseng/#pool/#svommebasseng). Andre popups (også en helt annen popup på #basseng) beholdes.
+   *   2. popup_overrides.basseng/badebasseng/pool/svommebasseng (med og uten #) fjernes.
+   *   3. popups.<samme nøkler> (Tilpass Hjem → Popups: navn/ikon/farge/skjult) fjernes.
+   *   4. Navbar: knappen «basseng» (bar/more/hidden/buttons.basseng) og egne knapper som peker på en bassenghash fjernes.
+   *   5. Lenker til bassenghashene i alle kortconfiger (Hjem-kort, prosa-piller, popup_hash, tap_action …) fjernes;
+   *      selve kortet/pillen beholdes.
+   *   6. Admin: Lovelace-ressursene ki-basseng-card.js/ki-basseng-hero-card.js slettes (lovelace/resources/delete).
    * Service worker-/nettleser-cachen for de gamle filene tømmes ved hver oppstart (M.bassengClearCache). */
-  const MIG_KEY = 'migrations.basseng30';
+  const MIG_KEY = 'migrations.basseng_fjernet';
   const OLD_FILE_RX = /(^|\/)ki-basseng(-hero)?-card\.js(\?|$)/;
-  const swapHash = (o, d = 0) => {
-    if (d > 14 || o == null) return { v: o, n: 0 };
-    if (typeof o === 'string') { const t = o.trim(); return OLD_HASH.includes(t) ? { v: PHASH, n: 1 } : { v: o, n: 0 }; }
-    if (Array.isArray(o)) { let n = 0; const v = o.map((x) => { const r = swapHash(x, d + 1); n += r.n; return r.v; }); return n ? { v, n } : { v: o, n: 0 }; }
-    if (typeof o === 'object') { let n = 0; const v = {}; Object.keys(o).forEach((k) => { const r = swapHash(o[k], d + 1); n += r.n; v[k] = r.v; }); return n ? { v, n } : { v: o, n: 0 }; }
-    return { v: o, n: 0 };
+  const LINK_KEYS = ['navigation_path', 'popup_hash', 'hash', 'link', 'path', 'card_hash', 'icon_hash', 'alarm_hash', 'trash_hash'];
+  // en lenke til en bassenghash: '#basseng' (alle nøkler), 'basseng' uten # (bare lenkenøkler), eller { action: navigate, navigation_path }
+  const isPoolLink = (v, key) => {
+    if (typeof v === 'string') { const t = v.trim(); return t[0] === '#' ? isPoolHash(t) : !!key && LINK_KEYS.includes(key) && isPoolHash(t); }
+    return !!v && typeof v === 'object' && !Array.isArray(v) && v.action === 'navigate' && typeof v.navigation_path === 'string' && isPoolHash(v.navigation_path);
+  };
+  const stripLinks = (o, d = 0, key = null) => {
+    if (d > 14 || o == null || typeof o !== 'object') return { v: o, n: 0 };
+    if (Array.isArray(o)) {
+      let n = 0;
+      const v = [];
+      o.forEach((x) => { if (isPoolLink(x, null)) { n++; return; } const r = stripLinks(x, d + 1); n += r.n; v.push(r.v); });
+      return n ? { v, n } : { v: o, n: 0 };
+    }
+    let n = 0;
+    const v = {};
+    Object.keys(o).forEach((k) => { if (isPoolLink(o[k], k)) { n++; return; } const r = stripLinks(o[k], d + 1, k); n += r.n; v[k] = r.v; });
+    return n ? { v, n } : { v: o, n: 0 };
+  };
+  // knappens mål (navbar): tap_action/tap (HA-format eller streng) eller den gamle hash-nøkkelen
+  const btnPool = (b) => { if (!b || typeof b !== 'object') return false; const t = b.tap_action || b.tap; if (t && typeof t === 'object') return isPoolLink(t); if (typeof t === 'string' && t.trim()) return isPoolHash(t); return b.hash != null && b.hash !== '' && isPoolHash(b.hash); };
+  const navStrip = (c, log, id) => {
+    if (!c || typeof c !== 'object' || Array.isArray(c) || !(c.buttons || Array.isArray(c.bar) || Array.isArray(c.more))) return c;
+    const out = { ...c }, gone = new Set(['basseng']);
+    if (out.buttons && typeof out.buttons === 'object') {
+      const B = { ...out.buttons };
+      Object.keys(B).forEach((k) => { if (k === 'basseng' || (B[k] && B[k].custom && btnPool(B[k]))) { delete B[k]; gone.add(k); log.push(`navbar-knappen «${k}» fjernet (${id})`); } });
+      out.buttons = B;
+    }
+    ['bar', 'more', 'hidden'].forEach((k) => { if (Array.isArray(out[k]) && out[k].some((x) => gone.has(x))) { out[k] = out[k].filter((x) => !gone.has(x)); log.push(`navbar ${k}: basseng fjernet (${id})`); } });
+    return out;
   };
   M.bassengMigrateStore = function (hass) {
     if (M._poolStoreMig || !M.store || !M.store.loaded || typeof M.store.get !== 'function') return false;
@@ -1021,61 +1042,34 @@
     const log = [];
     // 1 · custom_popups
     const CP = M.store.get('custom_popups');
-    let extra = {};
     if (Array.isArray(CP)) {
-      const keep = CP.filter((e) => { const cfg = cfgOf(e); if (!isLegacyPop(cfg)) return true; extra = { ...extraOf(cfg), ...extra }; log.push('custom_popups ' + hashN(cfg) + ' fjernet'); return false; });
+      const keep = CP.filter((e) => { const cfg = cfgOf(e); if (!M.bassengIsPoolPopup(cfg)) return true; log.push('custom_popups ' + (hashN(cfg) || '?') + ' fjernet'); return false; });
       if (keep.length !== CP.length) M.store.set('custom_popups', keep);
     }
-    if (Object.keys(extra).length) {
-      const id = 'pop-basseng', cur = M.store.get('cards.' + id) || {}, add = {};
-      Object.keys(extra).forEach((k) => { if (cur[k] == null) add[k] = extra[k]; });
-      if (Object.keys(add).length) { M.store.set('cards.' + id, { ...cur, ...add }); log.push('innstillinger (' + Object.keys(add).join(', ') + ') → cards.' + id); }
-    }
-    // 2 · popup_overrides
-    const O = M.store.get('popup_overrides');
-    if (O && typeof O === 'object') {
+    // 2 · popup_overrides · 3 · popups.<key>
+    [['popup_overrides', 'popup_overrides'], ['popups', 'popups']].forEach(([key, lbl]) => {
+      const O = M.store.get(key);
+      if (!O || typeof O !== 'object') return;
       const n = { ...O };
       let ch = false;
-      Object.keys(O).forEach((k) => {
-        const h = '#' + String(k).replace(/^#/, ''), ov = O[k];
-        if (!ALL_HASH.includes(h)) return;
-        let v = ov;
-        if (ov && typeof ov === 'object') {
-          const fx = ov.replace && ov.config ? M.bassengMigratePopup(ov.config) : M.bassengMigratePopup(ov);
-          if (fx) { v = ov.replace && ov.config ? { ...ov, config: { ...fx, hash: PHASH } } : fx; ch = true; log.push('popup_overrides ' + k + ': gamle kort → ÉTT msh-basseng-card'); }
-          else if (ov.replace && ov.config && ov.config.hash && OLD_HASH.includes(hashN(ov.config))) { v = { ...ov, config: { ...ov.config, hash: PHASH } }; ch = true; }
-        }
-        if (h !== PHASH) {
-          const nk = String(k)[0] === '#' ? PHASH : PHASH.slice(1);
-          delete n[k];
-          if (!(nk in n) && !(PHASH in n) && !(PHASH.slice(1) in n)) { n[nk] = v; log.push('popup_overrides ' + k + ' → ' + nk); } else log.push('popup_overrides ' + k + ' fjernet (' + nk + ' finnes)');
-          ch = true;
-        } else n[k] = v;
-      });
-      if (ch) M.store.set('popup_overrides', n);
-    }
-    // 3 · popups.<key>
-    const P = M.store.get('popups');
-    if (P && typeof P === 'object') {
-      const n = { ...P };
-      let ch = false;
-      OLD_HASH.forEach((h) => [h, h.slice(1)].forEach((k) => {
-        if (!(k in n)) return;
-        const tk = PHASH.slice(1), v = { ...(n[k] || {}) };
-        if (v.prefer === 'custom' && !(M.store.get('custom_popups') || []).some((e) => hashN(cfgOf(e)) === PHASH)) delete v.prefer;
-        if (!n[tk] && Object.keys(v).length) n[tk] = v;
-        delete n[k]; ch = true; log.push('popups.' + k + ' → popups.' + tk);
-      }));
-      if (ch) M.store.set('popups', n);
-    }
-    // 4 · lenker i kortconfigene
+      Object.keys(O).forEach((k) => { if (isPoolHash(k)) { delete n[k]; ch = true; log.push(lbl + '.' + k + ' fjernet'); } });
+      if (ch) M.store.set(key, n);
+    });
+    // 4 · navbar-knapper · 5 · lenker i kortconfigene
     const CD = M.store.get('cards');
-    if (CD && typeof CD === 'object') { const r = swapHash(CD); if (r.n) { M.store.set('cards', r.v); log.push(r.n + ' lenke(r) #basseng → #badebasseng i kortconfigene'); } }
+    if (CD && typeof CD === 'object') {
+      let ch = false;
+      const n = {};
+      Object.keys(CD).forEach((id) => { const v = navStrip(CD[id], log, id); if (v !== CD[id]) ch = true; n[id] = v; });
+      const r = stripLinks(n);
+      if (r.n) log.push(r.n + ' lenke(r) til #basseng/#badebasseng fjernet i kortconfigene');
+      if (ch || r.n) M.store.set('cards', r.v);
+    }
     M.store.set(MIG_KEY, { at: new Date().toISOString(), log }, { immediate: true });
-    console.info('[ki-msh] Basseng-migrering (fiks 30.1) kjørt én gang:', log.length ? log.join(' · ') : 'ingenting å endre');
-    // 5 · gamle Lovelace-ressurser (bare admin)
+    console.info('[ki-msh] Basseng-popupene er slettet – migrering kjørt én gang:', log.length ? log.join(' · ') : 'ingenting å endre');
+    // 6 · gamle Lovelace-ressurser (bare admin)
     if (hass && hass.user && hass.user.is_admin && hass.callWS) {
-      hass.callWS({ type: 'lovelace/resources' }).then((list) => Promise.all((Array.isArray(list) ? list : []).filter((r) => r && OLD_FILE_RX.test(String(r.url || '').split('#')[0])).map((r) => hass.callWS({ type: 'lovelace/resources/delete', resource_id: r.id }).then(() => console.info('[ki-msh] Basseng: Lovelace-ressursen', r.url, 'er fjernet (gammelt kort)')))))
+      hass.callWS({ type: 'lovelace/resources' }).then((list) => Promise.all((Array.isArray(list) ? list : []).filter((r) => r && OLD_FILE_RX.test(String(r.url || '').split('#')[0])).map((r) => hass.callWS({ type: 'lovelace/resources/delete', resource_id: r.id }).then(() => console.info('[ki-msh] Basseng: Lovelace-ressursen', r.url, 'er slettet (gammelt kort)')))))
         .catch((e) => console.warn('[ki-msh] Basseng: kunne ikke rydde Lovelace-ressursene (YAML-modus?)', e && (e.message || e.code)));
     }
     return true;
@@ -1110,7 +1104,7 @@
     static getStubConfig() { return { card_id: 'pop-basseng' }; }
     setConfig(c) {
       this._cfg = { ...(c || {}), type: 'custom:msh-basseng-card' };
-      if (!warned.has(tag)) { warned.add(tag); console.warn(`[ki-msh] «custom:${tag}» er utgått – rendres som msh-basseng-card${hero ? ' (ingenting hvis popupen allerede har et bassengkort)' : ''}. Bytt til «type: custom:msh-basseng-card» i popupen ${PHASH}.`); }
+      if (!warned.has(tag)) { warned.add(tag); console.warn(`[ki-msh] «custom:${tag}» er utgått – rendres som msh-basseng-card${hero ? ' (ingenting hvis popupen allerede har et bassengkort)' : ''}. Bytt til «type: custom:msh-basseng-card» i popupen.`); }
       if (this._inner) this._inner.setConfig(this._cfg);
       else if (this.isConnected) this._mount();
     }
@@ -1154,28 +1148,5 @@
     window.__mshPoolHash = true;
     setTimeout(() => M.bassengDefineAliases(), 1500);
     setTimeout(() => M.bassengClearCache(), 3000);
-    // #basseng (alias) → #badebasseng, med mindre en helt annen (ikke-basseng) popup bruker den gamle hashen
-    const ownPopupAt = (hash) => {
-      const R = M.popupReport;
-      if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((x) => x.hash === hash && !x.hidden);
-      let found = false;
-      const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.card_type === 'pop-up' && hashN(c) === hash && !poolish(c)) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
-      w(document, 0);
-      return found;
-    };
-    M.bassengRedirect = function () {
-      const h = location.hash;
-      if (!OLD_HASH.includes(h) || ownPopupAt(h)) return false;
-      try {
-        const old = location.href;
-        history.replaceState(history.state, '', location.pathname + location.search + PHASH);
-        window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: old, newURL: location.href }));
-        window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
-        return true;
-      } catch (x) { return false; }
-    };
-    // capture: før Bubble Card leser hashen
-    ['hashchange', 'location-changed', 'popstate'].forEach((ev) => window.addEventListener(ev, () => M.bassengRedirect(), true));
-    setTimeout(() => M.bassengRedirect(), 0);
   }
 })();

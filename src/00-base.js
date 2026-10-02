@@ -38,8 +38,8 @@
 
   /* ------------------------------------------------------------ farger */
   const THEME = [['red', '#f28073', 'Rød'], ['orange', '#f2b573', 'Oransje'], ['yellow', '#f2d26f', 'Gul'], ['lime', '#b8e674', 'Lime'], ['green', '#66d19e', 'Grønn'], ['blue', '#73b9f2', 'Blå'], ['light-blue', '#c8ddfa', 'Lyseblå'], ['purple', '#ad99e6', 'Lilla'], ['pink', '#f285c9', 'Rosa'], ['brown', '#8c794d', 'Brun'],
-    ['gray000', '#232323', 'Grå 000'], ['gray100', '#2f2f2f', 'Grå 100'], ['gray200', '#3a3a3a', 'Grå 200'], ['gray300', '#404040', 'Grå 300'], ['gray400', '#545454', 'Grå 400'], ['gray500', '#696969', 'Grå 500'], ['gray600', '#7f7f7f', 'Grå 600'], ['gray700', '#979797', 'Grå 700'], ['gray800', '#afafaf', 'Grå 800'], ['gray900', '#c7c7c7', 'Grå 900'], ['gray1000', '#e1e1e1', 'Grå 1000'], ['white', '#fafafa', 'Hvit']];
-  const HAC = [['primary', '#03a9f4', 'Primær'], ['accent', '#ff9800', 'Aksent'], ['red', '#f44336'], ['pink', '#e91e63'], ['purple', '#926bc7'], ['deep-purple', '#6e41ab'], ['indigo', '#3f51b5'], ['blue', '#2196f3'], ['light-blue', '#03a9f4'], ['cyan', '#00bcd4'], ['teal', '#009688'], ['green', '#4caf50'], ['light-green', '#8bc34a'], ['lime', '#cddc39'], ['yellow', '#ffeb3b'], ['amber', '#ffc107'], ['orange', '#ff9800'], ['deep-orange', '#ff5722'], ['brown', '#795548'], ['light-grey', '#bdbdbd'], ['grey', '#9e9e9e'], ['dark-grey', '#606060'], ['blue-grey', '#607d8b'], ['black', '#000000'], ['white', '#ffffff']];
+    ['gray000', '#232323', 'Grå 000'], /* ki-hex-ok: temapalett (fargevelgere) */ ['gray100', '#2f2f2f', 'Grå 100'], ['gray200', '#3a3a3a', 'Grå 200'], ['gray300', '#404040', 'Grå 300'], ['gray400', '#545454', 'Grå 400'], ['gray500', '#696969', 'Grå 500'], ['gray600', '#7f7f7f', 'Grå 600'], ['gray700', '#979797', 'Grå 700'], ['gray800', '#afafaf', 'Grå 800'], ['gray900', '#c7c7c7', 'Grå 900'], ['gray1000', '#e1e1e1', 'Grå 1000'], ['white', '#fafafa', 'Hvit']];
+  const HAC = [['primary', '#03a9f4', 'Primær'], ['accent', '#ff9800', 'Aksent'], ['red', '#f44336'], ['pink', '#e91e63'], ['purple', '#926bc7'], ['deep-purple', '#6e41ab'], ['indigo', '#3f51b5'], ['blue', '#2196f3'], ['light-blue', '#03a9f4'], ['cyan', '#00bcd4'], ['teal', '#009688'], ['green', '#4caf50'], ['light-green', '#8bc34a'], ['lime', '#cddc39'], ['yellow', '#ffeb3b'], ['amber', '#ffc107'], ['orange', '#ff9800'], ['deep-orange', '#ff5722'], ['brown', '#795548'], ['light-grey', '#bdbdbd'], ['grey', '#9e9e9e'], ['dark-grey', '#606060'], ['blue-grey', '#607d8b'], ['black', '#000000'], ['white', '#ffffff']]; // ki-hex-ok: HA-palett
   MSH.THEME_COLORS = THEME;
   MSH.HA_COLORS = HAC;
   // C.red → 'var(--red, #f28073)' osv. Bruk alltid disse i stedet for rå hex.
@@ -47,16 +47,21 @@
   THEME.forEach(([k, hex]) => { C[k.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = `var(--${k}, ${hex})`; });
   C.pink = 'var(--pink, #f285c9)';
   C.accent = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
-  C.dash = 'var(--gray000, #232323)';
-  C.popup = '#282828';
-  C.card = 'var(--gray200, #3a3a3a)';
-  C.inner = 'var(--gray300, #404040)';
-  C.ctrl = 'var(--gray400, #545454)';
-  C.edge = 'inset 0 0 0 1px rgba(255,255,255,0.05)';
+  // Fiks 34: nivåene følger temaet (tokens fra 00-a-theme.js; mørk = fallback = samme som før)
+  C.dash = 'var(--ki-bg, var(--gray000, #232323))';
+  C.popup = 'var(--ki-popup, #282828)';
+  C.card = 'var(--ki-surface, var(--gray200, #3a3a3a))';
+  C.inner = 'var(--ki-surface-2, var(--gray300, #404040))';
+  C.ctrl = 'var(--ki-ctrl, var(--gray400, #545454))';
+  C.text = 'var(--ki-text, #fafafa)';
+  C.text2 = 'var(--ki-text-2, #afafaf)';
+  C.text3 = 'var(--ki-text-3, #7f7f7f)';
+  C.onAccent = 'var(--ki-on-accent, #3a3a3a)';
+  C.edge = 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))';
   MSH.C = C;
   // Fiks 26 (brukerens valg): «Ferdig» i ALLE Tilpass-ark = rosa pille øverst til høyre i headeren (tittel 22/600 til
   // venstre), og brytere er rosa overalt. Én kilde for målene/fargen.
-  MSH.DONE_PILL = `height:40px;padding:0 18px;border-radius:20px;border:0;background:${C.accent};color:#2f2f2f;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:pointer;`;
+  MSH.DONE_PILL = `height:40px;padding:0 18px;border-radius:20px;border:0;background:${C.accent};color:var(--ki-on-accent, #2f2f2f);font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;cursor:pointer;`;
   MSH.SWITCH_ON = C.pink;
   // Løs opp 'var(--x, #hex)' til faktisk farge (for canvas/SVG-beregning).
   MSH.resolveColor = function (v) {
@@ -660,6 +665,7 @@
       Object.assign(r.style, { position: 'fixed', inset: '0', zIndex: '9000', pointerEvents: 'none', display: 'block' });
       r.attachShadow({ mode: 'open' }).innerHTML = '<style>:host{all:initial}.slot>*{pointer-events:auto}</style><div class="slot"></div>';
       document.body.appendChild(r);
+      if (MSH.theme) MSH.theme.tag(r); // Fiks 34: data-ki-theme på overlay-roten (ark/toast)
     }
     return r.shadowRoot.querySelector('.slot');
   };
@@ -697,15 +703,15 @@
   const SH_BLUR = 'blur(22px) saturate(190%) brightness(1.1)';
   const SH = {
     solid: {
-      scrim: 'background:rgba(0,0,0,0.5);backdrop-filter:none;-webkit-backdrop-filter:none;',
-      sheet: 'background:var(--gray050,#282828);backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:28px 28px 0 0;box-shadow:inset 0 1px 0 rgba(255,255,255,0.06),0 -12px 40px rgba(0,0,0,0.5);color:#fafafa;',
-      vars: '--ki-sheet-bg:var(--gray050,#282828);--ki-sheet-blur:none;--ki-sheet-grp:var(--gray200,#3a3a3a);--ki-sheet-grp-sh:none;--ki-sheet-in:var(--gray300,#404040);--ki-sheet-seg:var(--gray050,#282828);--ki-sheet-line:rgba(255,255,255,0.06);--ki-sheet-grab:var(--gray400,#545454);',
+      scrim: 'background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));backdrop-filter:none;-webkit-backdrop-filter:none;',
+      sheet: 'background:var(--ki-popup, var(--gray050,#282828));backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:28px 28px 0 0;box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 -12px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));color:var(--ki-text, #fafafa);',
+      vars: '--ki-sheet-bg:var(--ki-popup, var(--gray050,#282828));--ki-sheet-blur:none;--ki-sheet-grp:var(--ki-surface, var(--gray200,#3a3a3a));--ki-sheet-grp-sh:none;--ki-sheet-in:var(--ki-surface-2, var(--gray300,#404040));--ki-sheet-seg:var(--ki-popup, var(--gray050,#282828));--ki-sheet-line:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sheet-grab:var(--ki-ctrl, var(--gray400,#545454));',
     },
     glass: {
       // Fiks 20.8: ingen backdrop-filter på bakteppet – blur over hele skjermen bak et ark som scroller hakker på mobil
-      scrim: 'background:rgba(0,0,0,0.62);backdrop-filter:none;-webkit-backdrop-filter:none;',
-      sheet: `background:rgba(34,34,37,0.72);backdrop-filter:${SH_BLUR};-webkit-backdrop-filter:${SH_BLUR};border-radius:32px 32px 0 0;box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25),0 -12px 40px rgba(0,0,0,0.5);color:#fafafa;`,
-      vars: `--ki-sheet-bg:rgba(34,34,37,0.72);--ki-sheet-blur:${SH_BLUR};--ki-sheet-grp:rgba(255,255,255,0.06);--ki-sheet-grp-sh:inset 0 0 0 0.5px rgba(255,255,255,0.08);--ki-sheet-in:rgba(0,0,0,0.25);--ki-sheet-seg:rgba(0,0,0,0.25);--ki-sheet-line:rgba(255,255,255,0.1);--ki-sheet-grab:rgba(255,255,255,0.3);`,
+      scrim: 'background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.62*var(--ki-ka-k,1))));backdrop-filter:none;-webkit-backdrop-filter:none;',
+      sheet: `background:var(--ki-glass, rgba(34,34,37,0.72));backdrop-filter:${SH_BLUR};-webkit-backdrop-filter:${SH_BLUR};border-radius:32px 32px 0 0;box-shadow:inset 0 0 0 0.5px rgb(255 255 255/0.18),inset 0 1px 0 rgb(255 255 255/0.25),0 -12px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));color:var(--ki-text, #fafafa);`,
+      vars: `--ki-sheet-bg:var(--ki-glass, rgba(34,34,37,0.72));--ki-sheet-blur:${SH_BLUR};--ki-sheet-grp:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sheet-grp-sh:inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sheet-in:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))));--ki-sheet-seg:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))));--ki-sheet-line:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sheet-grab:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.3*var(--ki-wa-k,1)),var(--ki-wa-max,1)));`,
     },
   };
   const shOf = (glass) => SH[(glass == null ? MSH.glassOn() : glass) ? 'glass' : 'solid'];
@@ -720,26 +726,26 @@
   // Overlegget (lys gradient) legges som ekstra bakgrunnslag, så flaten trenger ingen egne pseudo-elementer.
   // Uten backdrop-filter-støtte: menu/sheet → #2f2f2f, row → #3a3a3a (se MSH.glassFallback).
   const GL_BLUR = 'blur(22px) saturate(190%) brightness(1.1)';
-  const GL_SHEEN = 'linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02) 45%,rgba(255,255,255,0.06))';
-  const GL_EDGE = 'inset 0 0 0 0.5px rgba(255,255,255,0.18),inset 0 1px 0 rgba(255,255,255,0.25)';
+  const GL_SHEEN = 'linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 45%,rgb(255 255 255/0.06))';
+  const GL_EDGE = 'inset 0 0 0 0.5px rgb(255 255 255/0.18),inset 0 1px 0 rgb(255 255 255/0.25)';
   MSH.glassSurface = function (level) {
     switch (level) {
-      case 'menu': return `background:${GL_SHEEN},rgba(40,40,44,0.38);backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 18px 40px rgba(0,0,0,0.45);color:#fafafa;`;
+      case 'menu': return `background:${GL_SHEEN},var(--ki-glass, rgba(40,40,44,0.38));backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))));color:var(--ki-text, #fafafa);`;
       case 'sheet': return MSH.sheetStyle(true).replace(/border-radius:[^;]*;/, ''); // = glassarket i MSH.sheetStyle
-      case 'row': return 'background:rgba(255,255,255,0.06);box-shadow:inset 0 0 0 0.5px rgba(255,255,255,0.08);';
-      case 'segment': return 'background:rgba(0,0,0,0.25);';
+      case 'row': return 'background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));box-shadow:inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));';
+      case 'segment': return 'background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))));';
       default: return '';
     }
   };
   // @supports-reserve (legg etter regelen som bruker glassSurface): sel = selektor, level som over.
-  MSH.glassFallback = (sel, level) => `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${sel}{background:${level === 'row' ? '#3a3a3a' : '#2f2f2f'};backdrop-filter:none;-webkit-backdrop-filter:none}}`;
+  MSH.glassFallback = (sel, level) => `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${sel}{background:${level === 'row' ? 'var(--ki-surface, #3a3a3a)' : 'var(--ki-surface-3, #2f2f2f)'};backdrop-filter:none;-webkit-backdrop-filter:none}}`;
   // Aktiv glassboble (segmentvelgere, dra-linsen)
-  MSH.GLASS_BUBBLE = 'background:linear-gradient(180deg,rgba(255,255,255,0.32),rgba(255,255,255,0.1));box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),inset 0 -1px 1px rgba(255,255,255,0.18),inset 0 0 0 0.5px rgba(255,255,255,0.4);color:#fafafa;';
+  MSH.GLASS_BUBBLE = 'background:linear-gradient(180deg,rgb(255 255 255/0.32),rgb(255 255 255/0.1));box-shadow:inset 0 1px 0 rgb(255 255 255/0.65),inset 0 -1px 1px rgb(255 255 255/0.18),inset 0 0 0 0.5px rgb(255 255 255/0.4);color:var(--ki-text, #fafafa);';
   // CSS-variabler som arver inn i alle shadow roots under et glassark (felles editor, egne editorer):
   // --ki-g-row/--ki-g-ring (rader/grupper), --ki-g-seg (segmentspor), --ki-g-in (felt), --ki-g-on/--ki-g-on-c/--ki-g-on-sh
   // (aktivt segment), --ki-g-t2 (sekundærtekst). Uten glass er de udefinert → editorene faller tilbake til standardfargene.
-  MSH.GLASS_VARS = '--ki-glass:1;--ki-g-row:rgba(255,255,255,0.06);--ki-g-ring:inset 0 0 0 0.5px rgba(255,255,255,0.08);--ki-g-seg:rgba(0,0,0,0.25);--ki-g-in:rgba(0,0,0,0.25);'
-    + '--ki-g-on:linear-gradient(180deg,rgba(255,255,255,0.32),rgba(255,255,255,0.1));--ki-g-on-c:#fafafa;--ki-g-on-sh:inset 0 1px 0 rgba(255,255,255,0.65),inset 0 -1px 1px rgba(255,255,255,0.18),inset 0 0 0 0.5px rgba(255,255,255,0.4);--ki-g-t2:rgba(255,255,255,0.62);';
+  MSH.GLASS_VARS = '--ki-glass-on:1;--ki-g-row:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-g-ring:inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-g-seg:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))));--ki-g-in:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))));'
+    + '--ki-g-on:linear-gradient(180deg,rgb(255 255 255/0.32),rgb(255 255 255/0.1));--ki-g-on-c:var(--ki-text, #fafafa);--ki-g-on-sh:inset 0 1px 0 rgb(255 255 255/0.65),inset 0 -1px 1px rgb(255 255 255/0.18),inset 0 0 0 0.5px rgb(255 255 255/0.4);--ki-g-t2:var(--ki-text-2, rgba(255,255,255,0.62));';
   // Liquid glass ved TRYKK (Fiks 4 · 3, fasit glass-drag.js · tapMorph). Én felles hjelper for alle fanerader og
   // segmentvelgere:
   //   MSH.glassTap(row, { items, active, enabled, host, axis })   – kobler raden på (idempotent, kall gjerne etter hver render)
@@ -754,7 +760,7 @@
   // 300 ms, pillene skjult under morfen). Ingen animasjon: allerede aktiv fane, rett etter glass-dra/fane-dra
   // (MSH.glassDragEnd()), MSH.animOff() (Liquid Glass-animasjon av i «Tilpass Hjem» → Faner, prefers-reduced-motion).
   // Ingen haptic her – kortets egen haptic('selection') ved fanebytte er den eneste.
-  const LENS_CSS = { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4), 0 10px 24px rgba(0,0,0,0.35)', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0' };
+  const LENS_CSS = { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgb(255 255 255/0.32), rgb(255 255 255/0.1))', boxShadow: 'inset 0 1px 0 rgb(255 255 255/0.65), inset 0 -1px 1px rgb(255 255 255/0.18), inset 0 0 0 0.5px rgb(255 255 255/0.4), 0 10px 24px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0' };
   MSH.GLASS_LENS = LENS_CSS;
   let gdEndT = 0;
   MSH.glassDragEnd = () => { gdEndT = Date.now(); }; // kalles av glass-dra og fane-dra ved slipp
@@ -840,7 +846,7 @@
     if (!/^(transparent|rgba\(\d+,\s*\d+,\s*\d+,\s*0\))$/.test(cs.backgroundColor)) out.push(cs.backgroundColor);
     return out.join(', ');
   };
-  const GD_GRAD = 'linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.1))';
+  const GD_GRAD = 'linear-gradient(180deg, rgb(255 255 255/0.32), rgb(255 255 255/0.1))';
   const LENSES = new Map();
   const unhide = (el) => {
     if (!el.hasAttribute('data-gd-hide')) return;
@@ -873,7 +879,7 @@
     l.className = 'gd-lens';
     l.setAttribute('aria-hidden', 'true');
     l.__mshKeep = true;
-    Object.assign(l.style, LENS_CSS, { zIndex: '-1', opacity: '1', transition: 'width .12s, height .12s', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65), inset 0 -1px 1px rgba(255,255,255,0.18), inset 0 0 0 0.5px rgba(255,255,255,0.4)' });
+    Object.assign(l.style, LENS_CSS, { zIndex: '-1', opacity: '1', transition: 'width .12s, height .12s', boxShadow: 'inset 0 1px 0 rgb(255 255 255/0.65), inset 0 -1px 1px rgb(255 255 255/0.18), inset 0 0 0 0.5px rgb(255 255 255/0.4)' });
     if (fill) l.style.background = `${GD_GRAD}, ${fill}`;
     if (from) { const br = getComputedStyle(from).borderRadius; if (br && br !== '0px') l.style.borderRadius = br; }
     c.appendChild(l);
@@ -1255,21 +1261,21 @@
     }
     clearTimeout(t.__hide); clearTimeout(t.__rm); t.__out = false;
     // innhold (ikon + tekst) – byttes på stedet
-    const ic = o.icon === false ? '' : o.icon ? MSH.icon(o.icon, 18) : type === 'ok' ? MSH.icon('mdi:check', 18) : type === 'error' ? MSH.icon('mdi:alert-circle', 18, 'color:var(--red,#f28073)') : type === 'busy' ? '<span class="msh-toast-spin" aria-hidden="true"></span>' : '';
+    const ic = o.icon === false ? '' : o.icon ? MSH.icon(o.icon, 18) : type === 'ok' ? MSH.icon('mdi:check', 18) : type === 'error' ? MSH.icon('mdi:alert-circle', 18, 'color:var(--ki-red-text, var(--red,#f28073))') : type === 'busy' ? '<span class="msh-toast-spin" aria-hidden="true"></span>' : '';
     t.innerHTML = `${ic ? `<span class="msh-toast-ic" style="display:inline-flex;flex:none;width:18px;height:18px;align-items:center;justify-content:center;--mdc-icon-size:18px">${ic}</span>` : ''}<span class="msh-toast-tx" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0"></span>`;
     t.querySelector('.msh-toast-tx').textContent = text == null ? '' : String(text);
     t.dataset.type = type || '';
     const sp = t.querySelector('.msh-toast-spin');
     if (sp) {
-      Object.assign(sp.style, { display: 'block', width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(35,35,35,0.22)', borderTopColor: 'var(--gray000,#232323)', boxSizing: 'border-box' });
+      Object.assign(sp.style, { display: 'block', width: '14px', height: '14px', borderRadius: '50%', border: '2px solid color-mix(in srgb, var(--ki-pill-fg, #232323) 22%, transparent)', borderTopColor: 'var(--ki-pill-fg, var(--gray000,#232323))', boxSizing: 'border-box' });
       if (sp.animate) sp.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 800, iterations: Infinity });
     }
     const R = MSH.dashRect(), rx = MSH.railOn && MSH.railPad ? MSH.railPad() : 0;
     Object.assign(t.style, {
       position: 'fixed', bottom: 'auto', zIndex: '60', pointerEvents: 'none', boxSizing: 'border-box',
       display: 'flex', alignItems: 'center', gap: '6px', height: '40px', padding: ic ? '0 16px 0 12px' : '0 16px', borderRadius: '20px', maxWidth: `${Math.max(120, R.width - rx - 32)}px`,
-      whiteSpace: 'nowrap', background: 'var(--gray1000, #e1e1e1)', color: 'var(--gray000, #232323)', font: `500 13px ${MSH.FONT}`, letterSpacing: '0',
-      boxShadow: '0 10px 30px rgba(0,0,0,0.4)', transformOrigin: '50% 0', willChange: 'transform, opacity',
+      whiteSpace: 'nowrap', background: 'var(--ki-pill-bg, var(--gray1000, #e1e1e1))', color: 'var(--ki-pill-fg, var(--gray000, #232323))', font: `500 13px ${MSH.FONT}`, letterSpacing: '0',
+      boxShadow: '0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.4*var(--ki-ka-k,1))))', transformOrigin: '50% 0', willChange: 'transform, opacity',
     });
     // plassering: øverst i dashbordflaten, eller 12 px under toppkanten til åpent ark/popup (bredden måles først)
     const A = MSH.toastAnchor(t.offsetWidth);
@@ -1804,7 +1810,8 @@
 
   /* ------------------------------------------------------------ grunnstil */
   MSH.BASE_CSS = `
-    :host{display:block;width:100%;box-sizing:border-box;font-family:${MSH.FONT};color:var(--white,#fafafa);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;--ha-ripple-color:transparent;--ha-ripple-pressed-opacity:0;--ha-ripple-hover-opacity:0;--mdc-ripple-color:transparent}
+    ${MSH.theme ? MSH.theme.CSS : ''}
+    :host{display:block;width:100%;box-sizing:border-box;font-family:${MSH.FONT};color:var(--ki-text, var(--white,#fafafa));-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;--ha-ripple-color:transparent;--ha-ripple-pressed-opacity:0;--ha-ripple-hover-opacity:0;--mdc-ripple-color:transparent}
     *,*::before,*::after{box-sizing:border-box}
     ha-card{background:none;box-shadow:none;border:none;border-radius:0;padding:0;overflow:visible;color:inherit;font-family:inherit}
     /* Fiks 19.14: trykk-feedback er bare skalering – ingen grå tap-highlight, ripple eller :active-bakgrunn på kort/fliser */
@@ -1812,7 +1819,7 @@
     a,[role=button],[data-act],[data-ent],[tabindex],.press{-webkit-tap-highlight-color:transparent}
     button,input,select,textarea{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
     input,textarea{cursor:text;outline:none}
-    input::placeholder{color:var(--gray500,#696969)}
+    input::placeholder{color:var(--ki-text-lo, var(--gray500,#696969))}
     .num{font-variant-numeric:tabular-nums}
     .press{transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
     .press:active{transform:scale(.96)}
@@ -1820,16 +1827,16 @@
     .col{display:flex;flex-direction:column}
     .grow{flex:1;min-width:0}
     .ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .card{border-radius:24px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
-    .muted{color:var(--gray700,#979797)}
-    .dim{color:var(--gray600,#7f7f7f)}
+    .card{border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
+    .muted{color:var(--ki-text-mid, var(--gray700,#979797))}
+    .dim{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
     .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
-    .empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 16px;border-radius:24px;background:var(--gray200,#3a3a3a);color:var(--gray700,#979797);font-size:13px;text-align:center}
-    .pick{height:36px;padding:0 14px;border-radius:18px;background:var(--gray300,#404040);color:var(--white,#fafafa);font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+    .empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 16px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-mid, var(--gray700,#979797));font-size:13px;text-align:center}
+    .pick{height:36px;padding:0 14px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa));font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
     .dots.msh-dots{display:flex;gap:8px;height:14px;align-items:center;justify-content:center;outline:none;border-radius:16px}
-    .msh-dots:focus-visible{box-shadow:0 0 0 2px var(--gray600,#7f7f7f)}
-    .msh-dot{flex:none;position:relative;width:var(--dot-w,10px);height:var(--dot-h,var(--dot-w,10px));border-radius:var(--dot-r,6px);background:var(--dot-bg,var(--gray400,#545454));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s,width .2s,height .2s}
-    .msh-dot.on{width:var(--dot-on-w,12px);height:var(--dot-on-h,var(--dot-on-w,12px));background:var(--dot-on-bg,var(--gray600,#7f7f7f))}
+    .msh-dots:focus-visible{box-shadow:0 0 0 2px var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .msh-dot{flex:none;position:relative;width:var(--dot-w,10px);height:var(--dot-h,var(--dot-w,10px));border-radius:var(--dot-r,6px);background:var(--dot-bg,var(--ki-text-3, var(--gray400,#545454)));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .2s,width .2s,height .2s}
+    .msh-dot.on{width:var(--dot-on-w,12px);height:var(--dot-on-h,var(--dot-on-w,12px));background:var(--dot-on-bg,var(--ki-text, var(--gray600,#7f7f7f)))}
     .msh-dot::before{content:'';position:absolute;inset:-11px -4px} /* 18.3: treffflate utenfor layouten, naboene møtes i gap-midten */
   `;
 
@@ -1892,6 +1899,7 @@
       const old = this._hass;
       this._hass = h;
       MSH.lastHass = h;
+      if (MSH.theme) MSH.theme.update(h); // Fiks 34: lys/mørk fra hass.themes.darkMode
       if (!old || this._changed(old, h)) this._schedule();
       if (!old) { this._checkOpen(); if (MSH.store && !MSH.store.loaded) MSH.store.load(h); }
       if (this._heroEl) this._heroEl.hass = h;
@@ -1940,6 +1948,7 @@
     _checkOpen() {
       if (!this._hass || !this.isConnected) return;
       const open = MSH.isPopupOpen(this);
+      if (open && MSH.theme && !(this._themePop && this._themePop.isConnected)) this._themePop = MSH.theme.adopt(this); // Fiks 34: popup-roten får data-ki-theme
       if (open && !this._open) { this._open = true; this._safeCall('onOpen'); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
       else if (!open && this._open) { this._open = false; this._safeCall('onClose'); }
     }
@@ -1982,7 +1991,7 @@
       const gap = this._config.gap != null ? Number(this._config.gap) : null;
       const heroTag = MSH.HEROES[this.localName];
       const slot = heroTag ? '<div class="msh-hero-slot" data-nomorph></div>' : '';
-      const html = `<style>${MSH.BASE_CSS}.msh-hero-slot{display:block;margin-bottom:var(--msh-gap, 8px)}.msh-hero-slot:empty{display:none}.msh-fail{color:var(--red,#f28073);text-align:left;align-items:flex-start}${css}</style><ha-card>${slot}${body}</ha-card>`;
+      const html = `<style>${MSH.BASE_CSS}.msh-hero-slot{display:block;margin-bottom:var(--msh-gap, 8px)}.msh-hero-slot:empty{display:none}.msh-fail{color:var(--ki-red-text, var(--red,#f28073));text-align:left;align-items:flex-start}${css}</style><ha-card>${slot}${body}</ha-card>`;
       try {
         this.shadowRoot.querySelectorAll('ha-card > .msh-fail[data-post]').forEach((x) => x.remove()); // feilkort fra forrige runde
         if (!this._firstRender) { this.shadowRoot.innerHTML = html; this._firstRender = true; if (MSH.bindSteppers) MSH.bindSteppers(this.shadowRoot, this); } else MSH.morph(this.shadowRoot, html);
@@ -2192,8 +2201,8 @@
     const r = ed.shadowRoot || ed;
     r.querySelectorAll && r.querySelectorAll('[data-a="save"],[data-a="done"]').forEach((b) => { b.disabled = !!busy; b.toggleAttribute('aria-busy', !!busy); b.style.opacity = busy ? '0.6' : ''; });
   };
-  const BANNER_CSS = 'display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px 8px 8px 16px;border-radius:22px;background:rgba(242,181,115,0.16);color:var(--orange,#f2b573);font-size:13px;font-weight:500;line-height:1.3;';
-  const BANNER_BTN = 'flex:none;height:32px;padding:0 14px;border-radius:16px;border:0;background:var(--orange,#f2b573);color:#232323;font:inherit;font-weight:600;cursor:pointer;';
+  const BANNER_CSS = 'display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:8px 8px 8px 16px;border-radius:22px;background:rgb(242 181 115 / calc(0.16 * var(--ki-tone-k, 1)));color:var(--ki-orange-text, var(--orange,#f2b573));font-size:13px;font-weight:500;line-height:1.3;';
+  const BANNER_BTN = 'flex:none;height:32px;padding:0 14px;border-radius:16px;border:0;background:var(--orange,#f2b573);color:var(--ki-on-accent, #232323);font:inherit;font-weight:600;cursor:pointer;';
   // Banner «Endret et annet sted – Last inn» øverst i et ark (host = arkets innhold; before = element det legges foran)
   MSH.draftBanner = function (host, onReload, before) {
     if (!host) return null;

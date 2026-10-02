@@ -112,7 +112,7 @@
       const shown = items.filter((x) => filter === 'all' || (filter === 'open' ? !x.done : filter === 'done' ? x.done : x.prio === 'h' && !x.done))
         .sort((p, q) => (p.done - q.done) || (c.priority !== false ? ORD[p.prio] - ORD[q.prio] : 0) || p.i - q.i);
       const prio = ui.prio || 'm';
-      const tag = (p) => `font-size:11px;font-weight:600;padding:3px 8px;border-radius:8px;background:${M.alpha(PR[p][1], 0.18)};color:${PR[p][1]};white-space:nowrap`;
+      const tag = (p) => `font-size:11px;font-weight:600;padding:3px 8px;border-radius:8px;background:${M.alpha(PR[p][1], 0.18)};color:${M.theme.accentText(PR[p][1])};white-space:nowrap`;
       const headline = !loaded ? '–' : open ? `${open} gjenstår` : 'Alt er gjort';
       const subline = !loaded ? (this.isOpen ? 'Henter oppgaver …' : '–') : `${items.length} oppgaver · ${done} fullført`;
       const pct = loaded && items.length ? (done / items.length) * 100 : 0;
@@ -127,8 +127,8 @@
       const rows = shown.map((x, i) => {
         if (E && E.uid === x.uid) return this._redRad(x, i, E, canDesc, feat, tag);
         const meta = [x.done ? 'Fullført' : '', c.show_who !== false ? x.who : '', c.show_who !== false ? dueTxt(x.due) : ''].filter(Boolean).join(' · ');
-        return `<div class="it ${x.done ? 'done' : ''}" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
-          <button class="box" data-act="check" data-uid="${esc(x.uid)}" data-haptic="success" title="${x.done ? 'Marker som ikke fullført' : 'Fullfør'}">${M.icon('check', 18, 'color:#282828')}</button>
+        return `<div class="it ${x.done ? 'done' : ''}" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))' : 'none'}">
+          <button class="box" data-act="check" data-uid="${esc(x.uid)}" data-haptic="success" title="${x.done ? 'Marker som ikke fullført' : 'Fullfør'}">${M.icon('check', 18, 'color:var(--ki-on-accent, #282828)')}</button>
           <div class="tx">
             <span class="t" ${canEdit && x.uid.indexOf('__new') !== 0 ? `data-act="edit" data-uid="${esc(x.uid)}" data-haptic="light" title="Trykk for å redigere"` : ''}>${esc(x.summary)}</span>
             ${c.priority !== false || meta ? `<div class="mt">${c.priority !== false ? `<button class="pt" ${canDesc ? `data-act="cycle" data-uid="${esc(x.uid)}" data-haptic="selection" title="Bytt prioritet"` : 'disabled'} style="${tag(x.prio)}">${PR[x.prio][0]}</button>` : ''}${meta ? `<span class="who">${esc(meta)}</span>` : ''}</div>` : ''}
@@ -145,7 +145,7 @@
         </section>
         <div class="tabs noscroll" style="${cols}">${tabs}</div>
         ${feat & F_CREATE || !st ? `<form class="add" data-act="add" data-haptic="off">
-          ${M.icon('add', 20, 'color:var(--gray500,#696969)')}
+          ${M.icon('add', 20, 'color:var(--ki-text-lo, var(--gray500,#696969))')}
           <input data-input="draft" placeholder="Ny oppgave" enterkeyhint="done" autocomplete="off">
           ${canDesc ? `<button type="button" class="dp press" data-act="prio" data-haptic="selection" style="${tag(prio)};height:32px;padding:0 12px;border-radius:16px;font-size:12px">${PR[prio][0]}</button>` : ''}
         </form>` : ''}
@@ -161,7 +161,7 @@
     // Rad i redigeringsmodus: tekstfelt med rosa kant + prioritet · Kopier · Slett · Avbryt · Lagre (26.19)
     _redRad(x, i, E, canDesc, feat, tag) {
       const pr = E.prio || x.prio;
-      return `<div class="it red" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgba(255,255,255,0.05)' : 'none'}">
+      return `<div class="it red" data-key="${esc(x.uid)}" style="border-top:${i ? '1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))' : 'none'}">
         <div class="tx">
           <textarea class="ed" data-input="edtext" data-key="ed-${esc(x.uid)}" rows="1" enterkeyhint="done" autocapitalize="sentences" aria-label="Rediger oppgave">${esc(E.text)}</textarea>
           <div class="ea">
@@ -288,44 +288,44 @@
         .wrap{display:flex;flex-direction:column;gap:var(--msh-gap,20px)}
         .head{display:flex;flex-direction:column;gap:6px;padding:0 4px}
         .hl{font-size:24px;font-weight:500;letter-spacing:-0.015em}
-        .sl{font-size:14px;color:var(--gray600,#7f7f7f)}
-        .prog{height:6px;border-radius:3px;background:var(--gray200,#3a3a3a);overflow:hidden;margin-top:8px}
+        .sl{font-size:14px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+        .prog{height:6px;border-radius:3px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden;margin-top:8px}
         .prog>div{height:100%;border-radius:3px;background:${C.green};transition:width .4s}
-        .tabs{display:grid;gap:2px;padding:4px;border-radius:20px;background:var(--gray200,#3a3a3a)}
-        .tab{height:40px;min-width:0;padding:0 10px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500;background:transparent;color:var(--gray700,#979797);transition:background .25s,color .25s}
-        .tab.on{background:${C.accent};color:var(--gray200,#3a3a3a)}
-        .cnt{min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:grid;place-items:center;font-size:11px;font-weight:600;background:var(--gray300,#404040);flex:none}
+        .tabs{display:grid;gap:2px;padding:4px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .tab{height:40px;min-width:0;padding:0 10px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500;background:transparent;color:var(--ki-text-mid, var(--gray700,#979797));transition:background .25s,color .25s}
+        .tab.on{background:${C.accent};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+        .cnt{min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:grid;place-items:center;font-size:11px;font-weight:600;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
         .tab.on .cnt{background:rgba(42,23,32,0.14)}
-        .add{display:flex;align-items:center;gap:10px;height:52px;padding:0 8px 0 16px;border-radius:26px;background:var(--gray200,#3a3a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)}
+        .add{display:flex;align-items:center;gap:10px;height:52px;padding:0 8px 0 16px;border-radius:26px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .add input{flex:1;min-width:0;height:100%;font-size:14px}
         .dp{flex:none}
         .flt{display:flex;gap:6px;flex-wrap:wrap}
-        .f{height:32px;padding:0 13px;border-radius:16px;font-size:12px;font-weight:500;background:var(--gray200,#3a3a3a);color:var(--gray800,#afafaf);transition:background .2s,color .2s}
-        .f.on{background:var(--white,#fafafa);color:#282828}
+        .f{height:32px;padding:0 13px;border-radius:16px;font-size:12px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));transition:background .2s,color .2s}
+        .f.on{background:var(--ki-pill-bg, var(--white,#fafafa));color:var(--ki-pill-fg, #282828)}
         .list{display:flex;flex-direction:column}
         .it{display:flex;align-items:flex-start;gap:12px;padding:12px 4px;transition:opacity .2s}
         .it.done{opacity:.55}
-        .box{width:26px;height:26px;border-radius:9px;flex:none;margin-top:1px;display:grid;place-items:center;background:transparent;box-shadow:inset 0 0 0 1.5px var(--gray400,#545454);transition:background .2s}
+        .box{width:26px;height:26px;border-radius:9px;flex:none;margin-top:1px;display:grid;place-items:center;background:transparent;box-shadow:inset 0 0 0 1.5px var(--ki-text-3, var(--gray400,#545454));transition:background .2s}
         .box ha-icon{opacity:0;transition:opacity .2s}
         .it.done .box{background:${C.green};box-shadow:none}
         .it.done .box ha-icon{opacity:1}
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
         .t{font-size:14px;line-height:1.4;text-wrap:pretty;overflow-wrap:anywhere;white-space:pre-wrap;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default;cursor:text}
-        .ed{width:100%;box-sizing:border-box;min-height:44px;resize:none;overflow:hidden;font:inherit;font-size:14px;line-height:1.4;color:#fafafa;background:var(--gray300,#404040);border:0;outline:none;border-radius:14px;padding:10px 12px;box-shadow:inset 0 0 0 1.5px ${C.pink};user-select:text;-webkit-user-select:text;touch-action:auto}
+        .ed{width:100%;box-sizing:border-box;min-height:44px;resize:none;overflow:hidden;font:inherit;font-size:14px;line-height:1.4;color:var(--ki-text, #fafafa);background:var(--ki-surface-2, var(--gray300,#404040));border:0;outline:none;border-radius:14px;padding:10px 12px;box-shadow:inset 0 0 0 1.5px ${C.pink};user-select:text;-webkit-user-select:text;touch-action:auto}
         .ea{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
         .ea .sp{flex:1}
-        .eb{height:30px;padding:0 10px;border-radius:15px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;background:var(--gray300,#404040);color:var(--gray900,#c7c7c7);--mdc-icon-size:16px}
-        .eb.del{color:${C.red}}
-        .eb.lagre{background:${C.pink};color:#282828}
-        .eb.ok,.rm.ok,.cpa.ok{color:${C.green}}
+        .eb{height:30px;padding:0 10px;border-radius:15px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray900,#c7c7c7));--mdc-icon-size:16px}
+        .eb.del{color:${M.theme.accentText(C.red)}}
+        .eb.lagre{background:${C.pink};color:var(--ki-on-accent, #282828)}
+        .eb.ok,.rm.ok,.cpa.ok{color:${M.theme.accentText(C.green)}}
         .cpa{margin-left:auto;display:inline-flex;align-items:center;gap:5px;--mdc-icon-size:16px}
         .cpa[disabled]{opacity:.4}
         .it.done .t{text-decoration:line-through}
         .mt{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
         .pt[disabled]{cursor:default}
-        .who{font-size:11px;color:var(--gray500,#696969)}
-        .rm{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--gray500,#696969);flex:none}
-        .none{padding:30px 0;text-align:center;font-size:14px;color:var(--gray500,#696969)}
+        .who{font-size:11px;color:var(--ki-text-lo, var(--gray500,#696969))}
+        .rm{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text-lo, var(--gray500,#696969));flex:none}
+        .none{padding:30px 0;text-align:center;font-size:14px;color:var(--ki-text-lo, var(--gray500,#696969))}
       `;
     }
   }

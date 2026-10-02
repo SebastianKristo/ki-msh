@@ -132,7 +132,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const cfgY = {
       custom_popups: [Y('#verksted', 'Verksted', [{ type: 'custom:msh-soppel-card' }, { type: 'custom:msh-strompris-card' }], { width_desktop: '600px', bg_color: '#123456', ukjent_valg: { liste: [1, 'to'] } }), Y('#vaer', 'Vær YAML')],
-      popup_overrides: { '#media': { replace: true, config: Y('#media', 'Media egen', [{ type: 'custom:msh-soppel-card' }], { card_layout: 'normal' }) }, '#basseng': false, '#klima': { name: 'Klimaet', width_desktop: '620px', color: 'var(--red)' } },
+      popup_overrides: { '#media': { replace: true, config: Y('#media', 'Media egen', [{ type: 'custom:msh-soppel-card' }], { card_layout: 'normal' }) }, '#energi': false, '#klima': { name: 'Klimaet', width_desktop: '620px', color: 'var(--red)' } },
     };
     const egen = Y('#egen', 'Egen', [{ type: 'custom:msh-soppel-card' }, { type: 'custom:msh-soppel-card', popup_hash: '#x' }], { styles: '.bubble-name {color: red}\n', close_by_clicking_outside: false });
     M.store.set('custom_popups', [egen, Y('#verksted', 'Kolliderer')]);
@@ -147,8 +147,9 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       yamlUendret: by('#verksted').length === 1 && same(by('#verksted')[0], M.applyHeaderGap(cfgY.custom_popups[0], -10)), // 26.18: + header-gap-blokken
       yamlSlaarAuto: by('#vaer').length === 1 && by('#vaer')[0].name === 'Vær YAML',
       kollisjoner: !!(col('#verksted') && col('#verksted').winner === 'yaml' && col('#verksted').losers.join() === 'custom' && col('#vaer') && col('#vaer').winner === 'yaml' && col('#vaer').losers.join() === 'auto'),
-      // 30.1: '#basseng' (alias) i popup_overrides skjuler standard-popupen #badebasseng; ingen popup på #basseng
-      falseSkjuler: by('#badebasseng').length === 0 && by('#basseng').length === 0 && ent('#badebasseng').hidden && ent('#badebasseng').hiddenBy === 'yaml' && !JSON.stringify([st3.cards[1].bar, st3.cards[1].more]).includes('basseng'),
+      // '#energi': false i popup_overrides skjuler popupen; bassengpopupene er slettet (ingen #badebasseng/#basseng, ingen knapp)
+      falseSkjuler: by('#energi').length === 0 && ent('#energi').hidden && ent('#energi').hiddenBy === 'yaml' && !JSON.stringify([st3.cards[1].bar, st3.cards[1].more]).includes('energi'),
+      bassengSlettet: by('#badebasseng').length === 0 && by('#basseng').length === 0 && !R3.entries.some((e) => /basseng/.test(e.hash)) && !JSON.stringify([st3.cards[1].bar, st3.cards[1].more]).includes('basseng'),
       replace: same(by('#media')[0], M.applyHeaderGap(cfgY.popup_overrides['#media'].config, -10)),
       deepMerge: by('#klima')[0].name === 'Klimaet' && by('#klima')[0].width_desktop === '620px' && /var\(--red\)/.test(by('#klima')[0].styles) && by('#klima')[0].cards.length === 1 && by('#klima')[0].cards[0].type === 'custom:msh-klima-card' && ent('#klima').override === 'merge',
       kiStoreUendret: same(by('#egen')[0], M.applyHeaderGap(egen, -10)),
@@ -166,7 +167,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     M.store.set('custom_popups', [egen, Y('#live', 'Live', [{ type: 'custom:msh-soppel-card' }])]);
     await wait(1400);
     const opened2 = all().filter((e) => e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened'));
-    res.live = { lagt: liveHash('#live') === 1, fjernet: liveHash('#badebasseng') === 0 && liveHash('#basseng') === 0, egenBeholdt: liveHash('#egen') === 1, stueFortsattAapen: stueOpen0 && opened2.length === 1 && location.hash === '#stue' };
+    res.live = { lagt: liveHash('#live') === 1, fjernet: liveHash('#energi') === 0 && liveHash('#badebasseng') === 0 && liveHash('#basseng') === 0, egenBeholdt: liveHash('#egen') === 1, stueFortsattAapen: stueOpen0 && opened2.length === 1 && location.hash === '#stue' };
     history.replaceState(null, '', location.pathname); window.dispatchEvent(new Event('hashchange')); await wait(500);
     location.hash = '#live'; await wait(900);
     const pl = all().find((e) => e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened'));

@@ -17,7 +17,7 @@
 (function () {
   const M = window.MSH, esc = M.esc;
   const MODES = ['sensor', 'action', 'navigate', 'toggle', 'bar', 'room', 'button', 'headline'];
-  const FG = 'var(--gray1000, #e1e1e1)', BG = 'var(--gray100, #2f2f2f)';
+  const FG = 'var(--ki-text, var(--gray1000, #e1e1e1))', BG = 'var(--ki-surface, var(--gray100, #2f2f2f))'; // Fiks 34: Hjem-flis = --ki-surface/--ki-text
   const has = (v) => v !== null && v !== undefined && String(v).trim() !== '';
   const str = (v) => (v == null ? '' : String(v).trim());
   // Sannhetsverdi for condition/badge_condition: boolean, funksjon(st), tall eller tekst ('true', '1', 'on' …)
@@ -67,7 +67,7 @@
     const ent = o.entity || null;
     const st = o.st !== undefined ? o.st : ent && o.hass ? o.hass.states[ent] || null : null;
     const R = mode === 'button' || mode === 'headline' ? null : rule(o, st);
-    const bg = M.color(R && has(R.bg) ? R.bg : o.background_color, mode === 'button' ? 'var(--gray200, #3a3a3a)' : BG);
+    const bg = M.color(R && has(R.bg) ? R.bg : o.background_color, mode === 'button' ? 'var(--ki-surface, var(--gray200, #3a3a3a))' : BG);
     const fg = M.color(R && has(R.fg) ? R.fg : o.text_color, FG);
     const icol = R && has(R.fg) ? fg : M.color(o.icon_color, fg);
     const sub = str(o.sub_text), alt = R && R.hideAlt ? '' : str(o.alt_text);
@@ -162,7 +162,7 @@
     else if (mode === 'navigate') modeHtml = `<div class="u-mode u-nav">${M.icon('mdi:chevron-right', 20, 'opacity:.7')}</div>`;
     else if (mode === 'toggle') {
       const ic = on ? o.toggle_on_icon || 'mdi:toggle-switch' : o.toggle_off_icon || 'mdi:toggle-switch-off';
-      const col = on ? M.color(o.toggle_icon_color_on, 'var(--green, #66d19e)') : M.color(o.toggle_icon_color_off, 'rgba(255,255,255,0.35)');
+      const col = on ? M.color(o.toggle_icon_color_on, 'var(--green, #66d19e)') : M.color(o.toggle_icon_color_off, 'rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.35*var(--ki-wa-k,1)),var(--ki-wa-max,1)))');
       modeHtml = `<div class="u-mode u-tg${on ? ' on' : ''}">${M.icon(ic, 56, `color:${col};transform:rotate(${o.toggle_rotate || '0deg'})`)}</div>`;
     }
     let barHtml = '';
@@ -187,7 +187,7 @@
 
   // «Indre rad-flate» (fiks 16.6): én kilde for flaten til sensor-/enhets-/vifte-radene og Rom → Media-spilleren,
   // så de alltid er like. bg = rad #2f2f2f på seksjon #3a3a3a, edge = tynn kant, circle/circleEdge = ikon-sirkelen.
-  M.INNER_ROW = { bg: BG, edge: 'inset 0 0 0 1px rgba(255,255,255,0.04)', circle: 'rgba(250,251,252,0.1)', circleEdge: '1px solid rgba(250,251,252,0.1)' };
+  M.INNER_ROW = { bg: BG, edge: 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)))', circle: 'rgba(250,251,252,0.1)', circleEdge: '1px solid rgba(250,251,252,0.1)' };
   // Klasser: .msh-inner (flaten) og .msh-inner-c (ikon-sirkel/rund knapp på flaten).
   M.INNER_ROW_CSS = `
     .msh-inner{background:${M.INNER_ROW.bg};box-shadow:${M.INNER_ROW.edge}}
@@ -202,16 +202,16 @@
   M.luxOpts = function (st) {
     if (!M.isLux(st) || st.state === 'unavailable' || st.state === 'unknown' || isNaN(parseFloat(st.state))) return null;
     const v = parseFloat(st.state);
-    return { cls: 'u-lux', background_color: 'var(--orange, rgb(242 181 115))', text_color: 'var(--gray000, #232323)', icon: 'mdi:brightness-7', icon_color: '#232323', circle_color: 'rgba(255,255,255,0.18)', main_text: v < 10 ? v.toFixed(1) : String(Math.round(v)), symbol: ' lx' };
+    return { cls: 'u-lux', background_color: 'var(--orange, rgb(242 181 115))', text_color: 'var(--ki-on-accent, var(--gray000, #232323))', icon: 'mdi:brightness-7', icon_color: 'var(--ki-on-accent, #232323)', circle_color: 'rgb(255 255 255/0.18)', main_text: v < 10 ? v.toFixed(1) : String(Math.round(v)), symbol: ' lx' };
   };
 
   // Felles CSS – kortene har shadow DOM og må ta med denne i styles.
   M.UNIVERSAL_CSS = `
-    .u{position:relative;display:grid;box-sizing:border-box;width:100%;min-width:0;border-radius:var(--ha-card-border-radius, 32px);background:var(--u-bg);color:var(--u-fg);box-shadow:none;overflow:visible;text-align:left;font-size:16px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:background .25s,transform .2s}
+    .u{position:relative;display:grid;box-sizing:border-box;width:100%;min-width:0;border-radius:var(--ha-card-border-radius, 32px);background:var(--u-bg);color:var(--u-fg);box-shadow:var(--ki-card-sh, none);overflow:visible;text-align:left;font-size:16px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:background .25s,transform .2s}
     .u:not([data-act]){cursor:default}
     .u[data-act]:active{transform:scale(.98)}
     .u>*{min-width:0}
-    .u-i{grid-area:i;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(250,251,252,0.1);border:1px solid rgba(250,251,252,0.1);color:var(--u-fg);justify-self:start;align-self:start;box-sizing:border-box;overflow:hidden;transition:background .25s}
+    .u-i{grid-area:i;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--ki-surface-2, rgba(250,251,252,0.1));border:1px solid var(--ki-line, rgba(250,251,252,0.1));color:var(--u-fg);justify-self:start;align-self:start;box-sizing:border-box;overflow:hidden;transition:background .25s}
     .u-l{grid-area:l;justify-self:stretch;align-self:end;line-height:1.2em;color:var(--u-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .u-n{grid-area:n;justify-self:stretch;text-align:left;font-size:14px;font-weight:500;color:var(--u-fg);opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .u-alt{grid-area:alt;justify-self:end;align-self:end;font-size:14px;font-weight:500;color:var(--u-fg);opacity:.7;white-space:nowrap;margin-bottom:-12px}
@@ -230,7 +230,7 @@
     .u-small .u-tg{justify-self:start;margin:0 4px 0 0}
     /* 17.5: lux-rad – oransje, ingen kant, ikon-sirkel .18 + lys kant, navn øverst (16/500), verdi under (14, .7) */
     .u.u-lux.u-lux{box-shadow:none}
-    .u-lux .u-i{border:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25)}
+    .u-lux .u-i{border:none;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.25*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .u-small.u-lux .u-l{grid-area:n;align-self:start;padding-top:2px;font-size:14px;font-weight:400;opacity:.7}
     .u-small.u-lux .u-n{grid-area:l;align-self:end;padding-top:0;font-size:16px;font-weight:500;opacity:1}
     /* big */
@@ -258,9 +258,9 @@
     .u-m-button .u-n{justify-self:center;align-self:center;text-align:center;font-size:14px;font-weight:500;opacity:1;padding:0}
     /* headline */
     .u-m-headline{background:none;padding:0;height:auto;grid-template-areas:'i n l';grid-template-columns:min-content min-content minmax(0,1fr);align-items:center}
-    .u-m-headline .u-i{width:22px;height:auto;padding-right:12px;box-sizing:content-box;background:none;border:0;border-radius:0;color:var(--gray1000, #e1e1e1);align-self:center}
-    .u-m-headline .u-n{font-size:16px;font-weight:500;opacity:1;color:var(--gray1000, #e1e1e1);align-self:center;overflow:visible}
-    .u-m-headline .u-l{justify-self:start;align-self:center;padding-left:12px;font-size:14px;opacity:.7;color:var(--gray1000, #e1e1e1)}
+    .u-m-headline .u-i{width:22px;height:auto;padding-right:12px;box-sizing:content-box;background:none;border:0;border-radius:0;color:var(--ki-text-1, var(--gray1000, #e1e1e1));align-self:center}
+    .u-m-headline .u-n{font-size:16px;font-weight:500;opacity:1;color:var(--ki-text-1, var(--gray1000, #e1e1e1));align-self:center;overflow:visible}
+    .u-m-headline .u-l{justify-self:start;align-self:center;padding-left:12px;font-size:14px;opacity:.7;color:var(--ki-text-1, var(--gray1000, #e1e1e1))}
     .u-m-headline[data-act]:active{transform:none}
   `;
 

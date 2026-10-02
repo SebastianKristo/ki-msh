@@ -1,19 +1,24 @@
-/* msh-server-card · Server-popup #server (fiks 26.1–26.8, erstatter 24.10 – promptets «ki-homelab-popup-card»).
- * «Server v5.dc.html» finnes ikke i repoet: bygget etter prompt-teksten. Funksjons-popup (Mal A), ETT kort, Bubble eier headeren.
- * Rekkefølge: hovedfaner Nettverk · Proxmox · Unraid (data-glass-drag, rosa boble, stil tekst/aktiv/ikon) + tannhjul (48×48)
- *   → toppkort (184 px, graf 84 px med scrub, 3 målinger per fane, trykk sekundærverdi = bytt graf) → prosalinje (hvite piller)
- *   → underfaner (segment/piller, huskes per fane) → seksjonene i valgt underfane (kort #3a3a3a r28, indre flater #404040 r22).
- * Nettverk: Enheter (gateway/AP-fliser som utvides), Kameraer (UniFi Protect, opptak/pause), Switcher (switch-kortet: portgrid
- *   8 kolonner, PoE-budsjett, portdetalj med «Port aktiv»/«PoE»-brytere og «Strømsyklus PoE» – samme funksjon som 24.10).
- * Proxmox/Unraid: Oversikt (Ytelse 4 kolonner + Systeminfo), Lagring (Array-rad, lagringsområder, disk-bays med detalj),
- *   Gjester/Docker (søk, filter, rader med bryter/spinner, utvidet rad) og Kontroller (4 runde knapper, farlige = to trykk).
- * Autokonfig (behold fra 24.10): integrasjonene oppdages fra config entries (config_entries/get) + entitets-/enhetsregisteret.
- *   Fire kilder: UniFi Network (unifi), UniFi Protect (unifiprotect), Proxmox VE (proxmoxve) og Unraid (unraid, fallback Glances
- *   med bare målinger). Manuelt valg: integrations: { unifi, protect, proxmox, unraid: <entry_id|'none'> } via integrasjonsvelgeren
- *   (portalt ark, MSH.overlay). Ingen hardkodede ID-er, aldri mock: mangler → «–».
- * Config (samme skjema i «Tilpass Server» og GUI-editoren): tabs { order, hidden, style: text|active|icon, start },
- *   subtabs { show, style: segment|pills }, sections { order, hidden, map }, hero_metric { net, proxmox, unraid },
- *   limits { disk_temp (30–70 °C), storage (50–100 %) }, integrations, overrides, exclude, gap/pad_top/pad_bottom.
+/* msh-server-card · Server-popup #server (Fiks 35.1 + 35.2 – 1:1 etter «Server v6.dc.html», erstatter v5-oppbyggingen fra Fiks 26).
+ * Funksjons-popup (Mal A), ETT kort, Bubble eier headeren. Rekkefølge (designet):
+ *   1. Vertvelger: fanelinje Nettverk · Proxmox · Unraid · HA (pill-spor --ki-surface, aktiv = rosa gradient + --ki-on-accent,
+ *      høyde tab_height 32–60, std 44) + tannhjul til høyre; hold 400 ms + dra = ny rekkefølge (felles MSH.tabRow, tab_order).
+ *      Alternativ `velger: kort` = 2-kolonners kort med ring (CPU / ned-last) + statusprikk – tannhjulet ligger da i toppkortet.
+ *   2. Toppkort (184 px): vertsnavn + statuschip, stor verdi (44/300) for valgt måling + to små målinger (trykk = bytt graf),
+ *      tidsetikett «nå · …» / «−3 t · …», graf 84 px kant til kant med scrub (touch-action none + stopPropagation).
+ *   3. Prosa-setning (show_prose, std på): ÉN <p> med inline invers-piller (35.7 regel 1 – aldri containere).
+ *   4. Underfaner per vert: Nettverk Internett · Enheter · Switch (ingen Kameraer-underfane) · Proxmox Gjester · Lagring · Backup
+ *      · Unraid Array · Gjester · HA Tillegg · Oppdateringer · System.
+ *   Felles utvidbar liste (35.2: Gjester/Tillegg): søk (44 px), filterchips med antall, rader 60 px med bryter (stopPropagation),
+ *   trykk = utvid (6 stat-fliser, bruksstolper, brytere, handlinger). Rød-tone-handlinger krever bekreftelse (to trykk).
+ * Data (autokonfig, aldri mock – mangler → «–»): UniFi Network (unifi), UniFi Protect (unifiprotect – kameraene ligger som
+ *   rader i Enheter), Proxmox VE (proxmoxve), Unraid (unraid, Glances som reserve), Home Assistant (hassio-entiteter,
+ *   systemmonitor/uptime + Supervisor via WS `supervisor/api` /addons, /addons/<slug>/info|stats).
+ *   Integrasjonene oppdages fra config entries (config_entries/get) + entitets-/enhetsregisteret; manuelt valg
+ *   integrations: { unifi, protect, proxmox, unraid: <entry_id|'none'> } via integrasjonsvelgeren (portalt ark).
+ * Config (samme skjema i «Tilpass Server» (MSH.openEditor → MSH.overlay tilpass:true) og GUI-editoren):
+ *   velger: faner|kort · tab_height (32–60) · show_prose · tab_order · hidden_tabs · start_tab · hero_metric { net, proxmox,
+ *   unraid, ha } · integrations · overrides · exclude · gap/pad_top/pad_bottom. Gamle v5-nøkler (tabs.order/hidden/start) leses.
+ * Farger: tokens fra ki-theme (src/00-a-theme.js) med dagens mørke verdi som fallback – mørk modus er uendret.
  */
 (function () {
   const M = window.MSH;
@@ -30,32 +35,37 @@
   const INT = Object.fromEntries(INTEG.map((i) => [i.key, i]));
   const PLAT = {}; INTEG.forEach((i) => i.platforms.forEach((p) => { PLAT[p] = i.key; }));
   const DOMS = INTEG.flatMap((i) => i.domains);
-  // Hovedfaner og underfaner
-  const TABS = [['net', 'Nettverk', 'mdi:lan'], ['proxmox', 'Proxmox', 'mdi:server'], ['unraid', 'Unraid', 'mdi:nas']];
-  const TABL = Object.fromEntries(TABS.map((t) => [t[0], t]));
-  const TAB_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid' };
+  // Verter (vertvelgeren) og underfaner (designet: HOSTS / SUBS)
+  const HOSTS = [['net', 'Nettverk', 'mdi:router-network'], ['proxmox', 'Proxmox', 'mdi:cube-outline'], ['unraid', 'Unraid', 'mdi:dns'], ['ha', 'HA', 'mdi:home-assistant']];
+  const HOSTL = Object.fromEntries(HOSTS.map((t) => [t[0], t]));
+  const KEYS = HOSTS.map((t) => t[0]);
+  const HOST_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid', ha: null };
   const SUBS = {
-    net: [['enheter', 'Enheter'], ['kameraer', 'Kameraer'], ['switcher', 'Switcher']],
-    proxmox: [['oversikt', 'Oversikt'], ['lagring', 'Lagring'], ['gjester', 'Gjester'], ['kontroller', 'Kontroller']],
-    unraid: [['oversikt', 'Oversikt'], ['lagring', 'Lagring'], ['docker', 'Docker'], ['kontroller', 'Kontroller']],
+    net: [['internett', 'Internett'], ['enheter', 'Enheter'], ['switch', 'Switch']],
+    proxmox: [['gjester', 'Gjester'], ['lagring', 'Lagring'], ['backup', 'Backup']],
+    unraid: [['array', 'Array'], ['gjester', 'Gjester']],
+    ha: [['tillegg', 'Tillegg'], ['oppdateringer', 'Oppdateringer'], ['system', 'System']],
   };
-  // Seksjoner (SECDEF): [id, navn i Tilpass, ikon, standard-underfane, tittel i kortet]
-  const SECDEF = {
-    net: [['gw', 'Gateway og AP-er', 'mdi:router-wireless', 'enheter'], ['cams', 'Kameraer', 'mdi:cctv', 'kameraer'], ['sw', 'Switcher', 'mdi:switch', 'switcher']],
-    proxmox: [['perf', 'Nøkkeltall', 'mdi:speedometer', 'oversikt', 'Ytelse'], ['sys', 'Systeminfo', 'mdi:information-outline', 'oversikt'], ['storage', 'Lagring', 'mdi:database', 'lagring', 'Lagringsområder'], ['disks', 'Disker', 'mdi:harddisk', 'lagring'], ['guests', 'Gjester', 'mdi:monitor-multiple', 'gjester'], ['controls', 'Kontroller', 'mdi:tune-vertical', 'kontroller']],
-    unraid: [['perf', 'Nøkkeltall', 'mdi:speedometer', 'oversikt', 'Ytelse'], ['sys', 'Systeminfo', 'mdi:information-outline', 'oversikt'], ['storage', 'Lagring', 'mdi:database', 'lagring', 'Lagringsområder'], ['disks', 'Disker', 'mdi:harddisk', 'lagring'], ['docker', 'Docker', 'mdi:docker', 'docker'], ['controls', 'Kontroller', 'mdi:tune-vertical', 'kontroller']],
-  };
-  const SEC = {}; Object.entries(SECDEF).forEach(([t, L]) => L.forEach(([id, label, icon, sub, title]) => { SEC[t + '.' + id] = { id: t + '.' + id, key: id, tab: t, label, icon, sub, title: title || label }; }));
-  // Toppkortets målinger per fane: [nøkkel, etikett, farge]
+  // Aksentfarger (designet: GR, BL, OR, RD, PU, PINK) – flater/grafer i original farge, tekst via ki-theme (--ki-*-text)
+  const GR = C.green, BL = C.blue, OR = C.orange, RD = C.red, PU = C.purple, PK = C.pink;
+  // Aksent som tekst/ikon (Del A pkt. 6): --ki-*-text i lys modus, ytterligere 25 % mørkere i lys modus (tekst på tone-/grå
+  // flater skal holde 4,5:1). Mørk modus: --ki-tone-k er udefinert → 100 % → nøyaktig dagens farge.
+  const acc = (n, hex) => `color-mix(in srgb, var(--ki-${n}-text, var(--${n}, ${hex})) calc(100% - (var(--ki-tone-k, 1) - 1) * 50%), black)`;
+  const TX = { green: acc('green', '#66d19e'), blue: acc('blue', '#73b9f2'), orange: acc('orange', '#f2b573'), red: acc('red', '#f28073'), purple: acc('purple', '#ad99e6'), pink: acc('pink', '#f285c9') };
+  // Tone-bakgrunn (Del A pkt. 5): .16 i mørk, × --ki-tone-k (1,5) i lys
+  const tone = (c, a = 0.16) => `color-mix(in srgb, ${c} calc(${Math.round(a * 100)}% * var(--ki-tone-k, 1)), transparent)`;
+  // Toppkortets målinger per vert: [nøkkel, etikett, enhet, farge] (designet: H.M)
   const HM = {
-    net: [['down', 'Ned', C.blue], ['up', 'Opp', C.green], ['lat', 'Latens', C.orange]],
-    proxmox: [['cpu', 'CPU', C.blue], ['mem', 'Minne', C.green], ['power', 'Strøm', C.orange]],
-    unraid: [['cpu', 'CPU', C.blue], ['mem', 'Minne', C.green], ['temp', 'Temp', C.red]],
+    net: [['down', 'Ned', 'Mbit', BL], ['up', 'Opp', 'Mbit', GR], ['cl', 'Klienter', '', PU]],
+    proxmox: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['io', 'IO wait', '%', OR]],
+    unraid: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['temp', 'CPU-temp', '°', OR]],
+    ha: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['disk', 'Disk', '%', OR]],
   };
-  const LIM = { disk_temp: 50, storage: 85 };
+  const NPT = 48; // punkter i grafen (30 min, 24 t – designet: series(…) med 48 punkter)
   const DEF = {};
   const TTL = 300000;
-  const INK = '#2a1720';
+  const STORE_WARN = 80; // Proxmox-lagring: oransje stripe ≥ 80 %
+  const TEMP_WARN = 45; // disk-temperatur i oransje (designet: temp >= 45)
 
   /* ------------------------------------------------------------ hjelpere (fra ki-homelab-card) */
   const DAARLIG = ['unavailable', 'unknown', '', 'none', null, undefined];
@@ -74,13 +84,13 @@
 
   /* ------------------------------------------------------------ config entries (config_entries/get) */
   // undefined = ikke hentet ennå · null = ikke tilgang (ikke admin) → bare entitets-/enhetsregisteret. Hentes på nytt etter 5 min.
-  const CE = { data: undefined, busy: false, t: 0 };
+  const CE = { data: undefined, busy: false, t: 0, total: null };
   function entries(hass) {
     if (!hass || !hass.callWS) return CE.data;
     if (!CE.busy && Date.now() - CE.t > TTL) {
       CE.busy = true;
       Promise.resolve().then(() => hass.callWS({ type: 'config_entries/get' }))
-        .then((r) => { CE.data = (Array.isArray(r) ? r : []).filter((e) => e && DOMS.includes(e.domain)); })
+        .then((r) => { CE.total = Array.isArray(r) ? r.length : null; CE.data = (Array.isArray(r) ? r : []).filter((e) => e && DOMS.includes(e.domain)); })
         .catch(() => { CE.data = null; })
         .then(() => { CE.t = Date.now(); CE.busy = false; window.dispatchEvent(new CustomEvent('msh-server-entries')); });
     }
@@ -166,6 +176,9 @@
         ramBrukt: finn(liste, /(ram|memory)_used$/, 'sensor'), ramTot: finn(liste, /(ram|memory)_total$/, 'sensor'),
         diskBrukt: finn(liste, /disk_used$/, 'sensor'), diskTot: finn(liste, /disk_total$/, 'sensor'),
         oppetid: finn(liste, /uptime$/, 'sensor'),
+        netInn: finn(liste, /(network_in|net_?in|netin|network_rx)$/, 'sensor'), netUt: finn(liste, /(network_out|net_?out|netout|network_tx)$/, 'sensor'),
+        cores: finn(liste, /(cpus|cores|cpu_count)$/, 'sensor'),
+        onboot: finn(liste, /(onboot|on_boot|start_on_boot|autostart)/, 'switch'), protect: finn(liste, /protect/, 'switch'), bkSw: finn(liste, /backup/, 'switch'),
         bruk: finn(liste, /_usage$/, 'sensor'), brukt: finn(liste, /_used$/, 'sensor'), total: finn(liste, /_(total|size)$/, 'sensor'),
         // 26.5: Ytelse / Systeminfo
         last: finn(liste, /(load(_avg(erage)?)?(_1m?)?|cpu_load)$/, 'sensor'), swap: finn(liste, /swap_(usage|used_percent|percent)$/, 'sensor'),
@@ -246,7 +259,10 @@
         id: 'uf-' + dev, dev, navn, type, modell,
         tracker: finn(liste, /./, 'device_tracker'), cpu, mem,
         temp: finn(liste, /temperat/, 'sensor'), oppetid: finn(liste, /(uptime|oppetid)$/, 'sensor'),
-        klienter: finn(liste, /(clients|klienter)$/, 'sensor'), latens, led, restart,
+        klienter: (liste.find((x) => dom(x.entity_id) === 'sensor' && /(clients|klienter)$/.test(obj(x.entity_id)) && !/ghz/.test(obj(x.entity_id))) || {}).entity_id, latens, led, restart,
+        b5: finn(liste, /5_?ghz_(clients|klienter)$/, 'sensor'), b24: finn(liste, /2_?4_?ghz_(clients|klienter)$/, 'sensor'), txp: finn(liste, /tx_power$/, 'sensor'), fan: finn(liste, /fan/, 'sensor'),
+        isp: finn(liste, /isp/, 'sensor'), speedtest: finn(liste, /speed_?test/, 'button'), optim: finn(liste, /(optimi[sz]e|channel_scan|rf_scan)/, 'button'),
+        brytere: liste.filter((x) => dom(x.entity_id) === 'switch' && !/port_\d+/.test(obj(x.entity_id)) && !x.entity_category).map((x) => x.entity_id),
         finn: finn(liste, /(locate|identify|finn)/, 'button') || finn(liste, /(locate|identify|finn)/, 'switch'),
         kanal: finn(liste, /channel|kanal/, 'sensor'),
         tilstand: finn(liste, /_state$/, 'sensor'),
@@ -328,7 +344,8 @@
           const f = (re, d) => { const x = rel.find((y) => dom(y.entity_id) === d && re.test(obj(y.entity_id).slice(o.length))); return x && x.entity_id; };
           return { id: 'ur-' + e.entity_id, kilde: 'unraid', type: vm ? 'vm' : 'docker', navn: nm[n] || n.replace(/^./, (c) => c.toUpperCase()), bryter: e.entity_id,
             restart: f(/restart/, 'button'), oppdater: f(/update/, 'button'), oppdatering: f(/update/, 'binary_sensor') || f(/./, 'update'),
-            cpu: f(/cpu/, 'sensor'), mem: f(/(mem|memory|ram)/, 'sensor'), bilde: (hass.states[e.entity_id].attributes || {}).image || null };
+            cpu: f(/cpu/, 'sensor'), mem: f(/(mem|memory|ram)/, 'sensor'), bilde: (hass.states[e.entity_id].attributes || {}).image || null,
+            autostart: f(/auto_?start/, 'switch'), autoupd: f(/auto_?update/, 'switch'), bkSw: f(/backup/, 'switch') };
         }).sort((a, b) => a.navn.localeCompare(b.navn, 'nb')),
       };
     }
@@ -389,81 +406,141 @@
     const w = U.arraySw && hass.states[U.arraySw];
     return !!w && w.state === 'off';
   };
-  const limitsOf = (c) => ({ ...LIM, ...(c.limits || {}) });
-  const tempCol = (t, lim) => (t == null ? '#696969' : t >= lim ? C.red : t >= lim - 6 ? C.orange : C.green);
-
-  /* ------------------------------------------------------------ config: faner, underfaner og seksjoner */
-  function tabsCfg(c) {
-    const T = c.tabs && !Array.isArray(c.tabs) ? c.tabs : {};
-    const mapK = (k) => (k === 'unifi' ? 'net' : k);
-    const keys = TABS.map((t) => t[0]);
-    const o = (T.order || (Array.isArray(c.tabs) ? c.tabs : [])).map(mapK).filter((k, i, a) => keys.includes(k) && a.indexOf(k) === i);
-    keys.forEach((k) => { if (!o.includes(k)) o.push(k); });
-    const hidden = (T.hidden || c.tabs_hidden || []).map(mapK);
-    const oldSt = { name: 'text', icon: 'icon', icon_name: 'text' }[c.tab_style];
-    return { order: o, hidden, style: T.style || oldSt || 'text', start: mapK(T.start || c.start_tab || '') };
-  }
-  function visTabs(c) {
-    const T = tabsCfg(c), V = T.order.filter((k) => !T.hidden.includes(k));
-    return V.length ? V : [T.order[0]];
-  }
-  const subCfg = (c) => ({ show: !(c.subtabs && c.subtabs.show === false), style: (c.subtabs && c.subtabs.style) || 'segment' });
-  // Seksjoner for en fane i rekkefølge: [{ id, key, label, icon, sub, title, hidden }]
-  function secList(c, tab) {
-    const S = c.sections || {}, ord = (S.order || []).filter((id) => SEC[id] && SEC[id].tab === tab);
-    SECDEF[tab].forEach(([k]) => { const id = tab + '.' + k; if (!ord.includes(id)) ord.push(id); });
-    const hid = S.hidden || [], map = S.map || {};
-    return ord.map((id) => ({ ...SEC[id], sub: SUBS[tab].some((s) => s[0] === map[id]) ? map[id] : SEC[id].sub, hidden: hid.includes(id) }));
-  }
-  const visSubs = (c, tab) => { const L = secList(c, tab).filter((s) => !s.hidden); return SUBS[tab].filter(([k]) => L.some((s) => s.sub === k)); };
-
-  /* ------------------------------------------------------------ fanelinjen (kortet + forhåndsvisningen i Tilpass) */
-  function tabBtn(c, k, on, attrs) {
-    const [, label, icon] = TABL[k], st = tabsCfg(c).style;
-    const showIcon = st !== 'text', showLabel = st === 'text' || (st === 'active' && on);
-    return `<button class="tb${on ? ' on' : ''}${!showLabel && st === 'active' ? ' io' : ''}" role="tab" aria-selected="${on}" aria-label="${esc(label)}" title="${esc(label)}" ${attrs || ''}>${showIcon ? M.icon(icon, 20) : ''}${showLabel ? `<span>${esc(label)}</span>` : ''}</button>`;
-  }
-  const subRow = (c, tab, cur, attrs) => {
-    const st = subCfg(c).style;
-    return `<div class="subs ${st === 'pills' ? 'pills' : 'segm'}" role="tablist">${visSubs(c, tab).map(([k, l]) => `<button class="sb${k === cur ? ' on' : ''}" role="tab" aria-selected="${k === cur}" ${attrs ? attrs(k) : ''}>${esc(l)}</button>`).join('')}</div>`;
+  const STOPP = (h, U) => arrayStoppet(h, U);
+  const fmtN = (v, d) => (v == null || isNaN(v) ? '–' : M.nf(v, d != null ? d : (Math.abs(v) < 10 && v % 1 ? 1 : 0)));
+  // Datahastighet → Mbit/s (UniFi kan rapportere kB/s, MB/s, Mbit/s …)
+  const rateF = (u) => {
+    u = String(u || '').toLowerCase().replace(/\s/g, '');
+    if (/^gbit|^gbps/.test(u)) return 1000; if (/^mbit|^mbps/.test(u)) return 1; if (/^kbit|^kbps/.test(u)) return 0.001; if (/^bit|^bps/.test(u)) return 1e-6;
+    if (/^gi?b\/s/.test(u)) return 8000; if (/^mi?b\/s/.test(u)) return 8; if (/^ki?b\/s/.test(u)) return 0.008; if (/^b\/s/.test(u)) return 8e-6;
+    return 1;
   };
-  const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
-    ${pre} .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--gray200,#3a3a3a);position:relative;touch-action:pan-y;overflow:hidden}
-    ${pre} .tb{flex:1 1 0;min-width:0;height:40px;padding:0 8px;border-radius:20px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;transition:background .2s,color .2s}
-    ${pre} .tb.io{flex:0 0 auto;min-width:48px}
-    ${pre} .tb span{overflow:hidden;text-overflow:ellipsis}
-    ${pre} .tb.on{flex:1 1 0;background:${C.accent};color:${INK}}
-    ${pre} .gear{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};color:var(--white,#fafafa)}
-    ${pre} .gear:active{transform:scale(.92)}
-    ${pre} .subs{display:flex;gap:2px;min-width:0}
-    ${pre} .subs.segm{padding:3px;border-radius:22px;background:var(--gray200,#3a3a3a)}
-    ${pre} .subs.pills{gap:6px;overflow-x:auto;scrollbar-width:none}
-    ${pre} .sb{flex:1 1 0;min-width:0;height:38px;padding:0 10px;border-radius:19px;font-size:13px;font-weight:500;color:var(--gray800,#afafaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .2s,color .2s}
-    ${pre} .subs.pills .sb{flex:0 0 auto;background:var(--gray200,#3a3a3a);padding:0 16px}
-    ${pre} .sb.on,${pre} .subs.pills .sb.on{background:var(--white,#fafafa);color:#141414}`;
+  // Størrelse (sensor med enhet) → GB / TB
+  const toGB = (hass, id) => { const v = numOf(hass, id); if (v == null) return null; const u = unitOf(hass, id).toLowerCase(); return /^t/.test(u) ? v * 1000 : /^m/.test(u) ? v / 1000 : /^k/.test(u) ? v / 1e6 : /^b$/.test(u) ? v / 1e9 : v; };
+  const dec1 = (v) => (v >= 100 || Math.round(v * 10) % 10 === 0 ? 0 : 1);
+  const sizeTxt = (gb) => (gb == null ? '–' : gb >= 1000 ? `${fmtN(gb / 1000, dec1(gb / 1000))} TB` : `${fmtN(gb, dec1(gb))} GB`);
+  const has = (h, d, s) => !h || !h.services || !!(h.services[d] && h.services[d][s]);
+  const fName = (hass, id) => { const s = id && hass.states[id]; return (s && s.attributes.friendly_name) || (id ? obj(id) : ''); };
 
-  /* ------------------------------------------------------------ integrasjonsvelger (26.6, portalt ark – fallgruve 1) */
+  /* ------------------------------------------------------------ Home Assistant: hassio-entiteter + Supervisor (WS supervisor/api) */
+  // SUP.addons: undefined = ikke hentet · null = ingen Supervisor (Container/Core) · [] = liste. info/stats hentes per tillegg.
+  const SUP = { addons: undefined, t: 0, busy: false, info: {}, stats: {}, infoT: {}, core: null, os: null, host: null };
+  const supWS = (hass, endpoint, method, data) => (hass && hass.callWS ? hass.callWS({ type: 'supervisor/api', endpoint, method: method || 'get', ...(data ? { data } : {}) }) : Promise.reject(new Error('ws')));
+  const unwrap = (r) => (r && r.data && typeof r.data === 'object' && !Array.isArray(r.data) ? r.data : r);
+  const supEvt = () => window.dispatchEvent(new CustomEvent('msh-server-entries'));
+  function supLoad(hass, force) {
+    if (!hass || !hass.callWS || SUP.busy || (!force && Date.now() - SUP.t < 60000)) return;
+    SUP.busy = true;
+    const one = (ep, set) => supWS(hass, ep).then((r) => set(unwrap(r))).catch(() => set(undefined));
+    Promise.all([
+      one('/addons', (r) => { SUP.addons = r && Array.isArray(r.addons) ? r.addons : null; }),
+      one('/core/info', (r) => { SUP.core = r && r.version ? r : null; }),
+      one('/os/info', (r) => { SUP.os = r && r.version ? r : null; }),
+      one('/host/info', (r) => { SUP.host = r && typeof r === 'object' && Object.keys(r).length ? r : null; }),
+    ]).then(() => { SUP.t = Date.now(); SUP.busy = false; supEvt(); });
+  }
+  function supAddon(hass, slug, force) {
+    if (!slug || !hass || !hass.callWS) return;
+    if (!force && Date.now() - (SUP.infoT[slug] || 0) < 30000) return;
+    SUP.infoT[slug] = Date.now();
+    Promise.all([
+      supWS(hass, `/addons/${slug}/info`).then((r) => { const x = unwrap(r); SUP.info[slug] = x && x.slug ? x : null; }).catch(() => { SUP.info[slug] = null; }),
+      supWS(hass, `/addons/${slug}/stats`).then((r) => { const x = unwrap(r); SUP.stats[slug] = x && typeof x === 'object' && Object.keys(x).length ? x : null; }).catch(() => { SUP.stats[slug] = null; }),
+    ]).then(supEvt);
+  }
+  let HMEMO = null;
+  function oppdagHA(hass, cfg) {
+    const E = hass.entities || {}, D = hass.devices || {}, S = hass.states, sig = JSON.stringify(cfg.exclude || []);
+    if (HMEMO && HMEMO.E === E && HMEMO.D === D && HMEMO.S === S && HMEMO.t === SUP.t && HMEMO.sig === sig) return HMEMO.R;
+    const per = {}, sysm = [], upt = [];
+    for (const id in E) {
+      const e = E[id];
+      if (!e || e.disabled_by || !S[id]) continue;
+      if (e.platform === 'hassio') (per[e.device_id || '_'] = per[e.device_id || '_'] || []).push(e);
+      else if (e.platform === 'systemmonitor') sysm.push(e);
+      else if (e.platform === 'uptime') upt.push(e);
+    }
+    const R = { addons: [], core: {}, os: {}, sup: {}, host: {}, sys: {}, supervisor: Array.isArray(SUP.addons) };
+    const kind = (dev) => {
+      const d = D[dev] || {}, s = `${d.model || ''} ${d.name || ''}`.toLowerCase(), idf = ((d.identifiers || []).find((x) => x[0] === 'hassio') || [])[1] || '';
+      if (/add-?on/.test(s) && !/^(core|os|supervisor|host)$/i.test(idf)) return 'addon';
+      if (idf === 'core' || /home assistant core/.test(s)) return 'core';
+      if (/^os$/i.test(idf) || /operating system/.test(s)) return 'os';
+      if (idf === 'supervisor' || /supervisor/.test(s)) return 'sup';
+      if (idf === 'host' || /home assistant host/.test(s)) return 'host';
+      return 'addon';
+    };
+    const verOf = (liste) => { const e = liste.find((x) => dom(x.entity_id) === 'sensor' && /_version$/.test(obj(x.entity_id)) && !/(newest|latest)/.test(obj(x.entity_id))); return e && e.entity_id; };
+    for (const [dev, liste] of Object.entries(per)) {
+      const k = kind(dev), d = D[dev] || {}, f = (re, dm) => finn(liste, re, dm);
+      const base = { dev, cpu: f(/cpu_percent$/, 'sensor'), mem: f(/memory_percent$/, 'sensor'), ver: verOf(liste), upd: f(/./, 'update') };
+      if (k === 'addon') {
+        const idf = ((d.identifiers || []).find((x) => x[0] === 'hassio') || [])[1] || null;
+        R.addons.push({ ...base, slug: idf, navn: d.name_by_user || d.name || tittel(idf || 'Tillegg'), run: f(/_running$/, 'binary_sensor'), sw: f(/./, 'switch') });
+      } else R[k] = { ...base, diskUsed: f(/disk_used$/, 'sensor'), diskTot: f(/disk_total$/, 'sensor'), diskFree: f(/disk_free$/, 'sensor') };
+    }
+    // Supervisor-listen (WS) er sannheten for hvilke tillegg som er installert – entitetene gir målinger/historikk
+    if (Array.isArray(SUP.addons)) {
+      SUP.addons.forEach((a) => {
+        let x = R.addons.find((y) => (y.slug && y.slug === a.slug) || (!y.slug && y.navn.toLowerCase() === String(a.name || '').toLowerCase()));
+        if (!x) { x = { slug: a.slug, navn: a.name || a.slug }; R.addons.push(x); }
+        x.slug = x.slug || a.slug; x.sup = a; if (a.name) x.navn = a.name;
+      });
+    }
+    const ex = new Set(cfg.exclude || []);
+    R.addons = R.addons.filter((a) => !ex.has(a.run) && !ex.has(a.sw) && !ex.has(a.upd)).sort((a, b) => a.navn.localeCompare(b.navn, 'nb'));
+    const sm = (re, pct) => { const e = sysm.find((x) => dom(x.entity_id) === 'sensor' && re.test(obj(x.entity_id)) && (!pct || unitOf(hass, x.entity_id) === '%')); return e && e.entity_id; };
+    R.sys = {
+      cpu: sm(/processor_use$/) || R.core.cpu,
+      mem: sm(/memory_(use_percent|usage)$/, true) || R.core.mem,
+      disk: sm(/disk_(use_percent|usage)(_|$)/, true),
+      uptime: (upt.find((e) => dom(e.entity_id) === 'sensor') || {}).entity_id || sm(/last_boot$/),
+      db: Object.keys(S).find((id) => id.startsWith('sensor.') && /(database|db|recorder)_size$/.test(obj(id))),
+    };
+    HMEMO = { E, D, S, t: SUP.t, sig, R };
+    return R;
+  }
+
+  /* ------------------------------------------------------------ config: verter */
+  function tabsCfg(c) {
+    const T = c.tabs && !Array.isArray(c.tabs) ? c.tabs : {}; // v5: tabs { order, hidden, start }
+    const mapK = (k) => (k === 'unifi' ? 'net' : k);
+    const src = Array.isArray(c.tab_order) ? c.tab_order : (T.order || (Array.isArray(c.tabs) ? c.tabs : []));
+    const o = src.map(mapK).filter((k, i, a) => KEYS.includes(k) && a.indexOf(k) === i);
+    KEYS.forEach((k) => { if (!o.includes(k)) o.push(k); });
+    const hidden = (Array.isArray(c.hidden_tabs) ? c.hidden_tabs : (T.hidden || c.tabs_hidden || [])).map(mapK).filter((k) => KEYS.includes(k));
+    return { order: o, hidden, start: mapK(c.start_tab != null ? c.start_tab : (T.start || c.start_tab || '')) };
+  }
+  function visTabs(c) { const T = tabsCfg(c), V = T.order.filter((k) => !T.hidden.includes(k)); return V.length ? V : [T.order[0]]; }
+  // 33.4: felles fanehøyde (MSH.tabH, 05-tab-bar.js): kortets tab_height (28–64) → global «Fanehøyde i popups» → designets 44
+  const tabH = (c) => (M.tabH ? M.tabH.height(c, 44) : 44);
+  const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
+  const thVars = (c) => `${M.tabH ? M.tabH.style(c) : ''}--sv-th:${TV('th', 44)};`;
+  const isCards = (c) => /^kort$/i.test(String(c.velger || ''));
+  const showProse = (c) => c.show_prose !== false;
+
+  /* ------------------------------------------------------------ integrasjonsvelger (portalt ark – fallgruve 1) */
   function openPick(hass, cfg, k, onApply) {
     const I = INT[k], L = entriesFor(hass, k), au = autoEntry(hass, k);
     const cur0 = (cfg.integrations || {})[k];
     let cur = cur0 === 'none' ? 'none' : cur0 || (au ? au.entry_id : 'none');
-    const api = M.overlay({ maxWidth: 520, guard: 300, css: `
-      .ph{display:flex;align-items:center;gap:12px;padding:4px 0 6px}.ph h2{flex:1;margin:0;font-size:22px;font-weight:600;color:#fafafa}
-      .done{${M.DONE_PILL || `height:40px;padding:0 18px;border-radius:20px;background:${C.accent};color:#2f2f2f;font-size:14px;font-weight:600`}}
-      .sub{margin:0 0 12px;font-size:13px;color:#979797}
+    const api = M.overlay({ maxWidth: 520, guard: 300, tilpass: true, css: `
+      .ph{display:flex;align-items:center;gap:12px;padding:4px 0 6px}.ph h2{flex:1;margin:0;font-size:22px;font-weight:600;color:var(--ki-text, #fafafa)}
+      .done{${M.DONE_PILL}color:var(--ki-on-accent, #2f2f2f)}
+      .sub{margin:0 0 12px;font-size:13px;color:var(--ki-text-mid, #979797)}
       .lst{display:flex;flex-direction:column;gap:8px}
-      .rr{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 14px;border-radius:22px;background:#3a3a3a;text-align:left;color:#fafafa}
-      .rr b{font-size:14px;font-weight:500}.rr .col>span{font-size:12px;color:#979797}
-      .rd{width:22px;height:22px;border-radius:11px;flex:none;box-shadow:inset 0 0 0 2px #7f7f7f;display:grid;place-items:center}
-      .rr.on .rd{box-shadow:inset 0 0 0 2px ${C.pink}}.rr.on .rd::after{content:'';width:12px;height:12px;border-radius:6px;background:${C.pink}}
-      .auto{height:22px;padding:0 9px;border-radius:11px;background:${M.alpha(C.green, 0.18)};color:${C.green};font-size:11px;font-weight:600;display:inline-flex;align-items:center;flex:none}
-      .none{padding:14px;border-radius:22px;background:#3a3a3a;color:#979797;font-size:13px}
-      .add{margin-top:12px;height:48px;width:100%;border-radius:24px;background:#404040;color:#fafafa;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}`, html: '' });
+      .rr{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 14px;border-radius:22px;background:var(--ki-surface, #3a3a3a);text-align:left;color:var(--ki-text, #fafafa)}
+      .rr b{font-size:14px;font-weight:500}.rr .col>span{font-size:12px;color:var(--ki-text-mid, #979797)}
+      .rd{width:22px;height:22px;border-radius:11px;flex:none;box-shadow:inset 0 0 0 2px var(--ki-text-3, #7f7f7f);display:grid;place-items:center}
+      .rr.on .rd{box-shadow:inset 0 0 0 2px ${PK}}.rr.on .rd::after{content:'';width:12px;height:12px;border-radius:6px;background:${PK}}
+      .auto{height:22px;padding:0 9px;border-radius:11px;background:${tone(GR, 0.18)};color:${TX.green};font-size:11px;font-weight:600;display:inline-flex;align-items:center;flex:none}
+      .none{padding:14px;border-radius:22px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-mid, #979797);font-size:13px}
+      .add{margin-top:12px;height:48px;width:100%;border-radius:24px;background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}`, html: '' });
     const draw = () => {
       api.body.innerHTML = `<div class="ph"><h2>Velg integrasjon</h2><button class="done" data-p="apply">Bruk</button></div>
         <p class="sub">${esc(I.name)}${k === 'unraid' ? ' · Glances kan brukes som reserve (bare målinger)' : ''}</p>
         <div class="lst" role="radiogroup">${L.length ? L.map((x) => `<button class="rr${cur === x.entry_id ? ' on' : ''}" role="radio" aria-checked="${cur === x.entry_id}" data-p="sel" data-v="${esc(x.entry_id)}"><span class="rd"></span><span class="grow col"><b class="ell">${esc(x.title)}</b><span class="ell">${esc(x.domain === 'glances' ? 'Glances' : I.name)} · ${x.count} entiteter</span></span>${au && au.entry_id === x.entry_id ? '<span class="auto">Auto</span>' : ''}</button>`).join('') : `<div class="none">Fant ingen ${esc(I.name)}-integrasjon i Home Assistant.</div>`}
-        <button class="rr${cur === 'none' ? ' on' : ''}" role="radio" aria-checked="${cur === 'none'}" data-p="sel" data-v="none"><span class="rd"></span><span class="grow col"><b>Ingen</b><span>Skjul seksjonene for ${esc(I.name)}</span></span></button></div>
+        <button class="rr${cur === 'none' ? ' on' : ''}" role="radio" aria-checked="${cur === 'none'}" data-p="sel" data-v="none"><span class="rd"></span><span class="grow col"><b>Ingen</b><span>Skjul ${esc(I.name)} i Server</span></span></button></div>
         <button class="add" data-p="add">${M.icon('mdi:plus', 20)}Legg til integrasjon i Home Assistant</button>`;
     };
     api.body.addEventListener('click', (ev) => {
@@ -479,158 +556,87 @@
   }
   M.serverPick = openPick;
 
-  /* ------------------------------------------------------------ «Tilpass Server»: dra for rekkefølge (fallgruve 2) */
-  function installEd(ed) {
-    if (!ed || ed.__svInst || !ed.shadowRoot) return;
-    ed.__svInst = true;
-    window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); });
-    const Rt = ed.shadowRoot;
-    let d = null;
-    const hit = (e) => e.target && e.target.closest && e.target.closest('[data-svdrag]');
-    Rt.addEventListener('touchstart', (e) => { if (hit(e)) e.stopPropagation(); }, { passive: true });
-    Rt.addEventListener('touchmove', (e) => { if (d || hit(e)) { e.stopPropagation(); if (d && e.cancelable) e.preventDefault(); } }, { passive: false });
-    const movable = (list) => [...list.children].filter((x) => x.dataset && (x.dataset.svk || x.dataset.svsub));
-    Rt.addEventListener('pointerdown', (e) => {
-      const hd = hit(e);
-      if (!hd || e.button) return;
-      const item = hd.closest('[data-svk]');
-      if (!item) return;
-      e.stopPropagation(); e.preventDefault();
-      try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-      d = { item, list: item.parentElement, id: e.pointerId, y0: e.clientY, ty: 0, start: movable(item.parentElement).map((x) => x.dataset.svk || '#' + x.dataset.svsub).join() };
-      window.__tabReorder = true;
-      Object.assign(item.style, { position: 'relative', zIndex: '3', background: '#404040', boxShadow: '0 10px 24px rgba(0,0,0,.45)', transition: 'none' });
-      M.haptic('medium');
-    });
-    Rt.addEventListener('pointermove', (e) => {
-      if (!d || e.pointerId !== d.id) return;
-      e.stopPropagation(); e.preventDefault();
-      const rows = movable(d.list), i = rows.indexOf(d.item);
-      const r = d.item.getBoundingClientRect(), center = r.top - d.ty + r.height / 2 + (e.clientY - d.y0);
-      const mid = (el) => { const b = el.getBoundingClientRect(); return b.top + b.height / 2; };
-      let swap = null;
-      if (rows[i + 1] && center > mid(rows[i + 1])) { swap = rows[i + 1]; d.list.insertBefore(swap, d.item); }
-      // aldri over første underfane-overskrift
-      else if (rows[i - 1] && center < mid(rows[i - 1]) && !(i - 1 === 0 && rows[0].dataset.svsub)) { swap = rows[i - 1]; d.list.insertBefore(d.item, swap); }
-      if (swap) { const r2 = d.item.getBoundingClientRect(); d.y0 += (r2.top - r.top); M.haptic('selection'); }
-      d.ty = e.clientY - d.y0;
-      d.item.style.transform = `translateY(${d.ty}px)`;
-    });
-    const end = (e) => {
-      if (!d || (e && e.pointerId !== d.id)) return;
-      const Dd = d; d = null;
-      window.__tabReorder = false;
-      Object.assign(Dd.item.style, { transform: '', position: '', zIndex: '', background: '', boxShadow: '', transition: '' });
-      const rows = movable(Dd.list);
-      M.haptic('light');
-      if (rows.map((x) => x.dataset.svk || '#' + x.dataset.svsub).join() === Dd.start) { ed._render(); return; }
-      const cc = ed._config || {};
-      if (Dd.list.dataset.svlist === 'tabs') { ed._set('tabs', { ...(cc.tabs && !Array.isArray(cc.tabs) ? cc.tabs : {}), order: rows.map((x) => x.dataset.svk) }); return; }
-      // seksjoner: rekkefølge + underfane (overskriften over raden) → sections.order / sections.map
-      const tab = Dd.list.dataset.svtab, S = cc.sections || {}, map = { ...(S.map || {}) }, ord = [];
-      let cur = null;
-      rows.forEach((x) => { if (x.dataset.svsub) cur = x.dataset.svsub; else { ord.push(x.dataset.svk); if (cur === SEC[x.dataset.svk].sub) delete map[x.dataset.svk]; else map[x.dataset.svk] = cur; } });
-      const other = TABS.map((t) => t[0]).filter((t) => t !== tab).flatMap((t) => secList(cc, t).map((s) => s.id));
-      const all = [...TABS.map((t) => t[0])].flatMap((t) => (t === tab ? ord : other.filter((id) => SEC[id].tab === t)));
-      ed._set('sections', { ...S, order: all, map: Object.keys(map).length ? map : undefined });
-    };
-    Rt.addEventListener('pointerup', end);
-    Rt.addEventListener('pointercancel', end);
-  }
-  const hdl = () => `<span data-svdrag="1" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:#979797;padding:8px 6px">${M.icon('mdi:drag', 22)}</span>`;
-  const eye = (key, op, v, hid, label) => `<button data-a="fn" data-k="${key}" data-op="${op}" data-v="${esc(v)}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}" aria-pressed="${!hid}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? '#696969' : '#fafafa'}`)}</button>`;
+  /* ------------------------------------------------------------ vertvelgeren (kortet + forhåndsvisningen i Tilpass) */
+  const tabRowHTML = (V, act, attrs) => `<div class="trow"><div class="tabs" role="tablist">${V.map((k) => `<button class="tb${k === act ? ' on' : ''}" role="tab" aria-selected="${k === act}" data-v="${k}" ${attrs ? attrs(k) : ''}>${esc(HOSTL[k][1])}</button>`).join('')}</div>
+    <button class="gear" ${attrs ? 'data-act="customize"' : ''} aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button></div>`;
+  // Kort-variant: ring (CPU-/ned-last) + statusprikk + navn + undertekst. X: { [k]: { pct, col, ok, none, sub } }
+  const ringDash = (p) => `${((M.clamp(p || 0, 0, 100) / 100) * 106.8).toFixed(1)} 106.8`;
+  const hostCardsHTML = (V, act, X, attrs) => `<div class="hcards">${V.map((k) => {
+    const x = X[k] || {}, on = k === act;
+    return `<button class="hc${on ? ' on' : ''}" data-v="${k}" data-key="hc-${k}" ${attrs ? attrs(k) : ''} aria-pressed="${on}">
+      <span class="hct"><span class="ring"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" class="rtr"></circle><circle cx="20" cy="20" r="17" class="rfl" style="stroke:${x.none ? 'transparent' : x.ok ? x.col : OR}" stroke-dasharray="${ringDash(x.pct)}"></circle></svg>${M.icon(HOSTL[k][2], 18)}</span><span class="dot ${x.none ? 'none' : x.ok ? 'ok' : 'warn'}"></span></span>
+      <span class="hcb"><b class="ell">${esc(HOSTL[k][1])}</b><span class="ell num">${esc(x.sub || '–')}</span></span></button>`;
+  }).join('')}</div>`;
+  const PREV_CSS = () => `.svp{padding:14px 12px;border-radius:24px;background:var(--ki-popup, #282828);display:flex;flex-direction:column;gap:10px}
+    .svp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);margin:0 4px}.svp button{pointer-events:none}
+    ${TAB_CSS('.svp')}`;
+  const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
+    ${pre} .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:999px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));touch-action:pan-y}
+    ${pre} .tb{flex:1 1 0;min-width:0;height:var(--sv-th,44px);padding:0 ${TV('tp', 6)};border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
+    ${pre} .tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
+    ${pre} .gear{width:calc(var(--sv-th,44px) + 8px);height:calc(var(--sv-th,44px) + 8px);border-radius:999px;flex:none;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));color:var(--ki-text, #fafafa)}
+    ${pre} .gear:active{transform:scale(.92)}
+    ${pre} .hcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    ${pre} .hc{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:12px;border-radius:24px;min-width:0;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));transition:background .2s,box-shadow .2s,transform .12s;text-align:left}
+    ${pre} .hc:active{transform:scale(.97)}
+    ${pre} .hc.on{background:var(--ki-surface-2, #404040);box-shadow:inset 0 0 0 1.5px ${PK}}
+    ${pre} .hct{display:flex;align-items:center;justify-content:space-between;width:100%}
+    ${pre} .ring{position:relative;width:40px;height:40px;flex:none;display:grid;place-items:center;color:var(--ki-text-1, #e1e1e1)}
+    ${pre} .ring svg{position:absolute;inset:0;width:40px;height:40px;transform:rotate(-90deg)}
+    ${pre} .ring circle{fill:none;stroke-width:3}${pre} .ring .rtr{stroke:var(--ki-line, rgba(255,255,255,0.08))}${pre} .ring .rfl{stroke-linecap:round}
+    ${pre} .dot{width:8px;height:8px;border-radius:4px;flex:none}
+    ${pre} .dot.ok{background:${GR};box-shadow:0 0 0 3px ${M.alpha(GR, 0.2)}}${pre} .dot.warn{background:${OR};box-shadow:0 0 0 3px ${M.alpha(OR, 0.2)}}${pre} .dot.none{background:var(--ki-ctrl, #545454)}
+    ${pre} .hcb{display:flex;flex-direction:column;gap:1px;min-width:0;width:100%}${pre} .hcb b{font-size:14px;font-weight:600}${pre} .hcb>span{font-size:12px;color:var(--ki-text-mid, #979797)}`;
+
+  /* ------------------------------------------------------------ «Tilpass Server» (= GUI-editoren, samme skjema) */
   const intStatus = (hh, cc, k) => {
-    if (!hh) return ['–', '#979797'];
+    if (!hh) return ['–', 'var(--ki-text-mid, #979797)'];
     const R = oppdag(hh, cc), s = (cc.integrations || {})[k], n = R.ents[k].length;
-    if (s === 'none') return ['Slått av (Ingen) · trykk for å velge', '#979797'];
-    if (s) return [`Valgt manuelt · ${n} entiteter`, '#fafafa'];
-    if (R.found[k]) return [`Funnet automatisk · ${n} entiteter${k === 'unraid' && R.unraid && R.unraid.glances ? ' (Glances)' : ''}`, C.green];
-    return [R.loading ? 'Leter …' : 'Ikke funnet · trykk for å velge', C.orange];
+    if (s === 'none') return ['Slått av (Ingen) · trykk for å velge', 'var(--ki-text-mid, #979797)'];
+    if (s) return [`Valgt manuelt · ${n} entiteter`, 'var(--ki-text, #fafafa)'];
+    if (R.found[k]) return [`Funnet automatisk · ${n} entiteter${k === 'unraid' && R.unraid && R.unraid.glances ? ' (Glances)' : ''}`, TX.green];
+    return [R.loading ? 'Leter …' : 'Ikke funnet · trykk for å velge', TX.orange];
   };
-  const autoOf = (h, c, fnc) => { if (!h) return null; try { return fnc(oppdag(h, c || {})) || null; } catch (e) { return null; } };
+  const autoOf = (h, c, fnc) => { if (!h) return null; try { return fnc(oppdag(h, c || {}), oppdagHA(h, c || {})) || null; } catch (e) { return null; } };
 
   function editorSchema(h, c) {
     c = c || {};
-    // Faner: live forhåndsvisning (faktiske faner, rosa boble, tannhjul) + dra-liste med øye
-    const preview = { type: 'html', html: (hh, cc) => {
+    const preview = { type: 'html', html: (hh, cc, key, ed) => {
+      if (ed && !ed.__svInst) { ed.__svInst = true; window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); }); }
       const V = visTabs(cc), T = tabsCfg(cc), act = V.includes(T.start) ? T.start : V[0];
-      return `<style>${TAB_CSS('.svp')}.svp{padding:14px 12px;border-radius:24px;background:#282828;display:flex;flex-direction:column;gap:10px}.svp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;margin:0 4px}.svp button{pointer-events:none}</style>
-        <div class="svp" data-key="svp" aria-hidden="true"><div class="tl">Forhåndsvisning</div><div class="trow"><div class="tabs">${V.map((k) => tabBtn(cc, k, k === act)).join('')}</div><span class="gear">${M.icon('mdi:cog', 22)}</span></div></div>`;
-    } };
-    const order = { type: 'html', html: (hh, cc, key, ed) => {
-      installEd(ed);
-      const T = tabsCfg(cc);
-      return `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none"><div data-svlist="tabs" style="display:flex;flex-direction:column;gap:8px">${T.order.map((k) => {
-        const [, label, icon] = TABL[k], hid = T.hidden.includes(k), n = hh ? oppdag(hh, cc).ents[TAB_INT[k]].length : 0;
-        return `<div data-svk="${k}" data-key="svt-${k}" style="height:56px;border-radius:28px;background:#3a3a3a;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${hid ? 'opacity:.5' : ''}">${hdl()}
-          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(icon, 20)}</span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:#979797">${hh ? (n ? `${n} entiteter` : 'Ikke koblet') : ''}</span></span>${eye(key, 'tab', k, hid, label)}</div>`;
-      }).join('')}</div><span class="help">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span></div>`;
-    }, click: (dd, ed) => {
-      const cc = ed._config || {}, T = tabsCfg(cc), hid = new Set(T.hidden);
-      if (!hid.has(dd.v) && T.order.filter((k) => !hid.has(k)).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
-      if (hid.has(dd.v)) hid.delete(dd.v); else hid.add(dd.v);
-      M.haptic('selection');
-      ed._set('tabs', { ...(cc.tabs && !Array.isArray(cc.tabs) ? cc.tabs : {}), order: T.order, hidden: hid.size ? [...hid] : undefined });
-    } };
-    const subPreview = { type: 'html', html: (hh, cc) => {
-      const V = visTabs(cc), T = tabsCfg(cc), t = V.includes(T.start) ? T.start : V[0], S = visSubs(cc, t), on = subCfg(cc).show && S.length > 1;
-      return `<style>${TAB_CSS('.svs')}.svs{padding:14px 12px;border-radius:24px;background:#282828;display:flex;flex-direction:column;gap:10px}.svs .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#7f7f7f;margin:0 4px}.svs button{pointer-events:none}</style>
-        <div class="svs" data-key="svs" aria-hidden="true"><div class="tl">Underfaner · ${esc(TABL[t][1])}</div>${on ? subRow(cc, t, S[0][0]) : `<div style="font-size:12px;color:#979797;margin:0 4px">${S.length > 1 ? 'Underfaneraden er skjult – alle seksjonene vises under hverandre' : 'Bare én underfane – raden skjules'}</div>`}</div>`;
-    } };
-    // Seksjoner for valgt fane: underfane-overskrifter + dra-rader (flytt mellom underfaner ved å dra forbi en overskrift)
-    const secs = { type: 'html', html: (hh, cc, key, ed) => {
-      installEd(ed);
-      const V = TABS.map((t) => t[0]), t = V.includes(ed.__svTab) ? ed.__svTab : visTabs(cc)[0];
-      const L = secList(cc, t);
-      const seg = `<div class="chips sg" role="tablist" style="margin-bottom:10px">${TABS.map(([k, l]) => `<button class="chip ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-a="fn" data-k="${key}" data-op="stab" data-v="${k}">${esc(l)}</button>`).join('')}</div>`;
-      const rows = SUBS[t].map(([sk, sl]) => `<div data-svsub="${sk}" data-key="svh-${t}-${sk}" style="padding:10px 8px 2px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#979797">${esc(sl)}</div>${L.filter((s) => s.sub === sk).map((s) => `<div data-svk="${s.id}" data-key="svr-${s.id}" style="height:56px;border-radius:28px;background:#3a3a3a;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${s.hidden ? 'opacity:.5' : ''}">${hdl()}
-          <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#404040;flex:none">${M.icon(s.icon, 20)}</span>
-          <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(s.label)}</span>${eye(key, 'sec', s.id, s.hidden, s.label)}</div>`).join('')}`).join('');
-      return `<div class="f" style="gap:6px;padding:0;background:none;box-shadow:none">${seg}<div data-svlist="secs" data-svtab="${t}" style="display:flex;flex-direction:column;gap:8px">${rows}</div><span class="help">Dra for rekkefølge – dra forbi en overskrift for å flytte seksjonen til en annen underfane. En underfane uten synlige seksjoner skjules.</span></div>`;
-    }, click: (dd, ed) => {
-      const cc = ed._config || {};
-      if (dd.op === 'stab') { M.haptic('selection'); ed.__svTab = dd.v; ed._render(); return; }
-      const S = cc.sections || {}, hid = new Set(S.hidden || []);
-      if (hid.has(dd.v)) hid.delete(dd.v); else hid.add(dd.v);
-      M.haptic('selection');
-      ed._set('sections', { ...S, hidden: hid.size ? [...hid] : undefined });
+      return `<style>${PREV_CSS()}</style><div class="svp" data-key="svp" aria-hidden="true" style="${thVars(cc)}"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}) : tabRowHTML(V, act)}</div>`;
     } };
     const ints = { type: 'html', html: (hh, cc, key) => `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${INTEG.map((I) => {
       const [txt, col] = intStatus(hh, cc, I.key);
-      return `<button data-a="fn" data-k="${key}" data-op="int" data-v="${I.key}" data-key="svi-${I.key}" style="min-height:60px;border-radius:28px;background:#3a3a3a;display:flex;align-items:center;gap:12px;padding:8px 14px 8px 10px;text-align:left;width:100%">
-        <span style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:#404040;color:${I.color}">${M.icon(I.icon, 20)}</span>
-        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">${esc(I.name)}</span><span style="font-size:12px;color:${col}">${esc(txt)}</span></span>${M.icon('mdi:chevron-right', 20, 'color:#7f7f7f')}</button>`;
-    }).join('')}<span class="help">Trykk for å velge en annen config entry, eller «Ingen» for å skjule seksjonene.</span></div>`,
+      return `<button data-a="fn" data-k="${key}" data-op="int" data-v="${I.key}" data-key="svi-${I.key}" style="min-height:60px;border-radius:28px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;gap:12px;padding:8px 14px 8px 10px;text-align:left;width:100%">
+        <span style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:var(--ki-surface-2, #404040);color:${I.color}">${M.icon(I.icon, 20)}</span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">${esc(I.name)}</span><span style="font-size:12px;color:${col}">${esc(txt)}</span></span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
+    }).join('')}<span class="help">Home Assistant (HA-fanen) hentes alltid fra Supervisor og systemmonitor. Trykk for å velge en annen config entry, eller «Ingen».</span></div>`,
     click: (dd, ed) => { M.haptic('light'); openPick(ed._hass, ed._config || {}, dd.v, (v) => ed._set('integrations.' + dd.v, v)); } };
     const ent = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => autoOf(hh, cc, fnc), none_label: '– · Velg entitet', ...(extra || {}) });
     const reset = { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-server-card', card_id: id }; ed._set('card_id', id); } };
+    const hostOpts = HOSTS.map((t) => [t[0], t[1]]);
     return [
       { type: 'tabs', id: 'server', tabs: [
+        { key: 'visning', label: 'Visning', icon: 'mdi:eye-outline', focus: ['visning', 'velger'], fields: [
+          { type: 'section', id: 'visning', label: 'Visning', icon: 'mdi:eye-outline', fields: [
+            preview,
+            { type: 'select', name: 'velger', label: 'Vertvelger', options: [['faner', 'Faner'], ['kort', 'Kort']], default: 'faner', help: 'Kort = to kolonner med last-ring og statusprikk. Tannhjulet ligger da i toppkortet.' },
+            ...(M.tabH ? [M.tabH.field({ native: 44, preview: false })] : []), // 33.4: felles fanehøyde (forhåndsvisningen over følger valget)
+            { type: 'boolean', name: 'show_prose', label: 'Setning under toppkortet', default: true },
+          ] },
+        ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs', 'faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
             preview,
-            { type: 'select', name: 'tabs.style', label: 'Stil', options: [['text', 'Tekst'], ['active', 'Aktiv'], ['icon', 'Ikon']], default: 'text', help: 'Aktiv = ikon + navn på aktiv fane, ikon på de andre.' },
-            { type: 'select', name: 'tabs.start', label: 'Startfane', options: [['', 'Sist brukt'], ...TABS.map((t) => [t[0], t[1]])], default: '' },
-            order,
-          ] },
-          { type: 'section', id: 'underfaner', label: 'Underfaner', icon: 'mdi:tab-minus', fields: [
-            subPreview,
-            { type: 'boolean', name: 'subtabs.show', label: 'Vis underfaneraden', default: true },
-            { type: 'select', name: 'subtabs.style', label: 'Stil', options: [['segment', 'Segment'], ['pills', 'Piller']], default: 'segment' },
+            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', options: hostOpts },
+            { type: 'select', name: 'start_tab', label: 'Åpne med', options: [['', 'Sist brukt'], ...hostOpts], default: '' },
+            { type: 'info', label: 'Hold inne en fane i 0,4 s og dra for å endre rekkefølgen direkte i popupen.' },
           ] },
         ] },
-        { key: 'seksjoner', label: 'Seksjoner', icon: 'mdi:view-agenda', focus: ['sections', 'seksjoner'], fields: [
-          { type: 'section', id: 'seksjoner', label: 'Seksjoner', icon: 'mdi:view-agenda', fields: [secs] },
-        ] },
-        { key: 'toppkort', label: 'Toppkort', icon: 'mdi:chart-line', focus: ['toppkort', 'varsler', 'limits'], fields: [
+        { key: 'toppkort', label: 'Toppkort', icon: 'mdi:chart-line', focus: ['toppkort'], fields: [
           { type: 'section', id: 'toppkort', label: 'Toppkort', icon: 'mdi:chart-line', fields: [
-            ...TABS.map(([t, l]) => ({ type: 'select', name: 'hero_metric.' + t, label: `Standard måling · ${l}`, options: HM[t].map(([k, lb]) => [k, lb]), default: HM[t][0][0] })),
-          ] },
-          { type: 'section', id: 'varsler', label: 'Varsler', icon: 'mdi:bell-alert', fields: [
-            { type: 'range', name: 'limits.disk_temp', label: 'Disktemperatur-grense', icon: 'mdi:thermometer', min: 30, max: 70, step: 2, default: LIM.disk_temp, unit: '°C', presets: [[40, '40'], [50, '50'], [60, '60']] },
-            { type: 'range', name: 'limits.storage', label: 'Lagring full', icon: 'mdi:harddisk', min: 50, max: 100, step: 5, default: LIM.storage, unit: '%', presets: [[75, '75'], [85, '85'], [95, '95']] },
-            { type: 'info', label: 'Grensene styrer fargene på disker (LED/temperatur) og stolper (oransje over grensen).' },
+            ...HOSTS.map(([t, l]) => ({ type: 'select', name: 'hero_metric.' + t, label: `Standard måling · ${l}`, options: HM[t].map(([k, lb]) => [k, lb]), default: HM[t][0][0] })),
           ] },
         ] },
         { key: 'integrasjoner', label: 'Integrasjoner', icon: 'mdi:puzzle', focus: ['integrasjoner', 'integrations'], fields: [
@@ -639,11 +645,12 @@
         { key: 'avansert', label: 'Avansert', icon: 'mdi:tune', focus: ['entities', 'overrides', 'spacing', 'advanced', 'avansert'], fields: [
           { type: 'section', id: 'entities', label: 'Entiteter i toppkortet', icon: 'mdi:format-list-bulleted', fields: [
             { type: 'info', label: 'Alt er funnet automatisk. Velg en annen entitet bare der det automatiske valget er feil.' },
-            ent('net_down', 'Nettverk · Ned', (RR) => (gateway(RR) || {}).rx), ent('net_up', 'Nettverk · Opp', (RR) => (gateway(RR) || {}).tx), ent('net_lat', 'Nettverk · Latens', (RR) => ((gateway(RR) || {}).latens || [])[0]),
-            ent('unifi_clients', 'Nettverk · Antall klienter', () => null),
-            ent('proxmox_cpu', 'Proxmox · CPU', (RR) => (RR.proxmox.noder[0] || {}).cpu), ent('proxmox_mem', 'Proxmox · Minne', (RR) => (RR.proxmox.noder[0] || {}).mem), ent('proxmox_power', 'Proxmox · Strøm', (RR) => RR.proxmox.power, { device_class: 'power' }),
-            ent('unraid_cpu', 'Unraid · CPU', (RR) => (RR.unraid || {}).cpu), ent('unraid_ram', 'Unraid · Minne', (RR) => (RR.unraid || {}).ram), ent('unraid_temp', 'Unraid · Temp', (RR) => (RR.unraid || {}).temp),
-            { type: 'entities', name: 'exclude', label: 'Skjul entiteter (rader og fliser)', help: 'Søk opp enheter, gjester eller disker som ikke skal vises.' },
+            ent('net_down', 'Nettverk · Ned', (RR) => (gateway(RR) || {}).rx), ent('net_up', 'Nettverk · Opp', (RR) => (gateway(RR) || {}).tx),
+            ent('unifi_clients', 'Nettverk · Klienter', () => null),
+            ent('proxmox_cpu', 'Proxmox · CPU', (RR) => (RR.proxmox.noder[0] || {}).cpu), ent('proxmox_mem', 'Proxmox · Minne', (RR) => (RR.proxmox.noder[0] || {}).mem), ent('proxmox_io', 'Proxmox · IO wait', (RR) => (RR.proxmox.noder[0] || {}).iowait),
+            ent('unraid_cpu', 'Unraid · CPU', (RR) => (RR.unraid || {}).cpu), ent('unraid_ram', 'Unraid · Minne', (RR) => (RR.unraid || {}).ram), ent('unraid_temp', 'Unraid · CPU-temp', (RR) => (RR.unraid || {}).temp),
+            ent('ha_cpu', 'HA · CPU', (RR, HH) => HH.sys.cpu), ent('ha_mem', 'HA · Minne', (RR, HH) => HH.sys.mem), ent('ha_disk', 'HA · Disk', (RR, HH) => HH.sys.disk),
+            { type: 'entities', name: 'exclude', label: 'Skjul entiteter (rader og fliser)', help: 'Søk opp enheter, gjester, tillegg eller oppdateringer som ikke skal vises.' },
           ] },
           M.spacingSchema(),
           { type: 'section', id: 'avansert', label: 'Tilbakestill', icon: 'mdi:restore', fields: [reset] },
@@ -658,130 +665,191 @@
     static get defaults() { return { ...DEF }; }
     static getStubConfig() { return { card_id: M.uid() }; }
     static get schema() { return editorSchema; }
-    static get uiPersist() { return ['tab', 'sub']; }
+    static get uiPersist() { return ['host', 'sub', 'hm']; }
     get cardSize() { return 12; }
     constructor() {
       super();
       this._ce = () => { if (this.isConnected) this.update(); };
-      this._hist = {}; this._pend = {}; this._q = {}; this._flt = {}; this._armed = null; this._blink = {};
+      this._hist = {}; this._pend = {}; this._q = {}; this._flt = {}; this._armed = null; this._blink = {}; this._upd = {};
     }
     connectedCallback() { super.connectedCallback(); window.addEventListener('msh-server-entries', this._ce); }
     disconnectedCallback() {
       super.disconnectedCallback(); window.removeEventListener('msh-server-entries', this._ce);
       if (this._pick) { this._pick.close(); this._pick = null; }
+      this._holdStop();
     }
     onOpen() {
       CE.t = 0; entries(this.hass); // friske config entries når popupen åpnes
+      supLoad(this.hass, true);
       const st = tabsCfg(this.config).start;
-      if (st && visTabs(this.config).includes(st) && this.ui.tab !== st) this.setUI({ tab: st, sel: null });
+      if (st && visTabs(this.config).includes(st) && this.ui.host !== st) this.setUI({ host: st, sel: null });
       this._loadHist();
     }
-    onClose() { if (this._pick) { this._pick.close(); this._pick = null; } }
+    onClose() { if (this._pick) { this._pick.close(); this._pick = null; } this._holdStop(); }
     get tabs() { return visTabs(this.config); }
-    get tab() { const V = this.tabs, st = tabsCfg(this.config).start; return V.includes(this.ui.tab) ? this.ui.tab : V.includes(st) ? st : V[0]; }
-    _sub(tab) {
-      const S = visSubs(this.config, tab), u = (this.ui.sub || {})[tab];
-      return S.some((s) => s[0] === u) ? u : S[0] ? S[0][0] : null;
-    }
+    get tab() { const V = this.tabs, st = tabsCfg(this.config).start; const u = this.ui.host || this.ui.tab; return V.includes(u) ? u : V.includes(st) ? st : V[0]; }
+    _sub(host) { const S = SUBS[host], u = (this.ui.sub || {})[host]; return S.some((s) => s[0] === u) ? u : S[0][0]; }
 
-    /* ---------------------------------------------------------- toppkort: målinger + historikk (fallgruve 8) */
-    _metrics(R, tab) {
+    /* ---------------------------------------------------------- målinger (toppkort + vertkort) */
+    _metrics(R, HA, host) {
       const h = this.hass, c = this.config;
-      const mk = ([k, label, color], id, v, unit, dec) => ({ k, label, color, id: id || null, v: v == null || isNaN(v) ? null : v, unit, dec });
-      if (tab === 'net') {
-        const g = gateway(R) || {}, [d, u, l] = HM.net;
-        const dn = ov(c, 'net_down') || g.rx, up = ov(c, 'net_up') || g.tx, lt = ov(c, 'net_lat') || (g.latens || [])[0];
-        return [mk(d, dn, numOf(h, dn), uShort(unitOf(h, dn)) || 'Mbps'), mk(u, up, numOf(h, up), uShort(unitOf(h, up)) || 'Mbps'), mk(l, lt, numOf(h, lt), unitOf(h, lt) || 'ms', 0)];
+      const mk = ([k, label, unit, color], id, v, f) => ({ k, label, unit, color, id: id || null, v: v == null || isNaN(v) ? null : v, f: f || 1 });
+      const [a, b, x] = HM[host];
+      if (host === 'net') {
+        const g = gateway(R) || {}, dn = ov(c, 'net_down') || g.rx, up = ov(c, 'net_up') || g.tx, cl = ov(c, 'unifi_clients');
+        const fd = rateF(unitOf(h, dn)), fu = rateF(unitOf(h, up)), vd = numOf(h, dn), vu = numOf(h, up);
+        return [mk(a, dn, vd == null ? null : vd * fd, fd), mk(b, up, vu == null ? null : vu * fu, fu), mk(x, cl, R.found.unifi ? klientTall(h, R, c) : null)];
       }
-      if (tab === 'proxmox') {
-        const n = R.proxmox.noder[0] || {}, [a, b, p] = HM.proxmox;
-        const cp = ov(c, 'proxmox_cpu') || n.cpu, mm = ov(c, 'proxmox_mem') || n.mem, pw = ov(c, 'proxmox_power') || R.proxmox.power;
-        return [mk(a, cp, pctOf(h, cp), '%', 0), mk(b, mm, pctOf(h, mm, n.ramBrukt, n.ramTot), '%', 0), mk(p, pw, numOf(h, pw), unitOf(h, pw) || 'W', 0)];
+      if (host === 'proxmox') {
+        const n = R.proxmox.noder[0] || {}, cp = ov(c, 'proxmox_cpu') || n.cpu, mm = ov(c, 'proxmox_mem') || n.mem, io = ov(c, 'proxmox_io') || n.iowait;
+        return [mk(a, cp, pctOf(h, cp)), mk(b, mm, pctOf(h, mm, n.ramBrukt, n.ramTot)), mk(x, io, pctOf(h, io))];
       }
-      const U = R.unraid || {}, [a, b, t] = HM.unraid;
-      const cp = ov(c, 'unraid_cpu') || U.cpu, mm = ov(c, 'unraid_ram') || U.ram, tp = ov(c, 'unraid_temp') || U.temp;
-      return [mk(a, cp, pctOf(h, cp), '%', 0), mk(b, mm, pctOf(h, mm), '%', 0), mk(t, tp, numOf(h, tp), '°C', 0)];
+      if (host === 'unraid') {
+        const U = R.unraid || {}, cp = ov(c, 'unraid_cpu') || U.cpu, mm = ov(c, 'unraid_ram') || U.ram, tp = ov(c, 'unraid_temp') || U.temp;
+        return [mk(a, cp, pctOf(h, cp)), mk(b, mm, pctOf(h, mm)), mk(x, tp, numOf(h, tp))];
+      }
+      const S = HA.sys, cp = ov(c, 'ha_cpu') || S.cpu, mm = ov(c, 'ha_mem') || S.mem, dk = ov(c, 'ha_disk') || S.disk;
+      return [mk(a, cp, pctOf(h, cp)), mk(b, mm, pctOf(h, mm)), dk ? mk(x, dk, pctOf(h, dk)) : mk(x, HA.host.diskUsed, pctOf(h, null, HA.host.diskUsed, HA.host.diskTot))];
+    }
+    _series(m) {
+      const H = m.id && this._hist[m.id];
+      const s = H && H.length ? H.map((v) => v * m.f) : (m.v != null ? Array(NPT).fill(m.v) : []);
+      if (s.length && m.v != null) s[NPT - 1] = m.v;
+      return s;
     }
     async _loadHist() {
       if (!this.hass || !this.isOpen) return;
-      const R = oppdag(this.hass, this.config), tab = this.tab, ids = this._metrics(R, tab).map((m) => m.id).filter(Boolean);
-      const key = tab + '|' + ids.join();
+      const R = oppdag(this.hass, this.config), HA = oppdagHA(this.hass, this.config), host = this.tab;
+      const ids = this._metrics(R, HA, host).map((m) => m.id).filter(Boolean);
+      const key = host + '|' + ids.join();
       if (this._histKey === key && this._histAt && Date.now() - this._histAt < TTL) return;
       this._histKey = key; this._histAt = Date.now();
       if (!ids.length) return;
       const r = await M.history(this.hass, ids, 24).catch(() => ({}));
       if (this._histKey !== key) return;
-      ids.forEach((id) => { this._hist[id] = M.sample(r[id] || [], 49, 24); });
+      ids.forEach((id) => { this._hist[id] = M.sample(r[id] || [], NPT, 24); });
       this.update();
     }
+    // Status per vert (chip, prikk): { t, ok, none }
+    _status(R, HA, host) {
+      const h = this.hass;
+      if (host === 'ha') { const n = this._updN(); return n ? { t: `${n} ${n === 1 ? 'oppdatering' : 'oppdateringer'}`, ok: false } : { t: 'Oppdatert', ok: true }; }
+      const ik = HOST_INT[host];
+      if (!R.found[ik]) return { t: R.loading && R.mode[ik] !== 'none' ? 'Leter …' : 'Ikke koblet', ok: false, none: true };
+      if (host === 'net') { const g = gateway(R); return !g ? { t: '–', ok: false, none: true } : apOffline(h, g) ? { t: 'Frakoblet', ok: false } : { t: 'Online', ok: true }; }
+      if (host === 'proxmox') {
+        const n = R.proxmox.noder[0], st = n && n.status && h.states[n.status];
+        if (st && ok(st) && !kjorer(st)) return { t: 'Frakoblet', ok: false };
+        const G = R.proxmox.gjester; return { t: `${G.filter((g) => kjorer(h.states[g.bryter || g.status])).length} av ${G.length} kjører`, ok: true };
+      }
+      const U = R.unraid;
+      return U && STOPP(h, U) ? { t: 'Array stoppet', ok: false } : { t: 'Alt OK', ok: true };
+    }
+    _updIds() {
+      const h = this.hass, ex = new Set(this.config.exclude || []);
+      return Object.keys(h.states).filter((id) => id.startsWith('update.') && !ex.has(id));
+    }
+    _updN() { const h = this.hass; return this._updIds().filter((id) => h.states[id].state === 'on').length; }
 
     onAction(name, el, ev) {
       const d = el.dataset, h = this.hass;
       switch (name) {
-        case 'tab': if (d.v && this.tabs.includes(d.v) && d.v !== this.tab) { this.setUI({ tab: d.v, sel: null }); setTimeout(() => this._loadHist(), 0); } return;
-        case 'sub': return this.setUI({ sub: { ...(this.ui.sub || {}), [this.tab]: d.v } });
+        case 'host': if (d.v && this.tabs.includes(d.v) && d.v !== this.tab) { this.setUI({ host: d.v, sel: null, port: null }); if (d.v === 'ha') supLoad(h); setTimeout(() => this._loadHist(), 0); } return;
+        case 'sub': return this.setUI({ sub: { ...(this.ui.sub || {}), [this.tab]: d.v }, port: null });
         case 'hm': return this.setUI({ hm: { ...(this.ui.hm || {}), [this.tab]: d.v }, sel: null });
         case 'dx': return this.setUI({ dx: this.ui.dx === d.v ? null : d.v });
-        case 'cx': return this.setUI({ cx: this.ui.cx === d.v ? null : d.v });
-        case 'gx': return this.setUI({ gx: this.ui.gx === d.v ? null : d.v });
+        case 'gx': { const open = this.ui.gx === d.v ? null : d.v; if (open && d.slug) supAddon(h, d.slug); return this.setUI({ gx: open }); }
         case 'swsel': return this.setUI({ swSel: d.v, port: null });
         case 'port': return this.setUI({ port: this.ui.port === d.v ? null : d.v });
-        case 'disk': return this.setUI({ disk: { ...(this.ui.disk || {}), [this.tab]: d.v } });
+        case 'bay': return M.toast(d.msg || '–');
         case 'flt': this._flt[this.tab] = d.v; return this.update();
-        case 'qclr': this._q[this.tab] = ''; return this.update();
+        case 'qclr': { this._q[this.tab] = ''; const i = this.shadowRoot.querySelector('.srch input'); if (i) i.value = ''; this.update(); setTimeout(() => { const j = this.shadowRoot.querySelector('.srch input'); if (j) j.focus(); }, 30); return; }
         case 'pickint': return this._openPick(d.v);
         case 'addint': return M.navigate('/config/integrations/dashboard/add?domain=' + d.v);
-        case 'press': return d.id && M.call(h, 'button', 'press', { entity_id: d.id });
+        case 'gsw': if (ev) ev.stopPropagation(); return this._gsw(d.v);
         case 'arm': return this._arm(d.key, () => this._run(d));
         case 'run': return this._run(d);
         case 'tgl': return this._tgl(d);
+        case 'opt': return this._opt(d);
+        case 'install': return this._install(d.id);
         case 'locate': return this._locate(d);
         default: return super.onAction(name, el, ev);
       }
     }
     onInput(name, el) { if (name === 'q') { this._q[this.tab] = el.value; this.update(); } }
-    // Farlige handlinger: første trykk = rød «Bekreft · trykk igjen», tilbakestilles etter 3 s
+    // Rød-tone-handlinger: første trykk = «Bekreft · trykk igjen» (rød), andre trykk kjører, tilbakestilles etter 3 s
     _arm(key, run) {
       if (this._armed === key) { clearTimeout(this._armT); this._armed = null; M.haptic('heavy'); run(); this.update(); return; }
       this._armed = key; M.haptic('warning');
       clearTimeout(this._armT); this._armT = setTimeout(() => { this._armed = null; this.update(); }, 3000);
       this.update();
     }
-    // Bryter med spinner mens den venter (state endres → spinneren forsvinner, maks 15 s)
+    // Ventende bryter (optimistisk): vis ønsket tilstand til HA melder endring (maks 15 s)
+    _want(key, want) { this._pend[key] = { want, t: Date.now() }; this.update(); setTimeout(() => this.update(), 15100); }
+    _pendRun(key, actual) {
+      const p = this._pend[key]; if (!p) return actual;
+      if (Date.now() - p.t > 15000 || actual === p.want) { delete this._pend[key]; return actual; }
+      return p.want;
+    }
+    // Bryteren i listeraden: start/stopp uten å åpne raden
+    _gsw(id) {
+      const h = this.hass, it = (this._items || []).find((x) => x.id === id);
+      if (!it) return;
+      if (it.lock) { M.haptic('warning'); M.toast('Start arrayet først'); return; }
+      M.haptic('medium');
+      const want = !it.run;
+      if (it.src === 'proxmox') {
+        const g = it.g, btn = want ? g.knapper.find((k) => k.a === 'start' || k.a === 'fortsett') : (g.knapper.find((k) => k.a === 'av') || g.knapper.find((k) => k.a === 'stopp'));
+        if (g.bryter) { this._want(id, want); return M.call(h, 'switch', want ? 'turn_on' : 'turn_off', { entity_id: g.bryter }); }
+        if (!btn) return M.toast('Fant ingen start-/stoppknapp for ' + g.navn);
+        this._want(id, want); M.call(h, 'button', 'press', { entity_id: btn.id });
+      } else if (it.src === 'unraid') {
+        this._want(id, want); M.call(h, 'switch', want ? 'turn_on' : 'turn_off', { entity_id: it.g.bryter });
+      } else {
+        const a = it.a;
+        if (a.sw) { this._want(id, want); M.call(h, 'switch', want ? 'turn_on' : 'turn_off', { entity_id: a.sw }); }
+        else if (a.slug) { this._want(id, want); M.call(h, 'hassio', want ? 'addon_start' : 'addon_stop', { addon: a.slug }).then(() => { SUP.t = 0; supLoad(h); }).catch(() => {}); }
+        else return M.toast('Fant ikke tillegget i Supervisor');
+      }
+      M.toast(it.name + (want ? ' startes' : ' stoppes'));
+    }
+    // Bryter (entitet): switch/light/input_boolean, eller opptaksmodus (select.*_recording_mode)
     _tgl(d) {
       const h = this.hass;
-      const mark = (id) => { const s = h.states[id]; this._pend[id] = { s: s && s.state, t: Date.now() }; this.update(); setTimeout(() => this.update(), 15100); };
-      if (d.sw) { mark(d.sw); return M.toggle(h, d.sw); }
-      if (d.sel) { // opptak via select.*_recording_mode
+      if (d.sw) { const s = h.states[d.sw]; this._want('t:' + d.sw, !(s && s.state === 'on')); return M.toggle(h, d.sw); }
+      if (d.sel) {
         const s = h.states[d.sel]; if (!s) return;
-        const opts = s.attributes.options || [], never = opts.find((o) => /never|aldri/i.test(o)) || 'never';
-        const on = s.state !== never;
+        const opts = s.attributes.options || [], never = opts.find((o) => /never|aldri/i.test(o)) || 'never', on = s.state !== never;
         const back = (() => { try { return localStorage.getItem('ki:sv-rec:' + d.sel); } catch (e) { return null; } })();
         if (on) { try { localStorage.setItem('ki:sv-rec:' + d.sel, s.state); } catch (e) { /* */ } }
-        mark(d.sel);
+        this._want('t:' + d.sel, !on);
         return M.call(h, 'select', 'select_option', { entity_id: d.sel, option: on ? never : (back && opts.includes(back) ? back : opts.find((o) => /always|alltid/i.test(o)) || opts.find((o) => o !== never) || 'always') });
       }
-      const g = this._R && this._R.proxmox.gjester.find((x) => x.id === d.g);
-      if (!g) return;
-      const on = kjorer(h.states[g.status]);
-      const btn = on ? (g.knapper.find((k) => k.a === 'av') || g.knapper.find((k) => k.a === 'stopp')) : g.knapper.find((k) => k.a === 'start' || k.a === 'fortsett');
-      if (btn) { mark(g.status); M.call(h, 'button', 'press', { entity_id: btn.id }); }
-      else M.toast('Fant ingen start-/stoppknapp for ' + g.navn);
     }
-    _pending(id) {
-      const p = id && this._pend[id]; if (!p) return false;
-      const s = this.hass.states[id];
-      if (Date.now() - p.t > 15000 || (s && s.state !== p.s)) { delete this._pend[id]; return false; }
-      return true;
+    // Tillegg-valg (Supervisor /addons/<slug>/options): boot, watchdog, auto_update, ingress_panel
+    _opt(d) {
+      const info = SUP.info[d.slug]; if (!info) return;
+      const k = d.k, cur = k === 'boot' ? info.boot === 'auto' : !!info[k], v = !cur;
+      const data = { [k]: k === 'boot' ? (v ? 'auto' : 'manual') : v };
+      SUP.info[d.slug] = { ...info, ...data }; this.update();
+      supWS(this.hass, `/addons/${d.slug}/options`, 'post', data).then(() => M.toast(`${d.label || k} ${v ? 'på' : 'av'}`)).catch((e) => { SUP.info[d.slug] = info; this.update(); M.toast('Kunne ikke lagre: ' + ((e && e.message) || e)); });
     }
-    // «Finn»: locate-knapp/-bryter, ellers LED-blink – flisen blinker mens den er aktiv
+    _install(id) {
+      const h = this.hass, s = h.states[id];
+      if (!s || s.state !== 'on' || this._upd[id]) return;
+      M.haptic('medium');
+      this._upd[id] = { t: Date.now() }; this.update();
+      M.call(h, 'update', 'install', { entity_id: id }).catch((e) => { delete this._upd[id]; this.update(); M.toast('Feil: ' + ((e && e.message) || e)); });
+    }
+    _pendingTgl(id, actual) { return this._pendRun('t:' + id, actual); }
+    // «Finn»: locate-knapp/-bryter, ellers LED-blink – ikonet blinker mens den er aktiv
     _locate(d) {
       const h = this.hass, id = d.id; if (!id) return;
       const until = Date.now() + (dom(id) === 'light' ? 10000 : 30000);
       if (dom(id) === 'switch') M.toggle(h, id);
       else if (dom(id) === 'button') M.call(h, 'button', 'press', { entity_id: id });
       else M.call(h, 'light', 'turn_on', { entity_id: id, flash: 'long' }).then(() => M.toast('LED-en blinker')).catch(() => {});
-      if (dom(id) !== 'switch') { this._blink[d.dev] = until; setTimeout(() => this.update(), until - Date.now() + 50); }
+      this._blink[d.dev] = until; setTimeout(() => this.update(), until - Date.now() + 50);
       this.update();
     }
     _openPick(k) {
@@ -796,589 +864,700 @@
       });
       this._pick.onClosed = () => { this._pick = null; };
     }
+    // Handling: entitet (button.press / update.install / toggle), tjeneste (data-svc + data-data) eller navigering (data-nav)
+    _run(d) {
+      const h = this.hass, done = () => d.toast && M.toast(d.toast), fail = (e) => M.toast('Feil: ' + ((e && e.message) || e));
+      if (d.nav) return M.navigate(d.nav);
+      if (d.ids) { d.ids.split(',').filter(Boolean).forEach((id) => M.call(h, 'button', 'press', { entity_id: id })); return done(); }
+      if (d.id) {
+        const D = dom(d.id), call = D === 'button' ? ['button', 'press'] : D === 'update' ? ['update', 'install'] : [D, 'toggle'];
+        return M.call(h, call[0], call[1], { entity_id: d.id }).then(done).catch(fail);
+      }
+      if (d.svc) { const [a, b] = d.svc.split('.'); let data = {}; try { data = d.data ? JSON.parse(d.data) : {}; } catch (e) { /* */ } return M.call(h, a, b, data).then(done).catch(fail); }
+    }
 
     /* ---------------------------------------------------------- tegning */
     render() {
       const h = this.hass, c = this.config;
-      const R = (this._R = oppdag(h, c));
-      const V = this.tabs, tab = this.tab;
+      const R = (this._R = oppdag(h, c)), HA = (this._HA = oppdagHA(h, c));
+      const V = this.tabs, host = this.tab;
       INTEG.forEach((i) => R.ents[i.key].forEach((id) => this._deps.add(id)));
       Object.values(c.overrides || {}).forEach((id) => { if (id) this._deps.add(id); });
-      const parts = [this._tabRow(V, tab), this._hero(R, tab), this._prose(R, tab), ...this._body(R, tab)];
-      return `<div class="wrap">${parts.join('')}</div>`;
+      [HA.sys, HA.core, HA.os, HA.sup, HA.host].forEach((o) => Object.values(o || {}).forEach((id) => { if (typeof id === 'string' && id.includes('.')) this._deps.add(id); }));
+      HA.addons.forEach((a) => [a.run, a.sw, a.cpu, a.mem, a.ver, a.upd].forEach((id) => id && this._deps.add(id)));
+      this._updIds().forEach((id) => this._deps.add(id));
+      const X = {};
+      V.forEach((k) => {
+        const m = this._metrics(R, HA, k)[0], st = this._status(R, HA, k);
+        X[k] = { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : m.v, sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : `${m.label} ${Math.round(m.v)} %` };
+      });
+      const cards = isCards(c);
+      const pick = cards ? hostCardsHTML(V, host, X, (k) => `data-act="host" data-haptic="selection"`) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"');
+      const ik = HOST_INT[host], found = host === 'ha' || R.found[ik], sub = this._sub(host);
+      const parts = [pick, this._hero(R, HA, host, cards), showProse(c) ? this._prose(R, HA, host) : ''];
+      if (!found) parts.push(this._notFound(R, ik));
+      else {
+        parts.push(`<div class="subs" role="tablist">${SUBS[host].map(([k, l]) => `<button class="sb${k === sub ? ' on' : ''}" role="tab" aria-selected="${k === sub}" data-act="sub" data-v="${k}" data-haptic="selection">${esc(l)}</button>`).join('')}</div>`);
+        let body = '';
+        try { body = this['_b_' + host + '_' + sub](R, HA); } catch (e) { body = this._failHTML(e); }
+        parts.push(`<div class="pane" data-key="pane-${host}-${sub}">${body}</div>`);
+      }
+      return `<div class="wrap" style="${thVars(c)}">${parts.join('')}</div>`;
     }
-    _tabRow(V, tab) {
-      return `<div class="trow"><div class="tabs" role="tablist" data-glass-drag="x">${V.map((k) => tabBtn(this.config, k, k === tab, `data-act="tab" data-v="${k}" data-haptic="selection"`)).join('')}</div>
-        <button class="gear press" data-act="customize" aria-label="Tilpass Server">${M.icon('mdi:cog', 22)}</button></div>`;
-    }
-    _hero(R, tab) {
-      const h = this.hass, c = this.config, ui = this.ui, ik = TAB_INT[tab], found = R.found[ik];
-      const Ms = this._metrics(R, tab);
-      const want = (ui.hm || {})[tab] || (c.hero_metric || {})[tab];
-      const main = Ms.find((m) => m.k === want) || Ms[0], rest = Ms.filter((m) => m !== main);
-      // serie: historikk (49 punkter, 30 min) + live siste punkt; flat når data mangler
-      const ser = (m) => { const s = (m.id && this._hist[m.id] && this._hist[m.id].length ? this._hist[m.id].slice() : (m.v != null ? Array(49).fill(m.v) : [])); if (s.length && m.v != null) s[48] = m.v; return s; };
-      const S = ser(main), sel = ui.sel != null ? ui.sel : 48;
-      let pts = '0,60 300,60';
+    _hero(R, HA, host, cards) {
+      const ui = this.ui, c = this.config, Ms = this._metrics(R, HA, host);
+      const want = (ui.hm || {})[host] || (c.hero_metric || {})[host];
+      const mi = Math.max(0, Ms.findIndex((m) => m.k === want)), M0 = Ms[mi];
+      const S = this._series(M0), idx = ui.sel != null ? ui.sel : NPT - 1;
+      let line = `M0 60 L300 60`, mx = 300;
       if (S.length) {
-        let lo = Math.min(...S), hi = Math.max(...S); const pad = (hi - lo) * 0.15 || Math.max(1, Math.abs(hi) * 0.1);
-        lo -= pad; hi += pad;
-        pts = S.map((v, i) => `${((i / 48) * 300).toFixed(1)},${(92 - ((v - lo) / (hi - lo)) * 72).toFixed(1)}`).join(' ');
+        const max = Math.max(...S) * 1.15 || 1, min = Math.min(...S) * 0.7, span = max - min || 1;
+        const pts = S.map((v, i) => [(i / (NPT - 1)) * 300, 80 - ((v - min) / span) * 66]);
+        line = 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L');
+        mx = pts[Math.min(idx, pts.length - 1)][0];
       }
-      const at = (m) => { if (sel === 48) return m.v; const s = ser(m); return s.length ? s[sel] : null; };
-      const fv = (m, v) => (v == null ? '–' : nf(v, m.dec != null ? m.dec : Math.abs(v) < 10 && v % 1 ? 1 : 0));
-      const hrs = (48 - sel) / 2;
-      const when = sel === 48 ? `${main.label} · nå` : `−${M.nf(hrs, hrs % 1 ? 1 : 0)} t`;
-      // tittel, status-chip og tekst til høyre
-      let title, chip, right = '';
-      if (tab === 'net') {
-        const g = gateway(R), off = g && apOffline(h, g);
-        title = 'Internett';
-        chip = !found ? ['none', 'Ikke koblet'] : !g ? ['none', '–'] : off ? ['red', 'Frakoblet'] : ['ok', g.oppetid && ok(h.states[g.oppetid]) ? `Online · ${oppetid(h, g.oppetid)}` : 'Online'];
-        const k = found ? klientTall(h, R, c) : null; right = k != null ? `${nf(k)} klienter` : '';
-      } else if (tab === 'proxmox') {
-        const n = R.proxmox.noder[0];
-        title = n ? `${n.navn} · node 1` : 'Proxmox';
-        const st = n && n.status && h.states[n.status];
-        chip = !found ? ['none', 'Ikke koblet'] : !n ? ['none', '–'] : st && !kjorer(st) ? ['red', 'Frakoblet'] : ['ok', n.oppetid && ok(h.states[n.oppetid]) ? `Online · ${oppetid(h, n.oppetid)}` : 'Online'];
-        const G = R.proxmox.gjester; right = found && G.length ? `${G.filter((g) => kjorer(h.states[g.bryter || g.status])).length} kjører` : '';
-      } else {
-        const U = R.unraid;
-        title = U ? `${U.navn} · ${U.glances ? 'Glances' : 'Unraid'}` : 'Unraid';
-        chip = !found ? ['none', 'Ikke koblet'] : !U ? ['none', '–'] : arrayStoppet(h, U) ? ['warn', 'Array stoppet'] : ['ok', U.oppetid && ok(h.states[U.oppetid]) ? `Online · ${oppetid(h, U.oppetid)}` : 'Online'];
-        if (U) {
-          const b = numOf(h, U.arrayBrukt), u = unitOf(h, U.arrayBrukt);
-          const tb = b == null ? null : /^t/i.test(u) ? b : /^g/i.test(u) ? b / 1000 : /^m/i.test(u) ? b / 1e6 : null;
-          const p = pctOf(h, ov(c, 'unraid_array') || U.arrayBruk);
-          right = tb != null ? `${nf(tb, 1)} TB brukt` : p != null ? `${nf(p)} % brukt` : '';
-        }
-      }
-      const gc = main.color;
-      return `<section class="hero" aria-label="Toppkort" data-key="hero-${tab}">
-          <div class="graph"><svg viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true">
-            <polyline points="0,100 ${pts} 300,100" style="fill:${M.alpha(gc, 0.2)};stroke:none"></polyline>
-            <polyline points="${pts}" fill="none" style="stroke:${gc};stroke-width:2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline></svg>
-            ${ui.sel != null ? `<div class="cursor" style="left:${(sel / 48) * 100}%;border-left:1px dashed ${M.alpha(gc, 0.7)}"></div>` : ''}<div class="scrub" aria-label="Scrub grafen"></div></div>
-          <div class="htop"><span class="hn ell">${esc(title)}</span><span class="chip ${chip[0]}">${chip[0] === 'ok' ? M.icon('mdi:check-circle', 13) : chip[0] === 'none' ? '' : M.icon('mdi:alert', 13)}<span class="ell">${esc(chip[1])}</span></span><span class="grow"></span>${right ? `<span class="hr ell">${esc(right)}</span>` : ''}</div>
-          <div class="vals"><div class="line"><span class="big num">${fv(main, at(main))}</span><span class="bu">${esc(main.unit || '')}</span>
-            ${rest.map((m) => `<button class="sv" data-act="hm" data-v="${m.k}" data-haptic="selection" aria-label="Vis ${esc(m.label)}"><span class="svv num">${fv(m, at(m))}</span><span class="svu">${esc(m.unit || '')}</span><span class="svl">${esc(m.label)}</span></button>`).join('')}</div>
-            <span class="when">${esc(when)}</span></div>
+      const at = (m) => { if (ui.sel == null) return m.v; const s = this._series(m); return s.length ? s[Math.min(idx, s.length - 1)] : null; };
+      const fv = (m, v) => (v == null || isNaN(v) ? '–' : m.unit === '%' && v < 10 ? M.nf(v, 1) : String(Math.round(v)));
+      const st = this._status(R, HA, host);
+      const hrs = (NPT - 1 - idx) / 2;
+      const time = ui.sel == null ? `nå · ${M0.label.toLowerCase()}` : `−${M.nf(hrs, hrs % 1 ? 1 : 0)} t · ${M0.label.toLowerCase()}`;
+      const unit = (m) => (m.unit === '%' || m.unit === '°' ? m.unit : m.unit ? ' ' + m.unit : ' ' + m.label.toLowerCase());
+      return `<section class="hero" aria-label="Toppkort" data-key="hero-${host}">
+          <div class="htop"><span class="hn ell">${esc(HOSTL[host][1])}</span><span class="chip ${st.none ? 'none' : st.ok ? 'ok' : 'warn'}">${M.icon(st.none ? 'mdi:link-variant-off' : st.ok ? 'mdi:check' : 'mdi:alert', 13)}<span class="ell">${esc(st.t)}</span></span></div>
+          ${cards ? `<button class="hcog" data-act="customize" aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button>` : ''}
+          <div class="vals"><span class="bigw"><span class="big num">${fv(M0, at(M0))}</span><span class="bu">${esc(unit(M0).trim() === M0.label.toLowerCase() ? '' : unit(M0))}</span></span>
+            ${Ms.map((m, j) => (j === mi ? '' : `<button class="sv" data-act="hm" data-v="${m.k}" data-haptic="selection" aria-label="Vis ${esc(m.label)}"><span class="svv num">${fv(m, at(m))}</span><span class="svu">${esc(unit(m))}</span></button>`)).join('')}</div>
+          <span class="when">${esc(time)}</span>
+          <div class="graph"><svg viewBox="0 0 300 84" preserveAspectRatio="none" aria-hidden="true">
+            <path d="${line} L300 84 L0 84 Z" style="fill:${M.alpha(M0.color, 0.14)}"></path>
+            <path d="${line}" fill="none" style="stroke:${M0.color}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+            ${ui.sel != null ? `<line class="mk" x1="${mx.toFixed(1)}" x2="${mx.toFixed(1)}" y1="0" y2="84" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"></line>` : ''}</svg>
+            <div class="scrub" aria-label="Scrub grafen"></div></div>
         </section>`;
     }
-    _prose(R, tab) {
-      const h = this.hass, c = this.config, ik = TAB_INT[tab], pill = (t, bad) => `<b class="pp${bad ? ' bad' : ''}">${esc(t)}</b>`;
+    // 35.7 regel 1: ÉN <p> med tekst og inline-piller – ingen flex/grid, ingen containere
+    _prose(R, HA, host) {
+      const h = this.hass, c = this.config, ik = HOST_INT[host], pill = (t) => `<span class="pp">${esc(t)}</span>`;
       let txt;
-      if (!R.found[ik]) txt = R.loading && R.mode[ik] !== 'none' ? `Leter etter ${pill(INT[ik].name)} …` : `Ingen ${pill(INT[ik].name)} er koblet til ennå.`;
-      else if (tab === 'net') {
-        const g = gateway(R), off = g && apOffline(h, g), k = klientTall(h, R, c);
-        txt = `Internett er ${pill(!g ? '–' : off ? 'frakoblet' : 'online', off)} og ${pill(k == null ? '–' : `${nf(k)} ${k === 1 ? 'klient' : 'klienter'}`)} er tilkoblet.`;
-      } else if (tab === 'proxmox') {
-        const n = R.proxmox.noder[0] || {}, pw = ov(c, 'proxmox_power') || R.proxmox.power, W = numOf(h, pw);
-        const G = R.proxmox.gjester, on = G.filter((g) => kjorer(h.states[g.bryter || g.status])).length;
-        txt = `Oppetiden er ${pill(oppetid(h, n.oppetid))} og ` + (W != null ? `strømforbruket er ${pill(`${nf(W)} ${unitOf(h, pw) || 'W'}`)}.` : `${pill(`${on} av ${G.length}`)} gjester kjører.`);
+      if (host !== 'ha' && !R.found[ik]) txt = R.loading && R.mode[ik] !== 'none' ? `Leter etter ${pill(INT[ik].name)} …` : `Ingen ${pill(INT[ik].name)} er koblet til ennå.`;
+      else if (host === 'net') {
+        const off = R.unifi.enheter.filter((e) => e.type !== 'enhet' && apOffline(h, e)).length, k = klientTall(h, R, c);
+        txt = `Nettet er ${pill(off ? `${off} ${off === 1 ? 'enhet' : 'enheter'} frakoblet` : 'helt oppe')} og ${pill(k == null ? '–' : `${M.nf(k)} ${k === 1 ? 'klient' : 'klienter'}`)} er tilkoblet.`;
+      } else if (host === 'proxmox') {
+        const G = R.proxmox.gjester, on = G.filter((g) => kjorer(h.states[g.bryter || g.status])).length, p = this._pveStorePct(R);
+        txt = `Proxmox kjører ${pill(`${on} av ${G.length} gjester`)} og lagringen er ${pill(p == null ? '–' : `${M.nf(p)} % full`)}.`;
+      } else if (host === 'unraid') {
+        const U = R.unraid || {}, stop = STOPP(h, U), p = pctOf(h, ov(c, 'unraid_array') || U.arrayBruk, U.arrayBrukt, U.arrayTot);
+        txt = U.glances ? `CPU-en er ${pill(`${fmtN(pctOf(h, U.cpu), 0)} %`)} og minnet er ${pill(`${fmtN(pctOf(h, U.ram), 0)} % brukt`)}.`
+          : `Arrayet er ${pill(U.arrayStatus || U.arraySw ? (stop ? 'stoppet' : 'startet') : '–')} og lagringen er ${pill(p == null || stop ? '–' : `${M.nf(p)} % full`)}.`;
       } else {
-        const U = R.unraid || {}, stop = arrayStoppet(h, U), p = pctOf(h, ov(c, 'unraid_array') || U.arrayBruk), L = limitsOf(c);
-        const st = U.glances ? null : U.arrayStatus || U.arraySw ? (stop ? 'stoppet' : 'startet') : '–';
-        txt = st ? `Arrayet er ${pill(st, stop)} og lagringen er ${pill(p == null ? '–' : `${nf(p)} % full`, p != null && p >= L.storage)}.`
-          : `CPU-en er ${pill(`${nf(pctOf(h, U.cpu))} %`)} og minnet er ${pill(`${nf(pctOf(h, U.ram))} % brukt`)}.`;
+        const n = this._updN(), run = this._addonRun(HA);
+        txt = `Home Assistant har ${pill(n ? `${n} ${n === 1 ? 'oppdatering' : 'oppdateringer'}` : 'ingen oppdateringer')} og ${pill(run == null ? '–' : `${run} tillegg`)} kjører.`;
       }
       return `<p class="prose">${txt}</p>`;
     }
-    _body(R, tab) {
-      const c = this.config, ik = TAB_INT[tab], out = [];
-      const netCams = tab === 'net' && R.found.protect;
-      if (!R.found[ik]) {
-        out.push(this._notFound(R, ik));
-        // Nettverk uten UniFi Network, men med Protect: bare kameraene
-        const cs = netCams && secList(c, tab).find((s) => s.key === 'cams' && !s.hidden);
-        if (cs) out.push(`<div class="pane" data-key="pane-net-cams">${this._s_cams(R, tab, cs)}</div>`);
-        return out;
-      }
-      const S = visSubs(c, tab);
-      if (!S.length) return [...out, `<div class="empty">${M.icon('mdi:eye-off', 22)}<span>Alle seksjonene er skjult</span><button class="pick press" data-act="customize" data-section="seksjoner">${M.icon('mdi:cog', 18)}Tilpass</button></div>`];
-      const sub = this._sub(tab), row = subCfg(c).show && S.length > 1;
-      if (row) out.push(subRow(c, tab, sub, (k) => `data-act="sub" data-v="${k}" data-haptic="selection"`));
-      const L = secList(c, tab).filter((s) => !s.hidden && (!row || s.sub === sub));
-      const html = L.map((s) => { try { return this['_s_' + s.key](R, tab, s); } catch (e) { return this._failHTML(e); } }).filter(Boolean);
-      out.push(`<div class="pane" data-key="pane-${tab}-${row ? sub : 'alle'}">${html.join('') || `<div class="empty">${M.icon('mdi:information-outline', 22)}<span>Ingenting å vise her</span></div>`}</div>`);
-      return out;
+    _pveStorePct(R) {
+      const h = this.hass, n = R.proxmox.noder[0] || {};
+      const L = R.proxmox.lagring.map((g) => ({ b: toGB(h, g.brukt), t: toGB(h, g.total), p: pctOf(h, g.bruk, g.brukt, g.total) }));
+      const bt = L.filter((x) => x.b != null && x.t);
+      if (bt.length) return (bt.reduce((a, x) => a + x.b, 0) / bt.reduce((a, x) => a + x.t, 0)) * 100;
+      const d = pctOf(h, n.disk, n.diskBrukt, n.diskTot);
+      if (d != null) return d;
+      const P = L.filter((x) => x.p != null); return P.length ? P.reduce((a, x) => a + x.p, 0) / P.length : null;
+    }
+    _addonRun(HA) { if (!HA.addons.length) return HA.supervisor ? 0 : null; return HA.addons.filter((a) => this._addonOn(a)).length; }
+    _addonOn(a) {
+      const id = a.sw || a.run, s = id && this.s(id);
+      if (s && ok(s)) return s.state === 'on' || /^(started|running)$/i.test(s.state);
+      return !!(a.sup && /^started$/i.test(a.sup.state || ''));
     }
     _notFound(R, k) {
       const I = INT[k], off = R.mode[k] === 'none';
-      if (R.loading && !off) return `<section class="sec nf" data-key="nf-${k}">${M.icon('mdi:timer-sand', 26)}<b>Leter etter ${esc(I.name)} …</b></section>`;
-      return `<section class="sec nf" data-key="nf-${k}"><span class="nfi">${M.icon(off ? 'mdi:eye-off' : 'mdi:puzzle-remove-outline', 26)}</span><b>${off ? `${esc(I.name)} er slått av` : `Fant ikke ${esc(I.name)}`}</b>
+      if (R.loading && !off) return `<section class="card nf" data-key="nf-${k}">${M.icon('mdi:timer-sand', 26)}<b>Leter etter ${esc(I.name)} …</b></section>`;
+      return `<section class="card nf" data-key="nf-${k}"><span class="nfi">${M.icon(off ? 'mdi:eye-off' : 'mdi:puzzle-remove-outline', 26)}</span><b>${off ? `${esc(I.name)} er slått av` : `Fant ikke ${esc(I.name)}`}</b>
         <span>${off ? 'Integrasjonen er satt til «Ingen» i Tilpass Server.' : `Legg til integrasjonen i Home Assistant, eller velg en annen config entry.${k === 'unraid' ? ' Glances brukes automatisk som reserve.' : ''}`}</span>
         <div class="nfb"><button class="pick press" data-act="pickint" data-v="${k}">${M.icon('mdi:swap-horizontal', 18)}Velg integrasjon</button><button class="pick press" data-act="addint" data-v="${esc(I.domain)}">${M.icon('mdi:plus', 18)}Legg til i HA</button></div></section>`;
     }
-    _sec(s, meta, body, cls) {
-      return `<section class="sec ${cls || ''}" data-key="s-${s.id}" aria-label="${esc(s.title)}"><div class="sh">${M.icon(s.icon, 20)}<span class="st">${esc(s.title)}</span>${meta ? `<span class="sm">${esc(meta)}</span>` : ''}</div>${body}</section>`;
+    _head(title, sum, icon) { return `<div class="ch">${icon ? M.icon(icon, 20, 'color:var(--ki-text-1, #c7c7c7)') : ''}<span class="ct">${esc(title)}</span>${sum != null ? `<span class="cs">${esc(sum)}</span>` : ''}</div>`; }
+    // Bryter (rosa på): sm = 46×28 (detaljer), ellers 50×30 (listerad)
+    _tg(on, attrs, label, opt) {
+      opt = opt || {};
+      return `<button class="tg${opt.sm ? ' sm' : ''}${on ? ' on' : ''}${opt.lock ? ' lock' : ''}" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" title="${esc(opt.tip || label)}" ${attrs} ${opt.dis ? 'disabled' : ''}><i></i></button>`;
     }
-    _sw(on, attrs, label, dis) {
-      const pend = /data-sw="([^"]+)"/.exec(attrs || ''), p = pend && this._pending(pend[1]);
-      return `<button class="sw ${on ? 'on' : ''} ${p ? 'pend' : ''}" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" data-act="tgl" ${attrs} ${dis ? 'disabled' : ''}><i>${p ? '<span class="spin"></span>' : ''}</i></button>`;
+    // Handlingsknapp (designet: act/hAct). hot = rød tone → krever bekreftelse (to trykk)
+    _ab(key, icon, label, attrs, hot, dis, cls) {
+      const armed = hot && this._armed === key;
+      return `<button class="ab${hot ? ' hot' : ''}${armed ? ' armed' : ''}${cls ? ' ' + cls : ''}" ${dis ? 'disabled' : `data-act="${hot ? 'arm' : 'run'}" data-key="${esc(key)}" ${attrs || ''}`} ${hot ? 'data-haptic="off"' : ''}>${M.icon(icon, 18)}${armed ? 'Bekreft · trykk igjen' : esc(label)}</button>`;
     }
-    _kpi(label, v, id) { return `<div class="kp" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}" role="button"` : ''}><b class="num ell">${esc(v)}</b><span>${esc(label)}</span></div>`; }
-    _dangerBtn(key, label, attrs, icon) {
-      const on = this._armed === key;
-      return `<button class="ab danger ${on ? 'armed' : ''}" data-act="arm" data-key="${esc(key)}" ${attrs} data-haptic="off">${M.icon(icon || 'mdi:restart', 18)}${on ? 'Bekreft · trykk igjen' : esc(label)}</button>`;
+    // Felles detaljvisning (35.2): 6 stat-fliser, bruksstolper, brytere, handlinger
+    _detail(stats, bars, toggles, actions) {
+      const st = `<div class="xs">${stats.map((x) => `<div class="xt"${x.id ? ` data-act="more" data-id="${esc(x.id)}" role="button"` : ''}><span class="xv"><span class="num ell">${esc(x.v == null || x.v === '' ? '–' : x.v)}</span><span class="xu">${esc(x.v == null || x.v === '–' ? '' : x.u || '')}</span></span><span class="xl ell">${esc(x.l)}</span></div>`).join('')}</div>`;
+      const br = bars.length ? `<div class="xb">${bars.map((b) => `<div class="xbr"><span class="xbl">${esc(b.l)}</span><span class="xbt"><i style="width:${b.p == null ? 0 : M.clamp(b.p, 0, 100).toFixed(1)}%;background:${b.c}"></i></span><span class="xbv num">${esc(b.v)}</span></div>`).join('')}</div>` : '';
+      const tg = toggles.length ? `<div class="xg">${toggles.map((t) => `<div class="xgr"><span class="xgi">${M.icon(t.icon, 20)}</span><span class="grow col"><b>${esc(t.label)}</b><span>${esc(t.sub || '–')}</span></span>${this._tg(t.on, t.attrs || '', t.label, { sm: true, dis: t.dis })}</div>`).join('')}</div>` : '';
+      return `<div class="gx">${st}${br}${tg}${actions.length ? `<div class="xa">${actions.join('')}</div>` : ''}</div>`;
+    }
+
+    /* ---------------------------------------------------------- felles liste (35.2): Gjester (Proxmox/Unraid) og Tillegg (HA) */
+    _itemsFor(R, HA, hk) {
+      const h = this.hass, ex = new Set(this.config.exclude || []);
+      if (hk === 'proxmox') {
+        return R.proxmox.gjester.filter((g) => !ex.has(g.bryter) && !ex.has(g.status)).map((g) => {
+          const vm = g.type === 'vm', sid = g.bryter || g.status;
+          return { id: g.id, src: 'proxmox', g, kind: vm ? 'VM' : 'CT', tag: (vm ? 'VM' : 'CT') + (g.vmid ? ' ' + g.vmid : ''), name: g.navn, icon: vm ? 'mdi:monitor' : 'mdi:cube-outline', ent: sid,
+            run: this._pendRun(g.id, kjorer(this.s(sid))), cpu: pctOf(h, g.cpu), ram: pctOf(h, g.mem, g.ramBrukt, g.ramTot) };
+        });
+      }
+      if (hk === 'unraid') {
+        const U = R.unraid; if (!U || U.glances) return [];
+        const stop = STOPP(h, U);
+        return U.gjester.filter((g) => !ex.has(g.bryter)).map((g) => {
+          const vm = g.type === 'vm', s = this.s(g.bryter);
+          return { id: g.id, src: 'unraid', g, kind: vm ? 'VM' : 'Docker', tag: vm ? 'VM' : 'Docker', name: g.navn, icon: vm ? 'mdi:monitor' : 'mdi:docker', ent: g.bryter, lock: stop,
+            run: !stop && this._pendRun(g.id, !!s && s.state === 'on'), cpu: pctOf(h, g.cpu), ram: pctOf(h, g.mem), upd: g.oppdatering && h.states[g.oppdatering] && h.states[g.oppdatering].state === 'on' };
+        });
+      }
+      return HA.addons.map((a) => {
+        const S = (a.slug && SUP.stats[a.slug]) || null, ic = a.sup && a.sup.icon && String(a.sup.icon).includes(':') ? a.sup.icon : 'mdi:puzzle';
+        [a.cpu, a.mem].forEach((id) => this.s(id));
+        return { id: 'ha-' + (a.slug || a.dev), src: 'ha', a, kind: 'Tillegg', tag: 'Tillegg', name: a.navn, icon: ic, ent: a.sw || a.run || a.upd, slug: a.slug,
+          run: this._pendRun('ha-' + (a.slug || a.dev), this._addonOn(a)), cpu: pctOf(h, a.cpu) != null ? pctOf(h, a.cpu) : S && S.cpu_percent != null ? S.cpu_percent : null,
+          ram: pctOf(h, a.mem) != null ? pctOf(h, a.mem) : S && S.memory_percent != null ? S.memory_percent : null };
+      });
+    }
+    _glist(R, HA, hk) {
+      const items = this._itemsFor(R, HA, hk);
+      this._items = items;
+      const kinds = hk === 'proxmox' ? ['VM', 'CT'] : hk === 'unraid' ? ['Docker', 'VM'] : ['Kjører', 'Stoppet'];
+      const fK = ['Alle', ...kinds].includes(this._flt[hk]) ? this._flt[hk] : 'Alle', q = (this._q[hk] || '').trim().toLowerCase();
+      const isK = (it, k) => (hk === 'ha' ? (k === 'Kjører') === !!it.run : it.kind === k);
+      const vis = items.filter((it) => (fK === 'Alle' || isK(it, fK)) && (!q || it.name.toLowerCase().includes(q) || it.tag.toLowerCase().includes(q)))
+        .map((it, i) => [it, i]).sort((x, y) => (y[0].run ? 1 : 0) - (x[0].run ? 1 : 0) || x[1] - y[1]).map((x) => x[0]);
+      const cnt = (k) => (k === 'Alle' ? items.length : items.filter((it) => isK(it, k)).length);
+      const runN = items.filter((it) => it.run).length, ha = hk === 'ha';
+      const sum = ha && !items.length && !HA.supervisor ? 'Ingen Supervisor' : `${runN} av ${items.length} kjører`;
+      const rows = vis.map((it) => {
+        const open = this.ui.gx === it.id, on = !!it.run;
+        const pc = (v) => (v == null ? '–' : `${fmtN(v, 0)} %`), sub = on ? `Kjører · CPU ${pc(it.cpu)} · RAM ${pc(it.ram)}` : it.lock ? 'Stoppet · arrayet er stoppet' : 'Stoppet';
+        return `<div class="gw${open ? ' open' : ''}" data-key="g-${esc(it.id)}"><div class="gr" data-act="gx" data-v="${esc(it.id)}" ${it.slug ? `data-slug="${esc(it.slug)}"` : ''} role="button" tabindex="0" aria-expanded="${open}" ${it.ent ? `data-ent="${esc(it.ent)}"` : ''}>
+          <span class="gic${on ? ' on' : ''}">${M.icon(it.icon, 20)}</span>
+          <span class="grow gtx"><span class="gn"><b class="ell">${esc(it.name)}</b><span class="gtag${it.upd ? ' upd' : ''}">${esc(it.upd ? 'Oppdatering' : it.tag)}</span></span><span class="gsub ell${on ? ' on' : ''}">${esc(sub)}</span></span>
+          ${this._tg(on, `data-act="gsw" data-v="${esc(it.id)}" data-haptic="off"`, it.name, { lock: it.lock, tip: on ? 'Stopp' : 'Start' })}</div>${open ? this._gDetail(it, hk) : ''}</div>`;
+      }).join('');
+      return `<section class="card gl">${this._head(ha ? 'Tillegg' : 'Gjester', sum, ha ? 'mdi:puzzle' : 'mdi:cube-outline')}
+        <label class="srch">${M.icon('mdi:magnify', 20)}<input data-input="q" type="search" placeholder="${ha ? 'Søk i tillegg' : 'Søk i gjester'}" value="${esc(this._q[hk] || '')}" aria-label="Søk" autocomplete="off" enterkeyhint="search">${q ? `<button class="clr" data-act="qclr" aria-label="Tøm søk">${M.icon('mdi:close', 18)}</button>` : ''}</label>
+        <div class="chips" role="tablist">${['Alle', ...kinds].map((k) => `<button class="cp${k === fK ? ' on' : ''}" role="tab" aria-selected="${k === fK}" data-act="flt" data-v="${k}" data-haptic="selection">${esc(k)}<span class="cn">${cnt(k)}</span></button>`).join('')}</div>
+        <div class="gls">${rows || '<div class="nohit">Ingen treff</div>'}</div></section>`;
+    }
+    _gDetail(it, hk) {
+      const h = this.hass, on = !!it.run, k = it.id;
+      const bar = (l, p, c, v) => ({ l, p: on || l === 'Disk' ? p : 0, c, v });
+      const nope = (icon, label) => ({ icon, label, sub: '–', on: false, dis: true });
+      const eT = (id, icon, label, sub) => { if (!id) return nope(icon, label); const s = this.s(id), v = this._pendingTgl(id, !!s && s.state === 'on'); return { icon, label, sub, on: v, attrs: `data-act="tgl" data-sw="${esc(id)}"`, dis: it.lock }; };
+      let stats, bars, toggles, actions;
+      if (hk === 'proxmox') {
+        const g = it.g, K = (a) => ((g.knapper || []).find((x) => x.a === a) || {}).id;
+        [g.ramBrukt, g.ramTot, g.disk, g.diskBrukt, g.diskTot, g.oppetid, g.netInn, g.netUt].forEach((id) => this.s(id));
+        const rb = toGB(h, g.ramBrukt), rt = toGB(h, g.ramTot), db = toGB(h, g.diskBrukt), dt = toGB(h, g.diskTot), dp = pctOf(h, g.disk, g.diskBrukt, g.diskTot);
+        const cores = g.cores && numOf(h, g.cores);
+        stats = [{ v: on ? fmtN(it.cpu, 0) : '–', u: '%', l: 'CPU' + (cores ? ` · ${cores} kjerner` : ''), id: g.cpu },
+          rb != null ? { v: on ? fmtN(rb, 1) : '–', u: 'GB', l: `RAM av ${fmtN(rt, 0)} GB`, id: g.ramBrukt } : { v: on ? fmtN(it.ram, 0) : '–', u: '%', l: 'RAM', id: g.mem },
+          db != null ? { v: fmtN(db, 0), u: 'GB', l: `Disk av ${fmtN(dt, 0)} GB`, id: g.diskBrukt } : { v: fmtN(dp, 0), u: '%', l: 'Disk', id: g.disk },
+          { v: on ? oppetid(h, g.oppetid) : '–', l: 'Oppetid', id: g.oppetid }, { v: (g.status && h.states[g.status] && h.states[g.status].attributes.ip) || '–', l: 'IP' },
+          { v: g.netInn || g.netUt ? `${fmt(h, g.netInn)} / ${fmt(h, g.netUt)}` : '–', l: 'Nett ned / opp' }];
+        bars = [bar('CPU', it.cpu, BL, on ? `${fmtN(it.cpu, 0)} %` : 'av'), bar('RAM', it.ram, PU, on ? (rb != null ? `${fmtN(rb, 1)} / ${fmtN(rt, 0)} GB` : `${fmtN(it.ram, 0)} %`) : 'av'), bar('Disk', dp, OR, db != null ? `${fmtN(db, 0)} / ${fmtN(dt, 0)} GB` : dp != null ? `${fmtN(dp, 0)} %` : '–')];
+        toggles = [eT(g.onboot, 'mdi:power', 'Start ved oppstart', 'Når noden starter'), eT(g.protect, 'mdi:lock', 'Beskyttelse', 'Hindrer sletting'), eT(g.bkSw, 'mdi:backup-restore', 'Med i nattlig backup', 'Planlagt backup')];
+        actions = [this._ab('rs-' + k, 'mdi:restart', 'Start på nytt', K('restart') ? `data-id="${esc(K('restart'))}" data-toast="${esc(it.name)} starter på nytt"` : '', true, !K('restart') || !on),
+          this._ab('lg-' + k, 'mdi:text-box-outline', 'Logg', `data-act="more" data-id="${esc(it.ent || '')}"`, false, !it.ent),
+          this._ab('kn-' + k, 'mdi:console', 'Konsoll', '', false, true),
+          this._ab('sn-' + k, 'mdi:camera-outline', 'Snapshot', K('snapshot') ? `data-id="${esc(K('snapshot'))}" data-toast="Snapshot av ${esc(it.name)} startet"` : '', false, !K('snapshot'))];
+      } else if (hk === 'unraid') {
+        const g = it.g, vm = it.kind === 'VM';
+        stats = [{ v: on ? fmtN(it.cpu, 0) : '–', u: '%', l: 'CPU', id: g.cpu }, { v: on ? fmtN(it.ram, 0) : '–', u: '%', l: 'RAM', id: g.mem }, { v: '–', l: 'Disk' },
+          { v: '–', l: 'Oppetid' }, { v: (h.states[g.bryter] && h.states[g.bryter].attributes.ip_address) || '–', l: vm ? 'IP' : 'IP' }, { v: '–', l: 'Nett ned / opp' }];
+        bars = [bar('CPU', it.cpu, BL, on ? `${fmtN(it.cpu, 0)} %` : 'av'), bar('RAM', it.ram, PU, on ? `${fmtN(it.ram, 0)} %` : 'av'), bar('Disk', null, OR, '–')];
+        toggles = vm ? [eT(g.autostart, 'mdi:power', 'Autostart', 'Når arrayet starter'), eT(g.bkSw, 'mdi:backup-restore', 'Med i backup', 'Planlagt backup')]
+          : [eT(g.autostart, 'mdi:power', 'Autostart', 'Når arrayet starter'), eT(g.autoupd, 'mdi:update', 'Automatisk oppdatering', 'CA Auto Update'), eT(g.bkSw, 'mdi:backup-restore', 'Med i appdata-backup', 'Planlagt backup')];
+        actions = [this._ab('rs-' + k, 'mdi:restart', 'Start på nytt', g.restart ? `data-id="${esc(g.restart)}" data-toast="${esc(it.name)} starter på nytt"` : '', true, !g.restart || !on),
+          this._ab('lg-' + k, 'mdi:text-box-outline', 'Logg', `data-act="more" data-id="${esc(g.bryter)}"`),
+          this._ab('kn-' + k, 'mdi:console', 'Konsoll', '', false, true),
+          this._ab('up-' + k, 'mdi:update', 'Oppdater', g.oppdater ? `data-id="${esc(g.oppdater)}" data-toast="${esc(it.name)} oppdateres"` : '', false, !g.oppdater || it.lock)];
+      } else {
+        const a = it.a, slug = a.slug, I = (slug && SUP.info[slug]) || null, S = (slug && SUP.stats[slug]) || null;
+        const memU = S && S.memory_usage != null ? S.memory_usage / 1e9 : null, memL = S && S.memory_limit ? S.memory_limit / 1e9 : null;
+        const mb = (x) => (x == null ? '–' : fmtN(x / 1e6, x / 1e6 < 100 ? 1 : 0));
+        const ver = (I && I.version) || (a.ver && ok(h.states[a.ver]) ? h.states[a.ver].state : null) || (a.sup && a.sup.version) || '–';
+        stats = [{ v: on ? fmtN(it.cpu) : '–', u: '%', l: 'CPU', id: a.cpu }, memU != null ? { v: on ? fmtN(memU, 1) : '–', u: 'GB', l: `RAM av ${fmtN(memL, memL < 10 ? 1 : 0)} GB` } : { v: on ? fmtN(it.ram, 0) : '–', u: '%', l: 'RAM', id: a.mem },
+          { v: '–', l: 'Disk' }, { v: '–', l: 'Oppetid' }, { v: ver, l: 'Versjon', id: a.upd }, { v: S && S.network_rx != null ? `${mb(S.network_rx)} / ${mb(S.network_tx)}` : '–', u: 'MB', l: 'Nett ned / opp' }];
+        bars = [bar('CPU', it.cpu, BL, on ? `${fmtN(it.cpu, 0)} %` : 'av'), bar('RAM', it.ram, PU, on ? (memU != null ? `${fmtN(memU, 1)} / ${fmtN(memL, 0)} GB` : `${fmtN(it.ram, 0)} %`) : 'av'), bar('Disk', null, OR, '–')];
+        const sT = (key, icon, label, sub) => { if (!I) return nope(icon, label); const v = key === 'boot' ? I.boot === 'auto' : !!I[key]; return { icon, label, sub, on: v, attrs: `data-act="opt" data-slug="${esc(slug)}" data-k="${key}" data-label="${esc(label)}"` }; };
+        toggles = [sT('boot', 'mdi:power', 'Start ved oppstart', 'Starter når HA starter'), sT('watchdog', 'mdi:dog-side', 'Watchdog', 'Restarter hvis den krasjer'), sT('auto_update', 'mdi:update', 'Automatisk oppdatering', 'Nye versjoner installeres'), sT('ingress_panel', 'mdi:dock-left', 'Vis i sidepanel', 'Snarvei i HA-menyen')];
+        const sv = (svc, data, toast) => `data-svc="${svc}" data-data="${esc(JSON.stringify(data))}" data-toast="${esc(toast)}"`;
+        actions = [this._ab('rs-' + k, 'mdi:restart', 'Start på nytt', slug ? sv('hassio.addon_restart', { addon: slug }, `${it.name} starter på nytt`) : '', true, !slug || !on || !has(h, 'hassio', 'addon_restart')),
+          this._ab('lg-' + k, 'mdi:text-box-outline', 'Logg', slug ? `data-nav="/hassio/addon/${esc(slug)}/logs"` : '', false, !slug),
+          this._ab('op-' + k, 'mdi:open-in-new', 'Åpne', slug ? `data-nav="${I && I.ingress ? `/hassio/ingress/${esc(slug)}` : `/hassio/addon/${esc(slug)}/info`}"` : '', false, !slug),
+          this._ab('bk-' + k, 'mdi:backup-restore', 'Backup', slug ? sv('hassio.backup_partial', { addons: [slug], name: it.name }, `Backup av ${it.name} startet`) : '', false, !slug || !has(h, 'hassio', 'backup_partial'))];
+      }
+      return this._detail(stats, bars, toggles, actions);
     }
 
     /* ---------------------------------------------------------- Nettverk */
-    _s_gw(R, tab, s) {
-      const h = this.hass, ex = new Set(this.config.exclude || []);
-      const E = R.unifi.enheter.filter((e) => (e.type === 'ruter' || e.type === 'ap') && !ex.has(e.tracker) && !ex.has(e.cpu));
-      if (!E.length) return this._sec(s, '', `<div class="none">Fant ingen gateway eller aksesspunkt</div>`);
-      const online = E.filter((e) => !apOffline(h, e)).length;
-      const tiles = E.map((e) => {
-        [e.tracker, e.cpu, e.klienter, e.tilstand, e.temp, e.oppetid, e.kanal, e.led, e.finn].forEach((id) => this.s(id));
-        const off = apOffline(h, e), start = !off && apStarter(h, e), open = this.ui.dx === e.dev, [tl, ic] = TYPE[e.type];
-        const [stTxt, stCol] = off ? ['Frakoblet', C.red] : start ? ['Starter …', C.orange] : ['Online', C.green];
-        const blink = this._blink[e.dev] > Date.now() || (e.finn && dom(e.finn) === 'switch' && h.states[e.finn] && h.states[e.finn].state === 'on');
-        let ex2 = '';
-        if (open) {
-          const tr = e.tracker && h.states[e.tracker], upd = e.oppdatering && h.states[e.oppdatering];
-          const meta = [tr && tr.attributes.ip, e.oppetid && ok(h.states[e.oppetid]) ? 'Oppe ' + oppetid(h, e.oppetid) : null, upd && upd.attributes.installed_version ? 'v' + upd.attributes.installed_version : null].filter(Boolean).join(' · ') || tl;
-          const kp = e.type === 'ruter'
-            ? this._kpi('Klienter', nf(klientTall(h, R, this.config)), null) + this._kpi('CPU', fmt(h, e.cpu), e.cpu) + this._kpi('Temp', fmt(h, e.temp), e.temp)
-            : this._kpi('Klienter', nf(numOf(h, e.klienter)), e.klienter) + this._kpi('Kanal', fmt(h, e.kanal), e.kanal) + this._kpi('Last', fmt(h, e.cpu), e.cpu);
-          const loc = e.finn || e.led;
-          ex2 = `<div class="dx"><div class="dxm"><span class="badge">${esc(e.modell || tl)}</span><span class="ell">${esc(meta)}</span></div><div class="kps">${kp}</div>
-            <div class="acts">${e.restart ? this._dangerBtn('rs-' + e.dev, 'Omstart', `data-id="${esc(e.restart)}" data-toast="Starter på nytt …"`) : ''}${e.type === 'ap' && loc ? `<button class="ab" data-act="locate" data-id="${esc(loc)}" data-dev="${esc(e.dev)}">${M.icon('mdi:crosshairs-gps', 18)}Finn</button>` : ''}</div></div>`;
+    _b_net_internett(R) {
+      const h = this.hass, c = this.config, g = gateway(R) || {}, Ms = this._metrics(R, this._HA, 'net');
+      const lat = numOf(h, (g.latens || [])[0]), isp = g.isp && ok(h.states[g.isp]) ? h.states[g.isp].state : null;
+      (g.latens || []).forEach((id) => this.s(id));
+      const tile = (icon, label, col, m) => `<div class="wt"><span class="wl">${M.icon(icon, 16, `color:${col}`)}${esc(label)}</span><span class="wv"><span class="num">${m.v == null ? '–' : Math.round(m.v)}</span><span>Mbit/s</span></span></div>`;
+      return `<section class="card wan"><div class="ch wide"><span class="ct">Internett</span><span class="cs">${esc(isp || '–')} · ${lat == null ? '–' : M.nf(lat) + ' ms'}</span></div>
+        ${tile('mdi:arrow-down', 'Ned', TX.blue, Ms[0])}${tile('mdi:arrow-up', 'Opp', TX.green, Ms[1])}</section>`;
+    }
+    _devs(R) {
+      const ex = new Set(this.config.exclude || []);
+      const E = R.unifi.enheter.filter((e) => e.type !== 'enhet' && !ex.has(e.tracker) && !ex.has(e.cpu)).map((e) => ({ kind: e.type, e, id: e.dev }));
+      const K = R.found.protect ? R.protect.kameraer.filter((k) => !ex.has(k.cam)).map((k) => ({ kind: 'cam', e: k, id: k.dev })) : [];
+      return [...E, ...K];
+    }
+    _camState(k) {
+      const cs = this.s(k.cam), md = this.s(k.modus), sw = this.s(k.opptak);
+      if (!ok(cs)) return 'off';
+      if (md && ok(md)) return /never|aldri/i.test(md.state) ? 'pause' : 'rec';
+      if (sw) return sw.state === 'on' ? 'rec' : 'pause';
+      return cs.state === 'recording' ? 'rec' : 'pause';
+    }
+    _b_net_enheter(R) {
+      const h = this.hass, L = this._devs(R);
+      if (!L.length) return `<section class="card">${this._head('Enheter', '–')}<div class="none">Fant ingen enheter</div></section>`;
+      const ICON = { ruter: 'mdi:router-network', ap: 'mdi:access-point', switch: 'mdi:lan', cam: 'mdi:cctv' };
+      let online = 0;
+      const rows = L.map(({ kind, e, id }) => {
+        let off, meta, model = e.modell || '';
+        if (kind === 'cam') {
+          [e.cam, e.modus, e.opptak].forEach((x) => this.s(x));
+          const S = this._camState(e); off = S === 'off'; meta = off ? 'Frakoblet' : S === 'rec' ? 'Opptak' : 'Pause';
+          model = model || (e.ringeklokke ? 'Ringeklokke' : 'Kamera');
+        } else {
+          [e.tracker, e.cpu, e.klienter, e.tilstand].forEach((x) => this.s(x));
+          off = apOffline(h, e);
+          const n = kind === 'ruter' ? klientTall(h, R, this.config) : numOf(h, e.klienter);
+          meta = off ? 'Frakoblet' : n != null ? `${M.nf(n)} ${n === 1 ? 'klient' : 'klienter'}` : kind === 'switch' && e.porter.length ? `${e.porter.length} porter` : 'Online';
         }
-        return `<div class="ti ${open ? 'open' : ''} ${blink ? 'blink' : ''}" data-key="ti-${esc(e.dev)}"><button class="tih" data-act="dx" data-v="${esc(e.dev)}" ${e.tracker ? `data-ent="${esc(e.tracker)}"` : ''} aria-expanded="${open}">
-          <span class="tic ${off ? 'off' : ''}">${M.icon(ic, 22)}</span><span class="grow col"><b class="ell">${esc(e.navn)}</b><span class="ell" style="color:${stCol}">${stTxt}</span></span></button>${ex2}</div>`;
+        if (!off) online++;
+        const open = this.ui.dx === id, blink = this._blink[id] > Date.now();
+        return `<div class="dw${open ? ' open' : ''}${blink ? ' blink' : ''}" data-key="d-${esc(id)}"><button class="dr" data-act="dx" data-v="${esc(id)}" ${kind === 'cam' ? `data-ent="${esc(e.cam)}"` : e.tracker ? `data-ent="${esc(e.tracker)}"` : ''} aria-expanded="${open}">
+          <span class="dic${off ? ' off' : ''}">${M.icon(kind === 'cam' && e.ringeklokke ? 'mdi:doorbell-video' : ICON[kind] || 'mdi:devices', 20)}</span>
+          <span class="grow col"><b class="ell">${esc(e.navn)}</b><span class="ell">${esc(model || '–')}</span></span>
+          <span class="dm${off ? ' off' : ''}">${esc(meta)}</span>${M.icon('mdi:chevron-down', 20, `color:var(--ki-text-mid, #979797);transition:transform .2s;${open ? 'transform:rotate(180deg)' : ''}`)}</button>
+          ${open ? this._devDetail(R, kind, e, off) : ''}</div>`;
       }).join('');
-      return this._sec(s, `${online} av ${E.length} online`, `<div class="grid2">${tiles}</div>`);
+      return `<section class="card devs">${this._head('Enheter', `${online} av ${L.length} online`)}${rows}</section>`;
     }
-    _s_cams(R, tab, s) {
-      const h = this.hass, ex = new Set(this.config.exclude || []);
-      if (!R.found.protect) {
-        return this._sec(s, '', `<button class="missrow" data-act="pickint" data-v="protect">${M.icon('mdi:cctv-off', 20)}<span class="grow ell">${R.mode.protect === 'none' ? 'UniFi Protect slått av' : 'UniFi Protect ikke funnet'} · kameraer skjult</span><span class="mv">Velg</span></button>`);
+    _devDetail(R, kind, e, off) {
+      const h = this.hass, k = e.dev, st = (v, u, l, id) => ({ v, u, l, id });
+      const fw = (id) => { const s = id && this.s(id); return s && s.attributes.installed_version ? s.attributes.installed_version : '–'; };
+      const tgE = (id, icon, label, sub) => { const s = this.s(id), v = this._pendingTgl(id, !!s && s.state === 'on'); return { icon, label, sub, on: v, attrs: `data-act="tgl" data-sw="${esc(id)}"` }; };
+      let stats = [], bars = [], toggles = [], acts = [];
+      if (kind === 'cam') {
+        const md = e.modus && this.s(e.modus), mv = e.bevegelse && this.s(e.bevegelse), S = this._camState(e);
+        const MOD = { always: 'Alltid', detections: 'Deteksjon', never: 'Aldri', schedule: 'Plan', motion: 'Bevegelse' };
+        stats = [st(md && ok(md) ? (MOD[md.state] || tittel(md.state)) : S === 'rec' ? 'På' : S === 'pause' ? 'Av' : '–', '', 'Opptaksmodus', e.modus), st(mv ? (mv.state === 'on' ? 'nå' : M.relTime(mv.last_changed)) : '–', '', 'Siste bevegelse', e.bevegelse),
+          st(numOf(h, e.bitrate) != null ? fmtN(numOf(h, e.bitrate)) : '–', uShort(unitOf(h, e.bitrate)), 'Bitrate', e.bitrate), st(oppetid(h, e.oppetid), '', off ? 'Status' : 'Oppetid', e.oppetid), st(e.modell || '–', '', 'Modell'), st(off ? 'Frakoblet' : 'Online', '', 'Status')];
+        if (e.modus) { const v = this._pendingTgl(e.modus, S === 'rec'); toggles.push({ icon: 'mdi:record-rec', label: 'Opptak', sub: 'Opptaksmodus i Protect', on: v, attrs: `data-act="tgl" data-sel="${esc(e.modus)}"`, dis: off }); }
+        else if (e.opptak) toggles.push(tgE(e.opptak, 'mdi:record-rec', 'Opptak', 'UniFi Protect'));
+        acts = [this._ab('rs-' + k, 'mdi:restart', 'Start på nytt', e.restart ? `data-id="${esc(e.restart)}" data-toast="${esc(e.navn)} starter på nytt"` : '', true, !e.restart)];
+        return this._detail(stats, bars, toggles, acts);
       }
-      const K = R.protect.kameraer.filter((k) => !ex.has(k.cam));
-      if (!K.length) return this._sec(s, '', '<div class="none">Fant ingen kameraer</div>');
-      const st = (k) => {
-        const cs = this.s(k.cam), md = this.s(k.modus), sw = this.s(k.opptak);
-        if (!ok(cs)) return 'off';
-        if (md && ok(md)) return /never|aldri/i.test(md.state) ? 'pause' : 'rec';
-        if (sw) return sw.state === 'on' ? 'rec' : 'pause';
-        return cs.state === 'recording' ? 'rec' : 'pause';
-      };
-      const MOD = { always: 'Alltid', detections: 'Deteksjon', never: 'Aldri', schedule: 'Plan', motion: 'Bevegelse' };
-      const tiles = K.map((k) => {
-        [k.bevegelse, k.bitrate, k.oppetid].forEach((id) => this.s(id));
-        const S = st(k), open = this.ui.cx === k.dev;
-        const [txt, col] = S === 'off' ? ['Frakoblet', C.red] : S === 'rec' ? ['Opptak', C.red] : ['Pause', C.orange];
-        let ex2 = '';
-        if (open) {
-          const md = k.modus && h.states[k.modus], mv = k.bevegelse && h.states[k.bevegelse];
-          const kp = this._kpi('Opptaksmodus', md && ok(md) ? (MOD[md.state] || tittel(md.state)) : S === 'rec' ? 'På' : S === 'pause' ? 'Av' : '–', k.modus)
-            + this._kpi('Siste bevegelse', mv ? (mv.state === 'on' ? 'nå' : M.relTime(mv.last_changed)) : '–', k.bevegelse) + this._kpi('Bitrate', fmt(h, k.bitrate), k.bitrate);
-          const rec = k.modus ? `data-sel="${esc(k.modus)}"` : k.opptak ? `data-sw="${esc(k.opptak)}"` : '';
-          ex2 = `<div class="dx"><div class="dxm"><span class="badge">${esc(k.modell || (k.ringeklokke ? 'Ringeklokke' : 'Kamera'))}</span><span class="ell">${esc([k.ringeklokke ? 'Ringeklokke' : null, k.oppetid && ok(h.states[k.oppetid]) ? 'Oppe ' + oppetid(h, k.oppetid) : null].filter(Boolean).join(' · ') || 'UniFi Protect')}</span></div><div class="kps">${kp}</div>
-            <div class="acts">${k.restart ? this._dangerBtn('rs-' + k.dev, 'Omstart', `data-id="${esc(k.restart)}" data-toast="Starter på nytt …"`) : ''}${rec && S !== 'off' ? `<button class="ab" data-act="tgl" ${rec}>${M.icon(S === 'rec' ? 'mdi:pause' : 'mdi:record-rec', 18)}${S === 'rec' ? 'Pause opptak' : 'Start opptak'}</button>` : ''}</div></div>`;
-        }
-        return `<div class="ti ${open ? 'open' : ''}" data-key="ci-${esc(k.dev)}"><button class="tih" data-act="cx" data-v="${esc(k.dev)}" data-ent="${esc(k.cam)}" aria-expanded="${open}">
-          <span class="tic ${S === 'off' ? 'off' : ''}">${M.icon(k.ringeklokke ? 'mdi:doorbell-video' : 'mdi:cctv', 22)}</span><span class="grow col"><b class="ell">${esc(k.navn)}</b><span class="ell cst" style="color:${col}">${S === 'rec' ? '<i class="rec"></i>' : ''}${txt}</span></span></button>${ex2}</div>`;
-      }).join('');
-      const on = K.filter((k) => st(k) !== 'off').length;
-      return this._sec(s, `${on} av ${K.length} online`, `<div class="grid2">${tiles}</div>`);
-    }
-    // Switch-kortet (24.10-funksjonen: port av/på, PoE-bryter, strømsyklus) – ny plassering og nye mål (26.4)
-    _s_sw(R, tab, s) {
-      const h = this.hass, ex = new Set(this.config.exclude || []);
-      const SW = R.unifi.enheter.filter((e) => e.type === 'switch' && (/usw|switch/i.test(e.modell) || e.porter.length) && !ex.has(e.tracker));
-      if (!SW.length) return this._sec(s, '', '<div class="none">Fant ingen switcher</div>');
-      const e = SW.find((x) => x.dev === this.ui.swSel) || SW[0];
-      [e.tracker, e.oppetid, e.budsjett, e.forbruk].forEach((id) => this.s(id));
-      const P = {}; e.porter.forEach((p) => { P[p.n] = p; [p.en, p.poe, p.pw, p.rx, p.tx, p.speed].forEach((id) => this.s(id)); });
-      const N = Math.max(e.antall, 1);
-      const isOn = (id) => !!id && h.states[id] && h.states[id].state === 'on';
-      const up = (p) => {
-        if (!p) return false;
-        const sp = numOf(h, p.speed); if (p.speed && ok(h.states[p.speed])) return sp > 0;
-        if (p.rx && ok(h.states[p.rx])) return true;
-        if (p.en) return isOn(p.en);
-        if (p.poe) return isOn(p.poe);
-        return (numOf(h, p.pw) || 0) > 0;
-      };
-      const poeW = (p) => (p && numOf(h, p.pw)) || 0;
-      const nUp = Array.from({ length: N }, (_, i) => up(P[i + 1])).filter(Boolean).length;
-      const sumPoe = e.porter.reduce((a, p) => a + poeW(p), 0), bud = numOf(h, e.budsjett);
-      const seg = SW.length > 1 ? `<div class="subs segm swseg" role="tablist">${SW.map((x) => `<button class="sb${x === e ? ' on' : ''}" role="tab" aria-selected="${x === e}" data-act="swsel" data-v="${esc(x.dev)}" data-haptic="selection">${esc(x.navn)}</button>`).join('')}</div>` : '';
-      const grid = Array.from({ length: N }, (_, i) => {
-        const n = i + 1, p = P[n], u = up(p), poe = p && (isOn(p.poe) || poeW(p) > 0), selp = String(this.ui.port) === String(n);
-        return `<button class="pt ${u ? 'up' : ''} ${p ? '' : 'nop'} ${selp ? 'sel' : ''}" data-act="port" data-v="${n}" data-haptic="selection" aria-label="Port ${n}${u ? ' oppe' : ' nede'}${poe ? ', PoE' : ''}" aria-pressed="${selp}"><i class="pl"></i><span class="pn num">${n}</span><span class="pb">${poe ? M.icon('mdi:lightning-bolt', 12) : ''}</span></button>`;
-      }).join('');
-      let det = '';
-      const sp = this.ui.port != null && +this.ui.port <= N ? +this.ui.port : null;
-      if (sp) {
-        const p = P[sp] || { n: sp }, en = p.en ? isOn(p.en) : up(p), noPoe = !p.poe || (p.en && !isOn(p.en));
-        const spTxt = (q) => { const v = numOf(h, q.speed), u = unitOf(h, q.speed); if (!q.speed || v == null) return up(q) ? '–' : 'Ingen link'; if (!v) return 'Ingen link'; return /^m/i.test(u) || !u ? (v >= 1000 ? `${nf(v / 1000, v % 1000 ? 1 : 0)} Gbps` : `${nf(v)} Mbps`) : fmt(h, q.speed); };
-        const rate = (id) => (id && ok(h.states[id]) ? `${nf(numOf(h, id), numOf(h, id) < 10 ? 1 : 0)}` : '–');
-        det = `<div class="pd" data-key="pd-${esc(e.dev)}-${sp}"><div class="pdh"><b>Port ${sp}</b><span>${up(p) ? 'Oppe' : 'Nede'}</span></div>
-          <div class="kps">${this._kpi('Hastighet', spTxt(p), p.speed)}${this._kpi('PoE', p.pw ? `${nf(poeW(p), 1)} W` : '–', p.pw)}${this._kpi('Mbps ned/opp', `${rate(p.rx)} / ${rate(p.tx)}`, p.rx)}</div>
-          <div class="pdr"><span class="grow">Port aktiv</span>${p.en ? this._sw(isOn(p.en), `data-sw="${esc(p.en)}"`, `Port ${sp} aktiv`) : '<span class="mv">–</span>'}</div>
-          <div class="pdr"><span class="grow col"><span>PoE</span>${noPoe ? '<small>Porten er av eller enheten bruker ikke PoE</small>' : ''}</span>${p.poe ? this._sw(isOn(p.poe), `data-sw="${esc(p.poe)}"`, `PoE port ${sp}`, noPoe && !isOn(p.poe)) : '<span class="mv">–</span>'}</div>
-          ${p.cyc ? `<button class="ab wide" data-act="run" data-id="${esc(p.cyc)}" data-toast="Strømsykler port ${sp} …" ${!p.poe || isOn(p.poe) ? '' : 'disabled'}>${M.icon('mdi:power-cycle', 18)}Strømsyklus PoE</button>` : ''}</div>`;
-      }
-      const hasPoe = e.porter.some((p) => p.poe || p.pw) || bud != null;
-      const card = `<div class="swc"><div class="swl"><b class="ell">${esc(e.modell || e.navn)}</b><span class="ell">${nUp}/${N} oppe · ${esc(oppetid(h, e.oppetid))}</span></div>
-        ${hasPoe ? `<div class="poer"><span class="poep">${M.icon('mdi:lightning-bolt', 12)}PoE ${nf(sumPoe, 1)}${bud != null ? ` / ${nf(bud)}` : ''} W</span>${bud != null ? `<div class="poeb"><i style="width:${M.clamp((sumPoe / Math.max(bud, 1)) * 100, 0, 100).toFixed(1)}%"></i></div>` : ''}</div>` : ''}
-        <div class="pg">${grid}</div>
-        <div class="lg"><span><i class="pl up"></i>Oppe</span><span><i class="pl"></i>Nede</span><span>${M.icon('mdi:lightning-bolt', 12, `color:${C.yellow}`)}PoE</span><span><i class="rg"></i>Valgt</span></div></div>`;
-      return this._sec(s, `${SW.length} ${SW.length === 1 ? 'switch' : 'switcher'}`, seg + card + det);
-    }
-
-    /* ---------------------------------------------------------- Proxmox / Unraid */
-    _node(R, tab) { return tab === 'proxmox' ? (R.proxmox.noder[0] || {}) : (R.unraid || {}); }
-    _s_perf(R, tab, s) {
-      const h = this.hass, n = this._node(R, tab);
-      const col = (label, id, pct, unitTxt) => {
-        this.s(id);
-        const v = numOf(h, id), p = pct != null ? pct : null;
-        const txt = v == null ? '–' : `${nf(v, Math.abs(v) < 10 && v % 1 ? 1 : 0)}${unitTxt != null ? unitTxt : (unitOf(h, id) ? ' ' + uShort(unitOf(h, id)) : '')}`;
-        return `<div class="pc" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}" role="button"` : ''}><b class="num ell">${esc(txt)}</b><span class="ell">${esc(label)}</span><span class="tb2"><i style="width:${p == null ? 0 : M.clamp(p, 0, 100).toFixed(1)}%;background:${p != null && p > 80 ? C.orange : C.blue}"></i></span></div>`;
-      };
-      const pv = (id) => { const u = unitOf(h, id), v = numOf(h, id); return v == null ? null : u === '%' ? v : null; };
-      let cols;
-      if (tab === 'proxmox') {
-        const load = numOf(h, n.last);
-        cols = [col('Last', n.last || n.cpu, n.last ? (load != null ? Math.min(100, load * 25) : null) : pctOf(h, n.cpu), n.last ? '' : ' %'), col('Swap', n.swap, pv(n.swap)), col('IO wait', n.iowait, pv(n.iowait)), col('CPU-temp', n.temp, numOf(h, n.temp) != null ? numOf(h, n.temp) : null)];
+      [e.cpu, e.mem, e.temp, e.oppetid, e.kanal, e.oppdatering, e.txp, e.fan, e.budsjett, e.b5, e.b24].forEach((x) => this.s(x));
+      const pc = (id) => { const v = pctOf(h, id); return v == null ? '–' : fmtN(v, 0); };
+      if (kind === 'ruter') {
+        const n = klientTall(h, R, this.config);
+        stats = [st(pc(e.cpu), '%', 'CPU', e.cpu), st(pc(e.mem), '%', 'Minne', e.mem), st(numOf(h, e.temp) == null ? '–' : fmtN(numOf(h, e.temp), 0), '°', 'Temp', e.temp), st(n == null ? '–' : M.nf(n), '', 'Klienter'), st(oppetid(h, e.oppetid), '', 'Oppetid', e.oppetid), st(fw(e.oppdatering), '', 'Firmware', e.oppdatering)];
+      } else if (kind === 'ap') {
+        const n = numOf(h, e.klienter);
+        stats = [st(n == null ? '–' : M.nf(n), '', 'Klienter', e.klienter), st(fmt(h, e.kanal), '', 'Kanal', e.kanal), st(fmt(h, e.txp), '', 'Sendestyrke', e.txp), st('–', '', 'Snitt signal'), st(off ? 'Frakoblet' : oppetid(h, e.oppetid), '', off ? 'Status' : 'Oppetid', e.oppetid), st(fw(e.oppdatering), '', 'Firmware', e.oppdatering)];
+        const b5 = numOf(h, e.b5), b24 = numOf(h, e.b24), tot = (b5 || 0) + (b24 || 0);
+        if (b5 != null || b24 != null) bars = [['5 GHz', b5], ['2,4 GHz', b24]].map(([l, v]) => ({ l, p: tot ? ((v || 0) / tot) * 100 : 0, c: BL, v: v == null ? '–' : `${M.nf(v)} klienter` }));
       } else {
-        const load = numOf(h, n.last);
-        cols = [col('Last', n.last || n.cpu, n.last ? (load != null ? Math.min(100, load * 25) : null) : pctOf(h, n.cpu), n.last ? '' : ' %'), col('Strøm', n.strom, null), col('UPS', n.ups, pv(n.ups)), col('Nett', n.nett, null)];
+        const P = e.porter, nUp = this._ports(e).filter((p) => p.up).length, poe = P.reduce((a, p) => a + (numOf(h, p.pw) || 0), 0), bud = numOf(h, e.budsjett);
+        stats = [st(P.some((p) => p.pw) ? fmtN(poe, poe < 10 ? 1 : 0) : '–', 'W', `PoE${bud != null ? ` av ${M.nf(bud)} W` : ''}`, e.budsjett), st(numOf(h, e.temp) == null ? '–' : fmtN(numOf(h, e.temp), 0), '°', 'Temp', e.temp), st(fmt(h, e.fan), '', 'Vifte', e.fan),
+          st(`${nUp} / ${Math.max(e.antall, 1)}`, '', 'Porter oppe'), st(off ? 'Frakoblet' : oppetid(h, e.oppetid), '', off ? 'Status' : 'Oppetid', e.oppetid), st(fw(e.oppdatering), '', 'Firmware', e.oppdatering)];
       }
-      return this._sec(s, '', `<div class="perf">${cols.join('')}</div>`);
+      if (e.led) toggles.push(tgE(e.led, 'mdi:led-on', 'LED-lys', kind === 'switch' ? 'Port-LED-er' : 'Ring på enheten'));
+      (e.brytere || []).forEach((id) => toggles.push(tgE(id, 'mdi:toggle-switch-outline', fName(h, id).replace(new RegExp('^' + e.navn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', 'i'), '') || fName(h, id), 'UniFi')));
+      const upd = e.oppdatering && h.states[e.oppdatering], updOn = upd && upd.state === 'on';
+      acts.push(this._ab('rs-' + k, 'mdi:restart', 'Start på nytt', e.restart ? `data-id="${esc(e.restart)}" data-toast="${esc(e.navn)} starter på nytt"` : '', true, !e.restart || off));
+      const loc = e.finn || e.led;
+      acts.push(loc ? `<button class="ab" data-act="locate" data-id="${esc(loc)}" data-dev="${esc(k)}">${M.icon('mdi:crosshairs-gps', 18)}Finn</button>` : this._ab('fi-' + k, 'mdi:crosshairs-gps', 'Finn', '', false, true));
+      if (kind === 'ruter' && e.speedtest) acts.push(this._ab('st-' + k, 'mdi:speedometer', 'Fartstest', `data-id="${esc(e.speedtest)}" data-toast="Fartstest kjører …"`));
+      if (kind === 'ap' && e.optim) acts.push(this._ab('oc-' + k, 'mdi:tune-variant', 'Optimaliser kanal', `data-id="${esc(e.optim)}" data-toast="Kanalskanning startet"`));
+      const cyc = kind === 'switch' ? e.porter.map((p) => p.cyc).filter(Boolean) : [];
+      if (cyc.length) acts.push(this._ab('pc-' + k, 'mdi:power-cycle', 'PoE-sykle alle', `data-ids="${esc(cyc.join(','))}" data-toast="PoE-porter sykles"`, true, off));
+      acts.push(this._ab('up-' + k, 'mdi:update', 'Oppdater', updOn ? `data-id="${esc(e.oppdatering)}" data-toast="${esc(e.navn)} oppdateres"` : '', false, !updOn));
+      return this._detail(stats, bars, toggles, acts);
     }
-    _s_sys(R, tab, s) {
-      const h = this.hass, n = this._node(R, tab), rows = [];
-      const row = (icon, label, val, id, col) => rows.push(`<div class="lr" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}" role="button"` : ''}><span class="lic">${M.icon(icon, 18)}</span><span class="grow ell">${esc(label)}</span><b class="ell" ${col ? `style="color:${col}"` : ''}>${esc(val)}</b></div>`);
-      const ver = (id) => { const st = id && this.s(id); if (!st) return '–'; if (dom(id) === 'update') return st.attributes.installed_version || '–'; return fmt(h, id); };
-      row('mdi:tag-outline', 'Versjon', ver(n.versjon), n.versjon);
-      if (n.kernel) row('mdi:chip', 'Kernel', fmt(h, n.kernel), n.kernel);
-      if (n.oppd) {
-        const st = this.s(n.oppd); let v = '–', col = null;
-        if (st && ok(st)) { if (dom(n.oppd) === 'sensor') { const x = numOf(h, n.oppd); v = x != null ? (x ? `${nf(x)} tilgjengelig` : 'Oppdatert') : st.state; col = x ? C.orange : null; } else { v = st.state === 'on' ? 'Tilgjengelig' : 'Oppdatert'; col = st.state === 'on' ? C.orange : null; } }
-        row('mdi:update', 'Oppdateringer', v, n.oppd, col);
-      }
-      if (tab === 'proxmox' && n.backup) row('mdi:backup-restore', 'Backup', dom(n.backup) === 'binary_sensor' ? (this.s(n.backup) && this.s(n.backup).state === 'on' ? 'Feil' : 'OK') : fmt(h, n.backup), n.backup);
-      if (tab === 'unraid' && n.flash) row('mdi:usb-flash-drive', 'Flash-backup', dom(n.flash) === 'binary_sensor' ? (this.s(n.flash) && this.s(n.flash).state === 'on' ? 'OK' : 'Mangler') : fmt(h, n.flash), n.flash);
-      this.s(n.oppetid);
-      row('mdi:timer-outline', 'Oppetid', oppetid(h, n.oppetid), n.oppetid);
-      return this._sec(s, '', `<div class="lst">${rows.join('')}</div>`);
+    // Porter for en switch: [{ n, sp: g|x|f|off|'', up, poe, name, ent }]
+    _ports(e) {
+      const h = this.hass, P = {}; e.porter.forEach((p) => { P[p.n] = p; });
+      const isOn = (id) => !!id && h.states[id] && h.states[id].state === 'on';
+      const re = new RegExp('^' + e.navn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', 'i');
+      return Array.from({ length: Math.max(e.antall, 1) }, (_, i) => {
+        const n = i + 1, p = P[n];
+        if (!p) return { n, sp: '', up: false, poe: false, name: '' };
+        [p.en, p.poe, p.pw, p.rx, p.speed].forEach((id) => this.s(id));
+        const dis = p.en && !isOn(p.en), spd = numOf(h, p.speed), su = unitOf(h, p.speed);
+        const mbit = spd == null ? null : /^g/i.test(su) ? spd * 1000 : spd;
+        let up = false;
+        if (!dis) { if (p.speed && ok(h.states[p.speed])) up = spd > 0; else if (p.rx && ok(h.states[p.rx])) up = numOf(h, p.rx) > 0; else if (p.en) up = isOn(p.en); else up = isOn(p.poe) || (numOf(h, p.pw) || 0) > 0; }
+        const sp = dis ? 'off' : !up ? '' : mbit == null ? 'g' : mbit >= 2500 ? 'x' : mbit >= 1000 ? 'g' : 'f';
+        const raw = fName(h, p.poe || p.en || p.cyc).replace(re, '').replace(/\s*(PoE|Power cycle|Strømsyklus)$/i, '').trim();
+        const name = /^port\s*\d+$/i.test(raw) ? '' : raw;
+        return { n, sp, up, poe: isOn(p.poe) && (numOf(h, p.pw) == null || numOf(h, p.pw) > 0), name, ent: p.poe || p.en || p.speed };
+      });
     }
-    _s_storage(R, tab, s) {
-      const h = this.hass, c = this.config, L = limitsOf(c), ex = new Set(c.exclude || []), out = [];
-      if (tab === 'unraid' && R.unraid && !R.unraid.glances) {
-        const U = R.unraid; [U.arrayStatus, U.arraySw].forEach((id) => this.s(id));
-        const stop = arrayStoppet(h, U), st = U.arrayStatus && h.states[U.arrayStatus];
-        const canStart = U.arrayStart || U.arraySw, canStop = U.arrayStopp || U.arraySw;
-        const btn = stop ? (canStart ? `<button class="ab" data-act="run" data-id="${esc(U.arrayStart || U.arraySw)}" data-toast="Starter arrayet …">${M.icon('mdi:play', 18)}Start</button>` : '')
-          : (canStop ? `<button class="ab danger ${this._armed === 'arr' ? 'armed' : ''}" data-act="arm" data-key="arr" data-id="${esc(U.arrayStopp || U.arraySw)}" data-toast="Stopper arrayet …" data-haptic="off">${M.icon('mdi:stop', 18)}${this._armed === 'arr' ? 'Bekreft stopp' : 'Stopp'}</button>` : '');
-        out.push(`<div class="arr" data-key="arr"><span class="aic ${stop ? 'warn' : 'ok'}">${M.icon('mdi:harddisk-plus', 20)}</span><span class="grow col"><b>Array</b><span style="color:${stop ? C.orange : C.green}">${stop ? 'Stoppet' : st && ok(st) && dom(U.arrayStatus) === 'sensor' ? tittel(st.state) === 'Started' ? 'Startet' : tittel(st.state) : 'Startet'}</span></span>${btn}</div>`);
-      }
-      const rows = [];
-      const area = (icon, navn, type, id, brukt, tot) => {
-        [id, brukt, tot].forEach((x) => this.s(x));
-        const p = pctOf(h, id, brukt, tot), bt = brukt || tot ? `${fmt(h, brukt)} / ${fmt(h, tot)}` : p != null ? `${nf(p)} %` : '–';
-        rows.push(`<div class="sa" ${id || brukt ? `data-act="more" data-id="${esc(id || brukt)}" data-ent="${esc(id || brukt)}" role="button"` : ''}><span class="lic">${M.icon(icon, 18)}</span><span class="grow col"><span class="sal"><b class="ell">${esc(navn)}</b><span class="ell">${esc(type)}</span><span class="grow"></span><span class="sab num ell">${esc(bt)}</span></span>
-          <span class="tb2"><i style="width:${p == null ? 0 : M.clamp(p, 0, 100).toFixed(1)}%;background:${p != null && p >= L.storage ? C.orange : C.blue}"></i></span></span></div>`);
-      };
-      if (tab === 'proxmox') {
-        const typ = (n) => (/zfs/i.test(n) ? 'ZFS' : /nfs/i.test(n) ? 'NFS' : /cifs|smb/i.test(n) ? 'SMB' : /lvm/i.test(n) ? 'LVM-thin' : /ceph|rbd/i.test(n) ? 'Ceph' : /pbs|backup/i.test(n) ? 'PBS' : 'Katalog');
-        const n = R.proxmox.noder[0];
-        if (n && (n.disk || n.diskBrukt) && !R.proxmox.lagring.some((g) => g.navn === 'local')) area('mdi:folder', 'local', 'Katalog', n.disk, n.diskBrukt, n.diskTot);
-        R.proxmox.lagring.filter((g) => !ex.has(g.bruk)).forEach((g) => area(/zfs/i.test(g.navn) ? 'mdi:database' : /nfs|cifs|smb/i.test(g.navn) ? 'mdi:folder-network' : 'mdi:database-outline', g.navn, typ(g.navn), g.bruk, g.brukt, g.total));
-      } else if (R.unraid) {
-        const U = R.unraid;
-        area('mdi:harddisk', 'Array', 'XFS-array', ov(c, 'unraid_array') || U.arrayBruk, U.arrayBrukt, U.arrayTot);
-        U.disker.filter((d) => /^cache/.test(d.navn) && d.bruk).forEach((d) => area('mdi:flash', diskNavn(d.navn), 'Cache-pool', d.bruk, d.brukt, d.total));
-        if (U.dockerImg) area('mdi:docker', 'docker.img', 'Docker', U.dockerImg);
-      }
-      out.push(rows.length ? `<div class="lst">${rows.join('')}</div>` : '<div class="none">Fant ingen lagringsområder</div>');
-      return this._sec(s, rows.length ? `${rows.length} områder` : '', out.join(''));
-    }
-    _s_disks(R, tab, s) {
-      const h = this.hass, c = this.config, L = limitsOf(c), ex = new Set(c.exclude || []);
-      const U = R.unraid, stop = tab === 'unraid' && arrayStoppet(h, U);
-      const D = (tab === 'proxmox' ? R.proxmox.disker.map((d) => ({ key: d.id, navn: d.navn, temp: d.temp, bruk: d.bruk, smart: d.helse, extra: d.slitasje, timer: d.timer, size: d.storrelse }))
-        : ((U && U.disker) || []).map((d) => ({ key: 'ud-' + d.navn, navn: diskNavn(d.navn), raw: d.navn, temp: d.temp, bruk: d.bruk, smart: d.smart, spin: d.spin, spinSw: d.spinSw, status: d.status, brukt: d.brukt, size: d.total }))).filter((d) => !ex.has(d.temp) && !ex.has(d.bruk));
-      if (!D.length) return this._sec(s, '', '<div class="none">Fant ingen disker</div>');
-      const hvile = (d) => { const sp = d.spin && this.s(d.spin), sw = d.spinSw && this.s(d.spinSw), t = d.temp && this.s(d.temp); if (sp && ok(sp)) return sp.state === 'off'; if (sw && ok(sw)) return sw.state === 'off'; return !!t && (t.state === 'standby' || (!ok(t) && t.state !== 'unavailable')); };
-      const cur = (this.ui.disk || {})[tab], selD = D.find((d) => d.key === cur) || D[0];
-      const bays = D.map((d) => {
-        [d.temp, d.bruk].forEach((x) => this.s(x));
-        const t = numOf(h, d.temp), p = pctOf(h, d.bruk), rest = hvile(d), on = d === selD;
-        return `<button class="bay ${rest ? 'rest' : ''} ${on ? 'sel' : ''}" data-act="disk" data-v="${esc(d.key)}" data-haptic="selection" ${d.temp ? `data-ent="${esc(d.temp)}"` : ''} aria-pressed="${on}" aria-label="${esc(d.navn)}">
-          <span class="bf" style="height:${p == null ? 0 : M.clamp(p, 0, 100).toFixed(1)}%;background:${p != null && p >= L.storage ? M.alpha(C.orange, 0.35) : 'rgba(255,255,255,0.09)'}"></span>
-          <i class="bl" style="background:${rest ? '#545454' : tempCol(t, L.disk_temp)}"></i><span class="bt num">${rest ? 'Hvile' : t == null ? '–' : `${nf(t)}°`}</span><span class="bn ell">${esc(d.navn)}</span></button>`;
-      }).join('');
-      // detaljkort for valgt disk
-      const d = selD, t = numOf(h, d.temp), p = pctOf(h, d.bruk), rest = hvile(d);
-      [d.smart, d.spin, d.spinSw, d.status, d.extra, d.size].forEach((x) => this.s(x));
-      const sm = d.smart && h.states[d.smart];
-      const smTxt = !sm || !ok(sm) ? '–' : dom(d.smart) === 'binary_sensor' ? (sm.attributes.device_class === 'problem' ? (sm.state === 'on' ? 'Feil' : 'OK') : (sm.state === 'on' ? 'OK' : 'Feil')) : String(sm.state).toUpperCase() === 'PASSED' ? 'OK' : fmt(h, d.smart);
-      const par = /parity/.test(d.raw || '');
-      const status = stop ? 'Array stoppet' : rest ? 'Hvile' : d.status && ok(h.states[d.status]) ? fmt(h, d.status) : 'Aktiv';
-      const model = (d.temp && h.states[d.temp] && (h.states[d.temp].attributes.model || h.states[d.temp].attributes.device_model)) || (d.size ? fmt(h, d.size) : d.navn);
-      const hdd = tab === 'unraid' && !/^cache/.test(d.raw || '') && !!d.spinSw;
-      const detail = `<div class="dd" data-key="dd-${esc(d.key)}"><div class="ddh"><span class="grow col"><b class="ell">${esc(d.navn)}</b><span class="ell">${esc(model)}</span></span><span class="tp" style="color:${tempCol(t, L.disk_temp)};background:${M.alpha(tempCol(t, L.disk_temp), 0.18)}">${rest ? 'Hvile' : t == null ? '–' : `${nf(t)} °C`}</span></div>
-        <div class="kps">${this._kpi(par ? 'Rolle' : 'Brukt', par ? 'Paritet' : p == null ? '–' : `${nf(p)} %`, d.bruk)}${this._kpi('SMART', smTxt, d.smart)}${this._kpi('Status', status, d.status || d.spin)}</div>
-        ${hdd ? `<div class="pdr"><span class="grow col"><span>Aktiv (spinner)</span>${stop ? '<small>Låst mens arrayet er stoppet</small>' : ''}</span>${this._sw(h.states[d.spinSw] && h.states[d.spinSw].state === 'on', `data-sw="${esc(d.spinSw)}"`, `${d.navn} aktiv`, stop)}</div>` : ''}</div>`;
-      const n = Math.min(6, D.length);
-      return this._sec(s, `${D.filter((x) => !hvile(x)).length} av ${D.length} aktive`, `<div class="bays" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${bays}</div>${detail}`);
-    }
-    _s_guests(R, tab, s) { return this._guests(R, tab, s); }
-    _s_docker(R, tab, s) { return this._guests(R, tab, s); }
-    _guests(R, tab, s) {
+    _b_net_switch(R) {
       const h = this.hass, ex = new Set(this.config.exclude || []);
-      const px = tab === 'proxmox', U = R.unraid, lock = !px && arrayStoppet(h, U);
-      const all = (px ? R.proxmox.gjester : ((U && U.gjester) || [])).filter((g) => !ex.has(g.bryter) && !ex.has(g.status));
-      if (!px && U && U.glances) return this._sec(s, '', '<div class="none">Glances gir bare målinger – Docker og VM-er krever Unraid-integrasjonen</div>');
-      const F = px ? [['alle', 'Alle'], ['vm', 'VM'], ['ct', 'CT']] : [['docker', 'Docker'], ['vm', 'VM']];
-      const f = F.some((x) => x[0] === this._flt[tab]) ? this._flt[tab] : F[0][0];
-      const q = (this._q[tab] || '').trim().toLowerCase();
-      const G = all.filter((g) => (f === 'alle' || g.type === f) && (!q || g.navn.toLowerCase().includes(q) || String(g.vmid || '').includes(q)));
-      const search = `<div class="srch">${M.icon('mdi:magnify', 20, 'color:#979797')}<input data-input="q" type="search" placeholder="Søk i ${px ? 'gjester' : 'containere'}" value="${esc(this._q[tab] || '')}" aria-label="Søk" autocomplete="off" enterkeyhint="search">${q ? `<span class="hits">${G.length} treff</span><button class="clr" data-act="qclr" aria-label="Tøm søk">${M.icon('mdi:close-circle', 18)}</button>` : ''}</div>`;
-      const seg = `<div class="subs segm fseg" role="tablist">${F.map(([k, l]) => `<button class="sb${k === f ? ' on' : ''}" role="tab" aria-selected="${k === f}" data-act="flt" data-v="${k}" data-haptic="selection">${esc(l)} <span class="fc">${all.filter((g) => k === 'alle' || g.type === k).length}</span></button>`).join('')}</div>`;
-      const rows = G.map((g) => {
-        const sid = g.bryter || g.status, st = this.s(sid), on = px ? kjorer(this.s(g.bryter || g.status)) : !!st && st.state === 'on';
-        [g.cpu, g.mem, g.oppdatering].forEach((x) => this.s(x));
-        const upd = g.oppdatering && h.states[g.oppdatering] && h.states[g.oppdatering].state === 'on';
-        const badge = px ? `${g.type === 'vm' ? 'VM' : 'CT'}${g.vmid ? ' ' + g.vmid : ''}` : upd ? 'Oppdatering' : g.type === 'vm' ? 'VM' : '';
-        const cpu = pctOf(h, g.cpu), mem = pctOf(h, g.mem, g.ramBrukt, g.ramTot);
-        const meta = lock ? 'Låst · array stoppet' : [on ? 'Kjører' : 'Stoppet', on && cpu != null ? `CPU ${nf(cpu)} %` : null, on && mem != null ? `RAM ${nf(mem)} %` : null].filter(Boolean).join(' · ');
-        const can = g.bryter || (g.knapper || []).some((k) => ['start', 'stopp', 'av'].includes(k.a));
-        const pend = this._pending(sid);
-        const sw = can ? (pend ? `<span class="spinw" aria-label="Venter"><span class="spin"></span></span>` : this._sw(on, g.bryter ? `data-sw="${esc(g.bryter)}"` : `data-g="${esc(g.id)}"`, g.navn, lock)) : '';
-        const open = this.ui.gx === g.id;
-        let ex2 = '';
-        if (open) {
-          const bar = (l, v) => `<div class="gb"><span>${l}</span><span class="tb2"><i style="width:${v == null ? 0 : M.clamp(v, 0, 100).toFixed(1)}%;background:${v != null && v > 80 ? C.orange : C.blue}"></i></span><b class="num">${v == null ? '–' : nf(v) + ' %'}</b></div>`;
-          const K = (a) => (g.knapper || []).find((k) => k.a === a);
-          const acts = [];
-          if (px) {
-            if (on) { if (K('restart')) acts.push(this._dangerBtn('g-rs-' + g.id, 'Omstart', `data-id="${esc(K('restart').id)}"`)); if (K('av')) acts.push(this._dangerBtn('g-av-' + g.id, 'Slå av', `data-id="${esc(K('av').id)}"`, 'mdi:power')); if (K('stopp')) acts.push(this._dangerBtn('g-st-' + g.id, 'Stopp', `data-id="${esc(K('stopp').id)}"`, 'mdi:stop')); }
-            else if (K('start')) acts.push(`<button class="ab" data-act="run" data-id="${esc(K('start').id)}">${M.icon('mdi:play', 18)}Start</button>`);
-          } else if (!lock) {
-            if (on && g.restart) acts.push(this._dangerBtn('g-rs-' + g.id, 'Omstart', `data-id="${esc(g.restart)}"`));
-            if (g.oppdater) acts.push(`<button class="ab" data-act="run" data-id="${esc(g.oppdater)}">${M.icon('mdi:update', 18)}Oppdater</button>`);
-            acts.push(on ? this._dangerBtn('g-st-' + g.id, 'Stopp', `data-sw="${esc(g.bryter)}"`, 'mdi:stop') : `<button class="ab" data-act="tgl" data-sw="${esc(g.bryter)}">${M.icon('mdi:play', 18)}Start</button>`);
-          }
-          ex2 = `<div class="gex">${bar('CPU', on ? cpu : null)}${bar('Minne', on ? mem : null)}${acts.length ? `<div class="acts">${acts.join('')}</div>` : ''}</div>`;
-        }
-        return `<div class="gr ${open ? 'open' : ''} ${lock ? 'lock' : ''}" data-key="g-${esc(g.id)}"><div class="grh" data-act="gx" data-v="${esc(g.id)}" role="button" tabindex="0" ${sid ? `data-ent="${esc(sid)}"` : ''} aria-expanded="${open}">
-          <span class="gic ${on ? 'on' : ''}">${M.icon(g.type === 'vm' ? 'mdi:monitor' : px ? 'mdi:cube-outline' : 'mdi:docker', 20)}</span>
-          <span class="grow col"><span class="gn"><b class="ell">${esc(g.navn)}</b>${badge ? `<span class="bdg ${upd ? 'upd' : ''}">${esc(badge)}</span>` : ''}</span><span class="ell">${esc(meta)}</span></span>${sw}</div>${ex2}</div>`;
+      const SW = R.unifi.enheter.filter((e) => e.type === 'switch' && !ex.has(e.tracker));
+      if (!SW.length) return `<section class="card sw">${this._head('Switch', '–')}<div class="none">Fant ingen switcher</div></section>`;
+      const SPC = { g: GR, x: BL, f: OR };
+      const info = SW.map((e) => { [e.tracker, e.tilstand, e.budsjett].forEach((x) => this.s(x)); const P = this._ports(e), off = apOffline(h, e); return { e, P, off, up: P.filter((p) => p.up).length, poe: e.porter.reduce((a, p) => a + (numOf(h, p.pw) || 0), 0), hasPoe: e.porter.some((p) => p.pw), bud: numOf(h, e.budsjett) }; });
+      info.sort((a, b) => (a.off ? 1 : 0) - (b.off ? 1 : 0) || b.P.length - a.P.length || a.e.navn.localeCompare(b.e.navn, 'nb'));
+      const cur = info.find((x) => x.e.dev === this.ui.swSel) || info[0], e = cur.e;
+      const grid = info.length > 1 ? `<div class="swg">${info.map((x) => {
+        const on = x === cur;
+        return `<button class="swc${on ? ' on' : ''}${x.off ? ' off' : ''}" data-act="swsel" data-v="${esc(x.e.dev)}" data-haptic="selection" aria-pressed="${on}"><span class="ell swn">${esc(x.e.navn.replace(/^Switch\s+/i, ''))}</span>
+          <span class="leds">${x.P.map((p) => `<i style="background:${x.off ? M.alpha(OR, 0.35) : SPC[p.sp] || 'var(--ki-ctrl, #545454)'}"></i>`).join('')}</span>
+          <span class="sws ell">${x.off ? 'Frakoblet' : `${x.up}/${x.P.length}${x.hasPoe ? ` · ${fmtN(x.poe, 0)} W PoE` : ''}`}</span></button>`;
+      }).join('')}</div>` : '';
+      const area = e.dev && h.devices && h.devices[e.dev] && h.devices[e.dev].area_id && h.areas && h.areas[h.devices[e.dev].area_id];
+      const sum = cur.off ? 'Frakoblet' : `${cur.up} av ${cur.P.length} oppe${cur.hasPoe ? ` · ${fmtN(cur.poe, 0)}${cur.bud != null ? ` / ${M.nf(cur.bud)}` : ''} W PoE` : ''}`;
+      const sel = cur.P.find((p) => String(p.n) === String(this.ui.port));
+      const SPT = { g: '1 G', x: '2,5 G', f: '100 M' };
+      const pinfo = sel ? [`Port ${sel.n}`, sel.sp === 'off' ? 'Deaktivert' : sel.name || (sel.up ? '' : 'Ledig'), SPT[sel.sp] || '', sel.poe ? 'PoE' : ''].filter(Boolean).join(' · ') : 'Grønn 1 G · blå 2,5 G · oransje 100 M · strek under = PoE';
+      const ports = cur.P.map((p) => {
+        const on = sel === p;
+        return `<button class="pt${p.up ? ' up' : ''}${p.sp === 'off' ? ' dis' : ''}${on ? ' sel' : ''}${p.poe ? ' poe' : ''}" data-act="port" data-v="${p.n}" data-haptic="selection" ${p.ent ? `data-ent="${esc(p.ent)}"` : ''} aria-pressed="${on}" aria-label="Port ${p.n}${p.up ? ' oppe' : ''}${p.poe ? ', PoE' : ''}"><i style="background:${SPC[p.sp] || 'var(--ki-text-lo, #454545)'}"></i><span class="num">${p.n}</span></button>`;
       }).join('');
-      const nOn = all.filter((g) => (px ? kjorer(h.states[g.bryter || g.status]) : h.states[g.bryter] && h.states[g.bryter].state === 'on')).length;
-      return this._sec(s, `${nOn} av ${all.length} kjører`, `${search}${seg}<div class="lst gl">${rows || `<div class="none">${q ? 'Ingen treff' : 'Ingen her'}</div>`}</div>`);
-    }
-    _s_controls(R, tab, s) {
-      const h = this.hass, n = this._node(R, tab), svc = (d, names) => { const S = h.services && h.services[d]; const x = S && names.find((k) => S[k]); return x ? `${d}.${x}` : null; };
-      const B = [];
-      const add = (key, icon, label, sub, act, danger) => { if (act) B.push({ key, icon, label, sub, act, danger }); };
-      if (tab === 'proxmox') {
-        const K = (a) => ((n.knapper || []).find((k) => k.a === a) || {}).id;
-        add('upd', 'mdi:update', 'Oppdater', n.oppd && h.states[n.oppd] && numOf(h, n.oppd) ? `${nf(numOf(h, n.oppd))} pakker` : 'Pakker', K('oppdater') ? { id: K('oppdater'), toast: 'Oppdaterer …' } : null);
-        add('bak', 'mdi:backup-restore', 'Backup nå', 'Alle gjester', K('backup') ? { id: K('backup'), toast: 'Backup startet' } : null);
-        add('rs', 'mdi:restart', 'Omstart', 'Noden', K('restart') ? { id: K('restart'), toast: 'Starter på nytt …' } : null, true);
-        add('av', 'mdi:power', 'Slå av', 'Noden', K('av') ? { id: K('av'), toast: 'Slår av …' } : null, true);
-      } else if (R.unraid && !R.unraid.glances) {
-        const U = R.unraid, fr = numOf(h, U.paritetFrem); this.s(U.paritetFrem);
-        const running = fr != null && fr > 0 && fr < 100;
-        add('par', running ? 'mdi:stop' : 'mdi:shield-sync', 'Paritetssjekk', running ? `${nf(fr)} % · stopp` : 'Start',
-          running ? (U.paritetStopp ? { id: U.paritetStopp } : svc('unraid', ['stop_parity_check', 'parity_check_stop']) ? { svc: svc('unraid', ['stop_parity_check', 'parity_check_stop']) } : null)
-            : (U.paritet ? { id: U.paritet, toast: 'Paritetssjekk startet' } : svc('unraid', ['start_parity_check', 'parity_check_start', 'parity_check']) ? { svc: svc('unraid', ['start_parity_check', 'parity_check_start', 'parity_check']), toast: 'Paritetssjekk startet' } : null), running);
-        add('spin', 'mdi:sleep', 'Spinn ned', 'Alle disker', U.spinNed ? { id: U.spinNed } : svc('unraid', ['spin_down_all', 'spin_down']) ? { svc: svc('unraid', ['spin_down_all', 'spin_down']) } : null);
-        add('mov', 'mdi:folder-move', 'Mover', 'Cache → array', U.mover ? { id: U.mover, toast: 'Mover startet' } : svc('unraid', ['start_mover', 'mover_start']) ? { svc: svc('unraid', ['start_mover', 'mover_start']), toast: 'Mover startet' } : null);
-        add('rs', 'mdi:restart', 'Omstart', 'Serveren', U.omstart ? { id: U.omstart, toast: 'Starter på nytt …' } : svc('unraid', ['reboot', 'system_reboot']) ? { svc: svc('unraid', ['reboot', 'system_reboot']) } : null, true);
-      }
-      if (!B.length) return this._sec(s, '', `<div class="none">Integrasjonen har ingen kontroller</div>`);
-      const btns = B.map((b) => {
-        const at = `${b.act.id ? `data-id="${esc(b.act.id)}"` : ''} ${b.act.svc ? `data-svc="${esc(b.act.svc)}"` : ''} ${b.act.toast ? `data-toast="${esc(b.act.toast)}"` : ''}`;
-        const k = tab + '-' + b.key, armed = this._armed === k;
-        return `<div class="cb"><button class="cbb ${b.danger ? 'danger' : ''} ${armed ? 'armed' : ''}" ${b.danger ? `data-act="arm" data-key="${esc(k)}" data-haptic="off"` : 'data-act="run"'} ${at} aria-label="${esc(b.label)}">${M.icon(armed ? 'mdi:alert' : b.icon, 24)}</button><span class="cbl ell">${armed ? 'Bekreft' : esc(b.label)}</span><span class="cbs ell">${armed ? 'trykk igjen' : esc(b.sub)}</span></div>`;
-      }).join('');
-      return this._sec(s, '', `<div class="ctl">${btns}</div>`);
+      return `<section class="card sw">${grid}<div class="swh"><span class="grow col"><b class="ell">${esc(e.navn)}</b><span class="ell">${esc([e.modell || '–', area ? area.name : null].filter(Boolean).join(' · '))}</span></span><span class="cs">${esc(sum)}</span></div>
+        <div class="pg" style="grid-template-columns:repeat(${Math.min(8, cur.P.length)},minmax(0,1fr))">${ports}</div><span class="pinfo">${esc(pinfo)}</span></section>`;
     }
 
+    /* ---------------------------------------------------------- Proxmox */
+    _b_proxmox_gjester(R, HA) { return this._glist(R, HA, 'proxmox'); }
+    _b_proxmox_lagring(R) {
+      const h = this.hass, ex = new Set(this.config.exclude || []), rows = [];
+      const area = (navn, id, brukt, tot) => {
+        [id, brukt, tot].forEach((x) => this.s(x));
+        const p = pctOf(h, id, brukt, tot), b = toGB(h, brukt), t = toGB(h, tot);
+        const meta = b != null && t != null ? `${sizeTxt(b).replace(/ (GB|TB)$/, t >= 1000 === b >= 1000 ? '' : ' $1')} av ${sizeTxt(t)}` : p != null ? `${M.nf(p)} %` : '–';
+        rows.push(`<div class="stg" ${id || brukt ? `data-act="more" data-id="${esc(id || brukt)}" data-ent="${esc(id || brukt)}" role="button"` : ''}><div class="stl"><b class="ell">${esc(navn)}</b><span>${esc(meta)}</span></div><div class="bar8"><i style="width:${p == null ? 0 : M.clamp(p, 0, 100).toFixed(1)}%;background:${p != null && p >= STORE_WARN ? OR : BL}"></i></div></div>`);
+      };
+      const n = R.proxmox.noder[0];
+      if (n && (n.disk || n.diskBrukt) && !R.proxmox.lagring.some((g) => g.navn === 'local')) area('local', n.disk, n.diskBrukt, n.diskTot);
+      R.proxmox.lagring.filter((g) => !ex.has(g.bruk)).forEach((g) => area(g.navn, g.bruk, g.brukt, g.total));
+      return `<section class="card stc"><span class="ct">Lagring</span>${rows.join('') || '<div class="none">Fant ingen lagringsområder</div>'}</section>`;
+    }
+    _b_proxmox_backup(R) {
+      const h = this.hass, n = R.proxmox.noder[0] || {}, id = n.backup, s = id && this.s(id);
+      let title = 'Backup', sub = '–', cls = 'none';
+      if (s && ok(s)) {
+        if (dom(id) === 'binary_sensor') { const bad = s.attributes.device_class === 'problem' ? s.state === 'on' : s.state === 'off'; title = bad ? 'Siste backup feilet' : 'Siste backup fullført'; cls = bad ? 'bad' : 'ok'; sub = M.relTime(s.last_changed); }
+        else if (s.attributes.device_class === 'timestamp' || /^\d{4}-\d\d-\d\dT/.test(s.state)) { title = 'Siste backup'; sub = M.relTime(s.state); cls = 'ok'; }
+        else { title = 'Backup'; sub = fmt(h, id); cls = /fail|feil|error/i.test(s.state) ? 'bad' : 'ok'; }
+      }
+      const btn = ((n.knapper || []).find((k) => k.a === 'backup') || {}).id;
+      return `<div class="bkr" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}" role="button"` : ''}><span class="bki ${cls}">${M.icon(cls === 'bad' ? 'mdi:alert' : 'mdi:backup-restore', 20)}</span><span class="grow col"><b>${esc(title)}</b><span class="ell">${esc(sub)}</span></span></div>
+        ${btn ? `<div class="xa">${this._ab('bkn', 'mdi:backup-restore', 'Backup nå', `data-id="${esc(btn)}" data-toast="Backup startet"`)}</div>` : ''}`;
+    }
+
+    /* ---------------------------------------------------------- Unraid */
+    _b_unraid_gjester(R, HA) {
+      if (R.unraid && R.unraid.glances) return `<section class="card">${this._head('Gjester', '–', 'mdi:cube-outline')}<div class="none">Glances gir bare målinger – Docker og VM-er krever Unraid-integrasjonen</div></section>`;
+      return this._glist(R, HA, 'unraid');
+    }
+    _b_unraid_array(R) {
+      const h = this.hass, U = R.unraid || {}, ex = new Set(this.config.exclude || []);
+      if (U.glances) return `<section class="card">${this._head('Array', '–')}<div class="none">Glances gir bare målinger – arrayet krever Unraid-integrasjonen</div></section>`;
+      [U.arrayStatus, U.arraySw, U.arrayBruk, U.arrayBrukt, U.arrayTot].forEach((x) => this.s(x));
+      const stop = STOPP(h, U), D = (U.disker || []).filter((d) => !ex.has(d.temp) && !ex.has(d.bruk));
+      const hvile = (d) => { const sp = d.spin && this.s(d.spin), sw = d.spinSw && this.s(d.spinSw), t = d.temp && this.s(d.temp); if (sp && ok(sp)) return sp.state === 'off'; if (sw && ok(sw)) return sw.state === 'off'; return !!t && t.state === 'standby'; };
+      const nRest = D.filter((d) => !/parity|cache/.test(d.navn) && hvile(d)).length;
+      const tot = toGB(h, U.arrayTot), used = toGB(h, U.arrayBrukt), p = pctOf(h, U.arrayBruk, U.arrayBrukt, U.arrayTot);
+      const sub = stop ? 'Stoppet · Docker og VM-er er av' : ['Startet', tot != null ? sizeTxt(tot) : null, `${nRest} i hvile`].filter(Boolean).join(' · ');
+      const target = stop ? (U.arrayStart || U.arraySw) : (U.arrayStopp || U.arraySw);
+      const bays = D.map((d) => {
+        [d.temp, d.bruk, d.spin, d.spinSw].forEach((x) => this.s(x));
+        const par = /^parity/.test(d.navn), cache = /^cache/.test(d.navn), pc = pctOf(h, d.bruk, d.brukt, d.total), t = numOf(h, d.temp);
+        const sl = !par && !cache && (stop || hvile(d)), short = par ? 'P' : cache ? 'C' : (d.navn.match(/\d+/) || [d.navn])[0];
+        const col = cache ? PU : pc != null && pc >= 85 ? OR : BL, title = diskNavn(d.navn);
+        const msg = par ? `${title} · gyldig` : pc != null ? `${title} · ${M.nf(pc)} % brukt` : title;
+        return `<button class="bay" data-act="bay" data-msg="${esc(msg)}" ${d.temp ? `data-ent="${esc(d.temp)}"` : ''} title="${esc(title)}" aria-label="${esc(title)}">
+          <span class="bb${par ? ' par' : ''}${sl ? ' sl' : ''}"><span class="bf" style="height:${par ? 100 : pc == null ? 0 : M.clamp(pc, 0, 100).toFixed(1)}%;background:${par ? M.alpha(PK, 0.18) : M.alpha(col, sl ? 0.18 : 0.45)}"></span>${sl ? `<span class="bz">${M.icon('mdi:weather-night', 16)}</span>` : ''}<span class="bp">${par || pc == null ? '' : M.nf(pc) + '%'}</span></span>
+          <span class="bn"><b>${esc(short)}</b><span class="${!sl && t != null && t >= TEMP_WARN ? 'hot' : ''}">${sl ? 'hvile' : t == null || (stop && !cache) ? '–' : M.nf(t) + '°'}</span></span></button>`;
+      }).join('');
+      const usedTxt = stop ? 'Utilgjengelig' : used != null ? `${sizeTxt(used)} brukt` : p != null ? `${M.nf(p)} % brukt` : '–';
+      const freeTxt = stop ? '' : used != null && tot != null ? `${sizeTxt(Math.max(0, tot - used))} ledig` : '';
+      return `<section class="card arr"><div class="arh"><span class="grow col"><b>Array</b><span>${esc(sub)}</span></span>
+          <button class="hold${stop ? ' start' : ''}" ${target ? `data-hold="${esc(target)}" data-stop="${stop ? 0 : 1}"` : 'disabled'} data-haptic="off" aria-label="${stop ? 'Start arrayet (hold inne)' : 'Stopp arrayet (hold inne)'}"><span class="hf"></span>${M.icon(stop ? 'mdi:play' : 'mdi:stop', 18, 'position:relative')}<span class="hl">${stop ? 'Start' : 'Stopp'}</span></button></div>
+        ${D.length ? `<div class="bays">${bays}</div>` : '<div class="none">Fant ingen disker</div>'}
+        <div class="use"><div class="ut"><span>${esc(usedTxt)}</span><span>${esc(freeTxt)}</span></div><div class="bar8"><i style="width:${stop || p == null ? 0 : M.clamp(p, 0, 100).toFixed(1)}%;background:${BL}"></i></div></div></section>`;
+    }
+
+    /* ---------------------------------------------------------- HA */
+    _b_ha_tillegg(R, HA) { return this._glist(R, HA, 'ha'); }
+    _b_ha_oppdateringer(R, HA) {
+      const h = this.hass, E = h.entities || {}, ids = this._updIds();
+      const coreish = (id) => { const e = E[id]; if (!e || e.platform !== 'hassio') return false; const d = e.device_id && h.devices && h.devices[e.device_id]; return !d || !/add-?on/i.test(`${d.model || ''} ${d.name || ''}`); };
+      const L = ids.filter((id) => h.states[id].state === 'on' || coreish(id) || this._upd[id]).sort((a, b) => (h.states[b].state === 'on') - (h.states[a].state === 'on') || fName(h, a).localeCompare(fName(h, b), 'nb'));
+      let left = 0;
+      const rows = L.map((id) => {
+        const s = this.s(id), A = s.attributes, on = s.state === 'on', mine = this._upd[id];
+        const busy = on && (A.in_progress === true || typeof A.in_progress === 'number' || (mine && Date.now() - mine.t < 600000));
+        if (on && !busy) left++;
+        const name = String(A.title || A.friendly_name || obj(id)).replace(/\s+(update|oppdatering)$/i, '');
+        const ic = /core/i.test(id) ? 'mdi:home-assistant' : /operating_system|_os_/.test(id) ? 'mdi:dns' : /supervisor/.test(id) ? 'mdi:shield-home' : coreish(id) ? 'mdi:home-assistant' : E[id] && E[id].platform === 'hassio' ? 'mdi:puzzle' : 'mdi:package-up';
+        const ver = on ? `${A.installed_version || '–'} → ${A.latest_version || '–'}` : `${A.installed_version || A.latest_version || '–'} · nyeste`;
+        const lbl = busy ? 'Installerer…' : on ? 'Installer' : 'Oppdatert';
+        return `<div class="ur" data-key="u-${esc(id)}"><span class="uic">${M.icon(ic, 20)}</span><span class="grow col" data-ent="${esc(id)}"><b class="ell">${esc(name)}</b><span class="num ell">${esc(ver)}</span></span>
+          <button class="ub ${busy ? 'busy' : on ? 'go' : 'done'}" ${on && !busy ? `data-act="install" data-id="${esc(id)}" data-haptic="off"` : 'aria-disabled="true"'}>${esc(lbl)}</button></div>`;
+      }).join('');
+      return `<section class="card upd"><div class="ch pad"><span class="ct">Oppdateringer</span><span class="cs">${left ? `${left} tilgjengelig` : 'Alt oppdatert'}</span></div>${rows || '<div class="none in">Ingen oppdateringer funnet</div>'}</section>`;
+    }
+    _b_ha_system(R, HA) {
+      const h = this.hass, iv = (o) => { const s = o && o.upd && this.s(o.upd); return s && s.attributes.installed_version; };
+      const core = iv(HA.core) || (SUP.core && SUP.core.version) || (h.config && h.config.version) || '–';
+      const os = iv(HA.os) || (HA.os.ver && ok(this.s(HA.os.ver)) ? this.s(HA.os.ver).state : null) || (SUP.os && SUP.os.version) || '–';
+      this.s(HA.sys.uptime); this.s(HA.sys.db);
+      const tiles = [[core, 'Core'], [os, 'OS'], [oppetid(h, HA.sys.uptime), 'Oppetid', HA.sys.uptime], [HA.sys.db ? fmt(h, HA.sys.db) : '–', 'Database', HA.sys.db], [M.nf(Object.keys(h.states).length), 'Entiteter'], [CE.total != null ? M.nf(CE.total) : '–', 'Integrasjoner']];
+      const sv = (svc, toast) => `data-svc="${svc}" data-toast="${esc(toast)}"`;
+      const bk = has(h, 'hassio', 'backup_full') && h.services ? 'hassio.backup_full' : h.services && has(h, 'backup', 'create') ? 'backup.create' : 'hassio.backup_full';
+      const acts = [this._ab('ha-rs', 'mdi:restart', 'Start HA på nytt', sv('homeassistant.restart', 'Home Assistant starter på nytt'), true, !has(h, 'homeassistant', 'restart'), 'on-s'),
+        this._ab('ha-cc', 'mdi:clipboard-check-outline', 'Sjekk config', sv('homeassistant.check_config', 'Sjekker konfigurasjonen …'), false, !has(h, 'homeassistant', 'check_config'), 'on-s'),
+        this._ab('ha-bk', 'mdi:backup-restore', 'Ta backup', sv(bk, 'Backup startet'), false, !has(h, bk.split('.')[0], bk.split('.')[1]), 'on-s'),
+        this._ab('ha-rb', 'mdi:power', 'Start vert på nytt', sv('hassio.host_reboot', 'Verten starter på nytt'), true, !has(h, 'hassio', 'host_reboot') || !HA.supervisor && !h.services, 'on-s')];
+      return `<section class="card sys">${tiles.map(([v, l, id]) => `<div class="syt"${id ? ` data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}" role="button"` : ''}><span class="num ell">${esc(v)}</span><span>${esc(l)}</span></div>`).join('')}</section><div class="xa">${acts.join('')}</div>`;
+    }
+
+    /* ---------------------------------------------------------- gester */
     afterRender() {
       const Rt = this.shadowRoot;
-      // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tabs.order), sideveis dra = Liquid Glass-valg
-      if (M.tabRow) M.tabRow(this, Rt.querySelector('.trow>.tabs[role="tablist"]'), {
-        active: () => this.tab, order: () => tabsCfg(this.config).order,
-        save: (order) => { const raw = this._rawConfig || this.config; return M.mshPatchConfig(this, { tabs: { ...(raw.tabs && !Array.isArray(raw.tabs) ? raw.tabs : {}), order } }); },
-      });
+      // Vertvelgeren (fanelinje): hold 400 ms + dra = ny rekkefølge (tab_order), kort trykk bytter vert
+      if (M.tabRow) M.tabRow(this, Rt.querySelector('.trow>.tabs[role="tablist"]'), { active: () => this.tab, order: () => tabsCfg(this.config).order, field: 'tab_order' });
+      // søkefeltet: verdien (property) følger søket for valgt vert (morph oppdaterer bare attributtet)
+      const qi = Rt.querySelector('.srch input'), qv = this._q[this.tab] || '';
+      if (qi && qi.value !== qv && Rt.activeElement !== qi) qi.value = qv;
       const sc = Rt.querySelector('.scrub');
       if (sc && !sc.__b) {
         sc.__b = true;
         M.guardDrag(sc, 'none'); // fallgruve 2: touch-action none + stopPropagation
-        const pos = (e) => { const r = sc.getBoundingClientRect(); return M.clamp(Math.round(((e.clientX - r.left) / r.width) * 48), 0, 48); };
+        const pos = (e) => { const r = sc.getBoundingClientRect(); return M.clamp(Math.round(((e.clientX - r.left) / r.width) * (NPT - 1)), 0, NPT - 1); };
         let down = false;
+        const stop = (e) => e.stopPropagation();
+        sc.addEventListener('touchstart', stop, { passive: true });
+        sc.addEventListener('touchmove', stop, { passive: true });
         sc.addEventListener('pointerdown', (e) => { e.stopPropagation(); down = true; try { sc.setPointerCapture(e.pointerId); } catch (x) { /* */ } const p = pos(e); if (p !== this.ui.sel) { M.haptic('selection'); this.setUI({ sel: p }); } });
-        sc.addEventListener('pointermove', (e) => { if (!down && e.pointerType !== 'mouse') return; e.stopPropagation(); const p = pos(e); if (p !== this.ui.sel) { if (down) M.haptic('selection'); this.setUI({ sel: p }); } });
+        sc.addEventListener('pointermove', (e) => { if (!down && e.pointerType !== 'mouse') return; e.stopPropagation(); const p = pos(e); if (p !== this.ui.sel) { if (down && p % 4 === 0) M.haptic('selection'); this.setUI({ sel: p }); } });
         const end = () => { down = false; if (this.ui.sel != null) this.setUI({ sel: null }); };
         sc.addEventListener('pointerup', end);
         sc.addEventListener('pointercancel', end);
         sc.addEventListener('pointerleave', end);
       }
+      // Array Start/Stopp: hold for å bekrefte (900 ms fyll)
+      const hb = Rt.querySelector('.hold[data-hold]');
+      if (hb && !hb.__b) {
+        hb.__b = true;
+        hb.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+        hb.addEventListener('contextmenu', (e) => e.preventDefault());
+        hb.addEventListener('pointerdown', (e) => { if (e.button) return; e.stopPropagation(); try { hb.setPointerCapture(e.pointerId); } catch (x) { /* */ } this._holdStart(hb); });
+        const up = (e) => { if (e) e.stopPropagation(); this._holdCancel(hb); };
+        hb.addEventListener('pointerup', up); hb.addEventListener('pointercancel', up); hb.addEventListener('pointerleave', up);
+      }
     }
-    // Kjør en handling: knapp (button.press), tjeneste (domene.tjeneste) eller bryter (data-sw, armert «Stopp» i Docker)
-    _run(d) {
-      if (d.sw && !d.id && !d.svc) return this._tgl({ sw: d.sw });
-      const h = this.hass;
-      if (d.id) return M.call(h, dom(d.id) === 'button' ? 'button' : dom(d.id), dom(d.id) === 'button' ? 'press' : 'toggle', { entity_id: d.id }).then(() => d.toast && M.toast(d.toast)).catch(() => {});
-      if (d.svc) { const [a, b] = d.svc.split('.'); return M.call(h, a, b, {}).then(() => d.toast && M.toast(d.toast)).catch(() => {}); }
+    _holdStart(hb) {
+      this._holdStop();
+      M.haptic('light');
+      const t0 = performance.now(), fill = hb.querySelector('.hf'), lbl = hb.querySelector('.hl'), stop = hb.dataset.stop === '1';
+      this._busy = true; this._holding = { hb, lbl: lbl && lbl.textContent };
+      if (lbl) lbl.textContent = 'Hold…';
+      const step = () => {
+        const p = Math.min(1, (performance.now() - t0) / 900);
+        if (fill) fill.style.width = (p * 100).toFixed(1) + '%';
+        if (p < 1) { this._holdRaf = requestAnimationFrame(step); return; }
+        this._holdRaf = 0; this._holding = null; this._busy = false;
+        M.haptic('medium');
+        this._run({ id: hb.dataset.hold, toast: stop ? 'Arrayet stoppes' : 'Arrayet startes' });
+        if (fill) fill.style.width = '0%';
+        this.update();
+      };
+      this._holdRaf = requestAnimationFrame(step);
     }
+    _holdCancel(hb) {
+      if (!this._holding) return;
+      const H = this._holding; this._holdStop();
+      const fill = hb.querySelector('.hf'); if (fill) fill.style.width = '0%';
+      if (H.lbl != null && hb.querySelector('.hl')) hb.querySelector('.hl').textContent = H.lbl;
+      M.toast('Hold inne for å bekrefte');
+      this.update();
+    }
+    _holdStop() { if (this._holdRaf) cancelAnimationFrame(this._holdRaf); this._holdRaf = 0; this._holding = null; this._busy = false; }
+
     get styles() {
+      // Tokens (ki-theme, src/00-a-theme.js) – definert bare i lys modus; mørk = fallback (dagens farge)
+      const S = 'var(--ki-surface, #3a3a3a)', S2 = 'var(--ki-surface-2, #404040)', S3 = 'var(--ki-surface-3, #2f2f2f)', CTRL = 'var(--ki-ctrl, #545454)';
+      const T = 'var(--ki-text, #fafafa)', T1 = 'var(--ki-text-1, #e1e1e1)', T1b = 'var(--ki-text-1, #c7c7c7)', T2 = 'var(--ki-text-2, #afafaf)', TM = 'var(--ki-text-mid, #979797)', T3 = 'var(--ki-text-3, #7f7f7f)';
+      // tekst i #7f7f7f/#696969 (designet) → --ki-text-mid i lys modus (--ki-text-3/-lo er under 4,5:1 på lyse flater)
+      const T3t = 'var(--ki-text-mid, #7f7f7f)', TLt = 'var(--ki-text-mid, #696969)';
+      const EDGE = 'inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05))', LINE = 'var(--ki-line, rgba(255,255,255,0.05))', INK = 'var(--ki-on-accent, #3a3a3a)', KNOB = 'var(--ki-knob, #fafafa)';
       return `
         :host{display:block;width:100%}
-        .wrap{display:flex;flex-direction:column;gap:12px}
-        .pane{display:flex;flex-direction:column;gap:12px;min-width:0}
+        .wrap{display:flex;flex-direction:column;gap:8px}
+        .pane{display:flex;flex-direction:column;gap:8px;min-width:0;animation:svf .3s ease}
+        @keyframes svf{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+        @media (prefers-reduced-motion: reduce){.pane,.gx{animation:none}}
         ${TAB_CSS('')}
-        .hero{position:relative;height:184px;border-radius:28px;overflow:hidden;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};width:100%}
+        .hero{position:relative;height:184px;border-radius:28px;overflow:hidden;background:${S};box-shadow:${EDGE};flex:none;width:100%}
+        .htop{position:absolute;top:18px;left:18px;right:70px;display:flex;align-items:center;gap:8px;min-width:0}
+        .hn{font-size:13px;color:${T2};flex:0 1 auto}
+        .chip{display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 9px 0 7px;border-radius:11px;font-size:12px;font-weight:500;white-space:nowrap;min-width:0;flex:0 1 auto}
+        .chip.ok{background:${tone(GR)};color:${TX.green}}.chip.warn{background:${tone(OR)};color:${TX.orange}}.chip.none{background:${S2};color:${TM}}
+        .hcog{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:var(--ki-surface-2, rgba(255,255,255,0.1));color:${T};z-index:2}
+        .hcog:active{transform:scale(.92)}
+        .vals{position:absolute;top:54px;left:18px;right:18px;display:flex;align-items:baseline;gap:16px;white-space:nowrap;min-width:0;z-index:2;pointer-events:none}
+        .bigw{display:flex;align-items:baseline;gap:3px}
+        .big{font-size:44px;font-weight:300;line-height:1}
+        .bu{font-size:20px;color:${T2}}
+        .sv{display:flex;align-items:baseline;gap:2px;padding:4px 0;pointer-events:auto;color:${T}}
+        .svv{font-size:17px}.svu{font-size:12px;color:${TM}}
+        .when{position:absolute;top:104px;left:18px;font-size:12px;color:${T3t}}
         .graph{position:absolute;left:0;right:0;bottom:0;height:84px}
-        .graph svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-        .cursor{position:absolute;top:0;bottom:0;pointer-events:none}
+        .graph svg{width:100%;height:84px;display:block}
+        .graph .mk{stroke:${T1}}
         .scrub{position:absolute;inset:0;touch-action:none;cursor:crosshair}
-        .htop{position:absolute;left:18px;right:16px;top:16px;display:flex;align-items:center;gap:8px;min-width:0}
-        .hn{font-size:13px;color:var(--gray800,#afafaf);flex:0 1 auto}
-        .chip{height:24px;padding:0 9px 0 7px;border-radius:12px;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;white-space:nowrap;flex:0 1 auto;min-width:0}
-        .chip.ok{background:${M.alpha(C.green, 0.18)};color:${C.green}}.chip.warn{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
-        .chip.red{background:${M.alpha(C.red, 0.22)};color:${C.red}}.chip.none{background:var(--gray300,#404040);color:var(--gray700,#979797);padding:0 9px}
-        .hr{font-size:12px;color:var(--gray700,#979797);flex:none;max-width:40%}
-        .vals{position:absolute;left:18px;right:16px;top:54px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
-        .line{display:flex;align-items:baseline;gap:4px;white-space:nowrap;min-width:0}
-        .big{font-size:44px;font-weight:300;letter-spacing:-0.04em;line-height:1}
-        .bu{font-size:18px;font-weight:300;color:var(--gray800,#afafaf);margin-right:10px}
-        .sv{pointer-events:auto;display:inline-flex;align-items:baseline;gap:2px;height:28px;padding:0 9px;border-radius:14px;color:var(--gray900,#c7c7c7);position:relative;z-index:2}
-        .sv:active{background:rgba(255,255,255,0.08)}
-        .svv{font-size:17px;font-weight:400;color:var(--white,#fafafa)}.svu{font-size:12px;color:var(--gray700,#979797)}.svl{font-size:11px;color:var(--gray600,#7f7f7f);margin-left:4px}
-        .when{font-size:12px;color:var(--gray600,#7f7f7f);white-space:nowrap}
-        .prose{margin:0;padding:0 4px;font-size:16px;line-height:1.9;color:var(--white,#fafafa)}
-        .pp{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:var(--gray1000,#e1e1e1);color:#282828;font-weight:500;line-height:1;vertical-align:baseline}
-        .pp.bad{background:${M.alpha(C.red, 0.25)};color:${C.red}}
-        .sec{display:flex;flex-direction:column;gap:8px;padding:14px 12px 12px;border-radius:28px;background:var(--gray200,#3a3a3a);box-shadow:${C.edge};min-width:0}
-        .sh{display:flex;align-items:center;gap:8px;padding:0 4px 2px;color:var(--gray800,#afafaf)}
-        .st{font-size:15px;font-weight:500;color:var(--white,#fafafa);flex:1;min-width:0}
-        .sm{font-size:12px;color:var(--gray700,#979797);white-space:nowrap}
-        .none{padding:14px;border-radius:22px;background:var(--gray300,#404040);color:var(--gray700,#979797);font-size:13px}
-        .nf{align-items:center;text-align:center;padding:22px 16px;gap:8px;color:var(--gray700,#979797);font-size:13px}
-        .nf b{font-size:15px;color:var(--white,#fafafa);font-weight:500}
-        .nfi{width:52px;height:52px;border-radius:26px;background:var(--gray300,#404040);display:grid;place-items:center;color:${C.orange}}
+        .prose{display:block;margin:2px 6px 0;font-size:16px;line-height:1.9;color:${T1};text-wrap:pretty}
+        .pp{display:inline;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #141414);border-radius:999px;padding:2px 10px;font-weight:500;white-space:nowrap;box-shadow:var(--ki-pill-sh, none);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+        .subs{display:flex;gap:2px;padding:3px;border-radius:22px;background:${S};margin:2px 0}
+        .sb{flex:1 1 0;min-width:0;height:38px;border-radius:19px;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
+        .sb.on{background:${C.accent};color:${INK}}
+        .card{background:${S};border-radius:28px;min-width:0}
+        .ch{display:flex;align-items:center;gap:10px;padding:2px 4px 0;min-width:0}.ch.pad{padding:8px 16px 4px}.ch.wide{grid-column:1/-1;padding:0}
+        .ct{flex:1;min-width:0;font-size:15px;font-weight:600}
+        .cs{font-size:12px;color:${TM};white-space:nowrap;text-align:right}
+        .none{padding:14px;border-radius:20px;background:${S2};color:${TM};font-size:13px}.none.in{margin:6px 12px 8px}
+        .nf{display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 16px;gap:8px;color:${TM};font-size:13px}
+        .nf b{font-size:15px;color:${T};font-weight:500}
+        .nfi{width:52px;height:52px;border-radius:26px;background:${S2};display:grid;place-items:center;color:${TX.orange}}
         .nfb{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:4px}
-        .missrow{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:6px 14px;border-radius:22px;background:var(--gray300,#404040);font-size:13px;color:var(--gray900,#c7c7c7);text-align:left}
-        .mv{font-size:13px;font-weight:600;color:${C.pink}}
-        .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-        .ti{border-radius:26px;background:var(--gray300,#404040);min-width:0;transition:background .2s}
-        .ti.open{grid-column:1/-1}
-        .tih{display:flex;align-items:center;gap:10px;width:100%;min-height:60px;padding:8px 12px 8px 10px;text-align:left}
-        .tih b{font-size:14px;font-weight:500}.tih .col>span{font-size:12px}
-        .tic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:var(--gray1000,#e1e1e1);color:#282828}
-        .tic.off{background:var(--gray400,#545454);color:var(--gray700,#979797)}
-        .ti.blink .tic{animation:blink 1s ease-in-out infinite}
-        .cst{display:inline-flex;align-items:center;gap:6px}
-        .rec{width:8px;height:8px;border-radius:4px;background:${C.red};animation:puls 1.4s ease-out infinite;flex:none}
-        @keyframes blink{50%{opacity:.35}}
-        @keyframes puls{0%{box-shadow:0 0 0 0 ${M.alpha(C.red, 0.6)}}70%{box-shadow:0 0 0 7px ${M.alpha(C.red, 0)}}100%{box-shadow:0 0 0 0 ${M.alpha(C.red, 0)}}}
-        @media (prefers-reduced-motion: reduce){.rec,.ti.blink .tic{animation:none}}
-        .dx{display:flex;flex-direction:column;gap:8px;padding:0 10px 10px}
-        .dxm{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray700,#979797);min-width:0}
-        .badge{height:22px;padding:0 9px;border-radius:11px;background:var(--gray200,#3a3a3a);color:var(--gray900,#c7c7c7);font-size:11px;font-weight:600;display:inline-flex;align-items:center;flex:none;max-width:55%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-        .kps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-        .kp{display:flex;flex-direction:column;gap:2px;padding:9px 11px;border-radius:18px;background:var(--gray200,#3a3a3a);min-width:0;cursor:pointer}
-        .kp b{font-size:15px;font-weight:500}.kp span{font-size:11px;color:var(--gray700,#979797)}
-        .acts{display:flex;flex-wrap:wrap;gap:6px}
-        .ab{height:40px;padding:0 14px;border-radius:20px;background:var(--gray200,#3a3a3a);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--white,#fafafa);transition:background .2s,color .2s,transform .15s}
+        .pick{background:${S2};color:${T}}
+        /* felles liste (35.2) */
+        .gl{padding:12px;display:flex;flex-direction:column;gap:10px}
+        .srch{height:44px;border-radius:22px;background:${S2};display:flex;align-items:center;gap:8px;padding:0 6px 0 14px;cursor:text;color:${TM}}
+        .srch input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:${T};font-size:14px}
+        .srch input::placeholder{color:${TM}}.srch input::-webkit-search-cancel-button{display:none}
+        .clr{width:28px;height:28px;border-radius:14px;display:grid;place-items:center;color:${T2};flex:none}
+        .chips{display:flex;gap:2px;padding:3px;border-radius:22px;background:${S3}}
+        .cp{flex:1 1 0;min-width:0;height:38px;border-radius:19px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600;white-space:nowrap;color:var(--ki-text-2, #c7c7c7);transition:background .2s}
+        .cp.on{background:${C.accent};color:${INK}}
+        .cn{font-size:11px;font-weight:500;color:${TM}}.cp.on .cn{color:var(--ki-on-accent, #5a3a48);opacity:.8}
+        .gls{display:flex;flex-direction:column;gap:6px}
+        .gw{border-radius:20px;background:${S2};transition:box-shadow .2s;min-width:0}
+        .gw.open{box-shadow:inset 0 0 0 1.5px ${M.alpha(PK, 0.5)}}
+        .gr{display:flex;align-items:center;gap:12px;min-height:60px;padding:0 12px 0 10px;cursor:pointer;min-width:0}
+        .gic{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:${CTRL};color:${T2};transition:background .2s}
+        .gic.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828)}
+        .gtx{display:flex;flex-direction:column;gap:3px}
+        .gn{display:flex;align-items:center;gap:6px;min-width:0}.gn b{font-size:14px;font-weight:600}
+        .gtag{flex:none;height:18px;padding:0 7px;border-radius:9px;display:inline-flex;align-items:center;font-size:10px;font-weight:600;background:${S3};color:${T1b};white-space:nowrap}
+        .gtag.upd{background:${tone(OR, 0.2)};color:${TX.orange}}
+        .gsub{font-size:12px;color:${T3t}}.gsub.on{color:${T2}}
+        .nohit{padding:18px;text-align:center;font-size:13px;color:${TM}}
+        .tg{width:50px;height:30px;border-radius:15px;flex:none;position:relative;background:${CTRL};transition:background .2s}
+        .tg i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:${KNOB};box-shadow:0 1px 3px ${M.theme ? M.theme.blackA(0.3) : 'rgb(0 0 0 / 0.3)'};transition:left .2s}
+        .tg.on{background:${M.SWITCH_ON || PK}}.tg.on i{left:23px}
+        .tg.sm{width:46px;height:28px;border-radius:14px}.tg.sm i{width:22px;height:22px;border-radius:11px}.tg.sm.on i{left:21px}
+        .tg.lock{opacity:.45}.tg[disabled]{opacity:.4;cursor:default}
+        .gx{display:flex;flex-direction:column;gap:10px;padding:2px 10px 12px;animation:svf .25s ease}
+        .devs .gx{padding:2px 12px 14px}
+        .xs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+        .xt{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:${S3};min-width:0}
+        .xv{display:flex;align-items:baseline;gap:2px;min-width:0;font-size:16px}.devs .xv{font-size:17px}.xu{font-size:11px;color:${TM}}
+        .xl{font-size:11px;color:${TM}}
+        .xb{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:${S3}}
+        .xbr{display:flex;align-items:center;gap:10px;font-size:12px}.xbl{width:44px;color:${T2};flex:none}.devs .xbl{width:52px}
+        .xbt{flex:1;height:6px;border-radius:3px;background:${S2};overflow:hidden;display:flex}.xbt i{display:block;height:100%;border-radius:3px;transition:width .4s}
+        .xbv{width:84px;text-align:right;color:${T1b};white-space:nowrap;flex:none}
+        .xg{display:flex;flex-direction:column;border-radius:16px;background:${S3};padding:0 12px}
+        .xgr{display:flex;align-items:center;gap:10px;min-height:50px}.xgr+.xgr{border-top:1px solid ${LINE}}.devs .xgr{min-height:52px}
+        .xgi{color:${T1b};display:flex}.xgr b{font-size:13px;font-weight:500}.xgr .col>span{font-size:11px;color:${TM}}
+        .xa{display:flex;flex-wrap:wrap;gap:6px}
+        .ab{height:40px;padding:0 14px 0 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:${S3};color:${T1};transition:background .2s,color .2s,transform .12s}
+        .devs .ab{background:${S2}}.ab.on-s{background:${S}}
         .ab:active{transform:scale(.96)}.ab[disabled]{opacity:.4;cursor:default}
-        .ab.wide{width:100%;justify-content:center;background:var(--gray200,#3a3a3a)}
-        .ab.danger{background:${M.alpha(C.red, 0.16)};color:${C.red}}
-        .ab.armed,.cbb.armed{background:${C.red} !important;color:#232323 !important}
-        .subs.swseg{margin:0 0 2px}
-        .swc{display:flex;flex-direction:column;gap:10px;padding:14px 12px 12px;border-radius:22px;background:linear-gradient(160deg,#2c2c2c 0%,#1d1d1d 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06)}
-        .swl{display:flex;align-items:center;gap:8px;min-width:0;font-size:12px;color:var(--gray700,#979797)}
-        .swl b{font-size:14px;font-weight:500;color:var(--white,#fafafa);flex:0 1 auto;min-width:0}
-        .swl>span.ell{flex:0 1 auto;min-width:0}
-        .poer{display:flex;align-items:center;gap:10px}.poer .poeb{flex:1}
-        .poep{height:22px;padding:0 8px;border-radius:11px;background:${M.alpha(C.yellow, 0.16)};color:${C.yellow};font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:3px;flex:none;white-space:nowrap}
-        .poeb{height:4px;border-radius:2px;background:rgba(255,255,255,0.1);overflow:hidden}.poeb i{display:block;height:100%;border-radius:2px;background:${C.yellow}}
-        .pg{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
-        .pt{height:56px;min-width:0;border-radius:12px;background:rgba(255,255,255,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 0;color:var(--gray700,#979797)}
-        .pt.up{background:rgba(255,255,255,0.1);color:var(--white,#fafafa)}
-        .pt.nop{opacity:.45}
-        .pt.sel{box-shadow:0 0 0 2px ${C.pink}}
-        .pl{display:block;width:8px;height:8px;border-radius:4px;background:#545454;flex:none}
-        .pt.up .pl,.pl.up{background:${C.green};box-shadow:0 0 6px ${M.alpha(C.green, 0.8)}}
-        .pn{font-size:12px;font-weight:600;line-height:1}
-        .pb{height:12px;display:flex;align-items:center;color:${C.yellow};--mdc-icon-size:12px}
-        .lg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--gray700,#979797)}
-        .lg span{display:inline-flex;align-items:center;gap:5px}
-        .rg{display:inline-block;width:10px;height:10px;border-radius:4px;box-shadow:inset 0 0 0 2px ${C.pink}}
-        .pd{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:22px;background:var(--gray300,#404040)}
-        .pdh{display:flex;align-items:center;justify-content:space-between;padding:0 4px}.pdh b{font-size:15px;font-weight:500}.pdh span{font-size:12px;color:var(--gray700,#979797)}
-        .pdr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px 4px 12px;border-radius:18px;background:var(--gray200,#3a3a3a);font-size:14px}
-        .pdr small{font-size:11px;color:var(--gray700,#979797)}
-        .perf{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-radius:22px;background:var(--gray300,#404040);padding:12px 0}
-        .pc{display:flex;flex-direction:column;gap:3px;padding:0 10px;min-width:0;cursor:pointer}
-        .pc+.pc{box-shadow:inset 1px 0 0 rgba(255,255,255,0.08)}
-        .pc b{font-size:20px;font-weight:400}.pc>span.ell{font-size:11px;color:var(--gray700,#979797)}
-        .tb2{display:block;height:4px;border-radius:2px;background:var(--gray400,#545454);overflow:hidden;margin-top:3px}.tb2 i{display:block;height:100%;border-radius:2px}
-        .lst{display:flex;flex-direction:column;border-radius:22px;background:var(--gray300,#404040);padding:4px 0;min-width:0}
-        .lr,.sa{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 14px;cursor:pointer;min-width:0}
-        .lr+.lr,.sa+.sa{box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)}
-        .lr b{font-size:13px;font-weight:500;color:var(--gray900,#c7c7c7);max-width:55%;flex:none}
-        .lr .grow{font-size:14px}
-        .lic{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--gray200,#3a3a3a);color:var(--gray900,#c7c7c7)}
-        .sal{display:flex;align-items:baseline;gap:8px;min-width:0}.sal b{font-size:14px;font-weight:500;flex:0 1 auto}.sal>span.ell{font-size:12px;color:var(--gray700,#979797);flex:0 1 auto}
-        .sab{font-size:12px;color:var(--gray900,#c7c7c7);flex:0 1 auto}
-        .arr{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 10px 6px 12px;border-radius:22px;background:var(--gray300,#404040)}
-        .arr b{font-size:14px;font-weight:500}.arr .col>span{font-size:12px}
-        .aic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none}
-        .aic.ok{background:${M.alpha(C.green, 0.18)};color:${C.green}}.aic.warn{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
-        .bays{display:grid;gap:6px}
-        .bay{position:relative;height:96px;border-radius:16px;background:var(--gray300,#404040);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;padding:0 4px 8px;min-width:0}
-        .bay .bf{position:absolute;left:0;right:0;bottom:0;pointer-events:none}
-        .bay .bl{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:14px;height:4px;border-radius:2px}
-        .bt{position:relative;font-size:17px;font-weight:400}.bn{position:relative;font-size:11px;color:var(--gray700,#979797);max-width:100%}
-        .bay.rest .bt{font-size:13px;color:var(--gray600,#7f7f7f)}.bay.rest{opacity:.75}
-        .bay.sel{box-shadow:0 0 0 2px ${C.pink}}
-        .dd{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:22px;background:var(--gray300,#404040)}
-        .ddh{display:flex;align-items:center;gap:10px;padding:0 2px}.ddh b{font-size:15px;font-weight:500}.ddh .col>span{font-size:12px;color:var(--gray700,#979797)}
-        .tp{height:26px;padding:0 10px;border-radius:13px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;flex:none}
-        .srch{display:flex;align-items:center;gap:8px;height:48px;padding:0 8px 0 14px;border-radius:24px;background:var(--gray300,#404040)}
-        .srch input{flex:1;min-width:0;height:100%;font-size:15px;background:none}
-        .srch input::-webkit-search-cancel-button{display:none}
-        .hits{font-size:12px;color:var(--gray700,#979797);flex:none}
-        .clr{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;color:var(--gray700,#979797);flex:none}
-        .fc{font-size:11px;opacity:.6;margin-left:2px}
-        .gl{padding:4px 0}
-        .gr{min-width:0}.gr+.gr{box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)}
-        .grh{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 10px 6px 12px;cursor:pointer;min-width:0}
-        .grh .col>span{font-size:12px;color:var(--gray700,#979797)}
-        .gn{display:flex;align-items:center;gap:6px;min-width:0}.gn b{font-size:14px;font-weight:500}
-        .bdg{height:20px;padding:0 7px;border-radius:10px;background:var(--gray200,#3a3a3a);color:var(--gray900,#c7c7c7);font-size:10px;font-weight:600;display:inline-flex;align-items:center;flex:none;white-space:nowrap}
-        .bdg.upd{background:${M.alpha(C.orange, 0.2)};color:${C.orange}}
-        .gic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:var(--gray400,#545454);color:var(--gray700,#979797)}
-        .gic.on{background:var(--gray1000,#e1e1e1);color:#282828}
-        .gr.lock .grh{opacity:.6}
-        .gex{display:flex;flex-direction:column;gap:8px;padding:0 12px 12px 64px}
-        .gb{display:grid;grid-template-columns:48px 1fr 52px;align-items:center;gap:8px;font-size:12px;color:var(--gray700,#979797)}.gb .tb2{margin:0}.gb b{font-weight:500;color:var(--gray900,#c7c7c7);text-align:right}
-        .sw{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--gray400,#545454);transition:background .2s}
-        .sw i{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;background:#fafafa;transition:transform .2s cubic-bezier(.34,1.4,.64,1);display:grid;place-items:center}
-        .sw.on{background:${M.SWITCH_ON || C.pink}}.sw.on i{transform:translateX(18px)}
-        .sw[disabled]{opacity:.4;cursor:default}
-        .spin{width:12px;height:12px;border-radius:50%;border:2px solid rgba(0,0,0,0.25);border-top-color:#282828;animation:spn .8s linear infinite;display:block}
-        .spinw{width:44px;height:26px;display:grid;place-items:center;flex:none}.spinw .spin{width:18px;height:18px;border-color:rgba(255,255,255,0.2);border-top-color:${C.pink}}
-        @keyframes spn{to{transform:rotate(360deg)}}
-        .ctl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:6px 0 2px}
-        .cb{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;text-align:center}
-        .cbb{width:56px;height:56px;border-radius:28px;display:grid;place-items:center;background:var(--gray300,#404040);color:var(--white,#fafafa);transition:background .2s,color .2s,transform .15s}
-        .cbb:active{transform:scale(.94)}
-        .cbb.danger{background:${M.alpha(C.red, 0.16)};color:${C.red}}
-        .cbl{font-size:12px;font-weight:500;max-width:100%}.cbs{font-size:11px;color:var(--gray700,#979797);max-width:100%}
-        @media (max-width:360px){.kps{grid-template-columns:repeat(3,minmax(0,1fr))}.pc b{font-size:17px}}
+        .ab.hot{background:${tone(RD)};color:${TX.red}}
+        .ab.armed{background:${RD} !important;color:var(--ki-on-accent, #232323) !important}
+        /* Nettverk */
+        .wan{padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+        .wt{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:20px;background:${S2}}
+        .wl{display:flex;align-items:center;gap:6px;font-size:12px;color:${T2}}
+        .wv{display:flex;align-items:baseline;gap:3px}.wv .num{font-size:28px;font-weight:300}.wv>span:last-child{font-size:12px;color:${TM}}
+        .devs{padding:6px 0;display:flex;flex-direction:column}.devs>.ch{padding:8px 16px 4px}
+        .dw{border-radius:20px;margin:0 6px;transition:background .2s}.dw.open{background:${S2}}
+        .dr{display:flex;align-items:center;gap:12px;min-height:56px;width:100%;padding:0 12px;text-align:left}
+        .dr b{font-size:14px;font-weight:500}.dr .col>span{font-size:12px;color:${TM}}
+        .dic{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:${S2};color:${T1b}}
+        .dw.open .dic{background:${S3}}
+        .dic.off{background:${tone(OR)};color:${TX.orange}}
+        .dw.blink .dic{animation:blink 1s ease-in-out infinite}@keyframes blink{50%{opacity:.35}}
+        .dm{font-size:12px;font-weight:500;white-space:nowrap;color:${TM}}.dm.off{color:${TX.orange}}
+        .sw{padding:16px;display:flex;flex-direction:column;gap:12px}
+        .swg{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px}
+        .swc{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;padding:10px 12px;border-radius:18px;background:${S3};box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.04));transition:background .2s,box-shadow .2s;text-align:left}
+        .swc:active{transform:scale(.97)}
+        .swc.on{background:${S2};box-shadow:inset 0 0 0 1.5px ${PK}}
+        .swn{font-size:13px;font-weight:600;width:100%}
+        .leds{display:flex;gap:2px;width:100%}.leds i{flex:1;height:4px;border-radius:2px;display:block}
+        .sws{font-size:11px;color:${TM};max-width:100%}.swc.off .sws{color:${TX.orange}}
+        .swh{display:flex;align-items:center;gap:8px;min-width:0}.swh b{font-size:15px;font-weight:600}.swh .col>span{font-size:12px;color:${TM}}
+        .pg{display:grid;gap:5px}
+        .pt{height:40px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:500;color:${TLt};background:${S3};min-width:0}
+        .pt.up{color:${T1}}
+        .pt i{display:block;width:14px;height:3px;border-radius:2px}
+        .pt.poe{box-shadow:inset 0 -2px 0 ${M.alpha(OR, 0.7)}}
+        .pt.dis{background:repeating-linear-gradient(135deg,var(--ki-surface-2, #3f3f3f) 0 3px,var(--ki-surface-3, #333) 3px 6px)}
+        .pt.sel{background:${CTRL};color:${T1};box-shadow:inset 0 0 0 1.5px ${PK}}
+        .pinfo{font-size:12px;color:${T2};min-height:16px}
+        /* Proxmox */
+        .stc{padding:16px;display:flex;flex-direction:column;gap:14px}
+        .stg{display:flex;flex-direction:column;gap:6px;cursor:pointer}
+        .stl{display:flex;align-items:baseline;gap:8px;min-width:0}.stl b{flex:1;font-size:14px;font-weight:500}.stl span{font-size:12px;color:${TM};white-space:nowrap}
+        .bar8{height:8px;border-radius:4px;background:${S3};overflow:hidden;display:flex}.bar8 i{display:block;height:100%;border-radius:4px;transition:width .5s}
+        .bkr{display:flex;align-items:center;gap:12px;min-height:64px;padding:0 16px 0 12px;border-radius:28px;background:${S}}
+        .bkr b{font-size:14px;font-weight:500}.bkr .col>span{font-size:12px;color:${TM}}
+        .bki{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center}
+        .bki.ok{background:${tone(GR)};color:${TX.green}}.bki.bad{background:${tone(RD)};color:${TX.red}}.bki.none{background:${S2};color:${TM}}
+        /* Unraid */
+        .arr{padding:16px;display:flex;flex-direction:column;gap:14px}
+        .arh{display:flex;align-items:center;gap:10px}.arh b{font-size:15px;font-weight:600}.arh .col>span{font-size:12px;color:${TM}}
+        .hold{position:relative;overflow:hidden;height:40px;padding:0 16px 0 12px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:${CTRL};color:${T};touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;flex:none}
+        .hold[disabled]{opacity:.4}
+        .hold .hf{position:absolute;left:0;top:0;bottom:0;width:0;background:${M.alpha(RD, 0.6)}}.hold.start .hf{background:${M.alpha(GR, 0.6)}}
+        .hold .hl{position:relative}
+        .bays{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+        .bay{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}.bay:active{transform:scale(.95)}
+        .bb{position:relative;width:100%;height:72px;border-radius:12px;background:${S3};overflow:hidden;box-shadow:${EDGE}}
+        .bb.par{box-shadow:inset 0 0 0 1.5px ${M.alpha(PK, 0.6)}}.bb.sl{opacity:.6}
+        .bf{position:absolute;left:0;right:0;bottom:0;transition:height .5s}
+        .bz{position:absolute;left:0;right:0;top:8px;display:flex;justify-content:center;color:${T3}}
+        .bp{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:11px;font-weight:600;color:${T}}
+        .bn{display:flex;flex-direction:column;align-items:center}.bn b{font-size:12px;font-weight:600}.bn span{font-size:11px;color:${TM}}.bn span.hot{color:${TX.orange}}
+        .use{display:flex;flex-direction:column;gap:6px}.ut{display:flex;justify-content:space-between;font-size:12px;color:${TM}}
+        /* HA */
+        .upd{padding:6px 0;display:flex;flex-direction:column}
+        .ur{display:flex;align-items:center;gap:12px;min-height:64px;padding:0 12px 0 14px;border-top:1px solid ${LINE}}
+        .uic{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:${S2};color:${T1b}}
+        .ur b{font-size:14px;font-weight:500}.ur .col>span{font-size:12px;color:${TM}}
+        .ub{height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:600;white-space:nowrap;flex:none}
+        .ub.go{background:${C.accent};color:${INK}}.ub.busy{background:${CTRL};color:${T1};cursor:default}
+        .ub.done{background:transparent;color:${TM};box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.12));cursor:default}
+        .ub.go:active{transform:scale(.96)}
+        .sys{padding:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+        .syt{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:${S2};min-width:0}
+        .syt .num{font-size:16px}.syt>span:last-child{font-size:11px;color:${TM}}
       `;
     }
   }
@@ -1391,6 +1570,6 @@
   // Vilkår (strategi/allPopups): minst én av integrasjonene – entiteter i registeret eller en config entry
   M.popupNeeds = M.popupNeeds || {};
   M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && PLAT[e.platform] && e.platform !== 'glances') || (Array.isArray(CE.data) && CE.data.some((e) => e.domain !== 'glances'));
-  M.server = { oppdag, entries, entriesFor, openPick, INTEG, SECDEF, tabsCfg, secList };
-  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): Nettverk (UniFi Network + Protect), Proxmox VE og Unraid – toppkort med graf, prosalinje, underfaner og seksjoner.');
+  M.server = { oppdag, oppdagHA, entries, entriesFor, openPick, INTEG, HOSTS, SUBS, tabsCfg, SUP };
+  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
 })();

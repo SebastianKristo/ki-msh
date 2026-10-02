@@ -21,7 +21,7 @@ Rom-listen, navn, ikon og etasje hentes fra HA (`hass.areas`, `hass.floors`) + `
 ## Kilde 2 · HA-registre (når KI Rom ikke dekker det)
 - Entiteter i rommet: `hass.entities` (område direkte, ellers via `hass.devices[device_id].area_id`). Hopp over skjulte/deaktiverte, `entity_category` config/diagnostic og grupper – samme logikk som KI Rom.
 - Klima-toppkort: `temperatur`/`fuktighet` fra `_oversikt`; ellers første `sensor` med `device_class: temperature`/`humidity` i rommet; chip = første `climate.*` i rommet.
-- Popups uten rom (Basseng, Media, Ruter, Klima, Strøm …): finn via domene + `device_class` + integrasjon (`hass.entities[id].platform`, f.eks. `entur`, `nordpool`, `tibber`) – se tabell under.
+- Popups uten rom (Media, Ruter, Klima, Strøm …): finn via domene + `device_class` + integrasjon (`hass.entities[id].platform`, f.eks. `entur`, `nordpool`, `tibber`) – se tabell under.
 
 ## Kilde 3 · Overstyring (kun det som er feil)
 Hvert kort har i config (og i begge editorene – kortets egen og Bubble Card/HA GUI-editoren):
@@ -48,7 +48,7 @@ include:
 | Hjem-header | `person.*`, `weather.*` (første), `sensor.hele_huset_effekt`, `alarm_control_panel.*` |
 | Media | alle `media_player.*`, gruppert per område |
 | Klima | alle `climate.*` + `fan.*`, gruppert per område |
-| Basseng | entiteter i område «Basseng»/`pool` (temperatur, pumpe-switch, pH/klor) |
+| Basseng (`msh-basseng-card`, manuell popup) | entiteter i område «Basseng»/`pool` (temperatur, pumpe-switch, pH/klor) – strategien lager ingen bassengpopup og ingen rom-popup for området |
 | Ruter | plattform `entur` (avganger) + `entur_sx` (avvik) |
 | Strøm | `sensor` med `device_class: power`/`energy` + plattform `nordpool`/`tibber` for pris · pris via `MSH.powerPrice` (ki-store `power_price`): auto = beste pris-sensor (…/kWh) for profil/kilde/område (nordpool → tibber → strompris → energi_data_service; Norge aldri SEK, Sverige bare SEK), Norgespris = `sensor.*norgespris*`, nettleie velges aldri automatisk (bare forslag) |
 | Vær | første `weather.*` |
