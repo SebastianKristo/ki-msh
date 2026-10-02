@@ -213,31 +213,31 @@ const srch = await tp(() => [...PP.querySelectorAll('.pr')].map((r) => r.dataset
 ok('søk i popup-listen', srch.length === 1 && srch[0] === '#vaer', srch);
 await tp(() => PP.querySelector('.pr[data-v="#vaer"]').click()); await wait(300);
 let bt = await tp(() => (ED._config.buttons || {}).egen_t);
-ok('valgt popup lagres som tap i HA-format', bt && bt.tap && bt.tap.action === 'navigate' && bt.tap.navigation_path === '#vaer' && !('hash' in bt), bt);
-await tp(() => { const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]'); window.TP = t; [...t.shadowRoot.querySelectorAll('.seg button')].find((b) => b.textContent === 'Egen hash').click(); });
+ok('valgt popup lagres som tap_action i HA-format (30.3)', bt && bt.tap_action && bt.tap_action.action === 'navigate' && bt.tap_action.navigation_path === '#vaer' && !('hash' in bt) && !('tap' in bt), bt);
+await tp(() => { const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]'); window.TP = t; [...t.shadowRoot.querySelectorAll('[data-p="mode"]')].find((b) => b.textContent === 'Egen hash').click(); });
 await wait(100);
 await tp(() => { const i = TP.shadowRoot.querySelector('[data-f="hash"]'); i.value = 'xyz'; i.dispatchEvent(new Event('input', { bubbles: true })); });
-const warn = await tp(() => { const w = TP.shadowRoot.querySelector('.hw'); return { t: w.textContent, warn: w.classList.contains('warn') }; });
-ok('Egen hash advarer «Ingen popup med #xyz»', warn.warn && /Ingen popup med #xyz/.test(warn.t), warn);
+const warn = await tp(() => { const w = TP.shadowRoot.querySelector('.hm'); return { t: w.textContent, warn: w.classList.contains('warn') }; });
+ok('Egen hash advarer «Popupen finnes ikke i dette dashbordet – lagres likevel» (30.3)', warn.warn && /finnes ikke i dette dashbordet/.test(warn.t), warn);
 await tp(() => { const i = TP.shadowRoot.querySelector('[data-f="hash"]'); i.dispatchEvent(new Event('change', { bubbles: true })); }); await wait(300);
 bt = await tp(() => (ED._config.buttons || {}).egen_t);
-ok('… men lagres likevel', bt && bt.tap && bt.tap.navigation_path === '#xyz', bt);
+ok('… men lagres likevel', bt && bt.tap_action && bt.tap_action.navigation_path === '#xyz', bt);
 const mode = await tp(() => ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]').mode);
 ok('ukjent hash vises som «Egen hash»', mode === 'hash', mode);
-await tp(() => { const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]'); window.TP = t; [...t.shadowRoot.querySelectorAll('.seg button')].find((b) => b.textContent === 'Dashbord-sti').click(); });
+await tp(() => { const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]'); window.TP = t; [...t.shadowRoot.querySelectorAll('[data-p="mode"]')].find((b) => b.textContent === 'Sti').click(); });
 await wait(50);
 await tp(() => { const i = TP.shadowRoot.querySelector('[data-f="path"]'); i.value = 'lovelace/energi'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await wait(300);
 bt = await tp(() => (ED._config.buttons || {}).egen_t);
-ok('Dashbord-sti lagres som navigate /lovelace/energi', bt && bt.tap && bt.tap.navigation_path === '/lovelace/energi', bt);
-await tp(() => { const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]'); window.TP = t; [...t.shadowRoot.querySelectorAll('.seg button')].find((b) => b.textContent === 'URL').click(); });
+ok('Sti lagres som navigate /lovelace/energi', bt && bt.tap_action && bt.tap_action.navigation_path === '/lovelace/energi', bt);
+await tp(() => { const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="egen_t"]'); window.TP = t; [...t.shadowRoot.querySelectorAll('[data-p="mode"]')].find((b) => b.textContent === 'URL').click(); });
 await wait(50);
 await tp(() => { const i = TP.shadowRoot.querySelector('[data-f="url"]'); i.value = 'https://example.com'; i.dispatchEvent(new Event('change', { bubbles: true })); }); await wait(300);
 bt = await tp(() => (ED._config.buttons || {}).egen_t);
-ok('URL lagres som { action: url, url_path }', bt && bt.tap && bt.tap.action === 'url' && bt.tap.url_path === 'https://example.com', bt);
+ok('URL lagres som { action: url, url_path }', bt && bt.tap_action && bt.tap_action.action === 'url' && bt.tap_action.url_path === 'https://example.com', bt);
 // innebygd knapp: standard (#vanning) lagres ikke
 await tp(async () => { ED.shadowRoot.querySelector('[data-a="nbsel"][data-id="vanning"]').click(); await new Promise((r) => setTimeout(r, 200)); const t = ED.shadowRoot.querySelector('msh-tap-picker[data-nbtap="vanning"]'); window.TP = t; });
-const vm = await tp(() => ({ modes: [...TP.shadowRoot.querySelectorAll('.seg button')].map((b) => b.textContent) }));
-ok('innebygd knapp: Popup · Egen hash · Dashbord-sti · URL', JSON.stringify(vm.modes) === JSON.stringify(['Popup', 'Egen hash', 'Dashbord-sti', 'URL']), vm);
+const vm = await tp(() => ({ modes: [...TP.shadowRoot.querySelectorAll('[data-p="mode"]')].map((b) => b.textContent) }));
+ok('innebygd knapp (30.3): Popup · Egen hash · Sti · URL · More-info · Ingen', JSON.stringify(vm.modes) === JSON.stringify(['Popup', 'Egen hash', 'Sti', 'URL', 'More-info', 'Ingen']), vm);
 
 /* ---------------- 15.6 · «Tilpass Hjem» → Tekst: «Ved trykk» */
 await page.evaluate(() => { document.querySelector('ki-overlay-root').shadowRoot.querySelectorAll('.msh-portal').forEach((p) => p.remove()); });
@@ -253,11 +253,11 @@ const gui = await page.evaluate(async () => {
   if (!t) return { none: true };
   let got = null; el.addEventListener('config-changed', (e) => { got = e.detail.config; });
   const m0 = t.mode, v0 = t.value;
-  [...t.shadowRoot.querySelectorAll('.seg button')].find((b) => b.textContent === 'Egen hash').click();
+  [...t.shadowRoot.querySelectorAll('[data-p="mode"]')].find((b) => b.textContent === 'Egen hash').click();
   const i = t.shadowRoot.querySelector('[data-f="hash"]'); i.value = '#tesla'; i.dispatchEvent(new Event('change', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 100));
   el.remove();
-  return { m0, v0, modes: [...t.shadowRoot.querySelectorAll('.seg button')].map((b) => b.textContent), saved: got && got.prose && got.prose[0].tap };
+  return { m0, v0, modes: [...t.shadowRoot.querySelectorAll('[data-p="mode"]')].map((b) => b.textContent), saved: got && got.prose && got.prose[0].tap };
 });
 ok('GUI-editor: «Ved trykk» leser gammel link som Popup #lys', gui.m0 === 'popup' && gui.v0 && gui.v0.navigation_path === '#lys', gui);
 ok('GUI-editor: valgene Popup · Egen hash · Sti · URL · More-info · Dørlås · Ingen', gui.modes && gui.modes.length === 7 && gui.modes.includes('More-info') && gui.modes.includes('Ingen'), gui.modes);
@@ -270,8 +270,8 @@ const hjem = await page.evaluate(async () => {
   E.u.proseSel = 0; E.render(); await new Promise((r) => setTimeout(r, 300));
   const t = E.root.querySelector('msh-tap-picker[data-in="ptap"]');
   if (!t) return { none: true, sec: E.u.sec };
-  const m0 = t.mode, modes = [...t.shadowRoot.querySelectorAll('.seg button')].map((b) => b.textContent);
-  [...t.shadowRoot.querySelectorAll('.seg button')].find((b) => b.textContent === 'Egen hash').click();
+  const m0 = t.mode, modes = [...t.shadowRoot.querySelectorAll('[data-p="mode"]')].map((b) => b.textContent);
+  [...t.shadowRoot.querySelectorAll('[data-p="mode"]')].find((b) => b.textContent === 'Egen hash').click();
   const i = t.shadowRoot.querySelector('[data-f="hash"]'); i.value = 'tesla'; i.dispatchEvent(new Event('change', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 200));
   const last = saves[saves.length - 1];

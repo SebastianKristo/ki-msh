@@ -162,7 +162,7 @@ ok('17.8 ikonvelger: egen verdi lagres + «Nylig brukt» (maks 12)', rec[0] === 
 await page.evaluate(() => { window.__pv = null; window.__pp = MSH.popupPicker.open({ value: '#ruter', onPick: (v) => { window.__pv = v; } }); });
 await wait(200);
 const pp = await page.evaluate(() => { const r = window.__pp.sheet.root; return { groups: [...r.querySelectorAll('.sc .lb')].map((x) => x.textContent), rows: r.querySelectorAll('.pr').length, on: (r.querySelector('.pr.on .h') || {}).textContent, own: !!r.querySelector('.oh'), test: !!r.querySelector('[data-p="test"]') }; });
-ok('17.8 popup-velger: grupper Rom · Funksjoner, rader med #hash, valgt markert', pp.groups[0] === 'Rom' && pp.groups.includes('Funksjoner') && pp.rows > 5 && pp.on === '#ruter' && pp.own && pp.test, pp);
+ok('17.8/30.2 popup-velger: grupper Rom · Funksjoner (med antall), rader med #hash, valgt markert, egen hash', /^Rom · \d+$/.test(pp.groups[0]) && pp.groups.some((g) => /^Funksjoner · /.test(g)) && pp.rows > 5 && pp.on === '#ruter' && pp.own, pp);
 if (SHOTS) await page.screenshot({ path: SHOTS + '/popupvelger.png' });
 const warn = await page.evaluate(async () => { const r = window.__pp.sheet.root, i = r.querySelector('.oh'); i.value = 'finnesikke-xyz'; i.dispatchEvent(new Event('input')); await new Promise((q) => setTimeout(q, 30)); const w = r.querySelector('.wr').textContent; r.querySelector('[data-p="own"]').click(); return w; });
 await wait(100);
@@ -171,12 +171,12 @@ ok('17.8 popup-velger: egen hash med advarsel, lagres likevel', /finnes ikke i d
 const fe = await page.evaluate(async () => {
   const e = document.createElement('msh-editor'); e.cardClass = customElements.get('msh-soppel-card'); e.inline = true; e.hass = H; e.setConfig({ type: 'custom:msh-soppel-card', popup_hash: '#soppel' });
   document.body.appendChild(e); await new Promise((r) => setTimeout(r, 200));
-  const f = e.shadowRoot.querySelector('msh-popup-field[data-name="tap_action.hash"]'); // 20.2: popup_hash → tap_action { action: popup, hash }
-  const shown = f && f.shadowRoot.textContent;
+  const f = e.shadowRoot.querySelector('msh-tap-picker[data-name="tap_action"]'); // 30.3: popup_hash → handlingsvelgeren (Popup-feltet)
+  const shown = f && f.shadowRoot.querySelector('.fld').textContent;
   f.shadowRoot.querySelector('[data-p="open"]').click(); await new Promise((r) => setTimeout(r, 200));
   const hosts = MSH.portals();
   const sh = hosts[hosts.length - 1].shadowRoot; sh.querySelector('.pr[data-v="#vaer"]').click(); await new Promise((r) => setTimeout(r, 200));
-  const out = { shown, cfg: (e._config.tap_action || {}).hash, attr: f.getAttribute('value') }; e.remove(); return out;
+  const out = { shown, cfg: (e._config.tap_action || {}).navigation_path, attr: f.getAttribute('value') }; e.remove(); return out;
 });
 ok('17.8 editor-felt «hash» → popup-felt (ikon, navn, #hash) og valg lagres', fe.shown && /#soppel/.test(fe.shown) && fe.cfg === '#vaer', fe);
 // tap-velgeren: Popup-modus åpner arket, Test-knapp
@@ -192,7 +192,7 @@ const tp = await page.evaluate(async () => {
   el.shadowRoot.querySelector('[data-p="mode"][data-v="more"]').click(); await new Promise((r) => setTimeout(r, 100));
   const ent = !!el.shadowRoot.querySelector('msh-entity-picker');
   el.shadowRoot.querySelector('[data-p="mode"][data-v="path"]').click(); await new Promise((r) => setTimeout(r, 100));
-  const dl = !!el.shadowRoot.querySelector('datalist#tp-views');
+  const dl = !!el.shadowRoot.querySelector('input[data-f="path"]'); // 30.3: sti-felt + chips fra lovelace/config
   d.remove(); return { test, v, ent, dl };
 });
 ok('17.8 handlingsvalg: Popup → arket, Test-knapp; More-info → entitet-velger; Sti → forslag', tp.test && tp.v && tp.v.navigation_path === '#klima' && tp.ent && tp.dl, tp);

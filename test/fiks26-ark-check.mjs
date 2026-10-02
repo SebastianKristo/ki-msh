@@ -164,7 +164,7 @@ for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true],
       box: { x: r.left + r.width / 2, y: r.top + r.height / 2 },
     };
   });
-  ok(`${vpName} 26.9 popup-velger: alle 35 popups (ingen slice), gruppert Rom/Funksjoner/Andre`, setup.rows === 35 && setup.groups.join('|') === 'Rom|Funksjoner|Andre', setup);
+  ok(`${vpName} 26.9 popup-velger: alle 35 popups (ingen slice), gruppert Rom/Funksjoner/Importert (30.2)`, setup.rows === 35 && setup.groups.join('|') === 'Rom · 14|Funksjoner · 14|Importert · 7', setup);
   ok(`${vpName} 26.9 listen er scrollbar (flex:1, min-height:0, overflow-y:auto, touch-action pan-y)`, setup.scrollable && setup.css.oy === 'auto' && setup.css.ta === 'pan-y' && setup.css.ob === 'contain' && setup.css.mh === '0px', setup);
   ok(`${vpName} 26.9 valgt rad (#egen6) scrollet inn med scrollTop ved åpning`, setup.selTop > 0 && setup.selVisible, setup);
   // hjul (PC) og touch (mobil) – begge på begge viewporter
@@ -193,14 +193,7 @@ for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true],
   const inl = await p.evaluate(async () => {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     const res = {};
-    const pp = MSH.popupPicker; MSH.popupPicker = null; // tvinger inline-listen
-    const tp = document.createElement('msh-tap-picker'); tp.setAttribute('modes', 'popup,hash'); tp.hass = window.H; document.getElementById('dash').appendChild(tp); await wait(50);
-    tp._open = true; tp._mode = 'popup'; tp._render(); await wait(50);
-    const pls = tp.shadowRoot.querySelector('.pls');
-    res.tap = pls ? { rows: pls.querySelectorAll('.pr').length, scroll: pls.scrollHeight > pls.clientHeight, ta: getComputedStyle(pls).touchAction, groups: [...pls.querySelectorAll('.gl')].map((x) => x.textContent) } : null;
-    if (pls) { const r = pls.getBoundingClientRect(); res.tapBox = { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
-    window.__pls = pls;
-    MSH.popupPicker = pp;
+    // 30.2: msh-tap-picker har ingen innebygd liste lenger – Popup åpner alltid det felles arket (testet over)
     // entitetsvelger med mange lys
     const st2 = { ...window.H.states }; // nytt states-objekt (søkeindeksen caches per states-objekt)
     for (let i = 1; i <= 40; i++) { const id = `light.f26_lampe_${i}`; st2[id] = { entity_id: id, state: 'off', attributes: { friendly_name: 'Lampe ' + i } }; }
@@ -212,13 +205,10 @@ for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true],
     const r2 = L.getBoundingClientRect(); res.entBox = { x: r2.left + r2.width / 2, y: r2.top + r2.height / 2 }; window.__epl = L; L.scrollTop = 0;
     return res;
   });
-  ok(`${vpName} 26.9 msh-tap-picker inline-liste: alle 35, gruppert, pan-y`, inl.tap && inl.tap.rows === 35 && inl.tap.scroll && inl.tap.ta === 'pan-y' && inl.tap.groups.join('|') === 'Rom|Funksjoner|Andre', inl.tap);
   ok(`${vpName} 26.9 entitetsvelger: valgt rad scrollet inn ved åpning`, inl.ent.scroll && inl.ent.top > 0 && inl.ent.vis, inl.ent);
-  await p.evaluate(() => { window.__pls.scrollTop = 0; });
-  await p.mouse.move(inl.tapBox.x, inl.tapBox.y); await p.mouse.wheel(0, 300); await p.waitForTimeout(300);
   await p.mouse.move(inl.entBox.x, inl.entBox.y); await p.mouse.wheel(0, 300); await p.waitForTimeout(300);
-  const wl = await p.evaluate(() => ({ tap: window.__pls.scrollTop, ent: window.__epl.scrollTop }));
-  ok(`${vpName} 26.9 hjul scroller inline popup-liste og entitetsliste`, wl.tap > 50 && wl.ent > 50, wl);
+  const wl = await p.evaluate(() => ({ ent: window.__epl.scrollTop }));
+  ok(`${vpName} 26.9 hjul scroller entitetslisten`, wl.ent > 50, wl);
 
   /* ---------------- ikonvelger scroller */
   const ic = await p.evaluate(async () => {

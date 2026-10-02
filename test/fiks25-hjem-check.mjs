@@ -140,12 +140,13 @@ const ok = (c, m, info) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (info != 
     e.hass = window.H; e.setConfig(live._rawConfig || live.config);
     document.getElementById('dash').appendChild(e);
     await new Promise((q) => setTimeout(q, 400));
-    const R = e.shadowRoot, sel = R.querySelector('select[data-name="tap_action.action"]'), hf = R.querySelector('[data-name="tap_action.hash"]'), ts = R.querySelector('[data-name="type_sensor"]');
-    const out = { tap: sel && sel.value, hash: hf && (hf.value || hf.getAttribute('value')), ts: ts && (ts.value || ts.getAttribute('value')) };
+    // 30.3: felles handlingsvelger (msh-tap-picker) i stedet for nedtrekksliste + hash-felt
+    const R = e.shadowRoot, tp = R.querySelector('msh-tap-picker[data-name="tap_action"]'), ts = R.querySelector('[data-name="type_sensor"]');
+    const out = { tap: tp && tp.mode, hash: tp && tp.value && tp.value.navigation_path, ts: ts && (ts.value || ts.getAttribute('value')) };
     e.remove();
     return out;
   });
-  ok(gui.tap === 'popup' && gui.hash === '#avfall' && gui.ts === 'sensor.soppel_type', '24.4 GUI-editoren viser de lagrede valgene', gui);
+  ok((gui.tap === 'popup' || gui.tap === 'hash') && gui.hash === '#avfall' && gui.ts === 'sensor.soppel_type', '24.4 GUI-editoren viser de lagrede valgene', gui);
 
   /* 24.5 */
   await p.evaluate(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await new Promise((q) => setTimeout(q, 350)); });

@@ -51,7 +51,7 @@
   // «Ved trykk» for en setning: tap (HA-format) → ellers gamle link/act 'more' (bakoverkompatibelt)
   function tapOf(p) {
     if (!p) return null;
-    const t = M.tap ? M.tap.norm(p.tap) : null;
+    const t = M.tap ? M.tap.norm(p.tap_action || p.tap) : null; // 30.3: tap_action (HA-standard) leses også
     if (t) return t;
     const l = String(p.link || '').trim();
     if (l === 'lock') return { action: 'lock-sheet' };

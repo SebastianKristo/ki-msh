@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+body{margin:0;background:#141414;font-family:'Space Grotesk',sans-serif;color:#fafafa;-webkit-font-smoothing:antialiased}
+button{border:0;background:none;color:inherit;font:inherit;padding:0;cursor:pointer}
+a{color:#f285c9}a:hover{color:#f5cdc6}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;direction:ltr;-webkit-font-feature-settings:'liga';font-feature-settings:'liga'}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:grid;place-items:center;padding:24px 0">
+<div style="position:relative;width:390px;height:844px;border-radius:44px;overflow:hidden;background:#232323;box-shadow:0 0 0 10px #0b0b0b">
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,0.45)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;top:50px;display:flex;flex-direction:column;border-radius:38px 38px 0 0;background:#2f2f2f;box-shadow:0 -20px 50px rgba(0,0,0,0.5)">
+    <div style="display:flex;align-items:center;gap:8px;padding:20px 18px 12px">
+      <span style="flex:1;font-size:22px;font-weight:600">Tilpass navbar</span>
+      <button style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2f2f2f;font-size:14px;font-weight:600">Ferdig</button>
+    </div>
+    <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:0 14px 40px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;border-radius:22px;background:#3a3a3a">
+        <span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">pool</span>
+        <span style="flex:1;font-size:15px;font-weight:500">Basseng</span>
+        <span class="ms" style="font-size:20px;color:#f285c9">expand_less</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:22px;background:#3a3a3a">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:12px;color:#979797;padding:0 2px">Ved trykk</span>
+          <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+              <sc-for list="{{ acts }}" as="a" hint-placeholder-count="6">
+                <button onClick="{{ a.go }}" style="{{ a.tile }}"><span class="ms" style="{{ a.iconStyle }}">{{ a.icon }}</span><span style="font-size:13px;font-weight:500">{{ a.label }}</span></button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;padding:4px;border-radius:18px;background:#232323">
+              <sc-for list="{{ acts }}" as="a" hint-placeholder-count="6">
+                <button onClick="{{ a.go }}" style="{{ a.row }}"><span style="{{ a.circle }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ a.icon }}</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left"><span style="font-size:14px;font-weight:500">{{ a.label }}</span><span style="font-size:12px;color:#979797">{{ a.sub }}</span></span><span class="ms" style="{{ a.check }}">check_circle</span></button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:#7f7f7f;padding:0 2px;line-height:1.4">{{ curSub }}</span></sc-if>
+        </div>
+
+        <sc-if value="{{ is.popup }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px;animation:fade .2s ease both">
+            <span style="font-size:12px;color:#979797;padding:0 2px">Popup</span>
+            <button onClick="{{ openPicker }}" style="display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:18px;background:#232323;text-align:left">
+              <span style="{{ selPop.circle }}"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">{{ selPop.icon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ selPop.name }}</span><span style="font-size:12px;color:#979797;font-family:ui-monospace,Menlo,monospace">{{ selPop.hash }}</span></span>
+              <span style="height:32px;padding:0 12px;border-radius:16px;background:#404040;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:500">Bytt<span class="ms" style="font-size:18px">chevron_right</span></span>
+            </button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ is.hash }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;animation:fade .2s ease both">
+            <span style="font-size:12px;color:#979797;padding:0 2px">Hash</span>
+            <div style="display:flex;align-items:center;height:48px;border-radius:16px;background:#232323;padding:0 14px;gap:2px"><span style="font-size:15px;color:#7f7f7f;font-family:ui-monospace,Menlo,monospace">#</span><input value="{{ hashVal }}" onChange="{{ setHash }}" placeholder="tesla" style="flex:1;min-width:0;border:0;outline:none;background:none;color:#fafafa;font:15px ui-monospace,Menlo,monospace"></input></div>
+            <sc-if value="{{ hashMissing }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#f2c073"><span class="ms" style="font-size:16px">warning</span>Popupen finnes ikke i dette dashbordet – lagres likevel</span></sc-if>
+            <sc-if value="{{ hashFound }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#66d19e"><span class="ms" style="font-size:16px">check</span>Åpner {{ hashName }}</span></sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ is.path }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;animation:fade .2s ease both">
+            <span style="font-size:12px;color:#979797;padding:0 2px">Sti</span>
+            <input value="{{ pathVal }}" onChange="{{ setPath }}" placeholder="/dashboard-hjem/0" style="height:48px;border-radius:16px;border:0;outline:none;padding:0 14px;background:#232323;color:#fafafa;font:15px ui-monospace,Menlo,monospace"></input>
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ views }}" as="v" hint-placeholder-count="3"><button onClick="{{ v.go }}" style="{{ v.style }}"><span class="ms" style="font-size:16px">{{ v.icon }}</span>{{ v.label }}</button></sc-for></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ is.url }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;animation:fade .2s ease both">
+            <span style="font-size:12px;color:#979797;padding:0 2px">Adresse</span>
+            <input value="{{ urlVal }}" onChange="{{ setUrl }}" placeholder="https://" style="height:48px;border-radius:16px;border:0;outline:none;padding:0 14px;background:#232323;color:#fafafa;font:inherit;font-size:15px"></input>
+            <button onClick="{{ toggleTab }}" style="display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border-radius:16px;background:#232323"><span style="flex:1;text-align:left;font-size:14px">Åpne i ny fane</span><span style="{{ tabSw.track }}"><span style="{{ tabSw.knob }}"></span></span></button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ is.info }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;animation:fade .2s ease both">
+            <span style="font-size:12px;color:#979797;padding:0 2px">Entitet</span>
+            <div style="display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border-radius:16px;background:#232323"><span class="ms" style="font-size:20px;color:#afafaf">sensors</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">Velg entitet</span><span style="font-size:12px;color:#7f7f7f">–</span></span><span class="ms" style="font-size:20px;color:#979797">chevron_right</span></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ is.none }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size:13px;color:#979797;line-height:1.45;padding:0 2px;animation:fade .2s ease both">Knappen gjør ingenting ved trykk. Hold-handlingen gjelder fortsatt.</span>
+        </sc-if>
+
+        <sc-if value="{{ canTest }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ test }}" style="height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18)"><span class="ms" style="font-size:19px">play_arrow</span>{{ testLabel }}</button>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePicker }}" style="position:absolute;inset:0;z-index:5;background:rgba(0,0,0,0.4)"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;top:50px;z-index:6;display:flex;flex-direction:column;border-radius:38px 38px 0 0;background:#282828;box-shadow:0 -20px 50px rgba(0,0,0,0.5);animation:up .32s cubic-bezier(.2,.8,.2,1) both">
+      <div style="display:flex;justify-content:center;padding:8px 0 0"><span style="width:36px;height:5px;border-radius:3px;background:#545454"></span></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 18px 12px">
+        <span style="flex:1;display:flex;flex-direction:column"><span style="font-size:22px;font-weight:600">Velg popup</span><span style="font-size:12px;color:#979797">{{ popCount }} popups i dashbordet</span></span>
+        <button onClick="{{ closePicker }}" style="width:40px;height:40px;border-radius:20px;background:#3a3a3a;display:grid;place-items:center"><span class="ms" style="font-size:22px">close</span></button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:0 14px 10px">
+        <div style="display:flex;align-items:center;gap:10px;height:46px;padding:0 8px 0 16px;border-radius:23px;background:#3a3a3a"><span class="ms" style="font-size:20px;color:#979797">search</span><input value="{{ q }}" onInput="{{ setQ }}" placeholder="Søk navn eller #hash" style="flex:1;min-width:0;border:0;outline:none;background:none;color:#fafafa;font:inherit;font-size:15px"></input></div>
+        <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:22px;background:#3a3a3a">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</button></sc-for>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;padding:0 14px 40px;display:block">
+        <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+          <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:8px 6px 0">{{ g.title }} · {{ g.n }}</span>
+          <div style="flex:none;min-height:min-content;display:flex;flex-direction:column;border-radius:22px;background:#3a3a3a;overflow:hidden">
+            <sc-for list="{{ g.items }}" as="p" hint-placeholder-count="4">
+              <button onClick="{{ p.go }}" style="{{ p.row }}">
+                <span style="{{ p.circle }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ p.icon }}</span></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left"><span style="font-size:15px;font-weight:500">{{ p.name }}</span><span style="font-size:12px;color:#979797;font-family:ui-monospace,Menlo,monospace">{{ p.hash }}</span></span>
+                <span class="ms" style="{{ p.check }}">check_circle</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-for>
+        <sc-if value="{{ noHits }}" hint-placeholder-val="{{ false }}"><span style="padding:20px 6px;font-size:14px;color:#979797;text-align:center">Ingen popup heter «{{ q }}»</span></sc-if>
+        <button onClick="{{ useCustom }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border-radius:22px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.14);margin-top:4px"><span class="ms" style="font-size:20px;color:#afafaf">tag</span><span style="flex:1;text-align:left;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">Bruk egen hash</span><span style="font-size:12px;color:#979797">For popups som ikke finnes ennå</span></span><span class="ms" style="font-size:20px;color:#979797">chevron_right</span></button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:900},&quot;actionStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ruter&quot;,&quot;liste&quot;],&quot;default&quot;:&quot;ruter&quot;,&quot;tsType&quot;:&quot;'ruter'|'liste'&quot;}}">
+const PK = 'rgb(242 133 201)', GRAD = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const hp = t => { try { window.haptic && window.haptic(t || 'light'); } catch (e) {} };
+const ACTS = [['popup', 'Popup', 'web_asset', 'Åpner en popup i dashbordet'], ['hash', 'Egen hash', 'tag', 'Skriv en #hash selv'], ['path', 'Sti', 'route', 'Går til en annen visning'], ['url', 'URL', 'link', 'Åpner en nettside'], ['info', 'More-info', 'info', 'Viser entitetens dialog'], ['none', 'Ingen', 'block', 'Ingen handling']];
+const POPS = [
+  ['rom', 'stue', 'Stue', 'weekend', 'rgb(242 192 115)'], ['rom', 'kjokken', 'Kjøkken', 'countertops', 'rgb(115 185 242)'], ['rom', 'soverom', 'Soverom', 'bed', 'rgb(182 155 242)'], ['rom', 'bad', 'Bad', 'bathtub', 'rgb(115 214 214)'], ['rom', 'gang', 'Gang', 'door_front', 'rgb(242 128 115)'], ['rom', 'kontor', 'Kontor', 'desk', 'rgb(102 209 158)'], ['rom', 'barnerom', 'Barnerom', 'toys', 'rgb(242 133 201)'], ['rom', 'vaskerom', 'Vaskerom', 'local_laundry_service', 'rgb(150 180 200)'], ['rom', 'garasje', 'Garasje', 'garage', 'rgb(170 170 170)'],
+  ['fn', 'vaer', 'Vær', 'partly_cloudy_day'], ['fn', 'basseng', 'Basseng', 'pool'], ['fn', 'klima', 'Klima', 'thermostat'], ['fn', 'media', 'Media', 'play_circle'], ['fn', 'kamera', 'Kamera', 'videocam'], ['fn', 'tesla', 'Tesla', 'electric_car'], ['fn', 'sikkerhet', 'Sikkerhet', 'shield'], ['fn', 'dorlas', 'Dørlås', 'lock'], ['fn', 'ringeklokke', 'Ringeklokke', 'doorbell'], ['fn', 'todo', 'Gjøremål', 'checklist'], ['fn', 'ruter', 'Ruter', 'directions_bus'], ['fn', 'soppel', 'Søppel', 'delete'], ['fn', 'settings', 'Innstillinger', 'settings'],
+  ['imp', 'rolf', 'Rolf', 'smart_toy'], ['imp', 'server', 'Server', 'dns'], ['imp', 'kalender', 'Kalender', 'calendar_month'], ['imp', '3d', '3D', 'view_in_ar'], ['imp', 'vanning', 'Vanning', 'water_drop'], ['imp', 'norgespris', 'Norgespris', 'bolt'], ['imp', 'stromregning', 'Strømregning', 'receipt_long'], ['imp', 'planter', 'Planter', 'potted_plant']
+].map(([g, id, name, icon, col]) => ({ g, id, name, icon, col, hash: '#' + id }));
+const GT = { rom: 'Rom', fn: 'Funksjoner', imp: 'Importert' };
+const VIEWS = [['/dashboard-hjem/0', 'Hjem', 'home'], ['/dashboard-hjem/kart', 'Kart', 'map'], ['/energy', 'Energi', 'bolt'], ['/config', 'Innstillinger', 'settings']];
+class Component extends DCLogic {
+  state = { act: 'popup', pop: 'basseng', hash: 'tesla', path: '/dashboard-hjem/kart', url: '', newTab: true, picker: false, q: '', f: 'alle' };
+  renderVals() {
+    const s = this.state, set = (o, t) => { hp(t || 'selection'); this.setState(o); };
+    const grid = (this.props.actionStyle ?? 'ruter') === 'ruter';
+    const circle = (on, col) => ({ width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: on ? (col || GRAD) : (col ? col.replace('rgb(', 'rgb(').replace(')', ' / 0.22)') : '#404040'), color: on ? '#2f2f2f' : (col || '#e1e1e1') });
+    const acts = ACTS.map(([k, label, icon, sub]) => { const on = s.act === k;
+      return { label, icon, sub, go: () => set({ act: k }),
+        tile: { height: 76, borderRadius: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: on ? '#404040' : '#232323', boxShadow: on ? `inset 0 0 0 1.5px ${PK}` : 'none', color: on ? '#fafafa' : '#c7c7c7', transition: 'background .2s, box-shadow .2s' },
+        iconStyle: { fontSize: 24, color: on ? PK : '#979797', fontVariationSettings: `'FILL' ${on ? 1 : 0}`, transition: 'color .2s' },
+        row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '8px 12px 8px 8px', borderRadius: 14, background: on ? '#404040' : 'transparent', transition: 'background .2s' },
+        circle: circle(on), check: { fontSize: 22, color: PK, opacity: on ? 1 : 0, fontVariationSettings: "'FILL' 1", transition: 'opacity .2s' } }; });
+    const P = POPS.find(p => p.id === s.pop) || POPS[0];
+    const pc = p => p.col || '#e1e1e1';
+    const q = s.q.trim().toLowerCase();
+    const hits = POPS.filter(p => (s.f === 'alle' || p.g === s.f) && (!q || (p.name + ' ' + p.hash).toLowerCase().includes(q)));
+    const groups = ['rom', 'fn', 'imp'].map(g => ({ g, items: hits.filter(p => p.g === g) })).filter(x => x.items.length).map(({ g, items }) => ({ title: GT[g], n: items.length,
+      items: items.map((p, i) => { const on = p.id === s.pop;
+        return { name: p.name, hash: p.hash, icon: p.icon, go: () => { hp('light'); this.setState({ pop: p.id, picker: false, q: '' }); },
+          row: { flex: 'none', display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '8px 14px 8px 10px', background: on ? '#404040' : 'transparent', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' },
+          circle: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: p.col ? p.col : '#2f2f2f', color: p.col ? '#2f2f2f' : '#e1e1e1' },
+          check: { fontSize: 22, color: PK, opacity: on ? 1 : 0, fontVariationSettings: "'FILL' 1" } }; }) }));
+    const hf = POPS.find(p => p.id === s.hash.replace(/^#/, '').trim().toLowerCase());
+    const sw = on => ({ track: { position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: on ? PK : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fafafa', transition: 'left .2s' } });
+    const testLabel = { popup: `Test · åpne ${P.hash}`, hash: `Test · åpne #${s.hash.replace(/^#/, '')}`, path: 'Test · gå til visning', url: 'Test · åpne nettside', info: 'Test · vis dialog' }[s.act];
+    return {
+      isGrid: grid, isList: !grid, acts, curSub: (ACTS.find(a => a[0] === s.act) || [])[3],
+      is: { popup: s.act === 'popup', hash: s.act === 'hash', path: s.act === 'path', url: s.act === 'url', info: s.act === 'info', none: s.act === 'none' },
+      selPop: { name: P.name, hash: P.hash, icon: P.icon, circle: { width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: P.col || '#3a3a3a', color: P.col ? '#2f2f2f' : pc(P) } },
+      openPicker: () => set({ picker: true }, 'light'), closePicker: () => set({ picker: false, q: '' }, 'light'), pickerOpen: s.picker,
+      popCount: POPS.length, q: s.q, setQ: e => this.setState({ q: e.target.value }), groups, noHits: !hits.length,
+      filters: [['alle', 'Alle'], ['rom', 'Rom'], ['fn', 'Funksjoner'], ['imp', 'Importert']].map(([k, label]) => ({ label, go: () => set({ f: k }), style: { height: 36, borderRadius: 18, fontSize: 13, fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px', background: s.f === k ? GRAD : 'transparent', color: s.f === k ? '#2f2f2f' : '#c7c7c7', transition: 'background .2s' } })),
+      useCustom: () => set({ picker: false, act: 'hash', q: '' }, 'light'),
+      hashVal: s.hash.replace(/^#/, ''), setHash: e => this.setState({ hash: e.target.value }), hashMissing: !!s.hash.trim() && !hf, hashFound: !!hf, hashName: hf ? hf.name : '',
+      pathVal: s.path, setPath: e => this.setState({ path: e.target.value }),
+      views: VIEWS.map(([p, label, icon]) => ({ label, icon, go: () => set({ path: p }), style: { height: 34, padding: '0 12px', borderRadius: 17, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, background: s.path === p ? GRAD : '#232323', color: s.path === p ? '#2f2f2f' : '#c7c7c7' } })),
+      urlVal: s.url, setUrl: e => this.setState({ url: e.target.value }), tabSw: sw(s.newTab), toggleTab: () => set({ newTab: !s.newTab }),
+      canTest: s.act !== 'none', testLabel, test: () => hp('medium')
+    };
+  }
+}
+</script>
+</body>
+</html>
