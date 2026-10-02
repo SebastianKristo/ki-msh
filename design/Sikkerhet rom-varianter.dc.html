@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#1c1c1c;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+a{color:rgb(242 133 201)}a:hover{color:#fafafa}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24}
+</style>
+</helmet>
+<section style="padding:48px 48px 0;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <span style="font-size:13px;color:#979797">Runde 2</span>
+    <span style="font-size:28px;font-weight:600;letter-spacing:-0.02em">Blanding av <a href="#1a">1a</a>, <a href="#1e">1e</a> og <a href="#1g">1g</a></span>
+    <span style="font-size:14px;color:#afafaf;max-width:720px;text-wrap:pretty">Statusstripe fra 1a, rom som piller fra 1e (det som trenger oppmerksomhet ligger først som store kort) og Rom/Type-bryter fra 1g. Bryteren og pillene kan trykkes.</span>
+  </div>
+  <div id="2a" style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">2a</span><span style="font-size:15px;font-weight:500">Status · piller · Rom/Type</span></div>
+    <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 4px">
+        <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Rom</span>
+        <div style="display:flex;gap:2px;padding:3px;border-radius:20px;background:#3a3a3a"><sc-for list="{{ mixSeg }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+        <sc-for list="{{ stats }}" as="st" hint-placeholder-count="3"><div style="{{ st.box }}"><span style="{{ st.numS }}">{{ st.n }}</span><span style="font-size:12px;color:#afafaf">{{ st.label }}</span></div></sc-for>
+      </div>
+      <sc-if value="{{ mixRom }}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{ attention }}" as="r" hint-placeholder-count="2">
+          <button onClick="{{ r.mixTap }}" style="{{ r.aCard }}" style-active="transform:scale(0.98)">
+            <span style="{{ r.aIc }}"><span class="ms" style="font-size:22px">{{ r.topIcon }}</span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:15px;font-weight:600">{{ r.name }}</span><span style="{{ r.sumS }}">{{ r.headline }}</span></span>
+            <span style="display:flex;gap:4px;flex:none"><sc-for list="{{ r.sensors }}" as="s" hint-placeholder-count="2"><span style="{{ s.mid }}"><span class="ms" style="font-size:17px">{{ s.icon }}</span></span></sc-for></span>
+          </button>
+        </sc-for>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+          <sc-for list="{{ calm }}" as="r" hint-placeholder-count="8">
+            <button onClick="{{ r.mixTap }}" style="{{ r.mixPill }}" style-active="transform:scale(0.97)">
+              <span style="{{ r.eIc }}"><span class="ms" style="font-size:18px">{{ r.topIcon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left"><span style="font-size:13px;font-weight:600;line-height:1.15;overflow-wrap:anywhere">{{ r.name }}</span><span style="{{ r.sumS }}">{{ r.word }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ mixOpen.on }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 10px 8px 16px"><span style="flex:1;font-size:15px;font-weight:600">{{ mixOpen.name }}</span><button onClick="{{ mixOpen.close }}" style="width:32px;height:32px;border-radius:16px;display:grid;place-items:center;background:#2f2f2f;color:#afafaf"><span class="ms" style="font-size:18px">close</span></button></div>
+            <sc-for list="{{ mixOpen.sensors }}" as="s" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border-top:1px solid rgba(255,255,255,0.06)"><span style="{{ s.mid }}"><span class="ms" style="font-size:17px">{{ s.icon }}</span></span><span style="flex:1;font-size:13px">{{ s.typeL }}</span><span style="{{ s.stS }}">{{ s.state }}</span></div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </sc-if>
+      <sc-if value="{{ mixType }}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{ types }}" as="g" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px 8px"><span class="ms" style="font-size:20px;color:#c7c7c7">{{ g.icon }}</span><span style="flex:1;font-size:14px;font-weight:600">{{ g.name }}</span><span style="{{ g.sumS }}">{{ g.summary }}</span></div>
+            <sc-for list="{{ g.rows }}" as="x" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-top:1px solid rgba(255,255,255,0.06)"><span style="{{ x.dot }}"></span><span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.room }}</span><span style="{{ x.stS }}">{{ x.state }}</span></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </sc-if>
+    </div>
+  </div>
+</section>
+<section style="padding:48px;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <span style="font-size:13px;color:#979797">Sikkerhet · Rom-seksjonen</span>
+    <span style="font-size:28px;font-weight:600;letter-spacing:-0.02em">8 nye design for rom og sensorer</span>
+    <span style="font-size:14px;color:#afafaf;max-width:720px;text-wrap:pretty">Samme data i alle: 12 rom og 15 sensorer, med én dør åpen (Cybele soverom) og bevegelse i Stue. Si hvilken du vil ha, eller kombiner, f.eks. «1a toppen + 1c lista».</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+
+    <div id="1a" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">1a</span><span style="font-size:15px;font-weight:500">Status først</span></div>
+      <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828;display:flex;flex-direction:column;gap:10px">
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+          <sc-for list="{{ stats }}" as="st" hint-placeholder-count="3"><div style="{{ st.box }}"><span style="{{ st.numS }}">{{ st.n }}</span><span style="font-size:12px;color:#afafaf">{{ st.label }}</span></div></sc-for>
+        </div>
+        <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f;padding:6px 4px 0">Trenger oppmerksomhet</span>
+        <sc-for list="{{ attention }}" as="r" hint-placeholder-count="2">
+          <div style="{{ r.aCard }}">
+            <span style="{{ r.aIc }}"><span class="ms" style="font-size:22px">{{ r.topIcon }}</span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">{{ r.name }}</span><span style="{{ r.sumS }}">{{ r.headline }}</span></span>
+            <span class="ms" style="font-size:22px;color:#979797">chevron_right</span>
+          </div>
+        </sc-for>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a">
+          <span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600"><span class="ms" style="font-size:20px;color:rgb(102 209 158)">check_circle</span>Alt rolig i {{ calmCount }} rom</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ calm }}" as="r" hint-placeholder-count="8"><span style="height:30px;padding:0 12px 0 10px;border-radius:15px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;background:#2f2f2f;color:#c7c7c7"><span style="width:6px;height:6px;border-radius:3px;background:rgb(102 209 158)"></span>{{ r.name }}</span></sc-for></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1b" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">1b</span><span style="font-size:15px;font-weight:500">Mosaikk etter størrelse</span></div>
+      <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:dense;gap:8px">
+          <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="8">
+            <div style="{{ r.bTile }}">
+              <span style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span><span style="{{ r.dot }}"></span></span>
+              <span style="{{ r.bBig }}">{{ r.word }}</span>
+              <span style="display:flex;gap:4px"><sc-for list="{{ r.sensors }}" as="s" hint-placeholder-count="2"><span style="{{ s.mini }}"><span class="ms" style="font-size:15px">{{ s.icon }}</span></span></sc-for></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div id="1c" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">1c</span><span style="font-size:15px;font-weight:500">Liste med ikonrad</span></div>
+      <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828">
+        <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+          <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="8">
+            <div style="{{ r.cRow }}">
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span><span style="{{ r.sumS }}">{{ r.summary }}</span></span>
+              <span style="display:flex;gap:4px;flex:none"><sc-for list="{{ r.sensors }}" as="s" hint-placeholder-count="2"><span style="{{ s.mid }}"><span class="ms" style="font-size:17px">{{ s.icon }}</span></span></sc-for></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div id="1d" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">1d</span><span style="font-size:15px;font-weight:500">Etter etasje · sveip</span></div>
+      <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828;display:flex;flex-direction:column;gap:16px">
+        <sc-for list="{{ floors }}" as="f" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px"><span style="font-size:15px;font-weight:600">{{ f.name }}</span><span style="{{ f.sumS }}">{{ f.summary }}</span></div>
+            <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px">
+              <sc-for list="{{ f.rooms }}" as="r" hint-placeholder-count="3">
+                <div style="{{ r.dTile }}">
+                  <span style="{{ r.dIc }}"><span class="ms" style="font-size:20px">{{ r.topIcon }}</span></span>
+                  <span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span><span style="{{ r.sumS }}">{{ r.word }}</span></span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div id="1e" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">1e</span><span style="font-size:15px;font-weight:500">Piller</span></div>
+      <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+          <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="8">
+            <div style="{{ r.ePill }}">
+              <span style="{{ r.eIc }}"><span class="ms" style="font-size:18px">{{ r.topIcon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:600;line-height:1.15;overflow-wrap:anywhere">{{ r.name }}</span><span style="{{ r.sumS }}">{{ r.word }}</span></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div id="1f" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">1f</span><span style="font-size:15px;font-weight:500">Varmekart · sist aktivitet</span></div>
+      <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828;display:flex;flex-direction:column;gap:10px">
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="9">
+            <div style="{{ r.fSq }}">
+              <span style="{{ r.fAgo }}">{{ r.agoTxt }}</span>
+              <span style="font-size:13px;font-weight:600;line-height:1.15;text-wrap:balance">{{ r.name }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:0 4px;font-size:11px;color:#979797"><span>Nylig</span><span style="flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg, rgb(115 185 242 / 0.55), rgb(115 185 242 / 0.06))"></span><span>Lenge siden</span><span style="width:10px;height:10px;border-radius:3px;background:rgb(242 181 115 / 0.5);margin-left:6px"></span><span>Åpen</span></div>
+      </div>
+    </div>
+
+    <div id="1g" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">1g</span><span style="font-size:15px;font-weight:500">Etter type · bytt Rom/Type</span></div>
+      <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;align-self:flex-start"><span style="height:36px;padding:0 18px;border-radius:18px;display:flex;align-items:center;font-size:13px;font-weight:500;color:#afafaf">Rom</span><span style="height:36px;padding:0 18px;border-radius:18px;display:flex;align-items:center;font-size:13px;font-weight:500;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a">Type</span></div>
+        <sc-for list="{{ types }}" as="g" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px 8px"><span class="ms" style="font-size:20px;color:#c7c7c7">{{ g.icon }}</span><span style="flex:1;font-size:14px;font-weight:600">{{ g.name }}</span><span style="{{ g.sumS }}">{{ g.summary }}</span></div>
+            <sc-for list="{{ g.rows }}" as="x" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-top:1px solid rgba(255,255,255,0.06)"><span style="{{ x.dot }}"></span><span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.room }}</span><span style="{{ x.stS }}">{{ x.state }}</span></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div id="1h" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 10px;border-radius:8px;background:#f285c9;color:#2a1720;font-weight:600;font-size:14px">1h</span><span style="font-size:15px;font-weight:500">Matrise · rom × type</span></div>
+      <div style="width:390px;box-sizing:border-box;padding:16px;border-radius:32px;background:#282828">
+        <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;padding:6px 0">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) repeat(5,36px);align-items:center;gap:4px;padding:6px 14px 8px">
+            <span style="font-size:11px;color:#7f7f7f">Rom</span>
+            <sc-for list="{{ matrixHead }}" as="h" hint-placeholder-count="5"><span class="ms" title="{{ h.label }}" style="font-size:18px;color:#979797;text-align:center">{{ h.icon }}</span></sc-for>
+          </div>
+          <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="8">
+            <div style="{{ r.hRow }}">
+              <span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+              <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5"><span style="display:grid;place-items:center;height:30px"><span style="{{ c.s }}"><span class="ms" style="{{ c.iS }}">{{ c.icon }}</span></span></span></sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const C = { amber: 'rgb(242 181 115)', green: 'rgb(102 209 158)', blue: 'rgb(115 185 242)' };
+const a = (c, o) => c.replace(')', ` / ${o})`);
+const T = { door: ['Dør', 'door_front', 'door_open'], window: ['Vindu', 'window', 'sensor_window'], lock: ['Lås', 'lock', 'lock_open'], motion: ['Bevegelse', 'directions_walk', 'directions_run'], presence: ['Tilstede', 'person', 'person'] };
+const TK = ['door', 'window', 'lock', 'motion', 'presence'];
+const R = [
+  ['Inngang', '1. etasje', 4, [['door', 0], ['lock', 0], ['motion', 0]]], ['Stue', '1. etasje', 0, [['motion', 1], ['presence', 0]]], ['Kjøkken', '1. etasje', 22, [['window', 0]]],
+  ['Bad', '1. etasje', 48, [['motion', 0]]], ['Mellomgang', '1. etasje', 9, [['motion', 0]]], ['Bod', '1. etasje', 600, [['lock', 0]]],
+  ['Cybele soverom', '2. etasje', 1, [['door', 1]]], ['Rune kontor', '2. etasje', 95, [['window', 0]]], ['Rune soverom', '2. etasje', 240, [['window', 0]]],
+  ['Soverom venstre', '2. etasje', 400, [['window', 0]]], ['Soverom høyre', '2. etasje', 720, [['window', 0]]], ['Veranda', 'Ute', 130, [['door', 0]]]];
+const isAl = (t, on) => on && (t === 'door' || t === 'window' || t === 'lock');
+const stOf = (t, on) => ({ door: on ? 'Åpen' : 'Lukket', window: on ? 'Åpent' : 'Lukket', lock: on ? 'Ulåst' : 'Låst', motion: on ? 'Bevegelse nå' : 'Stille', presence: on ? 'Tilstede' : 'Ingen' })[t];
+const ago = m => m < 1 ? 'nå' : m < 60 ? m + ' min' : m < 1440 ? Math.round(m / 60) + ' t' : Math.round(m / 1440) + ' d';
+class Component extends DCLogic {
+  renderVals() {
+    const rooms = R.map(([name, floor, mins, ss], idx) => {
+      const sensors = ss.map(([t, on]) => { const al = isAl(t, on), col = al ? C.amber : on ? C.blue : null; return { t, on, al, col, icon: on ? T[t][2] : T[t][1], state: stOf(t, on), typeL: T[t][0], stS: { fontSize: 13, fontWeight: 500, color: col || '#979797' },
+        mini: { width: 26, height: 26, borderRadius: 13, display: 'grid', placeItems: 'center', background: col || '#2f2f2f', color: col ? '#282828' : '#979797' },
+        mid: { width: 30, height: 30, borderRadius: 15, display: 'grid', placeItems: 'center', background: col || '#2f2f2f', color: col ? '#282828' : '#979797' } }; });
+      const nAl = sensors.filter(s => s.al).length, nMv = sensors.filter(s => s.on && !s.al).length, sc = nAl ? C.amber : nMv ? C.blue : C.green, hot = nAl || nMv;
+      const top = sensors.find(s => s.al) || sensors.find(s => s.on) || sensors[0];
+      const word = nAl ? (nAl === 1 ? '1 åpen' : nAl + ' åpne') : nMv ? 'Bevegelse' : 'Rolig';
+      const parts = []; if (nAl) parts.push(nAl + (nAl === 1 ? ' åpen' : ' åpne')); if (nMv) parts.push('bevegelse'); const rest = sensors.length - nAl - nMv; if (rest) parts.push(rest + (hot ? ' rolig' : rest === 1 ? ' sensor · rolig' : ' sensorer · rolig'));
+      const headline = nAl ? top.state + ' · ' + T[top.t][0].toLowerCase() : nMv ? (mins < 1 ? 'Bevegelse nå' : 'Bevegelse · ' + ago(mins) + ' siden') : 'Rolig';
+      const heat = nAl ? null : Math.max(0.05, 0.55 - Math.log10(1 + mins) * 0.17);
+      const mOpen = this.state.mixOpen === name;
+      return { mixTap: () => this.setState({ mixOpen: mOpen ? null : name }), mixPill: { minHeight: 56, boxSizing: 'border-box', padding: '8px 12px 8px 8px', borderRadius: 28, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: mOpen ? '#404040' : '#3a3a3a', boxShadow: mOpen ? 'inset 0 0 0 1.5px rgb(242 133 201)' : 'inset 0 0 0 1px rgba(255,255,255,0.05)', transition: 'background .2s, transform .12s' }, name, floor, count: String(sensors.length), sensors, word, summary: parts.join(' · '), headline, topIcon: top.icon, agoTxt: nAl ? 'Åpen nå' : ago(mins),
+        sumS: { fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: nAl ? C.amber : nMv ? C.blue : '#979797' },
+        dot: { width: 9, height: 9, borderRadius: 5, flex: 'none', background: sc, boxShadow: hot ? '0 0 0 4px ' + a(sc, 0.18) : 'none' },
+        aCard: { width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, minHeight: 72, padding: '0 14px 0 12px', borderRadius: 24, background: a(sc, 0.12), boxShadow: 'inset 0 0 0 1.5px ' + a(sc, 0.4) },
+        aIc: { width: 48, height: 48, borderRadius: 24, flex: 'none', display: 'grid', placeItems: 'center', background: sc, color: '#282828' },
+        bTile: { gridColumn: sensors.length >= 3 ? 'span 2' : 'auto', minHeight: hot ? 132 : 104, padding: 14, borderRadius: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8, boxSizing: 'border-box', minWidth: 0, background: hot ? a(sc, 0.12) : '#3a3a3a', boxShadow: hot ? 'inset 0 0 0 1.5px ' + a(sc, 0.4) : 'inset 0 0 0 1px rgba(255,255,255,0.05)' },
+        bBig: { fontSize: hot ? 26 : 20, fontWeight: 300, letterSpacing: '-0.02em', color: hot ? sc : '#c7c7c7' },
+        cRow: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 12px 0 16px', borderTop: idx ? '1px solid rgba(255,255,255,0.06)' : 'none', background: hot ? a(sc, 0.08) : 'transparent' },
+        dTile: { flex: 'none', width: 136, height: 116, padding: 12, boxSizing: 'border-box', borderRadius: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: hot ? a(sc, 0.12) : '#3a3a3a', boxShadow: hot ? 'inset 0 0 0 1.5px ' + a(sc, 0.4) : 'inset 0 0 0 1px rgba(255,255,255,0.05)' },
+        dIc: { width: 38, height: 38, borderRadius: 19, display: 'grid', placeItems: 'center', background: hot ? sc : '#2f2f2f', color: hot ? '#282828' : '#afafaf' },
+        ePill: { minHeight: 56, boxSizing: 'border-box', padding: '0 10px 0 8px', borderRadius: 28, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: hot ? a(sc, 0.14) : '#3a3a3a', boxShadow: hot ? 'inset 0 0 0 1.5px ' + a(sc, 0.4) : 'inset 0 0 0 1px rgba(255,255,255,0.05)' },
+        eIc: { width: 36, height: 36, borderRadius: 18, flex: 'none', display: 'grid', placeItems: 'center', background: hot ? sc : '#2f2f2f', color: hot ? '#282828' : '#afafaf' },
+        eCount: { minWidth: 22, height: 22, borderRadius: 11, padding: '0 6px', boxSizing: 'border-box', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 600, background: '#2f2f2f', color: '#979797', flex: 'none' },
+        fSq: { aspectRatio: '1', padding: 10, boxSizing: 'border-box', borderRadius: 18, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: nAl ? a(C.amber, 0.5) : a(C.blue, heat), color: nAl || heat > 0.35 ? '#fafafa' : '#e1e1e1', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)' },
+        fAgo: { fontSize: 11, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: nAl ? '#fff' : heat > 0.35 ? '#fafafa' : '#979797' },
+        hRow: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) repeat(5,36px)', alignItems: 'center', gap: 4, minHeight: 40, padding: '0 14px', borderTop: '1px solid rgba(255,255,255,0.06)', background: hot ? a(sc, 0.08) : 'transparent' },
+        cells: TK.map(t => { const s = sensors.find(x => x.t === t); if (!s) return { icon: '', s: { width: 6, height: 2, borderRadius: 1, background: '#4b4b4b' }, iS: { fontSize: 0 } };
+          return s.col ? { icon: s.icon, s: { width: 28, height: 28, borderRadius: 14, display: 'grid', placeItems: 'center', background: s.col, color: '#282828' }, iS: { fontSize: 16 } }
+            : { icon: '', s: { width: 8, height: 8, borderRadius: 4, background: '#696969' }, iS: { fontSize: 0 } }; }),
+        hot, nAl, nMv };
+    });
+    const totAl = rooms.reduce((x, r) => x + r.nAl, 0), totMv = rooms.reduce((x, r) => x + r.nMv, 0), calm = rooms.filter(r => !r.hot);
+    const stat = (n, label, c) => ({ n: String(n), label, box: { padding: '12px 14px', borderRadius: 20, display: 'flex', flexDirection: 'column', gap: 2, background: n && c ? a(c, 0.12) : '#3a3a3a' }, numS: { fontSize: 28, fontWeight: 300, lineHeight: 1, color: n && c ? c : '#fafafa' } });
+    const floors = ['1. etasje', '2. etasje', 'Ute'].map(f => { const L = rooms.filter(r => r.floor === f), al = L.reduce((x, r) => x + r.nAl, 0), mv = L.reduce((x, r) => x + r.nMv, 0);
+      return { name: f, rooms: L, summary: al ? al + ' åpen' : mv ? 'bevegelse' : L.length + ' rom · rolig', sumS: { fontSize: 12, fontWeight: 500, color: al ? C.amber : mv ? C.blue : '#979797' } }; });
+    const types = ['door', 'window', 'lock', 'motion'].map(t => { const rows = []; rooms.forEach(r => r.sensors.filter(s => s.t === t).forEach(s => rows.push({ room: r.name, state: s.state, dot: { width: 8, height: 8, borderRadius: 4, flex: 'none', background: s.col || '#545454' }, stS: { fontSize: 12, fontWeight: 500, color: s.col || '#979797' } })));
+      const act = rows.filter(x => x.dot.background !== '#545454').length; rows.sort((p, q) => (q.dot.background !== '#545454') - (p.dot.background !== '#545454'));
+      return { name: { door: 'Dører', window: 'Vinduer', lock: 'Låser', motion: 'Bevegelse' }[t], icon: T[t][1], rows, summary: act ? act + ' av ' + rows.length + (t === 'motion' ? ' aktiv' : ' åpen') : 'Alle ' + rows.length + (t === 'motion' ? ' stille' : ' lukket'), sumS: { fontSize: 12, fontWeight: 500, color: act ? (t === 'motion' ? C.blue : C.amber) : '#979797' } }; });
+    const view = this.state.mixView || 'rom', op = rooms.find(r => r.name === this.state.mixOpen);
+    const mixSeg = [['rom', 'Rom'], ['type', 'Type']].map(([k, l]) => ({ label: l, go: () => this.setState({ mixView: k }), style: { height: 32, padding: '0 16px', borderRadius: 16, fontSize: 13, fontWeight: 500, background: view === k ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: view === k ? '#3a3a3a' : '#afafaf' } }));
+    return { mixSeg, mixRom: view === 'rom', mixType: view === 'type', mixOpen: op ? { on: true, name: op.name, sensors: op.sensors, close: () => this.setState({ mixOpen: null }) } : { on: false }, rooms, stats: [stat(totAl, 'Åpne', C.amber), stat(totMv, 'Bevegelse', C.blue), stat(calm.length, 'Rom rolig', null)],
+      attention: rooms.filter(r => r.hot), calm, calmCount: String(calm.length), floors, types, matrixHead: TK.map(t => ({ icon: T[t][1], label: T[t][0] })) };
+  }
+}
+</script>
+</body>
+</html>
