@@ -136,8 +136,10 @@ await wait(p, 300);
 const K = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { rc: sr.querySelector('.rc').textContent.replace(/\s+/g, ' ').trim(), marker: !!sr.querySelector('.rb b'), bars: [...sr.querySelectorAll('.dbar')].map((b) => b.getAttribute('aria-label')), sel: sr.querySelector('.dc .smt').textContent.replace(/\s+/g, ' ').trim(), tiles: [...sr.querySelectorAll('.sum .st')].map((s) => s.textContent.replace(/\s+/g, ' ').trim()), ws: window.__calls.filter((c) => c[1] === 'recorder/statistics_during_period').length }; });
 ok('Kjøring: rekkevidde 312 km med grensemarkør og «N km ved L %»', /312\s*km/.test(K.rc) && K.marker && /390 km ved 80 %/.test(K.rc), K);
 ok('Kjøring: 7 søyler fra statistikk, i dag = live 23 km', K.bars.length === 7 && K.bars.some((x) => /54 km/.test(x)) && /^I dag\s*23\s*km/.test(K.sel), K);
-const dsel = await p.evaluate(async () => { window.__c.shadowRoot.querySelectorAll('.dbar')[3].click(); await new Promise((q) => setTimeout(q, 250)); return window.__c.shadowRoot.querySelector('.dc .smt').textContent.replace(/\s+/g, ' ').trim(); });
-ok('Trykk på søyle velger dagen', /^Mandag\s*54\s*km/.test(dsel), dsel);
+// søylen med 54 km (ukedagen avhenger av dagens dato) – valgt dag skal vise søylens dag og verdi
+const dsel = await p.evaluate(async () => { const bs = [...window.__c.shadowRoot.querySelectorAll('.dbar')], b = bs.find((x) => /54 km/.test(x.getAttribute('aria-label') || '')); b.click(); await new Promise((q) => setTimeout(q, 250)); return { lab: b.getAttribute('aria-label'), sel: window.__c.shadowRoot.querySelector('.dc .smt').textContent.replace(/\s+/g, ' ').trim() }; });
+const dDay = ((dsel.lab || '').match(/[A-Za-zÆØÅæøå]+/) || [''])[0].toLowerCase();
+ok('Trykk på søyle velger dagen', !!dDay && dsel.sel.toLowerCase().startsWith(dDay) && /54\s*km/.test(dsel.sel), dsel);
 ok('Kilometerstand + snitt per dag', /48\s?213 km/.test(K.tiles[0].replace(/ /g, ' ')) && /km/.test(K.tiles[1]), K.tiles);
 await shot(p, '2-kjoring');
 
