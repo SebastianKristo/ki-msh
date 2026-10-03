@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#282828;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+[data-hs]::-webkit-scrollbar{display:none}
+@keyframes smoke{0%{transform:translate(0,0) scale(.5);opacity:0}20%{opacity:.55}100%{transform:translate(12px,-34px) scale(1.5);opacity:0}}
+@keyframes glow{0%,100%{opacity:1}45%{opacity:.7}55%{opacity:.95}}
+@keyframes beam{0%,100%{transform:scaleX(1);opacity:.32}50%{transform:scaleX(.12);opacity:.05}}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-40px)}}
+@keyframes bird{0%,100%{transform:translate(0,0)}50%{transform:translate(6px,-4px)}}
+@keyframes drive{0%,8%{transform:translateX(0)}46%,54%{transform:translateX(-46px)}92%,100%{transform:translateX(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes conf{0%{transform:translateY(-24px) rotate(0deg);opacity:0}10%{opacity:1}100%{transform:translateY(230px) rotate(540deg);opacity:.9}}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-10px) rotate(3deg)}}
+@keyframes flick{0%,100%{transform:scale(1,1)}30%{transform:scale(.85,1.12)}60%{transform:scale(1.1,.9)}}
+@keyframes snow{0%{transform:translateY(-6px);opacity:0}15%{opacity:.8}100%{transform:translateY(40px);opacity:0}}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./glass-drag.js"></script>
+<script src="./haptic.js"></script>
+<script src="./ha-picker.js"></script>
+</helmet>
+<div data-screen-label="Kalender" style="{{ rootS }}">
+  <header style="display:flex;align-items:center;gap:12px;padding-bottom:6px;order:-2">
+    <span style="width:44px;height:44px;border-radius:22px;background:#e1e1e1;color:#282828;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">calendar_month</span></span>
+    <div style="flex:1;font-size:30px;font-weight:600;letter-spacing:-0.03em">Kalender</div>
+    <button style="width:44px;height:44px;border-radius:22px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:22px">close</span></button>
+  </header>
+
+  <div style="{{ tabRowS }}">
+    <div data-glass-drag="x" data-hs="1" style="flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow-x:auto;scrollbar-width:none">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><button onClick="{{ t.go }}" title="{{ t.label }}" style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:20px;flex:none;font-variation-settings:'FILL' 1">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ false }}"><span>{{ t.label }}</span></sc-if></button></sc-for>
+    </div>
+    <button onPointerDown="{{ bDown }}" onPointerMove="{{ bMove }}" onPointerUp="{{ bUp }}" onPointerCancel="{{ bCancel }}" onContextMenu="{{ noMenu }}" title="{{ viewTitle }}" style="{{ viewBtnStyle }}" style-active="transform:scale(0.94)">
+      <span style="{{ iconTrack }}"><span style="width:48px;height:48px;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">{{ viewIcon }}</span></span><span style="width:48px;height:48px;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">settings</span></span></span>
+      <sc-if value="{{ canFlip }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:3px;pointer-events:none"><span style="{{ dot1 }}"></span><span style="{{ dot2 }}"></span></span></sc-if>
+    </button>
+    <sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closePicker }}" style="position:fixed;inset:0;z-index:19"></div>
+      <div style="position:absolute;top:58px;right:0;z-index:20;width:264px;box-sizing:border-box;padding:8px;border-radius:24px;background:#3a3a3a;box-shadow:0 16px 40px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.06);display:flex;flex-direction:column;gap:2px">
+        <span style="padding:8px 10px 6px;font-size:12px;color:#7f7f7f">Vis kalendere</span>
+        <sc-for list="{{ calOpts }}" as="c" hint-placeholder-count="4">
+          <button onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:6px 10px;border-radius:16px;text-align:left" style-hover="background:#404040">
+            <span style="{{ c.dot }}"></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px">{{ c.name }}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.ent }}</span></span>
+            <span style="{{ c.box }}"><span class="ms" style="{{ c.check }}">check</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ isFram }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ sec.fram_filter }}">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <sc-for list="{{ mFilters }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</button></sc-for>
+    </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isExtra }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ xB }}" hint-placeholder-val="{{ true }}">
+    <div style="{{ sec.bday_hero }}">
+      <section style="{{ bh.card }}">
+        {{ bh.art }}
+        <div style="position:relative;display:flex;flex-direction:column;gap:6px;padding-right:104px">
+          <span style="{{ bh.chip }}"><span class="ms" style="font-size:15px">cake</span>{{ bh.chipTxt }}</span>
+          <span style="margin-top:6px;font-size:24px;font-weight:600;letter-spacing:-0.015em;line-height:1.2;text-wrap:pretty">{{ bh.title }}</span>
+          <span style="font-size:13px;color:rgba(255,255,255,0.78)">{{ bh.sub }}</span>
+        </div>
+        <sc-if value="{{ bh.showCount }}" hint-placeholder-val="{{ true }}">
+          <div style="position:relative;display:flex;align-items:baseline;gap:6px;margin-top:auto"><span style="font-size:36px;font-weight:300;letter-spacing:-0.02em">{{ bh.count }}</span><span style="font-size:13px;color:rgba(255,255,255,0.72)">{{ bh.countLbl }}</span></div>
+        </sc-if>
+        <sc-if value="{{ bh.hasNext }}" hint-placeholder-val="{{ false }}">
+          <div style="position:relative;margin-top:auto;align-self:flex-start;display:flex;align-items:center;gap:8px;height:32px;padding:0 12px 0 4px;border-radius:16px;background:rgba(255,255,255,0.12);font-size:12px;color:#fafafa"><span style="{{ bh.nextAv }}">{{ bh.nextI }}</span>{{ bh.nextTxt }}</div>
+        </sc-if>
+      </section>
+    </div>
+
+    <div style="{{ sec.bday_list }}">
+      <div style="display:flex;align-items:center;gap:8px;padding:0 4px;margin-top:4px">
+        <span style="font-size:15px;font-weight:600">Kommende</span><span style="font-size:12px;color:#7f7f7f">{{ bCount }}</span>
+        <button onClick="{{ toggleAddB }}" title="Legg til bursdag" style="margin-left:auto;width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#3a3a3a;color:#e1e1e1"><span class="ms" style="font-size:20px">{{ addBIcon }}</span></button>
+      </div>
+      <sc-if value="{{ addB }}" hint-placeholder-val="{{ false }}">
+        <form onSubmit="{{ addBday }}" style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+          <input value="{{ bName }}" onChange="{{ setBName }}" placeholder="Navn" style="height:46px;border-radius:14px;border:0;outline:none;padding:0 14px;background:#404040;color:#fafafa;font:inherit;font-size:15px"></input>
+          <div style="display:flex;gap:8px">
+            <input type="date" value="{{ bDate }}" onChange="{{ setBDate }}" style="flex:1;min-width:0;height:46px;border-radius:14px;border:0;outline:none;padding:0 14px;background:#404040;color:#fafafa;font:inherit;font-size:14px;color-scheme:dark"></input>
+            <button type="submit" style="height:46px;padding:0 18px;border-radius:23px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:14px;font-weight:600;flex:none" style-active="transform:scale(0.96)">Legg til</button>
+          </div>
+          <span style="{{ bMsgS }}">{{ bMsg }}</span>
+        </form>
+      </sc-if>
+      <sc-for list="{{ bGroups }}" as="g" hint-placeholder-count="2">
+        <section style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:0 4px;font-size:15px;font-weight:600">{{ g.label }}</div>
+          <div style="border-radius:24px;background:#3a3a3a;overflow:hidden">
+            <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+              <div style="{{ r.row }}">
+                <span style="{{ r.av }}">{{ r.i }}</span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:500">{{ r.name }}</span><span style="font-size:12px;color:#979797">{{ r.meta }}</span></div>
+                <span style="{{ r.inS }}">{{ r.inTxt }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-for>
+      <span style="padding:0 4px;font-size:11px;color:#696969">Fra {{ bSrc }}</span>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ xP }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ sec.post_kort }}">
+      <section style="display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span style="display:flex;align-items:center;gap:8px;font-size:13px;color:#afafaf"><span class="ms" style="font-size:18px;color:rgb(242 128 115)">mail</span>Når kommer Posten</span>
+          <span style="{{ post.chip }}">{{ post.chipTxt }}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:30px;font-weight:300;letter-spacing:-0.02em">{{ post.rel }}</span>
+          <span style="font-size:13px;color:#979797">{{ post.date }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ post.days }}" as="d" hint-placeholder-count="10"><button onClick="{{ d.go }}" style="{{ d.style }}" style-active="transform:scale(0.94)"><span style="font-size:10px;font-weight:500;opacity:0.8">{{ d.w }}</span><span style="font-size:14px;font-weight:600">{{ d.n }}</span></button></sc-for>
+        </div>
+      </section>
+    </div>
+
+    <div style="{{ sec.post_pakker }}">
+      <div style="display:flex;align-items:center;gap:8px;padding:0 4px;margin-top:4px">
+        <span style="font-size:15px;font-weight:600">Pakker</span><span style="font-size:12px;color:#7f7f7f">{{ pCount }}</span>
+        <button onClick="{{ toggleAdd }}" title="Legg til" style="{{ addBtnStyle }}"><span class="ms" style="font-size:20px">{{ addIcon }}</span></button>
+      </div>
+      <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}">
+        <form onSubmit="{{ addParcel }}" style="display:flex;align-items:center;gap:8px;height:52px;padding:0 6px 0 16px;border-radius:26px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+          <span class="ms" style="font-size:20px;color:#696969">package_2</span>
+          <input value="{{ draft }}" onChange="{{ setDraft }}" placeholder="Sporingsnummer" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:none;color:#fafafa;font:inherit;font-size:14px"></input>
+          <button type="submit" style="height:40px;padding:0 16px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:13px;font-weight:600">Spor</button>
+        </form>
+      </sc-if>
+      <div style="border-radius:24px;background:#3a3a3a;overflow:hidden">
+        <sc-for list="{{ parcels }}" as="r" hint-placeholder-count="3">
+          <div style="{{ r.wrap }}">
+            <button onClick="{{ r.toggle }}" style="width:100%;box-sizing:border-box;display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left">
+              <span style="{{ r.icon }}"><span class="ms" style="font-size:20px">{{ r.ic }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                <span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span><span style="{{ r.cTag }}">{{ r.carrier }}</span></span>
+                <span style="{{ r.statusS }}">{{ r.status }}</span>
+                <span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.meta }}</span>
+              </span>
+              <span class="ms" style="{{ r.chev }}">expand_more</span>
+            </button>
+            <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:0 16px 16px 66px;display:flex;flex-direction:column;gap:14px">
+                <sc-if value="{{ r.stale }}" hint-placeholder-val="{{ false }}"><span style="{{ r.staleS }}"><span class="ms" style="font-size:16px">schedule</span>{{ r.staleTxt }}</span></sc-if>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <sc-for list="{{ r.events }}" as="e" hint-placeholder-count="3"><div style="display:flex;gap:10px"><span style="{{ e.dot }}"></span><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="{{ e.tS }}">{{ e.t }}</span><span style="font-size:11px;color:#7f7f7f">{{ e.when }}</span></div></div></sc-for>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)">
+                  <sc-for list="{{ r.facts }}" as="f" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:11px;color:#7f7f7f">{{ f.k }}</span><span style="font-size:13px;overflow-wrap:anywhere">{{ f.v }}</span></div></sc-for>
+                </div>
+                <sc-if value="{{ r.canHome }}" hint-placeholder-val="{{ false }}"><button style="align-self:flex-start;height:40px;padding:0 16px 0 12px;border-radius:20px;background:#404040;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500" style-active="transform:scale(0.96)"><span class="ms" style="font-size:18px">home</span>Bestill hjemlevering</button></sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <button onClick="{{ toggleDelivered }}" style="height:44px;border-radius:22px;background:#3a3a3a;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;color:#e1e1e1"><span class="ms" style="font-size:18px">{{ delIcon }}</span>{{ delLabel }}</button>
+    </div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ showMonth }}" hint-placeholder-val="{{ false }}">
+    <section style="display:flex;flex-direction:column;gap:12px">
+      <div style="position:relative;display:flex;align-items:center;gap:8px">
+        <button onClick="{{ prev }}" style="width:36px;height:36px;border-radius:18px;background:#3a3a3a;display:grid;place-items:center"><span class="ms" style="font-size:20px">chevron_left</span></button>
+        <div style="flex:1;display:flex;align-items:baseline;justify-content:center;gap:8px"><span style="font-size:15px;font-weight:600">{{ monthTitle }}</span><span style="font-size:12px;color:#7f7f7f">{{ weekLabel }}</span></div>
+        <sc-if value="{{ isCalTab }}" hint-placeholder-val="{{ true }}"><button onClick="{{ openPickM }}" title="Velg kalendere" style="width:36px;height:36px;border-radius:18px;background:#3a3a3a;display:grid;place-items:center"><span class="ms" style="font-size:18px">event</span></button></sc-if>
+        <button onClick="{{ next }}" style="width:36px;height:36px;border-radius:18px;background:#3a3a3a;display:grid;place-items:center"><span class="ms" style="font-size:20px">chevron_right</span></button>
+        <sc-if value="{{ pickM }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closePicker }}" style="position:fixed;inset:0;z-index:19"></div>
+          <div style="position:absolute;top:44px;right:0;z-index:20;width:264px;box-sizing:border-box;padding:8px;border-radius:24px;background:#404040;box-shadow:0 16px 40px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.06);display:flex;flex-direction:column;gap:2px">
+            <span style="padding:8px 10px 6px;font-size:12px;color:#979797">Vis kalendere</span>
+            <sc-for list="{{ calOpts }}" as="c" hint-placeholder-count="4">
+              <button onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:6px 10px;border-radius:16px;text-align:left" style-hover="background:#4a4a4a">
+                <span style="{{ c.dot }}"></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px">{{ c.name }}</span><span style="font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.ent }}</span></span>
+                <span style="{{ c.box }}"><span class="ms" style="{{ c.check }}">check</span></span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px">
+        <sc-for list="{{ wd }}" as="w" hint-placeholder-count="7"><span style="text-align:center;font-size:12px;font-weight:500;color:#979797">{{ w }}</span></sc-for>
+        <sc-for list="{{ cells }}" as="c" hint-placeholder-count="35"><button onClick="{{ c.pick }}" style="{{ c.style }}">{{ c.n }}<sc-if value="{{ c.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="{{ c.badgeStyle }}">{{ c.badge }}</span></sc-if></button></sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;margin-top:6px;border-radius:24px;background:#3a3a3a;overflow:hidden">
+        <div style="display:flex;align-items:baseline;gap:8px;padding:14px 16px"><span style="font-size:15px;font-weight:600">{{ selTitle }}</span><span style="font-size:12px;color:#979797">{{ selSub }}</span></div>
+        <div>
+          <sc-for list="{{ selCal }}" as="r" hint-placeholder-count="2">
+            <div style="{{ r.row }}">
+              <span style="{{ r.bar }}"></span>
+              <span style="flex:none;min-width:96px;font-size:13px;color:#afafaf;font-variant-numeric:tabular-nums">{{ r.time }}</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:500;line-height:1.3;text-wrap:pretty">{{ r.title }}</span><span style="font-size:12px;color:#7f7f7f;overflow:hidden;text-overflow:ellipsis">{{ r.meta }}</span></div>
+            </div>
+          </sc-for>
+          <sc-for list="{{ selMedia }}" as="r" hint-placeholder-count="0">
+            <button onClick="{{ r.open }}" style="{{ r.row }}">
+              <span style="{{ r.poster }}"></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></span>
+              <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none"><span style="font-size:13px;font-weight:600">{{ r.time }}</span><span style="{{ r.tag }}">{{ r.src }}</span></span>
+            </button>
+          </sc-for>
+          <sc-if value="{{ selEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:18px 16px;font-size:13px;color:#7f7f7f">Ingenting denne dagen</div></sc-if>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{ showCalList }}" hint-placeholder-val="{{ true }}">
+    <sc-for list="{{ calDays }}" as="g" hint-placeholder-count="4">
+      <section style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:baseline;gap:8px;padding:0 4px"><span style="font-size:15px;font-weight:600">{{ g.label }}</span><span style="font-size:12px;color:#7f7f7f">{{ g.date }}</span></div>
+        <div style="border-radius:24px;background:#3a3a3a;overflow:hidden">
+          <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+            <div style="{{ r.row }}">
+              <div style="width:52px;flex:none;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ r.t1 }}</span><span style="font-size:12px;color:#979797">{{ r.t2 }}</span></div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;line-height:1.3;text-wrap:pretty">{{ r.title }}</span><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#979797"><span style="{{ r.dot }}"></span>{{ r.meta }}</span></div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}"><div style="padding:18px 16px;font-size:13px;color:#7f7f7f">Ingenting i dag</div></sc-if>
+        </div>
+      </section>
+    </sc-for>
+  </sc-if>
+
+  <sc-if value="{{ isHytta }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ sec.hytta_sok }}">
+    <sc-if value="{{ search }}" hint-placeholder-val="{{ false }}">
+      <form onSubmit="{{ noSubmit }}" style="display:flex;align-items:center;gap:10px;height:52px;padding:0 6px 0 16px;border-radius:26px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+        <span class="ms" style="font-size:20px;color:#7f7f7f">search</span>
+        <input autoFocus="{{ true }}" value="{{ q }}" onChange="{{ setQ }}" placeholder="12.7 · uke 27 · i går · juli" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:none;color:#fafafa;font:inherit;font-size:15px"></input>
+        <button type="button" onClick="{{ clearQ }}" style="width:40px;height:40px;border-radius:20px;background:#404040;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:18px">close</span></button>
+      </form>
+      <sc-if value="{{ hasRes }}" hint-placeholder-val="{{ false }}">
+        <section style="display:flex;flex-direction:column;gap:10px;padding:16px 16px 12px;border-radius:24px;background:#3a3a3a">
+          <div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:12px;color:#979797">{{ res.title }}</span><sc-if value="{{ res.canJump }}" hint-placeholder-val="{{ true }}"><button onClick="{{ res.jump }}" style="height:28px;padding:0 10px;border-radius:14px;background:#404040;display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:#e1e1e1"><span class="ms" style="font-size:15px">calendar_month</span>Vis i kalender</button></sc-if></div>
+          <sc-for list="{{ res.rows }}" as="r" hint-placeholder-count="2">
+            <div style="{{ r.row }}">
+              <span style="{{ r.dot }}"></span>
+              <span style="font-size:15px;font-weight:500;flex:none">{{ r.name }}</span>
+              <span style="flex:1;min-width:0;text-align:right;font-size:12px;color:#afafaf;text-wrap:pretty">{{ r.who }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ res.empty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#7f7f7f;padding:2px 0 4px">{{ res.emptyTxt }}</span></sc-if>
+        </section>
+      </sc-if>
+    </sc-if>
+    </div>
+
+    <div style="{{ sec.hytta_kar }}">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div data-hs="1" ref="{{ carRef }}" onScroll="{{ onCar }}" style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:28px">
+        <sc-for list="{{ heroes }}" as="h" hint-placeholder-count="4">
+          <section style="{{ h.card }}">
+            <span style="position:absolute;right:0;bottom:0;width:170px;height:112px;pointer-events:none">{{ h.art }}</span>
+            <div style="position:relative;display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:600;letter-spacing:-0.01em">{{ h.name }}</span>
+              <span style="display:flex"><sc-for list="{{ h.people }}" as="a" hint-placeholder-count="2"><span style="{{ a.style }}">{{ a.i }}</span></sc-for></span>
+              <button title="Planlegg opphold" style="margin-left:auto;width:36px;height:36px;border-radius:18px;background:rgba(255,255,255,0.12);display:grid;place-items:center;flex:none"><span class="ms" style="font-size:19px">event_repeat</span></button>
+            </div>
+            <span style="position:relative;font-size:13px;color:rgba(255,255,255,0.78)">{{ h.sub }}</span>
+            <div style="position:relative;display:flex;gap:28px;margin-top:4px">
+              <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:24px;font-weight:300">{{ h.nights }}</span><span style="font-size:12px;color:rgba(255,255,255,0.72)">netter i år</span></div>
+              <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:24px;font-weight:300">{{ h.visits }}</span><span style="font-size:12px;color:rgba(255,255,255,0.72)">besøk i år</span></div>
+            </div>
+            <sc-if value="{{ h.isAll }}" hint-placeholder-val="{{ true }}">
+              <div style="position:relative;display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-right:90px">
+                <sc-for list="{{ h.chips }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.go }}" style="height:28px;padding:0 10px;border-radius:14px;background:rgba(255,255,255,0.12);display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#fafafa"><span style="{{ c.dot }}"></span>{{ c.label }}</button></sc-for>
+              </div>
+            </sc-if>
+          </section>
+        </sc-for>
+      </div>
+      <div style="display:flex;justify-content:center;gap:6px">
+        <sc-for list="{{ dots }}" as="d" hint-placeholder-count="4"><button onClick="{{ d.go }}" title="{{ d.label }}" style="{{ d.style }}"></button></sc-for>
+      </div>
+    </div>
+    </div>
+
+    <div style="{{ sec.hytta_vis }}">
+    <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:4px;border-radius:22px;background:#3a3a3a">
+      <sc-for list="{{ hTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+    </div>
+
+    <sc-if value="{{ hvKal }}" hint-placeholder-val="{{ true }}">
+      <section style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:28px;background:#3a3a3a">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button onClick="{{ prev }}" style="width:36px;height:36px;border-radius:18px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:20px">chevron_left</span></button>
+          <div style="flex:1;display:flex;align-items:baseline;justify-content:center;gap:8px"><span style="font-size:15px;font-weight:600">{{ monthTitle }}</span><span style="font-size:12px;color:#7f7f7f">{{ weekLabel }}</span></div>
+          <button onClick="{{ next }}" style="width:36px;height:36px;border-radius:18px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:20px">chevron_right</span></button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ wd }}" as="w" hint-placeholder-count="7"><span style="text-align:center;font-size:12px;font-weight:500;color:#979797">{{ w }}</span></sc-for>
+          <sc-for list="{{ hCells }}" as="c" hint-placeholder-count="35"><span title="{{ c.title }}" style="{{ c.style }}">{{ c.n }}</span></sc-for>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:2px 2px 0">
+          <sc-for list="{{ legend }}" as="l" hint-placeholder-count="3"><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#afafaf"><span style="{{ l.dot }}"></span>{{ l.name }}</span></sc-for>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:#7f7f7f"><span style="width:10px;height:10px;border-radius:3px;border:1.5px dashed #979797;box-sizing:border-box"></span>planlagt</span>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ hvOpp }}" hint-placeholder-val="{{ false }}">
+      <section style="border-radius:24px;background:#3a3a3a;overflow:hidden">
+        <sc-for list="{{ stays }}" as="r" hint-placeholder-count="6">
+          <div style="{{ r.row }}">
+            <span style="{{ r.av }}">{{ r.i }}</span>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500">{{ r.who }}<span style="{{ r.tag }}">{{ r.place }}</span></span>
+              <span style="font-size:12px;color:#979797">{{ r.dates }}</span>
+            </div>
+            <span style="{{ r.nStyle }}">{{ r.n }}</span>
+          </div>
+        </sc-for>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ hvStat }}" hint-placeholder-val="{{ false }}">
+      <section style="display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:28px;background:#3a3a3a">
+        <span style="font-size:13px;color:#979797">Netter per måned i år</span>
+        <sc-for list="{{ bars }}" as="b" hint-placeholder-count="9">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:30px;font-size:12px;color:#afafaf">{{ b.m }}</span>
+            <span style="flex:1;height:8px;border-radius:4px;background:#2f2f2f;display:flex;overflow:hidden"><sc-for list="{{ b.segs }}" as="s" hint-placeholder-count="1"><span style="{{ s }}"></span></sc-for></span>
+            <span style="width:30px;text-align:right;font-size:12px;font-weight:500">{{ b.v }}</span>
+          </div>
+        </sc-for>
+      </section>
+      <sc-for list="{{ placeStats }}" as="p" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:24px;background:#3a3a3a">
+          <span style="{{ p.badge }}">{{ p.i }}</span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:500">{{ p.name }}</span><span style="font-size:12px;color:#979797">{{ p.meta }}</span></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end"><span style="font-size:24px;font-weight:300">{{ p.n }}</span><span style="font-size:11px;color:#979797">netter</span></div>
+        </div>
+      </sc-for>
+    </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showFramList }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ sec.fram_hero }}">
+    <sc-if value="{{ hasHero }}" hint-placeholder-val="{{ true }}">
+      <button onClick="{{ fh.open }}" style="{{ fh.card }}">
+        <span style="position:absolute;top:12px;right:16px;font-family:ui-monospace,monospace;font-size:10px;color:#7f7f7f">backdrop</span>
+        <span style="{{ fh.poster }}"><span style="font-family:ui-monospace,monospace;font-size:10px;color:#afafaf">poster</span></span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;text-align:left">
+          <span style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ fh.chips }}" as="c" hint-placeholder-count="2"><span style="height:24px;padding:0 9px;border-radius:12px;background:rgba(255,255,255,0.12);display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:#e1e1e1">{{ c }}</span></sc-for></span>
+          <span style="font-size:22px;font-weight:600;letter-spacing:-0.01em;line-height:1.2;text-wrap:pretty">{{ fh.title }}</span>
+          <span style="font-size:13px;color:#c7c7c7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fh.sub }}</span>
+          <span style="font-size:12px;color:#979797">{{ fh.meta }}</span>
+        </span>
+      </button>
+    </sc-if>
+    </div>
+    <div style="{{ sec.fram_liste }}">
+    <sc-for list="{{ mGroups }}" as="g" hint-placeholder-count="3">
+      <section style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:baseline;gap:8px;padding:0 4px"><span style="font-size:15px;font-weight:600">{{ g.label }}</span><span style="font-size:12px;color:#7f7f7f">{{ g.date }}</span></div>
+        <div style="border-radius:24px;background:#3a3a3a;overflow:hidden">
+          <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+            <button onClick="{{ r.open }}" style="{{ r.row }}">
+              <span style="{{ r.poster }}"></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></span>
+              <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none"><span style="font-size:13px;font-weight:600">{{ r.time }}</span><span style="{{ r.tag }}">{{ r.src }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+    <sc-if value="{{ showMore }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ toggleMore }}" style="height:44px;border-radius:22px;background:#3a3a3a;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;color:#e1e1e1"><span class="ms" style="font-size:18px">{{ moreIcon }}</span>{{ moreLabel }}</button>
+    </sc-if>
+    </div>
+    <div style="{{ sec.fram_plex }}">
+    <sc-for list="{{ plexGroups }}" as="g" hint-placeholder-count="1">
+      <section style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:baseline;gap:8px;padding:0 4px"><span style="font-size:15px;font-weight:600">{{ g.label }}</span><span style="font-size:12px;color:#7f7f7f">{{ g.date }}</span></div>
+        <div style="border-radius:24px;background:#3a3a3a;overflow:hidden">
+          <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+            <button onClick="{{ r.open }}" style="{{ r.row }}">
+              <span style="{{ r.poster }}"></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></span>
+              <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none"><span style="font-size:13px;font-weight:600">{{ r.time }}</span><span style="{{ r.tag }}">{{ r.src }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ cfg }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Tilpass kalender" style="position:fixed;inset:0;z-index:100;display:flex;align-items:flex-end;justify-content:center">
+      <div onClick="{{ closeCfg }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)"></div>
+      <div style="position:relative;width:100%;max-width:440px;height:calc(100vh - 52px);box-sizing:border-box;background:#282828;border-radius:38px 38px 0 0;display:flex;flex-direction:column;box-shadow:0 -12px 40px rgba(0,0,0,0.45)">
+        <div style="display:flex;justify-content:center;padding-top:10px"><span style="width:40px;height:5px;border-radius:3px;background:#545454"></span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 20px 14px">
+          <span style="flex:1;font-size:24px;font-weight:600;letter-spacing:-0.01em">Tilpass kalender</span>
+          <button onClick="{{ ce.reset }}" style="height:40px;padding:0 16px;border-radius:20px;background:#3a3a3a;font-size:14px;font-weight:500" style-active="transform:scale(0.96)">Nullstill</button>
+          <button onClick="{{ closeCfg }}" style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2f2f2f;font-size:14px;font-weight:600" style-active="transform:scale(0.96)">Ferdig</button>
+        </div>
+        <div style="padding:0 16px 12px">
+          <div data-glass-drag="x" style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+            <sc-for list="{{ ce.tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.go }}" title="{{ t.label }}" style="{{ t.style }}"><span class="ms" style="font-size:20px;flex:none;font-variation-settings:'FILL' 1">{{ t.icon }}</span><sc-if value="{{ t.on }}" hint-placeholder-val="{{ false }}"><span>{{ t.label }}</span></sc-if></button></sc-for>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 16px 48px;display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;align-content:start;gap:8px">
+
+          <sc-if value="{{ ce.isFaner }}" hint-placeholder-val="{{ true }}">
+            <span style="font-size:13px;color:#979797;padding:2px 8px 4px">Dra for å flytte · øyet skjuler · pilen viser innholdet i fanen</span>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ ce.tabRows }}" as="r" hint-placeholder-count="5">
+                <div style="{{ r.row }}">
+                  <span onPointerDown="{{ r.drag }}" style="width:40px;height:52px;flex:none;display:grid;place-items:center;color:#7f7f7f;touch-action:none;cursor:grab"><span class="ms" style="font-size:22px">drag_indicator</span></span>
+                  <span class="ms" style="{{ r.icS }}">{{ r.icon }}</span>
+                  <span onClick="{{ r.toggle }}" style="flex:1;align-self:stretch;display:flex;align-items:center;font-size:15px;font-weight:500;cursor:pointer">{{ r.label }}<span style="margin-left:8px;font-size:12px;font-weight:400;color:#7f7f7f">{{ r.subCount }}</span></span>
+                  <sc-if value="{{ r.hasSubs }}" hint-placeholder-val="{{ true }}"><button onClick="{{ r.toggle }}" title="Innhold i fanen" style="width:40px;height:44px;flex:none;display:grid;place-items:center"><span class="ms" style="{{ r.chev }}">expand_more</span></button></sc-if>
+                  <button onClick="{{ r.eye }}" title="Vis / skjul" style="{{ r.eyeS }}"><span class="ms" style="font-size:22px">{{ r.eyeIc }}</span></button>
+                </div>
+                <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:6px;padding:0 0 6px 24px">
+                    <sc-for list="{{ r.subs }}" as="q" hint-placeholder-count="3">
+                      <div style="{{ q.row }}">
+                        <span onPointerDown="{{ q.drag }}" style="width:40px;height:48px;flex:none;display:grid;place-items:center;color:#7f7f7f;touch-action:none;cursor:grab"><span class="ms" style="font-size:20px">drag_indicator</span></span>
+                        <span style="flex:1;min-width:0;font-size:14px;font-weight:500">{{ q.label }}</span>
+                        <button onClick="{{ q.eye }}" title="Vis / skjul" style="{{ q.eyeS }}"><span class="ms" style="font-size:20px">{{ q.eyeIc }}</span></button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ ce.isKal }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:13px;color:#979797;padding:2px 8px 4px">Vises i Kalender-fanen · hold kalenderikonet for å bytte raskt</span>
+            <sc-for list="{{ ce.cals }}" as="w" hint-placeholder-count="4">
+              <button onClick="{{ w.go }}" style="{{ w.row }}"><span style="{{ w.dot }}"></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ w.label }}</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ w.ent }}</span></span><span style="{{ w.sw }}"><span style="{{ w.knob }}"></span></span></button>
+            </sc-for>
+            <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:26px;background:#3a3a3a;font-size:14px;font-weight:500;color:#e1e1e1" style-active="transform:scale(0.98)"><span class="ms" style="font-size:22px">add</span>Legg til kalender</button>
+          </sc-if>
+
+          <sc-if value="{{ ce.isKilder }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:24px;background:rgb(115 185 242 / 0.1);box-shadow:inset 0 0 0 1px rgb(115 185 242 / 0.22)">
+              <span class="ms" style="font-size:22px;color:rgb(115 185 242);flex:none">sync</span>
+              <span style="font-size:13px;line-height:1.45;color:#c7c7c7;text-wrap:pretty">Kildene finnes automatisk i Home Assistant. Overstyr bare det som skal være annerledes.</span>
+            </div>
+            <sc-for list="{{ ce.sources }}" as="r" hint-placeholder-count="7">
+              <div style="{{ r.wrap }}">
+                <button onClick="{{ r.toggle }}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 12px 8px 8px;text-align:left">
+                  <span style="{{ r.ic }}"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">{{ r.icon }}</span></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ r.name }}</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.val }}</span></span>
+                  <span style="{{ r.badge }}">{{ r.badgeText }}</span>
+                  <span class="ms" style="{{ r.chev }}">expand_more</span>
+                </button>
+                <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:0 14px 14px">
+                    <div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 8px 0 16px;border-radius:24px;background:#4a4a4a">
+                      <span class="ms" style="font-size:20px;color:#afafaf">search</span>
+                      <input value="{{ r.q }}" onInput="{{ r.setQ }}" placeholder="Søk etter entitet" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:none;color:#fafafa;font:inherit;font-size:15px"></input>
+                      <sc-if value="{{ r.hasQ }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.clearQ }}" title="Tøm" style="width:32px;height:32px;border-radius:16px;background:#545454;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:18px">close</span></button></sc-if>
+                    </div>
+                    <span style="font-size:12px;color:#979797;padding:2px 4px 0">{{ r.resTitle }}</span>
+                    <div style="display:flex;flex-direction:column;gap:2px;max-height:264px;overflow-y:auto;overscroll-behavior:contain">
+                      <sc-for list="{{ r.res }}" as="o" hint-placeholder-count="3">
+                        <button onClick="{{ o.go }}" style="{{ o.row }}"><span class="ms" style="font-size:20px;color:#afafaf;flex:none">{{ o.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</span><span style="font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.id }}</span></span><span class="ms" style="{{ o.check }}">check</span></button>
+                      </sc-for>
+                      <sc-if value="{{ r.noRes }}" hint-placeholder-val="{{ false }}"><span style="padding:12px 4px;font-size:13px;color:#7f7f7f">Ingen treff</span></sc-if>
+                    </div>
+                    <sc-if value="{{ r.canAuto }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.auto }}" style="height:44px;border-radius:22px;background:#3a3a3a;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px"><span class="ms" style="font-size:20px">auto_mode</span>Bruk automatisk</button></sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+
+          <sc-if value="{{ ce.isVis }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ ce.segs }}" as="g" hint-placeholder-count="2">
+              <span style="font-size:13px;font-weight:500;color:#979797;padding:10px 8px 2px">{{ g.title }}</span>
+              <div data-glass-drag="x" style="{{ g.cols }}"><sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+            </sc-for>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding:14px 8px 2px"><span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Mellomrom</span><span style="font-size:13px;color:#7f7f7f">{{ ce.spSum }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:30px;background:#2f2f2f;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+              <sc-for list="{{ ce.sp }}" as="p" hint-placeholder-count="3">
+                <div style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:#3a3a3a">
+                  <div style="display:flex;align-items:center;gap:12px;padding:0 4px"><span class="ms" style="font-size:22px;color:#afafaf;flex:none">{{ p.icon }}</span><span style="flex:1;min-width:0;font-size:15px">{{ p.label }}</span><span style="font-size:15px;color:#e1e1e1;font-variant-numeric:tabular-nums;flex:none">{{ p.valTxt }}</span></div>
+                  <input type="range" min="{{ p.min }}" max="{{ p.max }}" step="1" value="{{ p.v }}" onInput="{{ p.set }}" onPointerDown="{{ p.stop }}" onTouchStart="{{ p.stop }}" style="width:100%;height:28px;margin:0;accent-color:#e1e1e1;touch-action:none"></input>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ p.presets }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+                </div>
+              </sc-for>
+            </div>
+            <span style="font-size:13px;font-weight:500;color:#979797;padding:10px 8px 2px">Framover</span>
+            <sc-for list="{{ ce.visSw }}" as="w" hint-placeholder-count="1">
+              <button onClick="{{ w.go }}" style="{{ w.row }}"><span style="{{ w.dot }}"></span><span style="flex:1;font-size:15px;font-weight:500">{{ w.label }}</span><span style="{{ w.sw }}"><span style="{{ w.knob }}"></span></span></button>
+            </sc-for>
+            <span style="padding:10px 8px 0;font-size:12px;color:#7f7f7f;line-height:1.5">Tips: hold inne kalenderikonet for å velge kalendere. Sveip det opp eller ned for å bytte til tilpass.</span>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasDet }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDet }}" style="position:fixed;inset:0;background:rgba(20,20,20,0.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:10"></div>
+    <section style="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:calc(100% - 24px);max-width:396px;box-sizing:border-box;z-index:11;display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:#3a3a3a;box-shadow:0 20px 60px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06)">
+      <div style="display:flex;gap:14px">
+        <span style="{{ det.poster }}"><span style="font-family:ui-monospace,monospace;font-size:10px;color:#afafaf">poster</span></span>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding-right:36px">
+          <span style="font-size:22px;font-weight:600;letter-spacing:-0.01em;line-height:1.2;text-wrap:pretty">{{ det.title }}</span>
+          <span style="font-size:13px;color:#c7c7c7">{{ det.sub }}</span>
+          <span style="font-size:13px;color:#979797">{{ det.when }}</span>
+        </div>
+        <button onClick="{{ closeDet }}" style="position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:18px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:20px">close</span></button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <sc-for list="{{ det.chips }}" as="c" hint-placeholder-count="4"><span style="height:26px;padding:0 10px;border-radius:13px;background:#404040;display:inline-flex;align-items:center;font-size:12px;font-weight:500;color:#e1e1e1">{{ c }}</span></sc-for>
+      </div>
+      <p style="margin:0;font-size:14px;line-height:1.5;color:#c7c7c7;text-wrap:pretty">{{ det.desc }}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button style="height:44px;padding:0 18px 0 14px;border-radius:22px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600" style-active="transform:scale(0.96)"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">play_arrow</span>{{ det.play }}</button>
+        <button style="height:44px;padding:0 18px 0 14px;border-radius:22px;background:#404040;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500" style-active="transform:scale(0.96)"><span class="ms" style="font-size:18px">open_in_new</span>{{ det.src }}</button>
+      </div>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1000},&quot;startTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Kalender&quot;,&quot;Hytta&quot;,&quot;Framover&quot;,&quot;Bursdager&quot;,&quot;Posten&quot;],&quot;default&quot;:&quot;Kalender&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;defaultView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Liste&quot;,&quot;Måned&quot;],&quot;default&quot;:&quot;Liste&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;birthdayToday&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showPlex&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const GREEN = 'rgb(102 209 158)', YEL = 'rgb(242 206 115)', BLUE = 'rgb(115 185 242)', ROSE = 'rgb(242 133 201)';
+const PL = { O: ['Oslo', GREEN], S: ['Strømstad', YEL], T: ['Toten', BLUE] };
+const PSTAT = { O: [71, 43, '28. sep'], S: [176, 62, '27. sep'], T: [21, 8, '20. sep'] };
+const PEOPLE = { Rune: BLUE, Sebastian: ROSE, Cybele: GREEN };
+const CALS = { skole: ['Skole', BLUE, 'calendar.sebastian_skole'], familie: ['Familie', GREEN, 'calendar.familie'], hytta: ['Hytta', YEL, 'calendar.hyttebesok'], bursdager: ['Bursdager', ROSE, 'calendar.birthdays'] };
+const DAYS = ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'];
+const MON = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
+const MONF = ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'];
+const T0 = new Date(2026, 8, 28);
+const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const TK = key(T0);
+const addD = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const parse = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const dm = d => `${d.getDate()}. ${MON[d.getMonth()]}`;
+const rel = d => { const n = Math.round((d - T0) / 864e5); return n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n === -1 ? 'I går' : cap(DAYS[d.getDay()]); };
+const isoWeek = d => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const w = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - w); return Math.ceil(((t - new Date(Date.UTC(t.getUTCFullYear(), 0, 1))) / 864e5 + 1) / 7); };
+const TIC = { cal: 'calendar_month', hytta: 'cottage', fram: 'movie', bday: 'cake', post: 'mail' };
+const DEFSRC = { hytta: 'sensor.oslo_oversikt', bday: 'calendar.birthdays', post: 'sensor.nar_kommer_posten_posten_sensor_next', parcels: 'norwegian_parcel_tracker', sonarr: 'calendar.sonarr', radarr: 'calendar.radarr', plex: 'sensor.plex_recently_added' };
+const tabStyle = on => ({ flex: on ? '0 0 auto' : '1 1 0', minWidth: 44, height: 40, padding: on ? '0 14px 0 12px' : 0, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: on ? PINK : 'transparent', color: on ? '#3a3a3a' : '#afafaf', transition: 'none' });
+const SP = [['gap', 'Mellom seksjonene', 'height', 0, 24, [['Tett', 4], ['Standard', 8], ['Luftig', 18]]], ['top', 'Fra popup-headeren til første kort', 'vertical_align_top', -20, 60, [['Inntil', -20], ['Standard', -10], ['Tett', 6], ['Luftig', 44]]], ['bot', 'Luft i bunnen', 'vertical_align_bottom', 0, 300, [['Ingen', 0], ['Litt', 60], ['Standard', 150], ['Maks', 300]]]];
+const SP_DEF = { gap: 8, top: -10, bot: 150 };
+const tabStyleN = on => ({ flex: '1 0 auto', height: 40, padding: '0 14px', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: on ? PINK : 'transparent', color: on ? '#3a3a3a' : '#afafaf', transition: 'background .2s' });
+const TSEC = { hytta: [['sok', 'Søk'], ['kar', 'Steder'], ['vis', 'Kalender · Opphold · Statistikk']], fram: [['filter', 'Filter'], ['hero', 'Neste utgivelse'], ['liste', 'Kommende'], ['plex', 'Nylig i Plex']], bday: [['hero', 'Neste bursdag'], ['list', 'Kommende']], post: [['kort', 'Når kommer Posten'], ['pakker', 'Pakker']] };
+const ENTS = { hytta: ['sensor.oslo_oversikt', 'sensor.stromstad_oversikt', 'sensor.toten_oversikt', 'calendar.hyttebesok'], bday: ['calendar.birthdays', 'calendar.bursdager_google', 'calendar.familie'], post: ['sensor.nar_kommer_posten_posten_sensor_next', 'sensor.nar_kommer_posten_posten_sensor_days'], parcels: ['norwegian_parcel_tracker', 'sensor.bring_pakker', 'sensor.posten_sporing'], sonarr: ['calendar.sonarr', 'sensor.sonarr_upcoming', 'sensor.sonarr_queue'], radarr: ['calendar.radarr', 'sensor.radarr_upcoming', 'sensor.radarr_movies'], plex: ['sensor.plex_recently_added', 'sensor.plex_plex', 'media_player.plex_apple_tv'] };
+const ENT_ALL = [...new Set([...Object.values(ENTS).flat(), 'calendar.sebastian_skole', 'calendar.familie', 'calendar.helligdager', 'sensor.oslo_temperatur', 'sensor.strommaler_effekt', 'person.sebastian', 'person.cybele', 'person.rune', 'zone.oslo', 'zone.stromstad', 'zone.toten', 'media_player.stue_apple_tv', 'todo.handleliste'])];
+const DOMI = { calendar: 'event', sensor: 'sensors', media_player: 'play_circle', person: 'person', zone: 'location_on', todo: 'checklist' };
+const hp = t => { try { window.haptic && window.haptic(t || 'light'); } catch (e) {} };
+
+const EV = [];
+for (let i = -40; i <= 40; i++) {
+  const d = addD(T0, i), w = d.getDay(), k = key(d);
+  if (w === 1 || w === 3) EV.push({ k, s: '12:30', e: '14:15', t: 'ELI1300 Forelesning', c: 'skole', where: 'Aud. 2' });
+  if ((w === 2 || w === 4) && k !== '2026-09-29') EV.push({ k, s: '10:15', e: '12:00', t: 'TRE1300 Øving', c: 'skole' });
+  if (w === 5) EV.push({ k, s: '18:00', e: '21:00', t: 'Middag hos Cybele', c: 'familie' });
+}
+EV.push(
+  { k: '2026-09-28', all: 1, t: 'Oslo – Rune', c: 'hytta' }, { k: '2026-09-28', all: 1, t: 'Oslo – Sebastian', c: 'hytta' },
+  { k: '2026-09-29', s: '09:00', e: '12:00', t: 'TRE1300 Skriftlig eksamen under tilsyn', c: 'skole', where: 'Eksamen' },
+  { k: '2026-09-30', s: '23:00', e: '23:59', t: 'Assignment – ELI1300', c: 'skole' },
+  { k: '2026-10-02', all: 1, t: 'Strømstad – familie', c: 'hytta' }, { k: '2026-10-06', s: '17:00', e: '17:45', t: 'Tannlege', c: 'familie' });
+[['Cybele', '2026-10-03', 29], ['Mormor Solveig', '2026-10-12', 84], ['Jonas', '2026-10-19', 31]].forEach(([n, k, a]) => EV.push({ k, all: 1, t: `${n} fyller ${a}`, c: 'bursdager' }));
+EV.sort((a, b) => a.k.localeCompare(b.k) || (b.all || 0) - (a.all || 0) || (a.s || '').localeCompare(b.s || ''));
+const EVK = {}; EV.forEach(e => (EVK[e.k] = EVK[e.k] || []).push(e));
+
+const HM = {};
+const put = (m, a, b, p, plan) => { for (let d = a; d <= b; d++) { const k = key(new Date(2026, m, d)); const h = HM[k] = HM[k] || { p: [], plan: false }; if (!h.p.includes(p)) h.p.push(p); if (plan) h.plan = true; } };
+put(6, 5, 31, 'S'); put(7, 1, 20, 'S'); put(7, 21, 23, 'T'); put(7, 24, 31, 'S');
+put(8, 1, 14, 'S'); put(8, 17, 19, 'S'); put(8, 24, 27, 'S'); put(8, 12, 18, 'O'); put(8, 20, 25, 'O'); put(8, 27, 28, 'O'); put(8, 19, 20, 'T');
+put(9, 2, 4, 'S', true); put(9, 16, 18, 'T', true);
+
+const STAYS = [['Rune', 'O', '27. sep – nå', 'pågår'], ['Sebastian', 'O', '27. sep – nå', 'pågår'], ['Rune', 'S', '25.–27. sep', '2 netter'], ['Sebastian', 'S', '25.–27. sep', '2 netter'], ['Cybele', 'O', '25.–26. sep', '1 natt'], ['Rune', 'O', '21.–24. sep', '3 netter'], ['Cybele', 'T', '19.–20. sep', '1 natt'], ['Sebastian', 'S', '17.–19. sep', '2 netter'], ['Rune', 'O', '12.–18. sep', '6 netter'], ['Rune', 'S', '1.–12. sep', '11 netter']];
+const MB = { 6: { S: 62 }, 7: { S: 40, T: 9 }, 8: { O: 71, S: 74, T: 12 } };
+
+const M = [
+  { id: 1, k: '2026-09-28', time: '03:00', title: 'American Hostage', sub: 'Magic Ticket Sweepstakes', ep: 'S01E03', net: 'MGM+', kind: 'serie', rating: '7.2', len: '47 min', genres: ['Drama', 'Thriller'], hue: 40, desc: 'Forhandlingene tar en ny vending når en av gislene får kontakt med omverdenen.' },
+  { id: 2, k: '2026-09-28', time: '03:00', title: 'Lanterns', sub: "The Jordan Boys' Legacy", ep: 'S01E07', net: 'HBO', kind: 'serie', rating: '7.8', len: '52 min', genres: ['Mystery', 'Science Fiction'], hue: 150, desc: 'Hal og John må legge gamle konflikter til side for å løse et mord på en fremmed planet.' },
+  { id: 3, k: '2026-09-29', time: '02:00', title: 'Spider-Man: Brand New Day', sub: 'Kino', net: 'Marvel Studios', kind: 'film', rating: '–', len: '2 t 20 min', genres: ['Action'], hue: 20 },
+  { id: 4, k: '2026-09-29', time: '02:00', title: 'Coyote vs. Acme', sub: 'Kino', net: 'Troll Court Entertainment', kind: 'film', rating: '–', len: '1 t 31 min', genres: ['Komedie', 'Animasjon'], hue: 60 },
+  { id: 5, k: '2026-09-29', time: '04:00', title: 'Line of Fire', sub: 'A Bigger Picture', ep: 'S01E02', net: 'NBC', kind: 'serie', rating: '6.9', len: '43 min', genres: ['Drama'], hue: 250 },
+  { id: 6, k: '2026-09-30', time: '02:00', title: 'Best Medicine', sub: "Breakin' Is Hard to Do", ep: 'S02E02', net: 'FOX', kind: 'serie', rating: '7.0', len: '42 min', genres: ['Drama', 'Komedie'], hue: 200 },
+  { id: 7, k: '2026-09-30', time: '02:00', title: 'Digger', sub: 'Digital', net: 'Warner Bros. Pictures', kind: 'film', rating: '–', len: '1 t 48 min', genres: ['Komedie'], hue: 30 },
+  { id: 8, k: '2026-10-01', time: '03:00', title: 'Lanterns', sub: 'Green Light', ep: 'S01E08', net: 'HBO', kind: 'serie', rating: '–', len: '55 min', genres: ['Mystery', 'Science Fiction'], hue: 150 },
+  { id: 9, k: '2026-10-02', time: '02:00', title: 'Line of Fire', sub: 'Crossfire', ep: 'S01E03', net: 'NBC', kind: 'serie', rating: '–', len: '43 min', genres: ['Drama'], hue: 250 },
+  { id: 20, k: '2026-09-28', time: '01:12', title: 'Slow Horses', sub: 'Lagt til', ep: 'S05E04', net: 'Apple TV+', kind: 'plex', rating: '8.4', len: '48 min', genres: ['Thriller'], hue: 90 },
+  { id: 21, k: '2026-09-27', time: '21:40', title: 'Sinners', sub: 'Film', net: '4K · Filmer', kind: 'plex', rating: '7.6', len: '2 t 17 min', genres: ['Skrekk'], hue: 10 },
+  { id: 22, k: '2026-09-26', time: '14:05', title: 'Severance', sub: 'Cold Harbor', ep: 'S02E10', net: 'Apple TV+', kind: 'plex', rating: '8.7', len: '76 min', genres: ['Drama', 'Mystery'], hue: 220 },
+];
+const SRC = { serie: 'Sonarr', film: 'Radarr', plex: 'Plex' };
+const RED = 'rgb(242 128 115)', ORA = 'rgb(242 181 115)';
+const BDAYS = [['Cybele', '2026-10-03', 29], ['Mormor Solveig', '2026-10-12', 84], ['Jonas', '2026-10-19', 31], ['Emma', '2026-11-02', 7], ['Rune', '2026-11-14', 58], ['Ida', '2026-11-30', 26], ['Sebastian', '2027-01-08', 27], ['Farfar Knut', '2027-02-21', 88]];
+const BCOL = [ROSE, BLUE, GREEN, YEL, ORA];
+const POST = ['2026-09-29', '2026-10-01', '2026-10-05', '2026-10-07', '2026-10-09'];
+const PARCELS = [
+  { id: 1, name: 'Komplett', carrier: 'Posten', st: 'ready', status: 'Klar til henting', eta: 'I dag', pickup: 'Kiwi Bogstadveien', method: 'Pakke til hentested', sender: 'Komplett Services AS', weight: '6,2 kg', dims: '62 × 41 × 12 cm', home: true,
+    events: [['Sendingen er klar til henting', 'I dag 07:42'], ['Sendingen er ankommet utleveringssted', 'I dag 06:10'], ['Sendingen er på vei', 'I går 18:25'], ['Sendingen er registrert', 'Fre 25. sep']] },
+  { id: 2, name: 'Zalando', carrier: 'Helthjem', st: 'transit', status: 'Under transport', eta: 'Onsdag 30. sep', pickup: 'Levering hjem', method: 'Helthjem', events: [['Sendingen er på vei til mottaker', 'I dag 05:12'], ['Sendingen er mottatt hos Helthjem', 'Lør 26. sep']] },
+  { id: 3, name: 'AliExpress', carrier: 'Bring', st: 'stale', status: 'Ingen oppdatering', eta: '–', pickup: '–', method: 'Pakke i postkassen', sender: 'Cainiao', weight: '0,3 kg', staleH: 52, events: [['Sendingen er ankommet terminal i Norge', 'Lør 26. sep 08:30'], ['Sendingen er sendt fra avsender', 'Man 21. sep']] },
+  { id: 4, name: 'Elkjøp', carrier: 'Posten', st: 'delivered', status: 'Levert', eta: 'Levert lør 26. sep', pickup: 'Postkassen', method: 'Pakke i postkassen', sender: 'Elkjøp Nordic AS', weight: '0,4 kg', events: [['Sendingen er levert', 'Lør 26. sep 12:04'], ['Sendingen er på vei', 'Fre 25. sep']] },
+];
+const PST = { ready: [GREEN, 'inventory_2'], transit: [BLUE, 'local_shipping'], stale: [ORA, 'schedule'], delivered: ['#979797', 'check'] };
+let puid = 10;
+const stripe = (h, a, b) => `repeating-linear-gradient(135deg, oklch(${a} 0.04 ${h}) 0 6px, oklch(${b} 0.04 ${h}) 6px 12px)`;
+
+const parseQ = raw => {
+  const q = (raw || '').trim().toLowerCase().replace(/\s+/g, ' '); if (!q) return null;
+  if (/^i ?dag$/.test(q)) return [T0, T0, 'd']; if (/^i ?går$/.test(q)) return [addD(T0, -1), addD(T0, -1), 'd']; if (/^i ?forgårs$/.test(q)) return [addD(T0, -2), addD(T0, -2), 'd'];
+  let m = q.match(/^(?:uke|u|week|w)\.? ?(\d{1,2})(?:[ ,/]+(\d{4}))?$/);
+  if (m) { const y = +(m[2] || 2026), n = +m[1]; if (n < 1 || n > 53) return null; const j4 = new Date(y, 0, 4), s0 = addD(addD(j4, -((j4.getDay() + 6) % 7)), (n - 1) * 7); return [s0, addD(s0, 6), 'w']; }
+  m = q.match(/^(\d{1,2}) ?[./-] ?(\d{1,2})(?: ?[./-] ?(\d{2,4}))?\.?$/);
+  if (m) { let y = +(m[3] || 2026); if (y < 100) y += 2000; const d = new Date(y, +m[2] - 1, +m[1]); return d.getMonth() === +m[2] - 1 ? [d, d, 'd'] : null; }
+  const mi = w => w && w.length >= 3 ? MONF.findIndex(x => x.startsWith(w.slice(0, 3))) : -1;
+  m = q.match(/^(\d{1,2})\.? ?([a-zæøå]+)(?: (\d{4}))?$/);
+  if (m && mi(m[2]) >= 0) { const d = new Date(+(m[3] || 2026), mi(m[2]), +m[1]); return [d, d, 'd']; }
+  m = q.match(/^([a-zæøå]+)(?: (\d{4}))?$/);
+  if (m && mi(m[1]) >= 0) { const y = +(m[2] || 2026), mo = mi(m[1]); return [new Date(y, mo, 1), new Date(y, mo + 1, 0), 'm']; }
+  return null;
+};
+class Component extends DCLogic {
+  g = null; lp = null; carRef = React.createRef(); arts = null;
+  goCar(i) { const el = this.carRef.current; if (el) el.scrollTo({ left: i * (el.clientWidth + 10), behavior: 'smooth' }); }
+  art(kind) {
+    const h = React.createElement, A = (d, dur, del, extra) => ({ animation: `${d} ${dur}s ${del || 0}s infinite ${extra || 'ease-in-out'}`, transformBox: 'fill-box', transformOrigin: 'center' });
+    const svg = (...c) => h('svg', { viewBox: '0 0 170 112', width: '100%', height: '100%', preserveAspectRatio: 'xMaxYMax meet', style: { display: 'block' } }, ...c);
+    const house = (body, roof) => [
+      ...[0, 1.3, 2.6].map(d => h('circle', { key: 's' + d, cx: 131, cy: 34, r: 5, fill: 'rgba(255,255,255,0.35)', style: A('smoke', 3.9, d, 'ease-out') })),
+      h('rect', { key: 'ch', x: 126, y: 38, width: 9, height: 18, fill: body }),
+      h('rect', { key: 'b', x: 82, y: 60, width: 64, height: 44, fill: body }),
+      h('polyline', { key: 'r', points: '74,64 114,36 154,64', fill: 'none', stroke: roof, strokeWidth: 5, strokeLinejoin: 'round', strokeLinecap: 'round' }),
+      h('rect', { key: 'w1', x: 92, y: 74, width: 14, height: 11, rx: 2, fill: '#e3c27d', style: A('glow', 4.2, 0) }),
+      h('rect', { key: 'w2', x: 122, y: 74, width: 14, height: 11, rx: 2, fill: '#e3c27d', style: A('glow', 5.1, 1.2) }),
+      h('rect', { key: 'g', x: 60, y: 104, width: 110, height: 2, fill: 'rgba(255,255,255,0.18)' }) ];
+    if (kind === 'all') return svg(...house('#5a6570', '#c9d1d8'), ...[0, 1, 2, 3, 4].map(i => h('circle', { key: 'f' + i, cx: 30 + i * 22, cy: 10 + (i % 2) * 12, r: 1.4, fill: 'rgba(255,255,255,0.6)', style: A('snow', 5 + i * 0.7, i * 0.9, 'linear') })));
+    if (kind === 'O') return svg(...house('#557060', '#bfd6c8'));
+    if (kind === 'S') return svg(
+      h('polygon', { key: 'bm', points: '128,40 36,18 36,62', fill: 'rgba(255,238,190,0.9)', style: { ...A('beam', 4, 0), transformOrigin: '100% 50%' } }),
+      h('polygon', { key: 't', points: '118,100 122,46 134,46 138,100', fill: '#8b97a3' }),
+      h('rect', { key: 'st1', x: 121, y: 60, width: 14, height: 6, fill: '#aab4be' }), h('rect', { key: 'st2', x: 120, y: 78, width: 16, height: 6, fill: '#aab4be' }),
+      h('rect', { key: 'l', x: 119, y: 36, width: 18, height: 10, rx: 2, fill: '#f2d58a', style: A('glow', 2.4, 0) }),
+      h('rect', { key: 'c', x: 117, y: 32, width: 22, height: 5, rx: 2, fill: '#c7cdd3' }),
+      h('path', { key: 'b1', d: 'M52 30 q4 -4 8 0 q4 -4 8 0', fill: 'none', stroke: 'rgba(255,255,255,0.55)', strokeWidth: 1.6, strokeLinecap: 'round', style: A('bird', 3.6, 0) }),
+      h('path', { key: 'b2', d: 'M70 22 q3 -3 6 0 q3 -3 6 0', fill: 'none', stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1.4, strokeLinecap: 'round', style: A('bird', 4.4, 0.8) }),
+      h('g', { key: 'w', style: { animation: 'wave 5s linear infinite' } }, h('path', { d: 'M0 100 q10 -6 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 V112 H0 Z', fill: 'rgba(80,140,190,0.55)' })),
+      h('g', { key: 'w2', style: { animation: 'wave 3.4s linear infinite reverse' } }, h('path', { d: 'M-20 104 q10 -5 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 V112 H-20 Z', fill: 'rgba(60,110,160,0.8)' })));
+    return svg(
+      h('rect', { key: 'si', x: 140, y: 44, width: 18, height: 58, fill: '#8a8577' }), h('polygon', { key: 'sr', points: '138,46 149,32 160,46', fill: '#a39d8d' }),
+      ...[0, 1, 2, 3].map(i => h('rect', { key: 'p' + i, x: 22 + i * 10, y: 88 - (i % 2) * 4, width: 2, height: 16 + (i % 2) * 4, fill: 'rgba(210,180,110,0.6)' })),
+      h('g', { key: 'tr', style: { animation: 'drive 10s ease-in-out infinite' } },
+        h('rect', { x: 92, y: 80, width: 30, height: 12, rx: 2, fill: '#9aa0a6' }), h('rect', { x: 104, y: 68, width: 14, height: 14, rx: 2, fill: '#b5bbc0' }), h('rect', { x: 94, y: 72, width: 3, height: 9, fill: '#7d8388' }),
+        h('g', { style: A('spin', 1.6, 0, 'linear') }, h('circle', { cx: 114, cy: 96, r: 8, fill: 'none', stroke: '#e1e1e1', strokeWidth: 3 }), h('line', { x1: 106, y1: 96, x2: 122, y2: 96, stroke: '#e1e1e1', strokeWidth: 1.5 })),
+        h('g', { style: A('spin', 1, 0, 'linear') }, h('circle', { cx: 96, cy: 98, r: 5, fill: 'none', stroke: '#e1e1e1', strokeWidth: 2.5 }), h('line', { x1: 91, y1: 98, x2: 101, y2: 98, stroke: '#e1e1e1', strokeWidth: 1.2 }))),
+      h('rect', { key: 'g', x: 10, y: 104, width: 160, height: 2, fill: 'rgba(255,255,255,0.2)' }));
+  }
+  bArt(today) {
+    const h = React.createElement, cols = [ROSE, BLUE, GREEN, YEL, 'rgb(242 181 115)', '#fafafa'];
+    const kids = [];
+    if (today) for (let i = 0; i < 22; i++) { const r = ((i * 37) % 100) / 100, r2 = ((i * 53) % 100) / 100;
+      kids.push(h('span', { key: 'c' + i, style: { position: 'absolute', top: -12, left: `${4 + r * 92}%`, width: i % 3 ? 6 : 4, height: i % 3 ? 10 : 4, borderRadius: i % 3 ? 1 : 2, background: cols[i % cols.length], animation: `conf ${3.2 + r2 * 2.6}s ${-r * 5}s linear infinite` } })); }
+    const balloon = (right, bottom, c, s, dur, del) => h('span', { key: 'b' + right, style: { position: 'absolute', right, bottom, width: 26 * s, height: 32 * s, borderRadius: '50% 50% 48% 48%', background: c, boxShadow: 'inset -4px -6px 0 rgba(0,0,0,0.12)', animation: `bob ${dur}s ${del}s ease-in-out infinite`, transformOrigin: '50% 140%' } },
+      h('span', { style: { position: 'absolute', left: '50%', top: '100%', width: 1, height: 44 * s, background: 'rgba(255,255,255,0.35)' } }));
+    if (today) kids.push(balloon(74, 96, ROSE, 1, 3.4, 0), balloon(40, 110, BLUE, 0.85, 4.1, 0.6), balloon(10, 90, YEL, 0.95, 3.8, 1.2)); else kids.push(balloon(24, 104, ROSE, 0.9, 4.2, 0));
+    const fl = (cx, d) => h('ellipse', { key: 'f' + cx, cx, cy: 9, rx: 2.6, ry: 4.6, fill: '#f2ce73', style: { animation: `flick ${0.7 + d}s ${d}s ease-in-out infinite`, transformBox: 'fill-box', transformOrigin: '50% 100%' } });
+    kids.push(h('svg', { key: 'cake', viewBox: '0 0 80 70', width: 88, height: 77, style: { position: 'absolute', right: 16, bottom: 14 } },
+      h('rect', { x: 4, y: 62, width: 72, height: 4, rx: 2, fill: 'rgba(255,255,255,0.3)' }), h('rect', { x: 10, y: 40, width: 60, height: 22, rx: 4, fill: '#f5cdc6' }), h('rect', { x: 10, y: 40, width: 60, height: 6, rx: 3, fill: '#f285c9' }),
+      h('rect', { x: 20, y: 24, width: 40, height: 16, rx: 3, fill: '#fae3dc' }), ...[28, 38, 48].map(x => h('rect', { key: 'k' + x, x, y: 13, width: 4, height: 11, rx: 1, fill: BLUE })), fl(30, 0), fl(40, 0.15), fl(50, 0.3)));
+    return h('div', { style: { position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', borderRadius: 28 } }, ...kids);
+  }
+  state = { addB: false, bName: '', bDate: '', bMsg: '', bdays: [['Cybele', '1997-10-03'], ['Mormor Solveig', '1942-10-12'], ['Emma', '2019-11-02'], ['Rune', '1968-11-14'], ['Ida', '2000-11-30'], ['Sebastian', '2000-01-08'], ['Farfar Knut', '1939-02-21']], search: false, q: '', rmode: 'cal', picker: false, cfg: false, cals: { skole: true, familie: true, hytta: true, bursdager: true }, hid: {}, ahead: 14,
+    src: { hytta: 'sensor.oslo_oversikt', bday: 'calendar.birthdays', post: 'sensor.nar_kommer_posten_posten_sensor_next', parcels: 'norwegian_parcel_tracker', sonarr: 'calendar.sonarr', radarr: 'calendar.radarr', plex: 'sensor.plex_recently_added' },
+    tab: null, prev: 'hytta', view: null, fview: 'list', mo: { cal: 0, fram: 0, hytta: 0 }, sel: TK, mf: 'alle', hv: 'kal', place: null, det: null, more: false, xv: 'b', openP: 1, adding: false, draft: '', showDel: false, parcels: PARCELS };
+  monthCells(off) {
+    const f = new Date(2026, 8 + off, 1), m = f.getMonth(), lead = (f.getDay() + 6) % 7, dim = new Date(f.getFullYear(), m + 1, 0).getDate();
+    return Array.from({ length: Math.ceil((lead + dim) / 7) * 7 }, (_, i) => { const d = addD(f, i - lead); return { d, k: key(d), inM: d.getMonth() === m, today: key(d) === TK }; });
+  }
+  renderVals() {
+    const p = this.props, s = this.state;
+    const TABS = [['cal', 'Kalender'], ['hytta', 'Hytta'], ['fram', 'Framover'], ['bday', 'Bursdager'], ['post', 'Posten']];
+    const ORD = (s.tabOrder || TABS.map(t => t[0])).map(k => TABS.find(t => t[0] === k)).filter(Boolean);
+    const visT = ORD.filter(([k]) => !s.hid[k]);
+    const startT = s.startTab || ({ Kalender: 'cal', Hytta: 'hytta', Framover: 'fram', Bursdager: 'bday', Posten: 'post' }[p.startTab] || 'cal');
+    let tab = s.tab ?? startT;
+    if (s.hid[tab]) tab = visT[0][0];
+    const EVKf = {}; Object.keys(EVK).forEach(k => EVKf[k] = EVK[k].filter(e => s.cals[e.c]));
+    const defV = s.defView || (p.defaultView === 'Måned' ? 'month' : 'list'), view = s.view ?? defV;
+    const showPlex = s.plexOn ?? p.showPlex ?? true;
+    const set = o => { hp(); this.setState(o); };
+    const SPV = { ...SP_DEF, ...(s.sp || {}) };
+    const secO = t => { const d = TSEC[t].map(x => x[0]), o = (s.secOrder || {})[t]; return o ? [...o.filter(x => d.includes(x)), ...d.filter(x => !o.includes(x))] : d; };
+    const sec = {}; Object.keys(TSEC).forEach(t => secO(t).forEach((id, i) => { sec[`${t}_${id}`] = { display: (s.secHid || {})[`${t}_${id}`] ? 'none' : 'flex', flexDirection: 'column', gap: SPV.gap, order: t === 'fram' && id === 'filter' ? 0 : i + 2 }; }));
+    const off = s.mo[tab] || 0, first = new Date(2026, 8 + off, 1);
+    const shift = n => set({ mo: { ...s.mo, [tab]: off + n } });
+    const cells = this.monthCells(off);
+    const place = s.place;
+    const rng = parseQ(s.q), inR = k => rng && k >= key(rng[0]) && k <= key(rng[1]);
+
+    const calRow = (e, i) => ({ t1: e.all ? 'Hele' : e.s, t2: e.all ? 'dagen' : e.e, title: e.t, meta: CALS[e.c][0] + (e.where ? ' · ' + e.where : ''),
+      dot: { width: 8, height: 8, borderRadius: 4, background: CALS[e.c][1], flex: 'none' },
+      row: { display: 'flex', gap: 14, padding: '14px 16px', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' } });
+    const open = x => () => set({ det: x.id });
+    const mRow = (x, i) => ({ title: x.title, sub: [x.ep, x.sub, x.net].filter(Boolean).join(' · '), time: x.time, src: SRC[x.kind], open: open(x),
+      poster: { width: 44, height: 64, borderRadius: 8, flex: 'none', background: stripe(x.hue, 0.42, 0.37) },
+      tag: { height: 20, padding: '0 7px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600, background: '#404040', color: x.kind === 'plex' ? YEL : x.kind === 'film' ? ROSE : BLUE },
+      row: { width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', boxSizing: 'border-box' } });
+
+    const up = M.filter(x => x.kind !== 'plex'), plex = M.filter(x => x.kind === 'plex');
+    const pool = s.mf === 'serier' ? up.filter(x => x.kind === 'serie') : s.mf === 'filmer' ? up.filter(x => x.kind === 'film') : s.mf === 'plex' ? plex : up;
+    const mPool = s.mf === 'alle' && showPlex ? [...up, ...plex] : pool;
+    const poolK = {}; mPool.forEach(x => poolK[x.k] = (poolK[x.k] || 0) + 1);
+
+    const selD = parse(s.sel);
+    const monthCellsV = cells.map(c => {
+      const n = tab === 'cal' ? (EVKf[c.k] || []).length : (poolK[c.k] || 0), sel = c.k === s.sel;
+      return { n: c.d.getDate(), pick: () => set({ sel: c.k }), hasBadge: n > 0 && c.inM, badge: n,
+        badgeStyle: { position: 'absolute', top: -3, left: -3, minWidth: 18, height: 18, padding: '0 5px', boxSizing: 'border-box', borderRadius: 9, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 600, color: '#282828', background: tab === 'fram' || n >= 3 ? ROSE : GREEN, opacity: c.inM ? 1 : 0.45 },
+        style: { position: 'relative', aspectRatio: '1', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 500, background: c.today ? PINK : c.inM ? '#3a3a3a' : 'transparent', color: c.today ? '#3a3a3a' : c.inM ? '#fafafa' : '#545454', boxShadow: sel ? (c.today ? '0 0 0 2px #282828, 0 0 0 4px rgb(242 133 201)' : 'inset 0 0 0 2px #e1e1e1') : 'none', transition: 'box-shadow .15s' } };
+    });
+
+    const hCells = cells.map(c => {
+      const h = HM[c.k], ps = h && c.inM ? h.p.filter(x => !place || x === place).sort() : [], cols = ps.map(x => PL[x][1]), plan = h && h.plan && ps.length;
+      const bg = !c.inM ? 'transparent' : !cols.length ? '#404040' : cols.length === 1 ? cols[0] : `linear-gradient(90deg, ${cols[0]} 50%, ${cols[1]} 50%)`;
+      return { n: c.d.getDate(), title: ps.map(x => PL[x][0]).join(' + '),
+        style: { height: 44, borderRadius: 12, boxSizing: 'border-box', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600, background: plan ? 'transparent' : bg, border: plan ? `1.5px dashed ${cols[0]}` : 'none', color: !c.inM ? '#545454' : plan ? cols[0] : cols.length ? '#282828' : '#979797', boxShadow: c.today ? 'inset 0 0 0 2px #fafafa' : 'none', outline: inR(c.k) && c.inM ? '2px solid rgba(250,250,250,0.55)' : 'none', outlineOffset: 1 } };
+    });
+
+    const calDays = [];
+    for (let i = 0; i < s.ahead; i++) { const d = addD(T0, i), ev = EVKf[key(d)] || []; if (!ev.length && i) continue;
+      calDays.push({ label: rel(d), date: i < 2 ? `${DAYS[d.getDay()]} ${dm(d)}` : dm(d), rows: ev.map(calRow), empty: !ev.length }); }
+
+    const hero = pool.length && s.mf !== 'plex' ? pool[0] : null;
+    const rest = hero ? pool.slice(1) : pool, lim = s.more ? rest : rest.slice(0, 5);
+    const mGroups = []; lim.forEach(x => { let g = mGroups.find(y => y.k === x.k); if (!g) mGroups.push(g = { k: x.k, label: rel(parse(x.k)), date: dm(parse(x.k)), items: [] }); g.items.push(x); });
+    mGroups.forEach(g => g.rows = g.items.map(mRow));
+    if (s.mf === 'plex') mGroups.forEach(g => g.date += ' · lagt til');
+    const plexGroups = s.mf === 'alle' && showPlex ? [{ label: 'Nylig i Plex', date: 'lagt til', rows: plex.map(mRow) }] : [];
+
+    const det = M.find(x => x.id === s.det);
+    const pill = act => ({ height: 32, padding: '0 13px', borderRadius: 16, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, background: act ? '#fafafa' : '#3a3a3a', color: act ? '#282828' : '#afafaf' });
+    const seg = (act, h) => ({ height: h, borderRadius: h / 2, fontSize: h > 38 ? 14 : 13, fontWeight: 500, background: act ? PINK : 'transparent', color: act ? '#3a3a3a' : '#afafaf', transition: 'background .2s' });
+    const heroHere = !place || place === 'O';
+    const canFlip = tab === 'cal' || tab === 'fram', mode = canFlip ? s.rmode : 'cog', rOn = mode === 'cal' && (tab === 'hytta' ? s.search : view === 'month');
+    const who = (k, pl) => { const n = parse(k).getDate(); return pl === 'O' ? ['Rune', ...(n % 2 === 0 ? ['Sebastian'] : []), ...(n % 3 === 0 ? ['Cybele'] : [])] : pl === 'S' ? ['Sebastian', ...(n % 2 ? ['Rune'] : []), ...(n % 4 === 0 ? ['Cybele'] : [])] : ['Cybele', ...(n % 2 ? ['Rune'] : [])]; };
+    let res = { rows: [], empty: true, emptyTxt: 'Prøv «uke 27», «12.7», «28. sep», «i går» eller «juli»', title: 'Søk', canJump: false };
+    if (rng) { const days = []; for (let d = rng[0]; d <= rng[1]; d = addD(d, 1)) days.push(d); const one = days.length === 1;
+      const per = {}, wk = days.filter(d => d.getDay() % 6 === 0), wkP = {};
+      days.forEach(d => { const k = key(d), hm = HM[k]; if (!hm || hm.plan) return; hm.p.forEach(pl => { const o = per[pl] = per[pl] || {}; who(k, pl).forEach(n => o[n] = (o[n] || 0) + 1); if (d.getDay() % 6 === 0) wkP[pl] = (wkP[pl] || 0) + 1; }); });
+      const rowS = (i, sep) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderTop: sep ? '1px solid rgba(255,255,255,0.08)' : 'none', marginTop: sep ? 4 : 0, paddingTop: sep ? 12 : 6 });
+      const dot = c => ({ width: 10, height: 10, borderRadius: 3, flex: 'none', background: c });
+      const rows = Object.keys(PL).filter(pl => per[pl]).map((pl, i) => ({ name: PL[pl][0], dot: dot(PL[pl][1]), row: rowS(i), who: Object.entries(per[pl]).sort((a, b) => b[1] - a[1]).map(([n, c]) => one ? n : `${n} (${c} d)`).join(', ') }));
+      if (!one && wk.length && Object.keys(wkP).length) rows.push({ name: 'Helgen', dot: dot('#979797'), row: rowS(0, true), who: Object.keys(PL).filter(pl => wkP[pl]).sort((a, b) => wkP[b] - wkP[a]).map(pl => `${PL[pl][0]} (${wkP[pl]} av ${wk.length})`).join(', ') });
+      const d0 = rng[0], mOff = (d0.getFullYear() - 2026) * 12 + d0.getMonth() - 8;
+      res = { rows, empty: !rows.length, emptyTxt: 'Ingen opphold i denne perioden', canJump: true, jump: () => set({ hv: 'kal', mo: { ...s.mo, hytta: mOff } }),
+        title: rng[2] === 'w' ? `Uke ${isoWeek(d0)}, ${d0.getFullYear()} · ${days.length} dager` : rng[2] === 'm' ? `${cap(MONF[d0.getMonth()])} ${d0.getFullYear()} · ${days.length} dager` : `${cap(DAYS[d0.getDay()])} ${d0.getDate()}. ${MONF[d0.getMonth()]} ${d0.getFullYear()}` }; }
+    const HERO = [
+      { k: null, name: 'Alle steder', art: 'all', bg: 'linear-gradient(160deg, #24374c 0%, #1b2632 100%)', people: ['Rune', 'Sebastian'], sub: 'Rune, Sebastian er i Oslo siden 27. sep', n: [268, 113] },
+      { k: 'O', name: 'Oslo', art: 'O', bg: 'linear-gradient(160deg, #27543f 0%, #1c3128 100%)', people: ['Rune', 'Sebastian'], sub: 'Rune, Sebastian er her siden 27. sep', n: PSTAT.O },
+      { k: 'S', name: 'Strømstad', art: 'S', bg: 'linear-gradient(160deg, #26577a 0%, #1a2b3e 100%)', people: [], sub: 'Tomt nå · sist Rune 27. sep', n: PSTAT.S },
+      { k: 'T', name: 'Toten', art: 'T', bg: 'linear-gradient(160deg, #4b4020 0%, #2a2518 100%)', people: [], sub: 'Tomt nå · sist Cybele 20. sep', n: PSTAT.T } ];
+    if (!this.arts) this.arts = { all: this.art('all'), O: this.art('O'), S: this.art('S'), T: this.art('T') };
+    const hIdx = Math.max(0, HERO.findIndex(x => x.k === place));
+    const sw = on => ({ sw: { width: 44, height: 26, borderRadius: 13, flex: 'none', position: 'relative', background: on ? PINK : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fafafa', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left .2s' } });
+    const cfgRow = i => ({ width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, minHeight: 56, padding: '8px 16px', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', textAlign: 'left' });
+    const miniSeg = act => ({ height: 30, padding: '0 12px', borderRadius: 15, fontSize: 12, fontWeight: 500, background: act ? PINK : 'transparent', color: act ? '#3a3a3a' : '#afafaf' });
+    const tap = () => { if (mode === 'cog') set({ cfg: true, picker: false }); else if (tab === 'hytta') set({ search: !s.search, q: '' }); else set({ view: view === 'month' ? 'list' : 'month' }); };
+    const bGroups = []; const bList = [...s.bdays, ['Jonas', (p.birthdayToday ?? true) ? '1995-09-28' : '1995-10-19']].map(([name, bd], i) => { const [y, m, d] = bd.split('-').map(Number); let nx = new Date(2026, m - 1, d); if (nx < T0) nx = new Date(2027, m - 1, d); return { name, k: key(nx), age: y ? nx.getFullYear() - y : null, i }; }).sort((a, b) => a.k.localeCompare(b.k));
+    bList.forEach(({ name, k, age, i }) => { const d = parse(k), n = Math.round((d - T0) / 864e5), lab = `${cap(MONF[d.getMonth()])}${d.getFullYear() !== 2026 ? ' ' + d.getFullYear() : ''}`;
+      let g = bGroups.find(x => x.label === lab); if (!g) bGroups.push(g = { label: lab, rows: [] });
+      g.rows.push({ name, i: name.split(' ').map(w => w[0]).join('').slice(0, 2), meta: `${age ? 'Fyller ' + age + ' · ' : ''}${DAYS[d.getDay()]} ${dm(d)}`, inTxt: n === 0 ? 'I dag' : n === 1 ? 'I morgen' : `om ${n} d`,
+        inS: { fontSize: 13, fontWeight: 600, flex: 'none', color: n <= 7 ? ROSE : '#e1e1e1' },
+        av: { width: 36, height: 36, borderRadius: 18, flex: 'none', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600, color: '#282828', background: BCOL[i % BCOL.length] },
+        row: { display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px', borderTop: g.rows.length ? '1px solid rgba(255,255,255,0.05)' : 'none' } }); });
+    const postToday = POST.includes(TK);
+    const pSel = s.postSel || POST[0], pSelOn = POST.includes(pSel), pSelD = parse(pSel);
+    const postDays = Array.from({ length: 14 }, (_, i) => addD(T0, i)).filter(d => d.getDay() % 6).map(d => { const k = key(d), on = POST.includes(k), td = k === pSel;
+      return { w: ['sø', 'ma', 'ti', 'on', 'to', 'fr', 'lø'][d.getDay()], n: d.getDate(), style: { height: 48, borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, background: on ? RED : '#404040', color: on ? '#282828' : '#979797', boxShadow: td ? 'inset 0 0 0 2px #fafafa' : 'none', transition: 'transform .12s, box-shadow .15s' }, go: () => { hp('selection'); this.setState({ postSel: k === s.postSel ? null : k }); } }; });
+    const active = s.parcels.filter(x => x.st !== 'delivered'), delivered = s.parcels.filter(x => x.st === 'delivered');
+    const shownP = s.showDel ? s.parcels : active;
+    const ps = place ? PSTAT[place] : [268, 113];
+
+    return {
+      tabs: visT.map(([k, label]) => { const on = tab === k, nm = s.tabLbl === 'navn'; return { label, icon: TIC[k], showIcon: !nm, showLabel: nm || on, go: () => set({ tab: k, det: null }), style: nm ? tabStyleN(on) : tabStyle(on) }; }),
+      rootS: { position: 'relative', boxSizing: 'border-box', width: '100%', maxWidth: 420, minHeight: '100vh', margin: '0 auto', background: '#282828', padding: `20px 18px ${SPV.bot}px`, display: 'flex', flexDirection: 'column', gap: SPV.gap },
+      tabRowS: { position: 'relative', order: -1, display: 'flex', alignItems: 'center', gap: 8, marginTop: SPV.top + 10 },
+      search: s.search, q: s.q, setQ: e => this.setState({ q: e.target.value }), clearQ: () => set(s.q ? { q: '' } : { search: false }), noSubmit: e => e.preventDefault(), hasRes: !!s.q.trim(), res,
+      carRef: this.carRef, onCar: e => { const el = e.currentTarget, i = Math.round(el.scrollLeft / (el.clientWidth + 10)), pl = (HERO[i] || HERO[0]).k; if (pl !== this.state.place) { hp('selection'); this.setState({ place: pl }); } },
+      heroes: HERO.map(x => ({ name: x.name, sub: x.sub, nights: x.n[0], visits: x.n[1], isAll: !x.k, art: this.arts[x.art],
+        people: x.people.map((n, i) => ({ i: n[0], style: { width: 28, height: 28, borderRadius: 14, marginLeft: i ? -7 : 0, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 600, color: '#282828', background: PEOPLE[n], boxShadow: '0 0 0 2px rgba(0,0,0,0.25)' } })),
+        chips: Object.keys(PL).map((k, i) => ({ label: `${PL[k][0]} ${PSTAT[k][0]}`, go: () => { hp(); this.goCar(i + 1); }, dot: { width: 7, height: 7, borderRadius: 4, background: PL[k][1] } })),
+        card: { position: 'relative', flex: '0 0 100%', scrollSnapAlign: 'start', boxSizing: 'border-box', minHeight: 200, padding: 18, borderRadius: 28, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 8, background: x.bg, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)' } })),
+      dots: HERO.map((x, i) => ({ label: x.name, go: () => { hp(); this.goCar(i); }, style: { width: i === hIdx ? 18 : 6, height: 6, borderRadius: 3, background: i === hIdx ? '#e1e1e1' : '#545454', transition: 'width .25s, background .25s' } })),
+      canFlip, viewIcon: tab === 'hytta' ? 'search' : view === 'month' ? 'view_agenda' : 'calendar_month', viewTitle: mode === 'cog' ? 'Tilpass' : tab === 'hytta' ? 'Søk etter dato eller uke · sveip: tilpass' : 'Trykk: bytt visning · hold: velg kalendere · sveip: tilpass',
+      iconTrack: { position: 'absolute', top: 0, left: 0, display: 'flex', flexDirection: 'column', transform: mode === 'cog' ? 'translateY(-48px)' : 'translateY(0)', transition: 'transform .3s cubic-bezier(.34,1.5,.64,1)' },
+      dot1: { width: 4, height: 4, borderRadius: 2, background: 'currentColor', opacity: mode === 'cal' ? 0.9 : 0.3 }, dot2: { width: 4, height: 4, borderRadius: 2, background: 'currentColor', opacity: mode === 'cog' ? 0.9 : 0.3 },
+      bDown: e => { e.stopPropagation(); this.g = { y: e.clientY, done: false }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {} clearTimeout(this.lp);
+        if (tab === 'cal' && mode === 'cal') this.lp = setTimeout(() => { if (!this.g) return; this.g.done = true; hp('medium'); this.setState({ picker: true, pickM: false }); }, 480); },
+      bMove: e => { const g = this.g; if (!g || g.done || !canFlip) return; e.stopPropagation(); if (Math.abs(e.clientY - g.y) > 16) { clearTimeout(this.lp); g.done = true; hp('selection'); this.setState(st => ({ rmode: st.rmode === 'cog' ? 'cal' : 'cog', picker: false })); } },
+      bUp: e => { clearTimeout(this.lp); const g = this.g; this.g = null; if (g && !g.done) tap(); },
+      bCancel: () => { clearTimeout(this.lp); this.g = null; }, noMenu: e => e.preventDefault(),
+      picker: s.picker && !s.pickM, pickM: s.picker && !!s.pickM, isCalTab: tab === 'cal',
+      openPickM: () => set({ picker: true, pickM: true }), closePicker: () => this.setState({ picker: false, pickM: false }),
+      calOpts: Object.keys(CALS).map(k => { const on = s.cals[k]; return { name: CALS[k][0], ent: CALS[k][2], toggle: () => set({ cals: { ...s.cals, [k]: !on } }),
+        dot: { width: 10, height: 10, borderRadius: 5, flex: 'none', background: CALS[k][1] },
+        box: { width: 24, height: 24, borderRadius: 8, flex: 'none', display: 'grid', placeItems: 'center', background: on ? CALS[k][1] : 'transparent', boxShadow: on ? 'none' : 'inset 0 0 0 1.5px #696969' },
+        check: { fontSize: 16, color: '#282828', opacity: on ? 1 : 0, fontVariationSettings: "'wght' 600" } }; }),
+      cfg: s.cfg, closeCfg: () => set({ cfg: false }),
+      ce: (() => {
+        const ctab = s.ctab || 'faner', ov = s.srcOv || {}, al = (c, o) => c.replace(')', ` / ${o})`);
+        const pill = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', boxSizing: 'border-box', minHeight: 56, padding: '0 14px 0 20px', borderRadius: 28, background: '#3a3a3a', textAlign: 'left' };
+        const dragG = (ids, id, dk, step, save, extra) => e => { e.stopPropagation(); e.preventDefault(); const y0 = e.clientY; this.setState({ dragId: dk, dragDy: 0, ...(extra || {}) });
+          const mv = ev => this.setState({ dragDy: ev.clientY - y0 });
+          const up = ev => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+            const ord = [...ids], i = ord.indexOf(id), j = Math.max(0, Math.min(ord.length - 1, i + Math.round((ev.clientY - y0) / step)));
+            ord.splice(i, 1); ord.splice(j, 0, id); if (i !== j) hp('selection'); this.setState({ dragId: null, dragDy: 0 }); save(ord); };
+          window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); };
+        const drag = id => dragG(ORD.map(t => t[0]), id, id, 62, ord => this.setState({ tabOrder: ord }), { facc: null });
+        const lifted = (dr, base) => ({ ...base, position: 'relative', zIndex: dr ? 2 : 1, transform: dr ? `translateY(${s.dragDy || 0}px) scale(1.02)` : 'none', boxShadow: dr ? '0 10px 24px rgba(0,0,0,0.45)' : 'none', transition: dr ? 'none' : 'transform .2s, background .2s' });
+        const eyeS = (hd, sz) => ({ width: sz, height: sz, borderRadius: sz / 2, flex: 'none', display: 'grid', placeItems: 'center', color: hd ? '#7f7f7f' : '#e1e1e1' });
+        return {
+          tabs: [['faner', 'Faner', 'tab'], ['kal', 'Kalendere', 'event'], ['kilder', 'Kilder', 'database'], ['vis', 'Visning', 'tune']].map(([k, label, icon]) => ({ label, icon, on: ctab === k, go: () => set({ ctab: k, cacc: null }), style: tabStyle(ctab === k) })),
+          isFaner: ctab === 'faner', isKal: ctab === 'kal', isKilder: ctab === 'kilder', isVis: ctab === 'vis',
+          reset: () => { hp('medium'); this.setState({ hid: {}, tabOrder: null, cals: Object.fromEntries(Object.keys(CALS).map(k => [k, true])), src: { ...DEFSRC }, srcOv: {}, ahead: 14, view: null, plexOn: null, cacc: null, sp: null, tabLbl: 'ikon', secOrder: null, secHid: null, facc: null, srcQ: {} }); },
+          tabRows: ORD.map(([k, label]) => { const hd = !!s.hid[k], dr = s.dragId === k; return { label, icon: TIC[k], drag: drag(k),
+            row: { display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 6px 0 2px', borderRadius: 28, background: dr ? '#4a4a4a' : '#3a3a3a', opacity: hd ? 0.55 : 1, position: 'relative', zIndex: dr ? 2 : 1, transform: dr ? `translateY(${s.dragDy || 0}px) scale(1.02)` : 'none', boxShadow: dr ? '0 10px 24px rgba(0,0,0,0.45)' : 'none', transition: dr ? 'none' : 'transform .2s, background .2s' },
+            icS: { fontSize: 22, color: hd ? '#7f7f7f' : '#e1e1e1', fontVariationSettings: "'FILL' 1" }, eyeIc: hd ? 'visibility_off' : 'visibility',
+            eyeS: { width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', color: hd ? '#7f7f7f' : '#e1e1e1' },
+            eye: () => { if (!hd && visT.length < 2) return; set({ hid: { ...s.hid, [k]: !hd } }); },
+            hasSubs: !!TSEC[k], open: s.facc === k, subCount: TSEC[k] ? `${TSEC[k].length} deler` : '', toggle: () => { if (TSEC[k]) set({ facc: s.facc === k ? null : k }); },
+            chev: { fontSize: 22, color: '#979797', transform: s.facc === k ? 'rotate(180deg)' : 'none', transition: 'transform .25s' },
+            subs: TSEC[k] ? secO(k).map(id => { const key2 = `${k}_${id}`, sh = !!(s.secHid || {})[key2], sd = s.dragId === key2;
+              return { label: TSEC[k].find(x => x[0] === id)[1], drag: dragG(secO(k), id, key2, 58, ord => this.setState(st => ({ secOrder: { ...(st.secOrder || {}), [k]: ord } }))),
+                row: lifted(sd, { display: 'flex', alignItems: 'center', gap: 8, height: 52, padding: '0 4px 0 2px', borderRadius: 26, background: sd ? '#4a4a4a' : '#333333', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', opacity: sh ? 0.55 : 1 }),
+                eyeIc: sh ? 'visibility_off' : 'visibility', eyeS: eyeS(sh, 40), eye: () => set({ secHid: { ...(s.secHid || {}), [key2]: !sh } }) }; }) : [] }; }),
+          cals: Object.keys(CALS).map(k => ({ label: CALS[k][0], ent: CALS[k][2], row: pill, ...sw(s.cals[k]), go: () => set({ cals: { ...s.cals, [k]: !s.cals[k] } }), dot: { width: 12, height: 12, borderRadius: 6, flex: 'none', background: CALS[k][1] } })),
+          sources: [['hytta', 'Hyttebesøk', 'cottage', YEL], ['bday', 'Bursdager', 'cake', ROSE], ['post', 'Når kommer Posten', 'mail', RED], ['parcels', 'Pakkesporing', 'package_2', ORA], ['sonarr', 'Sonarr', 'tv', BLUE], ['radarr', 'Radarr', 'movie', YEL], ['plex', 'Plex nylig lagt til', 'play_circle', YEL]].map(([k, name, icon, col]) => { const open = s.cacc === k, o = !!ov[k];
+            return { name, icon, open, val: s.src[k] || 'Velg entitet', inVal: s.src[k] || '', toggle: () => set({ cacc: open ? null : k }),
+              wrap: { borderRadius: 24, background: open ? '#404040' : '#3a3a3a', overflow: 'hidden', transition: 'background .2s' },
+              ic: { width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: al(col, 0.18), color: col },
+              chev: { fontSize: 22, color: '#979797', flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .25s' },
+              badgeText: o ? 'Overstyrt' : 'Auto', badge: { height: 26, padding: '0 10px', borderRadius: 13, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 600, flex: 'none', background: al(o ? ROSE : GREEN, 0.18), color: o ? ROSE : GREEN },
+              set: e => this.setState({ src: { ...s.src, [k]: e.target.value }, srcOv: { ...ov, [k]: true } }), canAuto: o,
+              auto: () => set({ src: { ...s.src, [k]: DEFSRC[k] }, srcOv: { ...ov, [k]: false } }),
+              ...(() => { const q = ((s.srcQ || {})[k] || ''), ql = q.trim().toLowerCase(), nm = id => cap(id.split('.').pop().replace(/_/g, ' '));
+                const list = ql ? ENT_ALL.filter(id => (id + ' ' + nm(id)).toLowerCase().includes(ql)).slice(0, 12) : ENTS[k];
+                return { q, hasQ: !!q, setQ: e => this.setState({ srcQ: { ...(s.srcQ || {}), [k]: e.target.value } }), clearQ: () => set({ srcQ: { ...(s.srcQ || {}), [k]: '' } }),
+                  resTitle: ql ? `${list.length} treff` : 'Forslag fra Home Assistant', noRes: !list.length,
+                  res: list.map(id => { const sel = s.src[k] === id; return { id, name: nm(id), icon: DOMI[id.split('.')[0]] || 'extension',
+                    row: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', minHeight: 52, padding: '6px 12px 6px 14px', borderRadius: 18, textAlign: 'left', background: sel ? '#4a4a4a' : '#3a3a3a' },
+                    check: { fontSize: 20, color: GREEN, flex: 'none', opacity: sel ? 1 : 0 },
+                    go: () => set({ src: { ...s.src, [k]: id }, srcOv: { ...ov, [k]: id !== DEFSRC[k] }, srcQ: { ...(s.srcQ || {}), [k]: '' } }) }; }) }; })() }; }),
+          segs: [['Startfane', ORD.map(([k, l]) => [k, l]), startT, v => set({ startTab: v })], ['Startvisning', [['list', 'Liste'], ['month', 'Måned']], defV, v => set({ defView: v, view: v })], ['Faner viser', [['ikon', 'Symboler'], ['navn', 'Navn']], s.tabLbl || 'ikon', v => set({ tabLbl: v })], ['Dager fremover', [[7, '7 dager'], [14, '14 dager'], [30, '30 dager']], s.ahead, v => set({ ahead: v })]]
+            .map(([title, opts, cur, fn]) => ({ title, cols: { display: 'grid', gridTemplateColumns: `repeat(${Math.min(opts.length, 3)},minmax(0,1fr))`, gap: 2, padding: 4, borderRadius: 24, background: '#3a3a3a' },
+              opts: opts.map(([v, l]) => ({ label: l, go: () => fn(v), style: { height: 40, borderRadius: 20, fontSize: 14, fontWeight: 500, background: cur === v ? PINK : 'transparent', color: cur === v ? '#3a3a3a' : '#afafaf', transition: 'background .2s' } })) })),
+          spSum: `${SPV.gap} px mellom`,
+          sp: SP.map(([k, label, icon, min, max, pre]) => { const v = SPV[k]; return { label, icon, min, max, v, valTxt: `${v} px`, stop: e => e.stopPropagation(),
+            set: e => this.setState({ sp: { ...SPV, [k]: +e.target.value } }),
+            presets: pre.map(([l, n]) => ({ label: `${l} ${n}`, go: () => set({ sp: { ...SPV, [k]: n } }), style: { height: 40, padding: '0 16px', borderRadius: 20, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: v === n ? PINK : '#4a4a4a', color: v === n ? '#3a3a3a' : '#e1e1e1', transition: 'background .2s' } })) }; }),
+          visSw: [{ label: 'Vis «Nylig i Plex»', row: pill, ...sw(showPlex), go: () => set({ plexOn: !showPlex }), dot: { width: 8, height: 8, borderRadius: 4, flex: 'none', background: YEL } }]
+        };
+      })(),
+      tabRows: TABS.map(([k, label], i) => ({ label, row: cfgRow(i), ...sw(!s.hid[k]), toggle: () => { if (!s.hid[k] && visT.length < 2) return; set({ hid: { ...s.hid, [k]: !s.hid[k] } }); } })),
+      calRows: Object.keys(CALS).map((k, i) => ({ label: CALS[k][0], ent: CALS[k][2], row: cfgRow(i), ...sw(s.cals[k]), toggle: () => set({ cals: { ...s.cals, [k]: !s.cals[k] } }), dot: { width: 12, height: 12, borderRadius: 6, flex: 'none', background: CALS[k][1] } })),
+      srcRows: [['hytta', 'Hyttebesøk', 'cottage'], ['bday', 'Bursdager', 'cake'], ['post', 'Når kommer Posten', 'mail'], ['parcels', 'Pakkesporing', 'package_2'], ['sonarr', 'Sonarr', 'tv'], ['radarr', 'Radarr', 'movie'], ['plex', 'Plex nylig lagt til', 'play_circle']].map(([k, label, icon]) => ({ label, icon, val: s.src[k], set: e => this.setState({ src: { ...s.src, [k]: e.target.value } }) })),
+      aheadOpts: [7, 14, 30].map(n => ({ label: `${n} d`, go: () => set({ ahead: n }), style: miniSeg(s.ahead === n) })),
+      viewOpts: [['list', 'Liste'], ['month', 'Måned']].map(([k, label]) => ({ label, go: () => set({ view: k }), style: miniSeg(view === k) })),
+      viewBtnStyle: { position: 'relative', width: 48, height: 48, borderRadius: 24, flex: 'none', display: 'grid', placeItems: 'center', overflow: 'hidden', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', background: rOn ? PINK : '#3a3a3a', color: rOn ? '#3a3a3a' : '#e1e1e1', transition: 'background .2s' },
+      
+      isFram: tab === 'fram', isHytta: tab === 'hytta', isExtra: tab === 'bday' || tab === 'post',
+      bh: (() => { const td = bList.filter(x => x.k === TK), nx = bList.find(x => x.k > TK), isT = td.length > 0, f = isT ? td[0] : nx, fd = parse(f.k), n = Math.round((fd - T0) / 864e5), nd = nx && parse(nx.k), nn = nx && Math.round((nd - T0) / 864e5);
+        if (!this.bArts) this.bArts = { t: this.bArt(true), n: this.bArt(false) };
+        return { art: isT ? this.bArts.t : this.bArts.n, chipTxt: isT ? 'Bursdag i dag' : 'Neste bursdag',
+          title: isT ? `Gratulerer, ${td.map(x => x.name).join(' og ')}!` : f.name,
+          sub: isT ? (f.age ? `${f.name} fyller ${f.age} i dag` : 'Har bursdag i dag') : `${f.age ? 'Fyller ' + f.age + ' · ' : ''}${DAYS[fd.getDay()]} ${dm(fd)}`,
+          showCount: !isT, count: n, countLbl: n === 1 ? 'dag igjen' : 'dager igjen',
+          hasNext: isT && !!nx, nextI: nx ? nx.name[0] : '', nextTxt: nx ? `Neste: ${nx.name} · ${dm(nd)} · om ${nn} d` : '',
+          nextAv: { width: 24, height: 24, borderRadius: 12, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 600, color: '#282828', background: nx ? BCOL[nx.i % BCOL.length] : '#fff' },
+          chip: { alignSelf: 'flex-start', height: 26, padding: '0 10px 0 8px', borderRadius: 13, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, background: isT ? PINK : 'rgba(255,255,255,0.12)', color: isT ? '#3a3a3a' : '#e1e1e1' },
+          card: { position: 'relative', boxSizing: 'border-box', minHeight: 200, padding: 18, borderRadius: 28, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 10, background: isT ? 'linear-gradient(160deg, #5b2c4a 0%, #2d1f2a 100%)' : 'linear-gradient(160deg, #3f3440 0%, #2c2830 100%)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)' } }; })(),
+      bCount: `${bList.length} personer`, bSrc: s.src.bday, addB: s.addB, addBIcon: s.addB ? 'close' : 'add', toggleAddB: () => set({ addB: !s.addB, bMsg: '' }),
+      bName: s.bName, bDate: s.bDate, setBName: e => this.setState({ bName: e.target.value }), setBDate: e => this.setState({ bDate: e.target.value }),
+      bMsg: s.bMsg || `Lagres som årlig heldagshendelse i ${s.src.bday}`, bMsgS: { fontSize: 11, color: s.bMsg && s.bMsg.startsWith('La') ? GREEN : s.bMsg ? RED : '#7f7f7f', padding: '0 4px' },
+      addBday: e => { e.preventDefault(); const nm = s.bName.trim(); if (!nm || !s.bDate) return this.setState({ bMsg: 'Fyll inn navn og dato' }); hp('success');
+        this.setState({ bdays: [...s.bdays, [nm, s.bDate]], bName: '', bDate: '', bMsg: `Lagt til ${nm} i ${s.src.bday}` }); },
+      xB: tab === 'bday', xP: tab === 'post', bGroups,
+      post: { rel: rel(pSelD), date: `${DAYS[pSelD.getDay()]} ${dm(pSelD)} · ${!s.postSel ? 'neste utdeling' : pSelOn ? 'posten kommer' : 'ingen utdeling'}`, chipTxt: postToday ? 'Posten kommer i dag' : 'Ikke i dag',
+        chip: { height: 26, padding: '0 10px', borderRadius: 13, display: 'inline-flex', alignItems: 'center', fontSize: 11, fontWeight: 600, background: postToday ? 'rgba(242,128,115,0.18)' : '#404040', color: postToday ? RED : '#afafaf' },
+        days: postDays },
+      pCount: `${active.length} aktive`, adding: s.adding, draft: s.draft, setDraft: e => this.setState({ draft: e.target.value }),
+      toggleAdd: () => set({ adding: !s.adding }), addIcon: s.adding ? 'close' : 'add',
+      addBtnStyle: { marginLeft: 'auto', width: 36, height: 36, borderRadius: 18, display: 'grid', placeItems: 'center', background: '#3a3a3a', color: '#e1e1e1' },
+      addParcel: e => { e.preventDefault(); const t = s.draft.trim(); if (!t) return; hp('success'); const id = ++puid;
+        this.setState({ draft: '', adding: false, openP: id, parcels: [{ id, name: t, carrier: /^\d{18,}$/.test(t) ? 'Bring' : 'Posten', st: 'transit', status: 'Registrert', eta: '–', pickup: '–', method: '–', events: [['Venter på første sporingshendelse', 'Nå']] }, ...s.parcels] }); },
+      parcels: shownP.map((x, i) => { const [c, ic] = PST[x.st], op = s.openP === x.id;
+        return { name: x.name, carrier: x.carrier, status: x.status, ic, open: op, stale: !!x.staleH, canHome: !!x.home && op,
+          meta: x.st === 'delivered' ? x.eta : x.st === 'ready' ? `Hentes på ${x.pickup}` : `Estimert: ${x.eta}`,
+          staleTxt: x.staleH ? `Ingen ny hendelse på ${x.staleH} timer` : '',
+          staleS: { alignSelf: 'flex-start', height: 26, padding: '0 10px', borderRadius: 13, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, background: 'rgba(242,181,115,0.16)', color: ORA },
+          toggle: () => set({ openP: op ? null : x.id }),
+          icon: { width: 36, height: 36, borderRadius: 18, flex: 'none', display: 'grid', placeItems: 'center', background: x.st === 'delivered' ? '#404040' : c, color: x.st === 'delivered' ? '#979797' : '#282828' },
+          cTag: { height: 20, padding: '0 7px', borderRadius: 10, flex: 'none', display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600, background: '#404040', color: x.carrier === 'Helthjem' ? GREEN : RED },
+          statusS: { fontSize: 13, fontWeight: 500, color: c },
+          chev: { fontSize: 22, color: '#7f7f7f', flex: 'none', transform: op ? 'rotate(180deg)' : 'none', transition: 'transform .2s' },
+          wrap: { borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', background: op ? '#404040' : 'transparent', transition: 'background .2s', opacity: x.st === 'delivered' ? 0.7 : 1 },
+          events: x.events.map(([t, when], j) => ({ t, when, tS: { fontSize: 13, lineHeight: 1.35, color: j ? '#afafaf' : '#fafafa' }, dot: { width: 8, height: 8, borderRadius: 4, flex: 'none', marginTop: 5, background: j ? '#545454' : c } })),
+          facts: [['Leveringsmåte', x.method], ['Hentested', x.pickup], ['Avsender', x.sender], ['Vekt', x.weight], ['Mål', x.dims], ['Estimert', x.eta]].filter(f => f[1] && f[1] !== '–').map(([k, v]) => ({ k, v })) }; }),
+      toggleDelivered: () => set({ showDel: !s.showDel }), delIcon: s.showDel ? 'expand_less' : 'expand_more',
+      delLabel: s.showDel ? 'Skjul leverte' : `Vis leverte (${delivered.length})`,
+      mFilters: [['alle', 'Alle'], ['serier', 'Serier'], ['filmer', 'Filmer'], ...(showPlex ? [['plex', 'Plex']] : [])].map(([k, label]) => ({ label, go: () => { const pk = k === 'serier' ? up.filter(x => x.kind === 'serie') : k === 'filmer' ? up.filter(x => x.kind === 'film') : k === 'plex' ? plex : showPlex ? [...up, ...plex] : up; const o = { mf: k, more: false }; if (view === 'month' && pk.length && !pk.some(x => x.k === s.sel)) { const d = parse(pk[0].k); o.sel = pk[0].k; o.mo = { ...s.mo, fram: (d.getFullYear() - 2026) * 12 + d.getMonth() - 8 }; } set(o); }, style: pill(s.mf === k) })),
+      showMonth: (tab === 'cal' || tab === 'fram') && view === 'month', showCalList: tab === 'cal' && view === 'list', showFramList: tab === 'fram' && view === 'list',
+      prev: () => shift(-1), next: () => shift(1), goToday: () => set({ mo: { ...s.mo, [tab]: 0 }, sel: TK }),
+      monthTitle: `${cap(MONF[first.getMonth()])} ${first.getFullYear()}`,
+      weekLabel: `uke ${isoWeek(cells[0].d)}–${isoWeek(cells[cells.length - 1].d)}`,
+      wd: ['M', 'T', 'O', 'T', 'F', 'L', 'S'], cells: monthCellsV,
+      selTitle: `${cap(DAYS[selD.getDay()])} ${selD.getDate()}. ${MONF[selD.getMonth()]}`, selSub: s.sel === TK ? 'i dag' : '',
+      selCal: tab === 'cal' ? (EVKf[s.sel] || []).map((e, i) => ({ time: e.all ? 'Hele dagen' : e.s + ' – ' + e.e, title: e.t, meta: CALS[e.c][0] + (e.where ? ' · ' + e.where : ''),
+        bar: { width: 4, alignSelf: 'stretch', borderRadius: 2, flex: 'none', background: CALS[e.c][1] },
+        row: { display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' } })) : [], selMedia: tab === 'fram' ? mPool.filter(x => x.k === s.sel).map(mRow) : [],
+      selEmpty: tab === 'cal' ? !(EVKf[s.sel] || []).length : !mPool.some(x => x.k === s.sel),
+      calDays,
+      hero: {
+        chip: { height: 28, padding: '0 11px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, background: heroHere ? 'rgba(102,209,158,0.16)' : '#404040', color: heroHere ? GREEN : '#afafaf' },
+        chipDot: { width: 7, height: 7, borderRadius: 4, background: heroHere ? GREEN : '#7f7f7f' },
+        chipText: heroHere ? 'Nå · Oslo' : PL[place][0],
+        people: (heroHere ? ['Rune', 'Sebastian'] : []).map((n, i) => ({ i: n[0], style: { width: 30, height: 30, borderRadius: 15, marginLeft: i ? -8 : 0, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 600, color: '#282828', background: PEOPLE[n], boxShadow: '0 0 0 2px #3a3a3a' } })),
+        title: heroHere ? 'Rune og Sebastian er i Oslo' : `Ingen på ${PL[place][0]} nå`,
+        sub: heroHere ? 'siden søndag 27. sep · 1 natt så langt' : `Sist besøkt ${PSTAT[place][2]}`,
+        nights: ps[0], visits: ps[1] },
+      places: [[null, 'Alle'], ...Object.keys(PL).map(k => [k, `${PL[k][0]} ${PSTAT[k][0]}`])].map(([k, label]) => ({ label, hasDot: !!k, go: () => set({ place: k }),
+        dot: { width: 7, height: 7, borderRadius: 4, background: k ? PL[k][1] : 'transparent' },
+        style: { ...pill(place === k), background: place === k ? '#fafafa' : 'rgba(255,255,255,0.07)', color: place === k ? '#282828' : '#e1e1e1' } })),
+      hTabs: [['kal', 'Kalender'], ['opp', 'Opphold'], ['stat', 'Statistikk']].map(([k, label]) => ({ label, go: () => set({ hv: k }), style: seg(s.hv === k, 36) })),
+      hvKal: s.hv === 'kal', hvOpp: s.hv === 'opp', hvStat: s.hv === 'stat', hCells,
+      legend: Object.keys(PL).filter(k => !place || k === place).map(k => ({ name: PL[k][0], dot: { width: 10, height: 10, borderRadius: 3, background: PL[k][1] } })),
+      stays: STAYS.filter(r => !place || r[1] === place).map(([who, pl, dates, n], i) => ({ who, i: who[0], dates, n, place: PL[pl][0],
+        av: { width: 32, height: 32, borderRadius: 16, flex: 'none', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600, color: '#282828', background: PEOPLE[who] },
+        tag: { height: 20, padding: '0 7px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600, background: '#404040', color: PL[pl][1] },
+        nStyle: { fontSize: 13, fontWeight: 600, color: n === 'pågår' ? GREEN : '#e1e1e1', flex: 'none' },
+        row: { display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px', borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' } })),
+      bars: MON.slice(0, 9).map((m, i) => { const v = MB[i] || {}, ks = ['O', 'S', 'T'].filter(k => v[k] && (!place || k === place)), tot = ks.reduce((a, k) => a + v[k], 0);
+        return { m, v: tot || '', segs: ks.map(k => ({ width: `${v[k] / 157 * 100}%`, height: '100%', background: PL[k][1] })) }; }),
+      placeStats: Object.keys(PL).map(k => ({ i: PL[k][0][0], name: PL[k][0], n: PSTAT[k][0], meta: `${PSTAT[k][1]} besøk i år · sist ${PSTAT[k][2]}`,
+        badge: { width: 32, height: 32, borderRadius: 16, flex: 'none', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600, color: '#282828', background: PL[k][1] } })),
+      hasHero: !!hero,
+      fh: hero ? { open: open(hero), title: hero.title, sub: [hero.ep, hero.sub].filter(Boolean).join(' · '), meta: [hero.rating !== '–' ? '★ ' + hero.rating : '', hero.len, hero.net].filter(Boolean).join(' · '),
+        chips: [`${rel(parse(hero.k))} kl. ${hero.time}`, SRC[hero.kind]],
+        card: { position: 'relative', width: '100%', boxSizing: 'border-box', display: 'flex', gap: 16, padding: 16, borderRadius: 28, overflow: 'hidden', background: stripe(hero.hue, 0.31, 0.28), boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)' },
+        poster: { width: 88, height: 128, borderRadius: 12, flex: 'none', display: 'grid', placeItems: 'center', background: stripe(hero.hue, 0.45, 0.40), boxShadow: '0 8px 24px rgba(0,0,0,0.35)' } } : {},
+      mGroups, plexGroups, sec, showMore: rest.length > 5, toggleMore: () => set({ more: !s.more }),
+      moreLabel: s.more ? 'Vis færre' : `Vis ${rest.length - 5} til`, moreIcon: s.more ? 'expand_less' : 'expand_more',
+      hasDet: !!det, closeDet: () => set({ det: null }),
+      det: det ? { title: det.title, sub: [det.ep, det.sub, det.net].filter(Boolean).join(' · '),
+        when: det.kind === 'plex' ? `Lagt til ${rel(parse(det.k)).toLowerCase()} kl. ${det.time}` : `${rel(parse(det.k))} kl. ${det.time}`,
+        chips: [det.kind === 'film' ? 'Film' : 'Serie', det.len, det.rating !== '–' ? '★ ' + det.rating : '', ...det.genres].filter(Boolean).filter(c => !(det.kind === 'plex' && c === 'Serie' && !det.ep)),
+        desc: det.desc || 'Ingen beskrivelse tilgjengelig.', play: det.kind === 'plex' ? 'Spill av' : 'Trailer', src: SRC[det.kind],
+        poster: { width: 84, height: 124, borderRadius: 12, flex: 'none', display: 'grid', placeItems: 'center', background: stripe(det.hue, 0.45, 0.40) } } : {},
+    };
+  }
+}
+</script>
+</body>
+</html>
