@@ -11,7 +11,7 @@ window.KI_MSH_VERSION = "1.5.1";
 /* ---- vendor/mysmart-light-control-no.js ---- */
 try {
 /* mysmart-light-control – norsk kopi (tekster oversatt, ikke i «Legg til kort»). Original: src/vendor/mysmart-light-control.js
- * KI MSH-endringer: «msh»-modus (config.msh = true, settes av MSH.lightRowCfg i src/08-light-row.js) gir én felles rad for
+ * KI MSH-endringer (36.8: msh_kelvin = «45 % · 2700 K», msh_height opptil 80, navnestørrelse --msh-nf): «msh»-modus (config.msh = true, settes av MSH.lightRowCfg i src/08-light-row.js) gir én felles rad for
  * alle lys: navn 15/500 + verdi 13 («45 %»/«Av»/«På»), spor msh_height px (std 40) radius 14, håndtak 4 × (høyde − 12)
  * inni sporet, fast 32 px chevron-kolonne. Farger: av = #545454 uten fyll, håndtak #979797; på = lampens farge bare når
  * den støttes (msh_type color → rgb_color, ct → Kelvin), ellers rgb(225 225 225 / .55) – med MSH.lampColor (19.2) i stedet
@@ -360,7 +360,7 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
           ${l?this._renderExpandedControls(e):""}
         </div>
       </ha-card>
-    `}_mshPalette(e,t){const r="var(--gray400, #545454)";if(!t)return{fill:"transparent",rest:r,handle:"var(--gray700, #979797)"};const L=window.MSH&&window.MSH.lampColor;if(L){const p=this._getOverrideSliderColor("rgb",e)||this._getOverrideSliderColor("temp",e),c=L(e,this.config.msh_color,p);return{fill:c.css,mask:window.MSH.lampMask(c.lum),rest:r,handle:"var(--gray1000, #e1e1e1)"}}const i=this.config.msh_type||(this._supportsColor(e)?"color":this._supportsColorTemp(e)?"ct":"dim");let s=null;"color"===i?s=this._getOverrideSliderColor("rgb",e)||this._getStateRgbColor(e)||this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e):"ct"===i&&(s=this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e));return{fill:s||"rgb(225 225 225 / .55)",rest:r,handle:"var(--gray1000, #e1e1e1)"}}_mshClick(e){if(this._isCurrentEntityUnavailable())return;if(this._suppressNextClick)return this._suppressNextClick=!1,e.preventDefault(),void e.stopPropagation();if(this._dragging)return;const t=this.hass.states[this.config.entity];if(!t)return;if(this._shouldRenderToggleMode(t)||"on"!==t.state)return void this.hass.callService("light","on"===t.state?"turn_off":"turn_on",{entity_id:this.config.entity});this._handleTrackClick(e)}_renderMsh(e){const t=this.config,r=this._isUnavailableState(e),i="on"===e.state,s=this._shouldRenderToggleMode(e),o=Math.max(24,Math.min(72,Number(t.msh_height)||40)),n=Math.max(12,o-12),a=Math.min(14,o/2),l=Math.max(8,Math.round(a*.7)),d=t.name||e.attributes.friendly_name||t.entity,h=this._getDisplayBrightness(e),c=s?i?100:0:this._dragging||null!=this._pendingBrightness||i?Math.max(i&&!this._dragging?1:0,this._percentFromBrightness(h)):0,u=c>0,g=this._mshPalette(e,u),p=!s&&this._hasExtraControls(e)&&!1!==t.show_expand_toggle,m=p&&this._expanded,_=r?this._formatUnavailableState(e):s?i?"På":"Av":u?`${c} %`:"Av";return I`
+    `}_mshPalette(e,t){const r="var(--gray400, #545454)";if(!t)return{fill:"transparent",rest:r,handle:"var(--gray700, #979797)"};const L=window.MSH&&window.MSH.lampColor;if(L){const p=this._getOverrideSliderColor("rgb",e)||this._getOverrideSliderColor("temp",e),c=L(e,this.config.msh_color,p);return{fill:c.css,mask:window.MSH.lampMask(c.lum),rest:r,handle:"var(--gray1000, #e1e1e1)"}}const i=this.config.msh_type||(this._supportsColor(e)?"color":this._supportsColorTemp(e)?"ct":"dim");let s=null;"color"===i?s=this._getOverrideSliderColor("rgb",e)||this._getStateRgbColor(e)||this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e):"ct"===i&&(s=this._getOverrideSliderColor("temp",e)||this._getStateTemperatureColor(e));return{fill:s||"rgb(225 225 225 / .55)",rest:r,handle:"var(--gray1000, #e1e1e1)"}}_mshClick(e){if(this._isCurrentEntityUnavailable())return;if(this._suppressNextClick)return this._suppressNextClick=!1,e.preventDefault(),void e.stopPropagation();if(this._dragging)return;const t=this.hass.states[this.config.entity];if(!t)return;if(this._shouldRenderToggleMode(t)||"on"!==t.state)return void this.hass.callService("light","on"===t.state?"turn_off":"turn_on",{entity_id:this.config.entity});this._handleTrackClick(e)}_renderMsh(e){const t=this.config,r=this._isUnavailableState(e),i="on"===e.state,s=this._shouldRenderToggleMode(e),o=Math.max(24,Math.min(80,Number(t.msh_height)||40)),n=Math.max(12,o-12),a=Math.min(14,o/2),l=Math.max(8,Math.round(a*.7)),d=t.name||e.attributes.friendly_name||t.entity,h=this._getDisplayBrightness(e),c=s?i?100:0:this._dragging||null!=this._pendingBrightness||i?Math.max(i&&!this._dragging?1:0,this._percentFromBrightness(h)):0,u=c>0,g=this._mshPalette(e,u),p=!s&&this._hasExtraControls(e)&&!1!==t.show_expand_toggle,m=p&&this._expanded,_=r?this._formatUnavailableState(e):s?i?"På":"Av":u?`${c} %${t.msh_kelvin&&Number(e.attributes.color_temp_kelvin)>0?` · ${Math.round(Number(e.attributes.color_temp_kelvin))} K`:""}`:"Av";return I`
       <ha-card class="${r?"unavailable":""}" style="--msh-h:${o}px;--msh-hh:${n}px;--msh-r:${a}px;--msh-fill:${g.fill};--msh-mask:${g.mask||"none"};--msh-rest:${g.rest};--msh-handle:${g.handle};--mysmart-slider-bar-foreground:${u?g.fill:"var(--gray700, #979797)"};--mysmart-slider-bar-background:var(--gray400, #545454);--mysmart-slider-handle-color:var(--gray1000, #e1e1e1);--mysmart-secondary-gap:12px;--mysmart-secondary-track-height:20px;--mysmart-secondary-handle-height:28px;--mysmart-secondary-handle-width:4px;--mysmart-secondary-radius:10px">
         <div class="msh ${r?"is-disabled":""} ${this._dragging?"drag":""}">
           <div class="msh-hd"><span class="msh-n">${d}</span><span class="msh-v">${_}</span></div>
@@ -1081,7 +1081,7 @@ const e=globalThis,t=e.ShadowRoot&&(void 0===e.ShadyCSS||e.ShadyCSS.nativeShadow
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-size: 15px;
+        font-size: var(--msh-nf, 15px);
         font-weight: 500;
         line-height: 20px;
         color: var(--gray1000, #e1e1e1);
@@ -2340,8 +2340,8 @@ try {
   const SH = {
     solid: {
       scrim: 'background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));backdrop-filter:none;-webkit-backdrop-filter:none;',
-      sheet: 'background:var(--ki-popup, var(--gray050,#282828));backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:28px 28px 0 0;box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 -12px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));color:var(--ki-text, #fafafa);',
-      vars: '--ki-sheet-bg:var(--ki-popup, var(--gray050,#282828));--ki-sheet-blur:none;--ki-sheet-grp:var(--ki-surface, var(--gray200,#3a3a3a));--ki-sheet-grp-sh:none;--ki-sheet-in:var(--ki-surface-2, var(--gray300,#404040));--ki-sheet-seg:var(--ki-popup, var(--gray050,#282828));--ki-sheet-line:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sheet-grab:var(--ki-ctrl, var(--gray400,#545454));',
+      sheet: 'background:var(--ki-popup, #282828);backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:28px 28px 0 0;box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 -12px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));color:var(--ki-text, #fafafa);',
+      vars: '--ki-sheet-bg:var(--ki-popup, #282828);--ki-sheet-blur:none;--ki-sheet-grp:var(--ki-surface, var(--gray200,#3a3a3a));--ki-sheet-grp-sh:none;--ki-sheet-in:var(--ki-surface-2, var(--gray300,#404040));--ki-sheet-seg:var(--ki-popup, #282828);--ki-sheet-line:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sheet-grab:var(--ki-ctrl, var(--gray400,#545454));',
     },
     glass: {
       // Fiks 20.8: ingen backdrop-filter på bakteppet – blur over hele skjermen bak et ark som scroller hakker på mobil
@@ -2698,12 +2698,17 @@ try {
   // full bredde på mobil. Radius 28 28 0 0, håndtak 40×5 (#545454) øverst, bunnpadding 16 px + safe-area.
   // Inn: translateY(100%) → 0 på 280 ms cubic-bezier(.2,.8,.2,1). Dra ned på håndtaket lukker (> 90 px eller raskt sveip).
   MSH.TILPASS_TOP = 50;
-  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false, tilpass = false } = {}) {
+  // 36.7 · Tilpass-ark i popups er ALLTID helt dekkende (#282828 / --ki-popup, ingen blur/opasitet): rotårsaken til
+  // gjennomsiktige ark i HA var at MSH.glassOn() også slår inn via navbar-stilen «glass» (bakoverkompatibelt), og da fikk
+  // arket glassflaten rgba(34,34,37,.72) + blur og gruppene rgba(255,255,255,.06) – popupen bak skinte gjennom. tilpass: true
+  // ignorerer derfor Liquid Glass (menyer/andre overlegg følger det fortsatt). tpTop/tpMaxW: egen toppkant/maks bredde
+  // (sentrert i innholdsflaten), f.eks. «Tilpass kalender» (36.7: top 52 px, maks 440 px, radius 38 via css).
+  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false, tilpass = false, tpTop = null, tpMaxW = null } = {}) {
     const tp = !!tilpass && !center;
     if (tp) sheet = true;
     const host = document.createElement('div');
     host.className = 'msh-portal';
-    const gl = glass != null ? !!glass : MSH.glassOn();
+    const gl = tp ? false : glass != null ? !!glass : MSH.glassOn();
     if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     if (!glassSub && MSH.store && MSH.store.subscribe) glassSub = MSH.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) MSH.glassNotify(); });
     // Fiks 18.4: med vertikal navbar (Fold-oppsettet) ligger ARKET på innholdsflaten til høyre for railen (--ki-rail-x).
@@ -2756,7 +2761,7 @@ try {
       host.classList.remove('on');
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('hashchange', onHash);
-      if (glass == null) window.removeEventListener('ki-glass-change', onGlass);
+      if (glass == null && !tp) window.removeEventListener('ki-glass-change', onGlass);
       setTimeout(() => host.remove(), 250);
       off();
       MSH.sheetCount(-1);
@@ -2779,7 +2784,7 @@ try {
       const st = sr.querySelector('style[data-gl]'); if (g) st.removeAttribute('media'); else st.setAttribute('media', 'not all');
       sr.querySelectorAll('.body *').forEach((el) => { if (el._glassSync) el._glassSync(); });
     };
-    if (glass == null) window.addEventListener('ki-glass-change', onGlass);
+    if (glass == null && !tp) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
     const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); if (tp) tpPlace(D, x); };
@@ -2787,11 +2792,12 @@ try {
     function tpPlace(D, x) {
       const cw = Math.max(0, D.width - x);
       let l = x, w = cw;
-      if (window.innerWidth >= 768) {
+      if (tpMaxW) { w = Math.min(Number(tpMaxW), cw); l = x + (cw - w) / 2; } // 36.7: fast maks bredde, sentrert nederst
+      else if (window.innerWidth >= 768) {
         const pop = openPopupEl(), pr = pop && pop.getBoundingClientRect();
         if (pr && pr.width > 0 && pr.width <= D.width + 1) { l = Math.max(0, pr.left - D.left); w = Math.min(pr.width, D.width - l); } else { w = Math.min(MSH.TILPASS_W || 540, cw); l = x + (cw - w) / 2; }
       }
-      host.style.setProperty('--ki-tp-top', (MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 50) + 'px');
+      host.style.setProperty('--ki-tp-top', (tpTop != null ? Number(tpTop) : MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 50) + 'px');
       host.style.setProperty('--ki-tp-l', Math.round(l) + 'px');
       host.style.setProperty('--ki-tp-w', Math.round(w) + 'px');
       host.dataset.tpSheet = '1'; // data-tp-sheet (ikke data-tilpass – det er navbarens «Tilpass»-menyark, 24.5)
@@ -3971,13 +3977,15 @@ try {
   // Kortets egen editor (samme skjema som GUI-editoren) i et høyt ark; Avbryt/Ferdig ligger i den sticky headeren (Fiks 26).
   // Utkastflyten over (MSH.draftEditor): endringer vises live i alle instanser av kortet, men lagres først ved Ferdig.
   // Er arket for samme kort/nøkkel allerede åpent, gis det åpne tilbake (aldri to ark oppå hverandre).
-  MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title } = {}) {
+  MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title, sheet } = {}) {
     if (!customElements.get(tag || 'msh-editor')) return null;
     const key = MSH.store ? MSH.storeKey(card._yamlConfig || card._rawConfig || card.config, card) : null;
     const open = MSH.draftFor(key || card);
     if (open && open.ui && !open.ui.overlay.closed) return open.ui;
     // Høyt ark med sticky bunnlinje (Avbryt/Ferdig) og alltid synlig håndtak (Fiks 11)
-    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, tilpass: true }); // Fiks 26: Ferdig/Avbryt i headeren · 28.11: popupens høyde
+    // sheet: { top, maxWidth, css } – egen geometri for kortets ark (36.7 «Tilpass kalender»)
+    const sg = sheet || {};
+    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, tilpass: true, guard: 350 /* 36.6: klikket etter et touch-trykk (tannhjul på pointerup) lander ellers på bakteppet og lukker arket med en gang */, tpTop: sg.top != null ? sg.top : null, tpMaxW: sg.maxWidth || null, css: sg.css || '' }); // Fiks 26: Ferdig/Avbryt i headeren · 28.11: popupens høyde
     const ed = document.createElement(tag || 'msh-editor');
     ed.cardClass = cardClass || card.constructor;
     ed.inline = true;
@@ -4482,6 +4490,9 @@ try {
     /* Fiks 26 (brukerens valg): «Ferdig» er en rosa pille ØVERST TIL HØYRE i headeren (ingen bunnlinje); Avbryt = liten ×-knapp ved siden av */
     .ttl .hb{flex:none;width:40px;height:40px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);color:#c7c7c7;display:grid;place-items:center}
     .ttl .done{flex:none;${M.DONE_PILL}}
+    /* 36.7: header som designet («Tilpass kalender»): tittel 24/600, «Nullstill» #3a3a3a (dekkende) + rosa «Ferdig» */
+    .ttl.v2{gap:8px}.ttl.v2 .tt{font-size:24px;font-weight:600}
+    .ttl .hb.rs{width:auto;padding:0 16px;font-size:14px;font-weight:500;color:var(--ki-text, #fafafa);background:var(--ki-surface, #3a3a3a)}
     .ttl .done[disabled]{opacity:.7;cursor:progress}
     @media (max-width:380px){.ttl .tt{font-size:20px}.ttl .done{padding:0 14px}}
     .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, var(--gray000,#232323));opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
@@ -4516,6 +4527,8 @@ try {
     .fsec.ksp>.sec{background:none;box-shadow:none;border:0;border-radius:24px}
     .fsec.ksp>.sec>.in{padding:0}
     .sec>.in>ki-spacing-editor{margin:0}
+    /* 36.7: flat «Mellomrom» (fane i Tilpass-arket) = helt dekkende seksjonskort #3a3a3a r24 + inset .05, forvalg #404040 */
+    .fsec.ksp ki-spacing-editor{--ki-sp-bg:var(--ki-surface, #3a3a3a);--ki-sp-ring:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sp-p:var(--ki-surface-2, #404040)}
     .f{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:var(--ki-surface-2, #404040)}
     .f label{font-size:12px;color:var(--ki-text-2, #afafaf)}
     .f .help{font-size:11px;color:var(--ki-text-3, #7f7f7f)}
@@ -4613,7 +4626,7 @@ try {
   // f.eks. Tilpass Tesla) lytter og lagrer i utkastet.
   const SP_CSS = `:host{display:block;width:100%;min-width:0;box-sizing:border-box;font-family:${M.FONT};color:var(--ki-text, #fafafa)}
     *{box-sizing:border-box}
-    .box{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0;padding:14px 16px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .box{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0;padding:14px 16px;border-radius:24px;background:var(--ki-sp-bg, var(--ki-surface-2, var(--gray300,#404040)));box-shadow:var(--ki-sp-ring, none);opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none}
     .r{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
     .t{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-width:0}
     .l{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;font-weight:500;line-height:1.25}
@@ -4624,7 +4637,7 @@ try {
     .ks.drag{cursor:grabbing}
     .ks input{display:block;width:100%;accent-color:rgb(242 133 201);pointer-events:none;cursor:inherit}
     .c{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
-    .p{height:30px;padding:0 12px;border-radius:15px;border:0;margin:0;font:500 12px ${M.FONT};white-space:nowrap;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa);cursor:pointer;transition:transform .12s}
+    .p{height:30px;padding:0 12px;border-radius:15px;border:0;margin:0;font:500 12px ${M.FONT};white-space:nowrap;background:var(--ki-sp-p, var(--ki-ctrl, #545454));color:var(--ki-text, #fafafa);cursor:pointer;transition:transform .12s}
     .p:active{transform:scale(.95)}
     .p.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:var(--ki-on-accent, #3a3a3a)}
     .h{font-size:11px;color:var(--ki-text-3, #7f7f7f)}`;
@@ -4827,7 +4840,13 @@ try {
       el.innerHTML = this._saveBtnInner();
     }
     _saveBtnInner() { return this._busy ? '<span class="spin" aria-hidden="true"></span>Lagrer …' : 'Ferdig'; }
-    connectedCallback() { this._glassSync(); }
+    connectedCallback() { this._glassSync(); if (this._inline) requestAnimationFrame(() => this._fitTitle()); }
+    _fitTitle() {
+      const tt = this.shadowRoot && this.shadowRoot.querySelector('.ttl.v2 .tt');
+      if (!tt || !tt.clientWidth) return;
+      tt.style.fontSize = ''; let fs = 24;
+      while (tt.scrollWidth > tt.clientWidth + 1 && fs > 16) { fs -= 1; tt.style.fontSize = fs + 'px'; }
+    }
     // Liquid glass-UTSEENDET: kun i et glassark (MSH.overlay med Liquid Glass-tema → vertens data-glass).
     // Segmentvelgerne får Liquid Glass-drag (linse ved trykk og dra) ALLTID, også i standardarket og GUI-editoren (Fiks 15.2).
     _glassSync() {
@@ -4862,6 +4881,8 @@ try {
       if (!this._config || !this._hass) return;
       if (M.pickerBusy && M.pickerBusy(this.shadowRoot)) return; // native velger har fokus (09-pickers) – tegnes ved blur
       const cls = this.cardClass || {};
+      // 36.7: editorHead { reset(hass, cfg, ed) } → header som «Tilpass kalender»: tittel 24/600, «Nullstill» + rosa «Ferdig», ingen X
+      let EH = null; try { EH = cls.editorHead || null; } catch (e) { EH = null; }
       // 31.1: teller tegninger (ed.renders, MSH.renderStats) – logges i debug-modus (localStorage ki:debug = 1)
       this.renders = (this.renders || 0) + 1;
       const rk = 'msh-editor:' + (cls.cardName || this.localName);
@@ -4871,12 +4892,14 @@ try {
       try { schema = this.schema; } catch (e) { console.error('[ki-msh] editor-skjema', e); schema = [{ type: 'info', label: 'Kunne ikke laste denne delen' }]; }
       const body = schema.map((f, i) => this._safeField(f, 'r' + i)).join('');
       const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
-        ${this._inline ? `<div class="ttl"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span><button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button><button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
+        ${this._inline ? `<div class="ttl${EH ? ' v2' : ''}"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span>${EH && EH.reset ? '<button class="hb rs" data-a="hreset">Nullstill</button>' : `<button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button>`}<button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
       this._glassSync();
+      // 36.7: tittelen (24/600) får plass ved siden av «Nullstill» + «Ferdig» – smal skjerm: krymp til den passer (min 16 px)
+      if (EH) this._fitTitle();
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
       this.shadowRoot.querySelectorAll('ha-selector').forEach((p) => {
         p.hass = this._hass;
@@ -5206,6 +5229,7 @@ try {
         case 'hid': { const hs = new Set(get(c, d.name) || []); hs.has(d.v) ? hs.delete(d.v) : hs.add(d.v); return this._set(d.name, [...hs]); }
         case 'save': if (this._busy || b.disabled) return; return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
         case 'cancel': M.haptic('light'); return this.dispatchEvent(new CustomEvent('msh-cancel'));
+        case 'hreset': { const EH = (this.cardClass || {}).editorHead; if (EH && EH.reset) { M.haptic('medium'); EH.reset(this._hass, this._config, this); } return; }
         case 'fn': { const f = (this._htmlF || {})[d.k]; if (f && f.click) f.click(d, this); return; }
         default:
       }
@@ -9828,9 +9852,10 @@ try {
  * fargen under en 22→50 %-maske (mørke farger 30→60 %), overgang 300 ms. Aldri romfarge/adaptiv/localStorage.
  * Av/på-lys: samme spor, trykk veksler. Dra = lysstyrke (touch-action pan-y + stopPropagation), én haptic ved slipp.
  *   M.lightType(state)                          → 'color' | 'ct' | 'dim' | 'onoff' (fra supported_color_modes)
- *   M.lightRowCfg(id, { name, type, user, height }) → config til mysmart-light-control
+ *   M.lightRowCfg(id, { name, type, user, height, color, kelvin }) → config til mysmart-light-control
+ *       color = fast farge (Lys «Farge på lys»: Én farge / Temperatur), kelvin = «45 % · 2700 K» (Lys show_kelvin)
  *       user = lights.<objekt-id> (brightness_min/max, color_control, hide_*, color_presets, live_update)
- *   M.lightRowHeight(cfg)                       → slider_height (32–56, std 40)
+ *   M.lightRowHeight(cfg)                       → slider_height (32–80, std 40; size compact 32 / large 48)
  *   M.mountLightRows(card, cfgOf(id, wrap))     → monter/oppdater i plassholdere [data-lc] (gjenbrukes per entity)
  *   M.lightRowsHass(card, hass)                 → gi nye hass til monterte rader
  *   M.LIGHT_ROW_CSS                             → CSS for plassholderne (.lsl; høyden fra --lr-h på en forelder)
@@ -9848,12 +9873,14 @@ try {
     if (m.some((x) => x !== 'onoff') || (!m.length && s && s.attributes.brightness != null)) return 'dim';
     return 'onoff';
   };
-  // Slider-høyde: slider_height (32–56), ellers eldre tile_height (56 → 40, 64 → 48, 72 → 56) / size: compact → 32
+  // Slider-høyde: slider_height (32–80, Lys v5 40–80), ellers eldre tile_height (56 → 40, 64 → 48, 72 → 56) /
+  // size: compact → 32, large → 48
   M.lightRowHeight = function (c) {
     c = c || {};
     const v = Number(c.slider_height);
-    if (c.slider_height != null && c.slider_height !== '' && !isNaN(v)) return Math.max(32, Math.min(56, Math.round(v)));
+    if (c.slider_height != null && c.slider_height !== '' && !isNaN(v)) return Math.max(32, Math.min(80, Math.round(v)));
     if (c.size === 'compact') return 32;
+    if (c.size === 'large') return 48;
     const th = Number(c.tile_height);
     if (!c.size && th >= 56) return Math.max(32, Math.min(56, 40 + (th - 56)));
     return 40;
@@ -9895,7 +9922,7 @@ try {
   M.lampMask = (lum) => (lum < 0.35 ? 'linear-gradient(90deg, rgb(0 0 0 / .3), rgb(0 0 0 / .6))' : 'linear-gradient(90deg, rgb(0 0 0 / .22), rgb(0 0 0 / .5))');
 
   const B = (v) => (v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined);
-  M.lightRowCfg = function (id, { name, type, user, height, color } = {}) {
+  M.lightRowCfg = function (id, { name, type, user, height, color, kelvin } = {}) {
     const u = user || {};
     const T = type || 'dim';
     const out = {
@@ -9910,6 +9937,7 @@ try {
     };
     if (name) out.name = name;
     if (color) out.msh_color = color;
+    if (kelvin) out.msh_kelvin = true;
     Object.keys(u).forEach((k) => {
       let v = u[k];
       if (v == null || v === '') return;
@@ -9937,7 +9965,8 @@ try {
     const h = card.hass, s = h && h.states[id], on = s && s.state === 'on';
     const p = on && s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : null;
     const lc = on ? M.lampColor(s, ov(card, id)) : null;
-    const val = !s ? 'Finnes ikke' : M.unavailable && M.unavailable(s) ? 'Utilgjengelig' : on ? (p != null ? `${p} %` : 'På') : 'Av';
+    const k = on && card && card.config && card.config.show_kelvin ? Number(s.attributes.color_temp_kelvin) : 0;
+    const val = !s ? 'Finnes ikke' : M.unavailable && M.unavailable(s) ? 'Utilgjengelig' : on ? (p != null ? `${p} %` : 'På') + (k > 0 ? ` · ${Math.round(k)} K` : '') : 'Av';
     return `<div class="lrf"><div class="lrf-hd"><span class="lrf-n">${esc(name || (s ? M.name(h, id) : id))}</span><span class="lrf-v">${esc(val)}</span></div>
       <div class="lrf-t"><span class="lrf-f" style="width:${on ? (p != null ? p : 100) : 0}%${on ? `;background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span></div></div>`;
   };
@@ -9997,7 +10026,7 @@ try {
     .lsl mysmart-light-control{--gray1000:var(--ki-text-1, #e1e1e1);--gray700:var(--ki-text-mid, #979797);--gray400:var(--ki-surface-3, #545454);display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--primary-text-color:var(--ki-text-1, var(--gray1000,#e1e1e1));--secondary-text-color:var(--ki-text-mid, var(--gray700,#979797))}
     .lrf{display:grid;grid-template-columns:minmax(0,1fr) 32px;column-gap:8px;row-gap:8px}
     .lrf-hd{grid-column:1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 2px;min-width:0}
-    .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:20px;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
+    .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--msh-nf,15px);font-weight:500;line-height:20px;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
     .lrf-v{flex:none;font-size:13px;line-height:20px;color:var(--ki-text-mid, var(--gray700,#979797))}
     .lrf-t{grid-column:1;position:relative;height:var(--lr-h,40px);border-radius:14px;background:var(--ki-ctrl, var(--gray400,#545454));overflow:hidden}
     .lrf-f{position:absolute;left:0;top:0;bottom:0;background-color:transparent;transition:background-color .3s ease}
@@ -32797,23 +32826,34 @@ try {
 
 /* ---- 43-lys.js ---- */
 try {
-/* msh-lys-card · Lys-popup (#lys). Kilde: Lys v4.dc.html + fiks3 (punkt 1–3, 5).
- * Rad under Bubble-headeren (Fiks 31.5): felles fanelinje MSH.tabBar (variant gear, 05-tab-bar.js – samme komponent som
- * tab_style gear på Hjem): Utelys · én per etasje (kortnavn som på Hjem) · Lys på, bredde etter teksten; hold + dra =
- * omorganiser (MSH.tabRow → tab_order), og til høyre tannhjulet (56 × 56).
- * Tannhjulet åpner «Tilpass lys»: eget bunnark (MSH.overlay → document.body; solid, frosted med Liquid Glass-tema) med navigasjonsrad Avbryt · tittel ·
- * Ferdig, Visning (Mellomrom/Kolonner/Størrelse/Slider-høyde, live bak arket), Innhold (Faner · Scener · Rom og lys ·
- * Utelys som undersider med «‹ Tilpass») og «Tilbakestill til standard». Ingen omfangsvelger – én felles config.
+/* msh-lys-card · Lys-popupen (#lys). Kilde: Lys v4.dc.html + fiks3 (punkt 1–3, 5); «Tilpass lys» + Design: Lys v5.dc.html (36.8).
+ * Rad under Bubble-headeren (Fiks 31.5): felles fanelinje MSH.tabBar (05-tab-bar.js – samme komponent som tab_style gear
+ * på Hjem): Utelys · én per etasje (kortnavn som på Hjem) · Lys på; hold + dra = omorganiser (MSH.tabRow → tab_order),
+ * tannhjulet = fanehøyden + 8 (56 × 56 ved 48). 36.8 · Design: tab_style pill (= variant gear, standard) | icon (pop/aktiv) |
+ * iconText (pop/begge) | underline | segment, tab_label short|long, tab_count, gear_position right|left, tab_height (MSH.tabH).
+ * Tannhjulet åpner «Tilpass lys» (36.8, Lys v5 «Tilpass lys»): halvhøyt ark (58 % av dashbordflaten, håndtaket bytter
+ * halv ⇄ full), helt dekkende --ki-popup, radius 38 øverst, INGEN bakteppe – popupen er synlig og scrollbar bak arket
+ * (live forhåndsvisning; popupen får arkets høyde ekstra i bunnluft mens arket er halvt). Portalet ut av popupen (MSH.overlay
+ * tilpass, fallgruve 1). Header «Tilpass lys» / «Endringer vises live bak arket», Nullstill + rosa Ferdig. Faner i arket:
+ * Faner · Rom · Scener · Utelys · Design · Visning. Dra-håndtak: touch-action none + stopPropagation (fallgruve 2).
  * Utkastflyten er den felles MSH.draftEditor (fiks 15.13): utkastet vises live, ingen autolagring; Ferdig lagrer én gang
- * (MSH.saveCardConfig, scope 'shared', venter på svar, deaktivert mens det lagres), Avbryt/utenfor/Esc forkaster.
+ * (MSH.saveCardConfig, scope 'shared', venter på svar, deaktivert mens det lagres), Esc / hash-bytte forkaster.
  * Endret et annet sted mens arket er åpent → banner «Last inn». getConfigElement() bruker samme nøkler (static schema).
- * Config-nøkler (arket ⇄ GUI-editoren):
- *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, også mellom lys-radene når tile_gap mangler), tile_gap, columns (1|2),
- *             size (compact|standard → slider 32|40 px), slider_height (32–56, std 40; overstyrer size), pad_top, pad_bottom
+ * Config-nøkler (arket ⇄ GUI-editoren; eldre v4-nøkler leses fortsatt og flyttes ved Ferdig – se migrateV4):
+ *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, også mellom lys-radene når tile_gap mangler), tile_gap, cols (1–3;
+ *             eldre columns), size (compact|standard|large → slider 32|40|48 px), slider_height (32–80, overstyrer size),
+ *             color_mode (lamp|kelvin|single), on_color, off_color (bakgrunnen bak lys-radene), show_kelvin,
+ *             top / bottom (Mellomrom: fra headeren / luft i bunnen; eldre pad_top / pad_bottom)
  *             Eldre tile_height (56|64|72) → slider 40|48|56 når size/slider_height mangler.
- *   Faner:    tab_order, hidden_tabs (minst én fane vises), tab_names.<fane>, start_tab, floor_tabs.<floor_id>
- *   Scener:   scene_source (auto|ki|egne|begge), scene_order, hidden_scenes, include.scener_lys
- *   Rom/lys:  room_order.<floor_id|_>, hidden_rooms, light_order.<area|_>, exclude, include.lys, light_types.<objekt-id>,
+ *   Faner:    tab_order (fane-id), hide_tabs (eldre hidden_tabs; minst én fane vises), tab_names.<fane>, start_tab,
+ *             floor_tabs.<floor_id>
+ *   Design:   tab_style, tab_label (short|long), tab_count, gear_position, tab_height, scene_style (bubble|pill|grid),
+ *             show_scenes, room_header (icon|text|hidden), room_toggle
+ *   Scener:   scene_source (auto|ki|egne|begge), scene_order, hide_scenes (eldre hidden_scenes), extra_scenes (eldre
+ *             include.scener_lys), scene_icon.<slug>, scene_color.<slug> (slug = MSH.slug(scenenøkkel); temafarge var(--navn))
+ *   Rom/lys:  room_order.<floor_id|_>, room_names.<area|_>, hide_rooms (eldre hidden_rooms), light_order.<area|_>,
+ *             light_room.<objekt-id> (flytt lys til annet rom), hide_lights (entity_id), groups.<area|_> {name, members},
+ *             exclude, include.lys, light_types.<objekt-id>,
  *             lights.<objekt-id> {name, icon, brightness_min/max, color_control, hide_*, color_presets}
  *   Utelys:   outdoor {mode, on, off, latest, morning, offset, lux_on, lux_off, kveld, morgen}
  *             (eldre rotnøkler mode/on/off/… leses fortsatt; arket flytter dem inn i outdoor ved Ferdig),
@@ -32832,7 +32872,8 @@ try {
  * Autokonfig: alle light.* gruppert per etasje/område (M.areaOf + hass.areas/hass.floors, pluss KI Rom `lys`).
  * Utelys = lys i utendørs etasje/område (Ute, Hage, Terrasse …) eller med «ute» i navnet.
  * Scener: KI Rom-lysscenene (button.*_lys_*) for rommene i etasjen, gruppert per scene; ellers egne (lysnivåer +
- * scene.* i etasjen). Scener er engangshandlinger – aldri aktiv-tilstand.
+ * scene.* i etasjen) + extra_scenes. Scener er engangshandlinger – aldri aktiv-tilstand (#3a3a3a, bare scale + haptic).
+ * Grupper (36.8): ≥ 2 lenkede lys i et rom vises som ÉN rad («Stue · alle · 3 lys», gul kant), slideren styrer alle.
  * Totaler fra sensor.hele_huset_lys (KI Rom) når den finnes. Rot og ha-card er transparente – Bubble Card tegner flaten.
  */
 (function () {
@@ -32893,8 +32934,49 @@ try {
   const num = (v, d) => (v != null && v !== '' && !isNaN(Number(v)) ? Number(v) : d);
   const gapOf = (c) => num(c && c.gap, 12);
   const rowGapOf = (c) => num(c && c.tile_gap, gapOf(c));
-  const sizeOf = (c) => (c && (c.size === 'compact' || c.size === 'standard') ? c.size : M.lightRowHeight && M.lightRowHeight(c) <= 32 ? 'compact' : 'standard');
+  const sizeOf = (c) => (c && ['compact', 'standard', 'large'].includes(c.size) ? c.size : M.lightRowHeight && M.lightRowHeight(c) <= 32 ? 'compact' : 'standard');
   const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
+
+  /* ------------------------------------------------------------ 36.8 · config (nye nøkler + eldre v4-nøkler) */
+  const uni = (...xs) => [...new Set(xs.flatMap((x) => (Array.isArray(x) ? x : [])))];
+  const TSTYLES = ['pill', 'icon', 'iconText', 'underline', 'segment'];
+  const V = {
+    hideTabs: (c) => uni(c && c.hide_tabs, c && c.hidden_tabs),
+    hideRooms: (c) => uni(c && c.hide_rooms, c && c.hidden_rooms),
+    hideScenes: (c) => uni(c && c.hide_scenes, c && c.hidden_scenes),
+    hideLights: (c) => uni(c && c.hide_lights),
+    extraScenes: (c) => uni(c && c.extra_scenes, c && c.include && c.include.scener_lys),
+    cols: (c) => M.clamp(Math.round(num(c && c.cols, num(c && c.columns, 1))), 1, 3),
+    top: (c) => num(c && c.top, num(c && c.pad_top, -10)),
+    bottom: (c) => num(c && c.bottom, num(c && c.pad_bottom, 150)),
+    tabStyle: (c) => (c && TSTYLES.includes(c.tab_style) ? c.tab_style : 'pill'),
+    sceneStyle: (c) => (c && ['bubble', 'pill', 'grid'].includes(c.scene_style) ? c.scene_style : 'bubble'),
+    roomHeader: (c) => (c && ['icon', 'text', 'hidden'].includes(c.room_header) ? c.room_header : 'icon'),
+    colorMode: (c) => (c && ['lamp', 'kelvin', 'single'].includes(c.color_mode) ? c.color_mode : 'lamp'),
+    on: (c, k, d) => (c && c[k] != null ? c[k] !== false : d),
+  };
+  // Scene-nøkkel → nøkkel i scene_icon / scene_color (ingen punktum i stien: 'scene.stue_kveld' → 'scene_stue_kveld')
+  const sk = (k) => M.slug(k);
+  // Scenens farge: scene_color (temafarge var(--navn) / hex) → standard per lysnivå (Lys v5 SC_DEFCOL) → gul
+  const SC_DEFCOL = { 'p:max': 'var(--yellow)', 'p:kveld': 'var(--orange)', 'p:dim': 'var(--purple)', 'p:natt': 'var(--blue)', 'p:av': 'var(--gray800)' };
+  const scColor = (c, k) => ((c && c.scene_color) || {})[sk(k)] || SC_DEFCOL[k] || 'var(--yellow)';
+  // Som ikon/tekst: aksent mørknes i lys modus; grå = sekundærtekst-token
+  const scInk = (col) => (/gray|grey/i.test(col) ? 'var(--ki-text-2, var(--gray800,#afafaf))' : TH.accentText ? TH.accentText(M.color(col, col)) : M.color(col, col));
+  const scIcon = (c, x) => ((c && c.scene_icon) || {})[sk(x.key)] || x.icon || 'palette';
+  // Kelvin → farge (Lys v5 KEL: ≤2400 oransje · ≤3000 gul · ≤4200 krem · ellers kald hvit)
+  const kelCss = (k) => (k <= 2400 ? 'rgb(242 181 115)' : k <= 3000 ? 'rgb(242 210 111)' : k <= 4200 ? 'rgb(242 228 185)' : 'rgb(222 232 245)');
+  const kelOf = (s) => { const a = (s && s.attributes) || {}; const k = Number(a.color_temp_kelvin) || (Number(a.color_temp) ? 1e6 / Number(a.color_temp) : 0); return k > 0 ? Math.round(k) : null; };
+  // «Av-farge» (bakgrunnen bak lys-radene): lagres som temafarge, vises med token så lys modus blir riktig
+  const OFF_SW = [['', 'Standard', 'var(--ki-surface, var(--gray200,#3a3a3a))'], ['var(--gray300)', 'Lys', 'var(--ki-surface-2, var(--gray300,#404040))'], ['var(--gray100)', 'Mørkest', 'var(--ki-surface-3, var(--gray100,#2f2f2f))'], ['var(--gray400)', 'Lysest', 'var(--ki-ctrl, var(--gray400,#545454))']];
+  const offCss = (v) => { const x = OFF_SW.find((o) => o[0] === (v || '')); return x ? x[2] : M.color(v, OFF_SW[0][2]); };
+  // 36.8 · eldre v4-nøkler → nye (ved Ferdig i arket; lesingen over godtar begge)
+  const migrateV4 = (d) => {
+    const mv = (from, to) => { if (!(from in d)) return; const u = uni(d[to], d[from]); delete d[from]; if (u.length) d[to] = u; else delete d[to]; };
+    mv('hidden_tabs', 'hide_tabs'); mv('hidden_rooms', 'hide_rooms'); mv('hidden_scenes', 'hide_scenes');
+    if (d.include && Array.isArray(d.include.scener_lys)) { const u = uni(d.extra_scenes, d.include.scener_lys); delete d.include.scener_lys; if (!Object.keys(d.include).length) delete d.include; if (u.length) d.extra_scenes = u; }
+    [['columns', 'cols'], ['pad_top', 'top'], ['pad_bottom', 'bottom']].forEach(([a, b]) => { if (a in d) { if (d[b] == null && d[a] != null && d[a] !== '') d[b] = Number(d[a]); delete d[a]; } });
+    return d;
+  };
 
 
   /* ------------------------------------------------------------ autokonfig */
@@ -32911,6 +32993,10 @@ try {
     pool.forEach((id) => { aOf[id] = M.areaOf(hass, id); });
     // KI Rom: lys-attributt per rom (for lys uten område i registeret)
     areas.forEach((a) => { const ov = M.kiRom(hass, a.id, 'oversikt'); if (ov && Array.isArray(ov.attributes.lys)) M.ids(ov.attributes.lys).forEach((id) => { if (pool.includes(id) && !aOf[id]) aOf[id] = a.id; }); });
+    // 36.8: flytt lys til et annet rom (light_room.<objekt-id> = område-id, '_' = uten rom). aOrig = opprinnelig rom.
+    const aOrig = { ...aOf }, lr = cfg.light_room || {}, hasA = (id) => id === '_' || areas.some((a) => a.id === id);
+    pool.forEach((id) => { const to = lr[obj(id)]; if (to && hasA(to)) aOf[id] = to === '_' ? null : to; });
+    out.aOrig = aOrig;
     const isOutArea = (a) => a && ((a.floorName && OUT_FLOOR_RX.test(M.slug(a.floorName))) || (a.floor && OUT_FLOOR_RX.test(a.floor)) || OUT_RX.test(M.slug(a.name)) || OUT_RX.test(a.id));
     const areaMap = Object.fromEntries(areas.map((a) => [a.id, a]));
     out.outAuto = all0.filter((id) => isOutArea(areaMap[aOf[id]]) || (!aOf[id] && OUT_RX.test(hay(hass, id))));
@@ -32931,7 +33017,9 @@ try {
     // Etasjer → rom → lys (utendørs etasjer er dekket av Utelys-fanen). all = alle (for editoren), ids = synlige.
     const byArea = {};
     pool.filter((id) => !outSet.has(id)).forEach((id) => { const a = aOf[id] || '_'; (byArea[a] = byArea[a] || []).push(id); });
-    const room = (area, name, icon) => { const all = byOrder(byArea[area || '_'], ((cfg.light_order || {})[area || '_'])); return { area, name, icon, all, ids: all.filter((id) => !ex.has(id)) }; };
+    // all = alle lys i rommet (editoren), ctl = det scener styrer (− exclude), ids = synlige (− hide_lights)
+    const hidL = new Set(V.hideLights(cfg)), rn = cfg.room_names || {};
+    const room = (area, name, icon) => { const all = byOrder(byArea[area || '_'], ((cfg.light_order || {})[area || '_'])), ctl = all.filter((id) => !ex.has(id)); return { area, name: (rn[area || '_'] && String(rn[area || '_']).trim()) || name, auto: name, icon, all, ctl, ids: ctl.filter((id) => !hidL.has(id)) }; };
     const sortRooms = (rooms, fid) => byOrder(rooms, (cfg.room_order || {})[fid || '_'], (r) => r.area || '_');
     const ft = cfg.floor_tabs || {};
     const floors = M.floors(hass).filter((f) => !OUT_FLOOR_RX.test(M.slug(f.name)) && !OUT_FLOOR_RX.test(f.floor_id));
@@ -32945,6 +33033,9 @@ try {
     if (byArea._) rest.push(room(null, 'Uten rom', 'mdi:home-outline'));
     if (rest.length) out.floors.push({ key: 'f:_', id: null, name: out.floors.length ? 'Andre' : 'Inne', icon: null, rooms: sortRooms(rest, null) });
     out.aOf = aOf;
+    // Rom-velgeren i «Tilpass lys» (flytt lys): alle innerom (også på tvers av etasjer), i etasjerekkefølge
+    out.roomOpts = areas.filter((a) => !isOutArea(a)).map((a) => ({ id: a.id, name: (rn[a.id] && String(rn[a.id]).trim()) || a.name, floor: a.floorName }));
+    if (byArea._) out.roomOpts.push({ id: '_', name: (rn._ && String(rn._).trim()) || 'Uten rom', floor: null });
     // Sensorer / brytere
     const sun = M.all(hass, 'sun')[0] || null;
     out.sun = sun;
@@ -32968,15 +33059,17 @@ try {
     out.total = M.kiRomId(hass, null, 'lys');
     return out;
   };
-  // Faner: [nøkkel, visningsnavn, standardnavn]
+  // Faner: [nøkkel, visningsnavn, standardnavn, ikon]. 36.8: tab_label 'long' = etasjens fulle navn («1. etasje»),
+  // ellers kortnavnet som på Hjem («1. etg»); tab_names.<fane> vinner alltid.
   const tabDefs = (A, c) => {
-    const nm = (c && c.tab_names) || {};
+    const nm = (c && c.tab_names) || {}, long = c && c.tab_label === 'long';
     // Fiks 31.5: etasjene får kortnavnet fra Hjem (fanenavnet der, ellers «1. etasje» → «1. etg»)
-    const sh = (f) => (M.hjemFloorLabel ? M.hjemFloorLabel(f.id, f.name) : f.name);
-    return [['out', 'Utelys'], ...A.floors.map((f) => [f.key, f.id ? sh(f) : f.name]), ['on', 'Lys på']].map(([k, l]) => [k, nm[k] || l, l]);
+    const sh = (f) => (long ? f.name : M.hjemFloorLabel ? M.hjemFloorLabel(f.id, f.name) : f.name);
+    return [['out', 'Utelys', 'mdi:pine-tree'], ...A.floors.map((f, i) => [f.key, f.id ? sh(f) : f.name, f.icon || (f.id ? `mdi:numeric-${Math.min(9, i + 1)}-box-outline` : 'mdi:home-outline')]), ['on', 'Lys på', 'mdi:lightbulb-on-outline']]
+      .map(([k, l, ic]) => [k, (nm[k] && String(nm[k]).trim()) || l, l, ic]);
   };
   // Scener for en etasje: KI Rom-lysscenene (button.*_lys_*) i etasjens rom, gruppert per scene (ett trykk = alle rom),
-  // og/eller egne (lysnivåer + scene.* i etasjen). include.scener_lys legges alltid til. Sortert etter scene_order.
+  // og/eller egne (lysnivåer + scene.* i etasjen). extra_scenes (eldre include.scener_lys) legges alltid til. Sortert etter scene_order.
   M.lysScenes = function (h, c, F) {
     c = c || {};
     if (!h || !F) return [];
@@ -32998,10 +33091,75 @@ try {
       M.all(h, 'scene', (s, id) => F.rooms.some((r) => r.area && M.areaOf(h, id) === r.area)).forEach((id) => own.push({ key: id, label: M.name(h, id), icon: (h.states[id].attributes.icon) || 'palette', ids: [id] }));
     }
     const list = [...ki, ...own];
-    (((c.include || {}).scener_lys) || []).forEach((id) => { if (!list.some((x) => x.key === id)) list.push({ key: id, label: M.name(h, id), icon: (h.states[id] && h.states[id].attributes.icon) || 'palette', ids: [id] }); });
+    V.extraScenes(c).forEach((id) => { if (!list.some((x) => x.key === id)) list.push({ key: id, label: M.name(h, id), icon: (h.states[id] && h.states[id].attributes.icon) || 'palette', ids: [id] }); });
     return byOrder(list, c.scene_order, (x) => x.key);
   };
 
+
+  // 36.8 · Fanestil-CSS på toppen av MSH.tabBar (popupen og forhåndsvisningen i arket). pill = gear uten endringer.
+  const TS_CSS = `
+    .mtb.lys-ts-icon{--mtb-h0:48px;--mtb-r:28px}
+    .mtb.lys-ts-icon .mtb-t.on{flex:1.6 1 auto}
+    .mtb.lys-ts-iconText{--mtb-h0:60px;--mtb-fs0:11px;--mtb-r:22px;--mtb-tr:18px}
+    .mtb.lys-ts-underline{--mtb-pad:0px;--mtb-bg:transparent;--mtb-sh:inset 0 -1px 0 ${WA(0.08)};--mtb-r:0px;--mtb-fg:var(--ki-text-mid, var(--gray700,#979797))}
+    .mtb.lys-ts-underline .mtb-t{border-radius:0}
+    .mtb.lys-ts-underline .mtb-t.on{background:transparent;color:var(--ki-text, #fafafa);box-shadow:inset 0 -2px 0 var(--pink, #f285c9)}
+    .mtb.lys-ts-underline .mtb-g{--g:calc(var(--mtb-h) + 8px)}
+    .mtb.lys-ts-segment{--mtb-bg:var(--ki-surface-3, var(--gray100,#2f2f2f));--mtb-fg:var(--ki-text-2, var(--gray800,#afafaf))}
+    .mtb.lys-ts-segment .mtb-t.on{background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text, #fafafa)}
+    .mtb.lys-gl .mtb-g{order:-1}
+  `;
+  // 36.8 · Scenestil (Lys v5): bobler 58 px · piller 44 px (ikon + navn) · rutenett 3 per rad (76 px). Aldri aktiv-tilstand.
+  const SC_CSS = `
+    .sc{display:flex;gap:12px;overflow-x:auto;padding:2px 4px;scrollbar-width:none}
+    .sc::-webkit-scrollbar{display:none}
+    .scb{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:62px;transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
+    .scbb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .scb:active{transform:scale(.92)}
+    .scl{font-size:11px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));max-width:62px}
+    .sc-pill{gap:8px}
+    .sc-pill .scx{flex-direction:row;width:auto;height:44px;padding:0 16px 0 8px;border-radius:22px;gap:6px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+    .sc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;overflow:visible;padding:0}
+    .sc-grid .scx{width:auto;height:76px;padding:12px;border-radius:20px;align-items:flex-start;justify-content:space-between;gap:0;box-sizing:border-box;background:var(--ki-surface, var(--gray200,#3a3a3a));min-width:0}
+    .scxi{width:28px;height:28px;display:grid;place-items:center;flex:none}
+    .scxl{font-size:13px;font-weight:500;color:var(--ki-text-1, var(--gray1000,#e1e1e1));max-width:100%}
+  `;
+  // 36.8 · gruppe-rad (samme mål som felles lys-rad + gul kant)
+  const LG_CSS = `
+    .lgr{position:relative;margin:-6px -6px;padding:6px;border-radius:18px;box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.25)};touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:pointer}
+    .lgr .lrf-n{display:flex;align-items:center}
+    .lgr .lgt{border-radius:14px}
+    .lgr .lgf{transition:width .3s ease,background-color .3s ease}
+    .lgr.drag .lgf{transition:none}
+  `;
+
+  // 36.8 · fanelinja i valgt Fanestil (felles MSH.tabBar): pill = variant gear (som før), icon = pop/aktiv (ikoner, aktiv
+  // viser navnet), iconText = pop/begge (ikon over tekst), underline / segment = gear + egen CSS (TS_CSS). Tannhjulet følger
+  // fanehøyden (+ 8) og kan stå til venstre (gear_position). o.attrs / o.gearAttrs: forhåndsvisningen i arket.
+  function lysBar(c, items, cur, o) {
+    if (!M.tabBar) return '';
+    o = o || {};
+    const ts = V.tabStyle(c), pop = ts === 'icon' || ts === 'iconText';
+    return M.tabBar.html(items, cur, {
+      variant: pop ? 'pop' : 'gear', mode: ts === 'icon' ? 'aktiv' : ts === 'iconText' ? 'begge' : undefined, gear: true,
+      cls: `lys-tb lys-ts-${ts}${c.gear_position === 'left' ? ' lys-gl' : ''}${o.cls ? ' ' + o.cls : ''}`,
+      key: o.key || 'trow', rowCls: 'tabs', tabCls: 'tab', keyPrefix: o.keyPrefix != null ? o.keyPrefix : '', attrs: o.attrs,
+      gearAttrs: o.gearAttrs || 'data-act="customize" data-haptic="light"', gearLabel: 'Tilpass lys', popup: true, th: M.tabH && M.tabH.own(c), // 33.4: fanehøyde (MSH.tabH)
+    });
+  }
+  // 36.8 · scenene i valgt Scenestil: bobler (runde ikoner, vannrett rad) · piller (ikon + navn i rad) · rutenett (3 per rad).
+  // Ikonet i scenens farge. Engangshandlinger: samme hvileflate alltid, bare trykk-animasjon (scale) + haptic.
+  function scenesHTML(c, scenes, attrs) {
+    if (!scenes.length) return '';
+    const ss = V.sceneStyle(c);
+    return `<section class="sc sc-${ss}${ss === 'grid' ? '' : ' noscroll'}" data-key="sc-${ss}">${scenes.map((x) => {
+      const ink = scInk(scColor(c, x.key)), ic = scIcon(c, x);
+      const at = attrs ? attrs(x) : `data-act="scene" data-k="${esc(x.key)}" data-haptic="success"`;
+      return ss === 'bubble'
+        ? `<button class="scb" ${at} data-key="sc-${esc(x.key)}"><span class="scbb" style="color:${ink}">${M.icon(ic, 24)}</span><span class="scl ell">${esc(x.label)}</span></button>`
+        : `<button class="scb scx" ${at} data-key="sc-${esc(x.key)}"><span class="scxi" style="color:${ink}">${M.icon(ic, 22)}</span><span class="scxl ell">${esc(x.label)}</span></button>`;
+    }).join('')}</section>`;
+  }
 
   class Lys extends M.Card {
     static get cardName() { return 'Lys'; }
@@ -33036,41 +33194,68 @@ try {
         const scOpts = sceneOpts(h, c, a).map((s) => [s.key, `${s.label}${s.ki ? ' · KI Rom' : s.level != null ? ` · lysnivå ${s.level} %` : ''}`]);
         const nLights = a.floors.reduce((n, F) => n + F.rooms.reduce((m, r) => m + r.ids.length, 0), 0);
         const O = (k) => 'outdoor.' + k;
+        const sel = (name, label, opts, def, help) => ({ type: 'select', name, label, options: opts, default: def, ...(help ? { help } : {}) });
+        const hidT = V.hideTabs(c), hidS = V.hideScenes(c), hidR = V.hideRooms(c);
+        const roomOpts = [['', 'Opprinnelig rom'], ...a.roomOpts.map((r) => [r.id, r.floor ? `${r.name} · ${r.floor}` : r.name])];
         const out = [
-          { type: 'section', id: 'look', label: 'Visning', icon: 'mdi:view-dashboard-outline', meta: (hh, cc) => `${gapOf(cc)} px · ${Number(cc.columns) === 2 ? 2 : 1} kolonne${Number(cc.columns) === 2 ? 'r' : ''} · ${sizeOf(cc) === 'compact' ? 'Kompakt' : 'Standard'}`, fields: [
-            { type: 'select', name: 'columns', label: 'Kolonner', options: [[1, '1'], [2, '2']], default: 1 },
-            { type: 'select', name: 'size', label: 'Størrelse', options: [['standard', 'Standard (40 px)'], ['compact', 'Kompakt (32 px)']], default: 'standard' },
-            { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 32, max: 56, default: 40, presets: [[32, 'Kompakt 32'], [40, 'Standard 40'], [48, 'Stor 48'], [56, 'Ekstra stor 56']], help: 'Gjelder alle lys-radene (overstyrer Størrelse)' },
+          { type: 'section', id: 'look', label: 'Visning', icon: 'mdi:view-dashboard-outline', meta: (hh, cc) => `${V.cols(cc)} kolonne${V.cols(cc) > 1 ? 'r' : ''} · ${{ compact: 'Kompakt', large: 'Stor' }[sizeOf(cc)] || 'Standard'} · ${M.lightRowHeight(cc)} px`, fields: [
+            sel('cols', 'Kolonner', [[1, '1'], [2, '2'], [3, '3']], 1),
+            sel('size', 'Kortstørrelse', [['compact', 'Kompakt'], ['standard', 'Standard'], ['large', 'Stor']], 'standard'),
+            { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 40, max: 80, step: 2, default: 40, presets: [[48, 'Lav 48'], [56, 'Standard 56'], [64, 'Høy 64'], [72, 'Ekstra 72']], help: 'Gjelder alle lys-radene (overstyrer kortstørrelsen)' },
+            sel('color_mode', 'Farge på lys', [['lamp', 'Lampens'], ['kelvin', 'Temperatur'], ['single', 'Én farge']], 'lamp', 'Lampens = rgb_color fra HA · Temperatur = varm oransje → kald blåhvit · Én farge = på-fargen under'),
+            { type: 'color', name: 'on_color', label: 'På-farge (Én farge)' },
+            sel('off_color', 'Av-farge (bakgrunn bak lysene)', OFF_SW.map(([v, l]) => [v, l]), ''),
+            { type: 'boolean', name: 'show_kelvin', label: 'Vis fargetemperatur («70 % · 2700 K»)', default: false },
             { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
           ] },
           { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${gapOf(cc)} px mellom`, fields: [
             { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']] },
             { type: 'range', name: 'tile_gap', label: 'Mellom lys-radene', icon: 'mdi:view-grid-outline', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']], help: 'Tomt = som «Mellom seksjonene»' },
-            { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: -10, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [20, 'Luftig 20']] },
-            { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: 150, presets: [[40, 'Liten 40'], [150, 'Standard 150'], [220, 'Stor 220']] },
+            { type: 'range', name: 'top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 44, default: -10, presets: [[-20, 'Tett −20'], [-10, 'Standard −10'], [16, 'Luftig 16']] },
+            { type: 'range', name: 'bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, step: 10, default: 150, presets: [[0, 'Ingen 0'], [150, 'Standard 150'], [220, 'Stor 220']] },
           ] },
-          { type: 'section', id: 'tabs', label: 'Faner', icon: 'mdi:tab', meta: () => `${tabs.filter(([k]) => !(c.hidden_tabs || []).includes(k)).length} av ${tabs.length} vises`, fields: [
+          { type: 'section', id: 'tabs', label: 'Faner', icon: 'mdi:tab', meta: () => `${tabs.filter(([k]) => !hidT.includes(k)).length} av ${tabs.length} vises`, fields: [
             { type: 'info', label: 'Standard: Utelys · én fane per etasje · Lys på. Piler = rekkefølge, øye = skjul (minst én fane vises). Du kan også holde inne en fane i popupen og dra den.' },
-            ...(M.startTab ? [M.startTab.field({ items: () => { const hid = c.hidden_tabs || [], by = Object.fromEntries(tabs.map(([k, l]) => [k, l])); return M.mshOrder(tabs.map(([k]) => k), c.tab_order, hid).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane (felles MSH.startTab)
-            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge og synlighet', start: true, options: tabs.map(([k, l]) => [k, l]) },
-            ...(M.tabH ? [M.tabH.field({ items: tabs.map(([, l]) => l), native: 48, variant: 'gear' })] : []), // 33.4: fanehøyde (felles felt)
+            ...(M.startTab ? [M.startTab.field({ items: () => M.mshOrder(tabs.map(([k]) => k), c.tab_order, hidT).map((k) => { const t = tabs.find((x) => x[0] === k); return { key: k, label: t ? t[1] : k, icon: t && t[3] }; }) })] : []), // 36.5: Startfane (felles MSH.startTab)
+            { type: 'order', name: 'tab_order', hiddenName: 'hide_tabs', label: 'Rekkefølge og synlighet', start: true, options: tabs.map(([k, l]) => [k, l]) },
             { type: 'section', label: 'Navn på fanene', icon: 'mdi:rename-outline', fields: tabs.map(([k, , d]) => ({ type: 'text', name: 'tab_names.' + k, label: d, placeholder: d })) },
             ...(a.floorsHA.length ? [{ type: 'section', label: 'Fane per etasje', icon: 'mdi:home-floor-1', fields: a.floorsHA.map((f) => ({ type: 'boolean', name: 'floor_tabs.' + f.id, label: f.name, default: f.has, help: f.has ? '' : 'Fant ingen lys i etasjen' })) }] : []),
           ] },
-          { type: 'section', id: 'scenes', label: 'Scener', icon: 'mdi:palette', meta: () => `${scOpts.filter(([k]) => !(c.hidden_scenes || []).includes(k)).length} av ${scOpts.length} vises`, fields: [
+          // 36.8 · Design (samme valg som Design-fanen i «Tilpass lys»)
+          { type: 'section', id: 'design', label: 'Design', icon: 'mdi:brush-variant', meta: (hh, cc) => `${{ pill: 'Piller', icon: 'Ikoner', iconText: 'Ikon + tekst', underline: 'Understrek', segment: 'Segment' }[V.tabStyle(cc)]} · ${{ bubble: 'Bobler', pill: 'Piller', grid: 'Rutenett' }[V.sceneStyle(cc)]}`, fields: [
+            sel('tab_style', 'Fanestil', [['pill', 'Piller'], ['icon', 'Ikoner'], ['iconText', 'Ikon + tekst'], ['underline', 'Understrek'], ['segment', 'Segment']], 'pill'),
+            sel('tab_label', 'Faneetiketter', [['short', 'Kort («1. etg»)'], ['long', 'Lang («1. etasje»)']], 'short'),
+            sel('gear_position', 'Tannhjul', [['right', 'Høyre'], ['left', 'Venstre']], 'right'),
+            ...(M.tabH ? [M.tabH.field({ items: tabs.map(([, l]) => l), native: 48, variant: 'gear' })] : []), // 33.4/36.8: fanehøyde (felles felt; arket: 40–56)
+            sel('scene_style', 'Scenestil', [['bubble', 'Bobler'], ['pill', 'Piller'], ['grid', 'Rutenett (3 per rad)']], 'bubble'),
+            sel('room_header', 'Romoverskrift', [['icon', 'Ikon + navn'], ['text', 'Kun navn'], ['hidden', 'Skjult']], 'icon'),
+            { type: 'boolean', name: 'tab_count', label: 'Antall lys på i fanene («1. etg · 3»)', default: false },
+            { type: 'boolean', name: 'show_scenes', label: 'Vis scener', default: true },
+            { type: 'boolean', name: 'room_toggle', label: '«Av / På»-knapp per rom', default: true },
+          ] },
+          { type: 'section', id: 'scenes', label: 'Scener', icon: 'mdi:palette', meta: () => `${scOpts.filter(([k]) => !hidS.includes(k)).length} av ${scOpts.length} vises`, fields: [
             { type: 'info', label: 'Scener er engangshandlinger og vises aldri som aktive. KI Rom-scenene (button.*_lys_*) trykkes for alle rom i etasjen.' },
             { type: 'select', name: 'scene_source', label: 'Kilde', options: [['auto', 'Auto'], ['ki', 'KI Rom'], ['egne', 'Egne'], ['begge', 'Begge']], default: 'auto', help: 'Auto: KI Rom-scenene når etasjen har dem, ellers egne (lysnivåer + scene.* i etasjen)' },
-            ...(scOpts.length ? [{ type: 'order', name: 'scene_order', hiddenName: 'hidden_scenes', label: 'Rekkefølge og synlighet', options: scOpts }] : [{ type: 'info', label: 'Fant ingen scener' }]),
-            { type: 'entities', name: 'include.scener_lys', label: 'Egne scener', domains: ['scene', 'script', 'button'], addLabel: '+ Legg til scene' },
+            ...(scOpts.length ? [{ type: 'order', name: 'scene_order', hiddenName: 'hide_scenes', label: 'Rekkefølge og synlighet', options: scOpts }] : [{ type: 'info', label: 'Fant ingen scener' }]),
+            { type: 'entities', name: 'extra_scenes', label: 'Egne scener', domains: ['scene', 'script', 'button'], addLabel: '+ Legg til scene' },
+            ...sceneOpts(h, c, a).map((x) => ({ type: 'section', label: x.label, icon: scIcon(c, x), meta: () => (x.ki ? 'KI Rom' : x.level != null ? `Lysnivå ${x.level} %` : x.key), fields: [
+              { type: 'icon', name: 'scene_icon.' + sk(x.key), label: 'Ikon', auto: () => x.icon || 'mdi:palette' },
+              { type: 'color', name: 'scene_color.' + sk(x.key), label: 'Farge (ikonet)' },
+            ] })),
           ] },
           { type: 'section', id: 'rooms', label: 'Rom og lys', icon: 'mdi:lightbulb-group', meta: () => `${nLights} lys`, fields: [
-            { type: 'info', label: 'Per rom: rekkefølge og skjul (hidden_rooms). Per lys: navn, ikon og lystype. Lagres under lights.<objekt-id> og light_types.<objekt-id>.' },
+            { type: 'info', label: 'Per rom: navn, rekkefølge, skjul og grupper (≥ 2 lys = én rad i popupen). Per lys: flytt til annet rom, navn, ikon og lystype.' },
             ...a.floors.map((F) => ({ type: 'section', label: F.name, icon: F.icon || 'mdi:home-floor-1', meta: () => `${F.rooms.length} rom`, fields: [
-              { type: 'order', name: 'room_order.' + (F.id || '_'), hiddenName: 'hidden_rooms', label: 'Rom (rekkefølge og synlighet)', options: F.rooms.map((r) => [r.area || '_', r.name]) },
-              ...F.rooms.map((r) => ({ type: 'section', label: r.name, icon: r.icon || 'mdi:texture-box', meta: () => `${r.ids.length} av ${r.all.length} vises`, fields: [
-                { type: 'order', name: 'light_order.' + (r.area || '_'), hiddenName: 'exclude', label: 'Lys (rekkefølge og synlighet)', options: r.all.map((id) => [id, nmOf(id, r.name)]) },
-                ...r.all.map((id) => light(id, r.name)),
-              ] })),
+              { type: 'order', name: 'room_order.' + (F.id || '_'), hiddenName: 'hide_rooms', label: 'Rom (rekkefølge og synlighet)', options: F.rooms.map((r) => [r.area || '_', r.name]) },
+              ...F.rooms.map((r) => { const rk = r.area || '_'; return { type: 'section', label: r.name, icon: r.icon || 'mdi:texture-box', meta: () => `${r.ids.length} av ${r.all.length} vises${hidR.includes(rk) ? ' · skjult' : ''}`, fields: [
+                { type: 'text', name: 'room_names.' + rk, label: 'Navn på rommet', placeholder: r.auto },
+                { type: 'order', name: 'light_order.' + rk, hiddenName: 'hide_lights', label: 'Lys (rekkefølge og synlighet)', options: r.all.map((id) => [id, nmOf(id, r.name)]) },
+                { type: 'section', label: 'Gruppe (én rad i popupen)', icon: 'mdi:lightbulb-group', meta: () => { const g = (c.groups || {})[rk]; return g && (g.members || []).length >= 2 ? `${g.members.length} lys` : 'ingen'; }, fields: [
+                  { type: 'text', name: `groups.${rk}.name`, label: 'Gruppenavn', placeholder: `${r.name} · alle` },
+                  { type: 'entities', name: `groups.${rk}.members`, label: 'Lys i gruppen (minst 2)', domains: ['light'], addLabel: '+ Legg til lys' },
+                ] },
+                ...r.all.map((id) => ({ ...light(id, r.name), fields: [{ type: 'select', name: 'light_room.' + obj(id), label: 'Rom', options: roomOpts, default: '', help: 'Flytt lyset til et annet rom (også i en annen etasje)' }, ...light(id, r.name).fields] })),
+              ] }; }),
             ] })),
             { type: 'entities', name: 'include.lys', label: 'Lagt til', domains: ['light'], addLabel: '+ Legg til lys' },
           ] },
@@ -33117,6 +33302,21 @@ try {
     }
     get cardSize() { return 10; }
     get cfg() { return { ...DEF, ...this.config, ...outCfg(this.config) }; }
+    // 36.8: Mellomrom heter top / bottom (eldre pad_top / pad_bottom) – basekortets _applySpacing leser pad_*
+    setConfig(c) {
+      super.setConfig(c);
+      const x = this._config;
+      if (x && x.top != null && x.top !== '') x.pad_top = Number(x.top);
+      if (x && x.bottom != null && x.bottom !== '') x.pad_bottom = Number(x.bottom);
+    }
+    // Mens «Tilpass lys» står halvt oppe: popupen får arkets høyde ekstra luft i bunnen, så alt kan scrolles fram bak arket
+    _applySpacing() {
+      super._applySpacing();
+      const S = this._sheet;
+      if (!S || S.ov.closed || this._config.embedded || !this.style.paddingBottom) return;
+      const h = S.st.full ? 0 : Math.round((S.ov.host.getBoundingClientRect().height || window.innerHeight) * 0.58);
+      if (h) this.style.paddingBottom = `calc(${M.popupBottomPad(V.bottom(this._config))} + ${h}px)`;
+    }
     // Tannhjulet / «Velg entitet»: eget «Tilpass lys»-ark (ikke den generiske editoren)
     customize(focus) { return openSheet(this, focus); }
 
@@ -33132,17 +33332,32 @@ try {
     render() {
       const c = this.cfg, A = M.lysAuto(this.hass, this.config), ui = this.ui;
       this._A = A;
-      const defs = tabDefs(A, c), names = Object.fromEntries(defs.map(([k, l]) => [k, l]));
-      const tabs = M.mshOrder(defs.map((d) => d[0]), c.tab_order, c.hidden_tabs);
+      const tabs = this._tabs(A, c);
       const tab = tabs.includes(ui.tab) ? ui.tab : tabs.includes(c.start_tab) ? c.start_tab : tabs[0];
       const body = tab === 'out' ? this._out(A) : tab === 'on' ? this._on(A) : this._floor(A, A.floors.find((f) => f.key === tab));
-      const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${Number(c.columns) === 2 ? 2 : 1};--lr-h:${M.lightRowHeight(this.config)}px`;
-      // Fiks 31.5: fanelinjen + tannhjulet = felles MSH.tabBar (variant gear, samme som tab_style gear på Hjem / Innstillinger)
-      const bar = M.tabBar ? M.tabBar.html(tabs.map((k) => ({ key: k, label: names[k] })), tab, { variant: 'gear', key: 'trow', rowCls: 'tabs', tabCls: 'tab', keyPrefix: '', gearAttrs: 'data-act="customize" data-haptic="light"', gearLabel: 'Tilpass lys', popup: true, th: M.tabH && M.tabH.own(c) }) : ''; // 33.4: fanehøyde (MSH.tabH)
-      return `<div class="wrap" style="${vars}">
-        ${bar}
+      const sz = sizeOf(this.config);
+      const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${V.cols(c)};--lr-h:${M.lightRowHeight(this.config)}px;--lys-off:${offCss(c.off_color)}`;
+      // Fiks 31.5 / 36.8: fanelinjen + tannhjulet = felles MSH.tabBar i stilen fra Design-fanen (lysBar)
+      return `<div class="wrap lys-sz-${sz}" style="${vars}">
+        ${lysBar(c, this._tabItems(A, c, tabs), tab)}
         ${body || ''}
       </div>`;
+    }
+    // Synlige faner i tab_order-rekkefølge (hide_tabs / eldre hidden_tabs bort)
+    _tabs(A, c) { c = c || this.cfg; return M.mshOrder(tabDefs(A, c).map((d) => d[0]), c.tab_order, V.hideTabs(c)); }
+    // Fanene som items til MSH.tabBar: navn (kort/lang), ikon og (tab_count) antall lys på · «1. etg · 3»
+    _tabItems(A, c, keys) {
+      const defs = Object.fromEntries(tabDefs(A, c).map((d) => [d[0], d]));
+      const cnt = c.tab_count ? this._tabCounts(A) : {};
+      return keys.map((k) => { const d = defs[k] || [k, k, k, 'mdi:tab']; return { key: k, label: d[1] + (cnt[k] ? ` · ${cnt[k]}` : ''), icon: d[3] }; });
+    }
+    _tabCounts(A) {
+      const on = (id) => { const s = this.hass && this.hass.states[id]; return s && s.state === 'on'; }, out = {};
+      out.out = A.lamps.filter((l) => on(l.id)).length;
+      const hid = new Set(V.hideRooms(this.config));
+      A.floors.forEach((F) => { out[F.key] = F.rooms.filter((r) => !hid.has(r.area || '_')).reduce((n, r) => n + r.ids.filter(on).length, 0); });
+      try { out.on = this._onList(A).ids.length; } catch (e) { out.on = 0; }
+      return out;
     }
 
     /* ---------------- lys: felles lys-rad (08-light-row.js) per lys (plassholder data-nomorph, fylles i _mountLights) */
@@ -33151,7 +33366,7 @@ try {
     }
     _lightCfg(id, name) {
       const c = this.config, s = this.hass.states[id];
-      return M.lightRowCfg(id, { name: name || lcfg(c, id).name || cap(M.name(this.hass, id)), type: ltype(c, id, s), user: lcfg(c, id), height: M.lightRowHeight(c) });
+      return M.lightRowCfg(id, { name: name || lcfg(c, id).name || cap(M.name(this.hass, id)), type: ltype(c, id, s), user: lcfg(c, id), height: M.lightRowHeight(c), color: this._modeColor(id, s) || undefined, kelvin: !!c.show_kelvin });
     }
     _mountLights() { M.mountLightRows(this, (id, wrap) => this._lightCfg(id, wrap.dataset.name)); }
     set hass(h) {
@@ -33291,8 +33506,8 @@ try {
       if (!L.length) return M.emptyState('Fant ingen utelamper', 'utelys');
       return `<section class="lps" data-key="ut-lamps">${L.map((l) => {
         const s = this.s(l.id), on = M.isOn(s), dim = String(l.id).startsWith('light.') && s && dimmable(s, this.config, l.id);
-        const pct = on ? (dim ? pctOf(s) : 100) : 0, ov = (this.config.overrides || {})[l.id];
-        const lc = on && M.lampColor ? M.lampColor(s, (ov && typeof ov === 'object' && ov.color) || lcfg(this.config, l.id).color) : { css: Y, lum: 0.7 };
+        const pct = on ? (dim ? pctOf(s) : 100) : 0;
+        const lc = on && M.lampColor ? M.lampColor(s, this._modeColor(l.id, s) || undefined) : { css: Y, lum: 0.7 };
         const ic = l.icon || (s && s.attributes.icon) || (on ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline');
         const val = !s ? 'Finnes ikke' : M.unavailable(s) ? 'Utilgjengelig' : on ? (dim ? `${pct} %` : 'På') : 'Av';
         return `<div class="lp${on ? ' on' : ''}" data-lp="${esc(l.id)}" data-ent="${esc(l.id)}" data-dim="${dim ? 1 : 0}" data-pct="${pct}" data-key="lp-${esc(l.id)}" role="button" aria-label="${esc(l.name)}">
@@ -33346,20 +33561,44 @@ try {
     /* ---------------- Etasje */
     _floor(A, F) {
       if (!F) return M.emptyState('Fant ingen lys', 'rooms');
-      const c = this.config, hid = new Set(c.hidden_rooms || []), hidSc = new Set(c.hidden_scenes || []);
-      // Scener: engangshandlinger – samme hvile-utseende alltid, bare trykk-animasjon + haptic
-      const scenes = M.lysScenes(this.hass, c, F).filter((x) => !hidSc.has(x.key));
-      let out = scenes.length ? `<section class="sc noscroll">${scenes.map((x) => `<button class="scb" data-act="scene" data-k="${esc(x.key)}" data-key="sc-${esc(x.key)}" data-haptic="success"><span class="scbb">${M.icon(x.icon || 'palette', 24)}</span><span class="scl ell">${esc(x.label)}</span></button>`).join('')}</section>` : '';
+      const c = this.config, hid = new Set(V.hideRooms(c)), hidSc = new Set(V.hideScenes(c)), rh = V.roomHeader(c), tog = V.on(c, 'room_toggle', true);
+      // Scener (36.8: Vis scener + Scenestil): engangshandlinger – samme hvile-utseende alltid, bare trykk-animasjon + haptic
+      const scenes = V.on(c, 'show_scenes', true) ? M.lysScenes(this.hass, c, F).filter((x) => !hidSc.has(x.key)) : [];
+      let out = scenesHTML(c, scenes);
       const rooms = F.rooms.filter((r) => r.ids.length && !hid.has(r.area || '_'));
       out += rooms.map((r) => {
-        const n = r.ids.filter((id) => { const s = this.s(id); return s && s.state === 'on'; }).length;
-        return `<section class="col" style="gap:8px" data-key="r-${esc(r.area || '_')}">
-          <div class="rh">${M.icon(r.icon || 'mdi:texture-box', 18, 'color:var(--ki-text, #fafafa)')}<span class="grow t15 ell" style="color:var(--ki-text, #fafafa)">${esc(r.name)}</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap">${n ? `${n} på` : 'alle av'}</span>
-            <button class="all press" data-act="room" data-area="${esc(r.area || '')}" data-on="${n ? 1 : 0}" data-haptic="success" style="background:${n ? C.ctrl : M.alpha(Y, 0.18)};color:${n ? 'var(--ki-text, #fafafa)' : `var(--ki-text, ${Y})`}">${n ? 'Av' : 'På'}</button></div>
-          <div class="lbox">${r.ids.map((id) => this._light(id, lcfg(c, id).name || cap(M.name(this.hass, id, r.name)), r.area)).join('')}</div></section>`;
+        const n = r.ids.filter((id) => { const s = this.s(id); return s && s.state === 'on'; }).length, rk = r.area || '_';
+        // 36.8: gruppe (≥ 2 synlige lenkede lys) = ÉN rad først i rommet, resten som før
+        const g = (c.groups || {})[rk], gm = g && Array.isArray(g.members) ? g.members.filter((id) => r.ids.includes(id)) : [], grp = gm.length >= 2 ? gm : [];
+        const head = rh === 'hidden' ? '' : `<div class="rh">${rh === 'icon' ? M.icon(r.icon || 'mdi:texture-box', 18, 'color:var(--ki-text, #fafafa)') : ''}<span class="grow t15 ell" style="color:var(--ki-text, #fafafa)">${esc(r.name)}</span><span class="t12" style="color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap">${n ? `${n} på` : 'alle av'}</span>
+            ${tog ? `<button class="all press" data-act="room" data-area="${esc(r.area || '')}" data-on="${n ? 1 : 0}" data-haptic="success" style="background:${n ? C.ctrl : M.alpha(Y, 0.18)};color:${n ? 'var(--ki-text, #fafafa)' : `var(--ki-text, ${Y})`}">${n ? 'Av' : 'På'}</button>` : ''}</div>`;
+        return `<section class="col" style="gap:8px" data-key="r-${esc(rk)}">${head}
+          <div class="lbox">${grp.length ? this._group(rk, grp, (g.name && String(g.name).trim()) || `${r.name} · alle`) : ''}${r.ids.filter((id) => !grp.includes(id)).map((id) => this._light(id, lcfg(c, id).name || cap(M.name(this.hass, id, r.name)), r.area)).join('')}</div></section>`;
       }).join('');
       if (!rooms.length) out += M.emptyState('Alle rom i etasjen er skjult', 'rooms');
       return out;
+    }
+    // 36.8 · gruppe-rad: samme mål som den felles lys-raden (08), gul kant + gruppeikon, «45 % · 3 lys». Dra = lysstyrke
+    // for alle (touch-action pan-y + stopPropagation), trykk = av/på for alle (_bindGroups).
+    _group(rk, ids, name) {
+      const st = ids.map((id) => this.s(id)), on = st.filter((s) => s && s.state === 'on'), dimA = ids.filter((id) => dimmable(this.s(id), this.config, id));
+      const pct = on.length ? Math.round(st.reduce((t, s) => t + pctOf(s), 0) / ids.length) : 0;
+      const col = on.length ? this._modeColor(ids.find((id) => M.isOn(this.s(id))), this.s(ids.find((id) => M.isOn(this.s(id))))) : null;
+      const lc = on.length && M.lampColor ? M.lampColor(on[0], col || undefined) : null, K = this.config.show_kelvin && on.length ? kelOf(on[0]) : null;
+      const val = (on.length ? `${pct} %` : 'Av') + ` · ${ids.length} lys` + (K ? ` · ${K} K` : '');
+      return `<div class="lgr" data-grp="${esc(rk)}" data-ids="${esc(ids.join(','))}" data-pct="${pct}" data-dim="${dimA.length ? 1 : 0}" data-key="lg-${esc(rk)}" role="group" aria-label="${esc(name)}">
+        <div class="lrf"><div class="lrf-hd"><span class="lrf-n">${M.icon('mdi:lightbulb-group', 18, `color:${on.length ? YT : 'var(--ki-text-mid, var(--gray700,#979797))'};margin-right:6px;vertical-align:-3px`)}${esc(name)}</span><span class="lrf-v lgv">${esc(val)}</span></div>
+          <div class="lrf-t lgt"><span class="lrf-f lgf" style="width:${pct}%${lc ? `;background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span></div></div></div>`;
+    }
+    // 36.8 · Farge på lys (color_mode): lamp = lampens egen (MSH.lampColor), kelvin = Kelvin-tone, single = on_color.
+    // Egen farge per lys (overrides.<id>.color / lights.<objekt-id>.color) går alltid foran.
+    _modeColor(id, s) {
+      const c = this.config, ov = (c.overrides || {})[id], own = (ov && typeof ov === 'object' && ov.color) || lcfg(c, id).color;
+      if (own) return own;
+      const m = V.colorMode(c);
+      if (m === 'single') return c.on_color ? M.color(c.on_color) : C.yellow;
+      if (m === 'kelvin') return kelCss(kelOf(s) || 2700);
+      return null;
     }
 
     /* ---------------- Lys på */
@@ -33387,7 +33626,7 @@ try {
       return `<section class="sum"><span class="col grow"><span class="big num">${ids.length}</span><span class="t12 dim">${hasW ? `lys på · ca. ${M.nf(w, 0)} W` : `lys på · av ${total}`}</span></span>
           <button class="offall press" data-act="alloff" data-haptic="success" ${ids.length ? '' : 'disabled style="opacity:.5"'}>${M.icon('dark_mode', 20)}Slå av alle</button></section>
         <section class="col" style="gap:8px">
-          ${ids.map((id) => { const s = this.s(id), a = A.aOf[id] || M.areaOf(this.hass, id), ov = (this.config.overrides || {})[id], lc = M.lampColor ? M.lampColor(s, (ov && typeof ov === 'object' && ov.color) || lcfg(this.config, id).color) : { css: Y }; return `<button class="onr press" data-act="off" data-id="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" data-haptic="success"><span class="oni" style="background:${lc.css}">${M.icon('lightbulb', 20)}</span><span class="grow col"><span class="t14 ell">${esc(M.name(this.hass, id))}</span><span class="t11 dim ell">${esc(`${a ? M.areaName(this.hass, a) : 'Uten rom'} · ${dimmable(s) ? pctOf(s) + ' %' : 'På'}`)}</span></span>${M.icon('power_settings_new', 20, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}</button>`; }).join('')}
+          ${ids.map((id) => { const s = this.s(id), a = A.aOf[id] || M.areaOf(this.hass, id), lc = M.lampColor ? M.lampColor(s, this._modeColor(id, s) || undefined) : { css: Y }; return `<button class="onr press" data-act="off" data-id="${esc(id)}" data-ent="${esc(id)}" data-key="${esc(id)}" data-haptic="success"><span class="oni" style="background:${lc.css}">${M.icon('lightbulb', 20)}</span><span class="grow col"><span class="t14 ell">${esc(M.name(this.hass, id))}</span><span class="t11 dim ell">${esc(`${a ? M.areaName(this.hass, a) : 'Uten rom'} · ${dimmable(s) ? pctOf(s) + ' %' : 'På'}`)}</span></span>${M.icon('power_settings_new', 20, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}</button>`; }).join('')}
           ${ids.length ? '' : '<div class="none">Alle lys er av</div>'}
         </section>`;
     }
@@ -33436,7 +33675,7 @@ try {
           if (!it) return;
           toast(`${F.name}: ${it.label}`);
           if (it.level != null) {
-            const ids = F.rooms.flatMap((r) => r.ids);
+            const ids = F.rooms.flatMap((r) => r.ctl || r.ids); // 36.8: også skjulte rom/lys (scener styrer alt i etasjen)
             if (!ids.length) return;
             if (!it.level) return M.call(h, 'light', 'turn_off', { entity_id: ids });
             const dim = ids.filter((id) => dimmable(this.s(id), this.config, id)), plain = ids.filter((id) => !dimmable(this.s(id), this.config, id));
@@ -33459,10 +33698,10 @@ try {
       }
     }
     // 36.5: startfane ved åpning (MSH.startTab via basekortet): synlige faner i tab_order-rekkefølge
-    static get startTabSpec() { return { tabs: (card) => M.mshOrder(tabDefs(card._A || M.lysAuto(card.hass, card.config), card.cfg).map((x) => x[0]), card.cfg.tab_order, card.cfg.hidden_tabs) }; }
+    static get startTabSpec() { return { tabs: (card) => card._tabs(card._A || M.lysAuto(card.hass, card.config), card.cfg) }; }
     _curTab() {
-      const c = this.cfg, A = this._A;
-      const tabs = M.mshOrder(tabDefs(A, c).map((x) => x[0]), c.tab_order, c.hidden_tabs);
+      const c = this.cfg, A = this._A || M.lysAuto(this.hass, this.config);
+      const tabs = this._tabs(A, c);
       return tabs.includes(this.ui.tab) ? this.ui.tab : tabs.includes(c.start_tab) ? c.start_tab : tabs[0];
     }
 
@@ -33473,7 +33712,7 @@ try {
         active: () => this._curTab(),
         order: () => M.mshOrder(tabDefs(this._A || M.lysAuto(this.hass, this.config), this.cfg).map((x) => x[0]), this.cfg.tab_order, []),
         onSelect: (k) => this.setUI({ tab: k }),
-        save: (full, keys) => { const hid = this.config.hidden_tabs || []; return M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
+        save: (full, keys) => { const hid = V.hideTabs(this.config); return M.mshPatchConfig(this, { tab_order: keys.concat(hid.filter((k) => !keys.includes(k))) }); },
       });
       M.mshTabDrag(this, this.shadowRoot.querySelector('.seg'), { glass: true, onSelect: (k) => { const b = this.shadowRoot.querySelector(`.seg [data-key="${k}"]`); if (b) this.onAction('mode', b); } });
       const sr = this.shadowRoot.querySelector('.sr');
@@ -33482,6 +33721,7 @@ try {
       if (sc && !sc.__b) { sc.__b = true; const st = (e) => e.stopPropagation(); sc.addEventListener('touchstart', st, { passive: true }); sc.addEventListener('touchmove', st, { passive: true }); }
       this._mountLights();
       this._bindLamps();
+      this._bindGroups();
       if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this);
     }
     // 22.10: døgnringen oppdateres hvert minutt, bare mens popupen er åpen (onOpen/onClose fra MSH.Card)
@@ -33491,6 +33731,67 @@ try {
     }
     onClose() { clearInterval(this._utT); this._utT = null; }
     // Utelampe-pillene: trykk = av/på, dra sidelengs = dimming (pan-y + stopPropagation, fallgruve 2), hold = more-info
+    // 36.8 · gruppe-radene: trykk = av/på for alle, dra sidelengs = lysstyrke for alle (pan-y + stopPropagation – fallgruve 2)
+    _bindGroups() {
+      const R = this.shadowRoot;
+      if (!R || R.__lgr) return;
+      R.__lgr = true;
+      let g = null;
+      const stop = (e) => { if (e.target.closest && e.target.closest('.lgr')) e.stopPropagation(); };
+      R.addEventListener('touchstart', stop, { passive: true });
+      R.addEventListener('touchmove', stop, { passive: true });
+      R.addEventListener('pointerdown', (e) => {
+        const el = e.target.closest && e.target.closest('.lgr');
+        if (!el || e.button) return;
+        e.stopPropagation();
+        const t = el.querySelector('.lgt') || el, r = t.getBoundingClientRect();
+        g = { el, x: e.clientX, y: e.clientY, t: Date.now(), left: r.left, w: r.width || 1, drag: false, pct: null, id: e.pointerId };
+      });
+      R.addEventListener('pointermove', (e) => {
+        if (!g) return;
+        const dx = e.clientX - g.x, dy = e.clientY - g.y;
+        if (!g.drag) {
+          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g = null; return; }
+          if (Math.abs(dx) < 8 || g.el.dataset.dim !== '1') return;
+          g.drag = true;
+          try { g.el.setPointerCapture(g.id); } catch (x) { /* */ }
+          g.el.classList.add('drag');
+        }
+        e.stopPropagation();
+        const p = Math.max(0, Math.min(100, Math.round(((e.clientX - g.left) / g.w) * 100)));
+        if (p !== g.pct) {
+          g.pct = p;
+          const f = g.el.querySelector('.lgf'), v = g.el.querySelector('.lgv'), n = (g.el.dataset.ids || '').split(',').filter(Boolean).length;
+          if (f) { f.style.width = p + '%'; if (!f.style.backgroundColor) f.style.backgroundColor = Y; }
+          if (v) v.textContent = `${p ? p + ' %' : 'Av'} · ${n} lys`;
+        }
+      });
+      const end = (e) => {
+        if (!g) return;
+        const G0 = g; g = null;
+        G0.el.classList.remove('drag');
+        const ids = (G0.el.dataset.ids || '').split(',').filter(Boolean);
+        if (!ids.length) return;
+        if (G0.drag) {
+          if (e.type !== 'pointerup' || G0.pct == null) return this._schedule(true);
+          M.haptic('light');
+          this._swallow = true; setTimeout(() => { this._swallow = false; }, 400);
+          const dim = ids.filter((id) => dimmable(this.s(id), this.config, id)), plain = ids.filter((id) => !dim.includes(id));
+          if (!G0.pct) return M.call(this.hass, 'light', 'turn_off', { entity_id: ids });
+          if (dim.length) M.call(this.hass, 'light', 'turn_on', { entity_id: dim, brightness_pct: G0.pct });
+          if (plain.length) M.call(this.hass, 'light', 'turn_on', { entity_id: plain });
+          return undefined;
+        }
+        if (e.type === 'pointerup' && Date.now() - G0.t < 500) {
+          M.haptic('light');
+          const any = ids.some((id) => M.isOn(this.s(id)));
+          return M.call(this.hass, 'light', any ? 'turn_off' : 'turn_on', { entity_id: ids });
+        }
+        return undefined;
+      };
+      R.addEventListener('pointerup', end);
+      R.addEventListener('pointercancel', end);
+    }
     _bindLamps() {
       const R = this.shadowRoot;
       if (!R || R.__utLp) return;
@@ -33556,8 +33857,14 @@ try {
         /* fane-rad (Fiks 31.5, Lys v4 rettet): felles MSH.tabBar gear – flate #3a3a3a r28 pad 4 gap 2, faner 48 px r24
            bredde etter teksten, tannhjul 56 × 56 */
         ${M.tabBar ? M.tabBar.CSS : ''}
+        ${TS_CSS}
         /* lys-rader (felles rad, 12 px mellom); vendor-lyskontrollens --gray1000/700/400 → tokens i M.LIGHT_ROW_CSS (08) */
-        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--lys-off,var(--ki-surface, var(--gray200,#3a3a3a)))}
+        /* 36.8 · Kortstørrelse: navnet i lys-raden (--msh-nf, 08/vendor) og luft i kortet */
+        .lys-sz-compact .lbox{padding:10px 10px 10px 12px;border-radius:24px;--msh-nf:13px}
+        .lys-sz-large .lbox{padding:18px 14px 18px 18px;border-radius:30px;--msh-nf:17px}
+        .lys-sz-compact .lrf-n{font-size:13px} .lys-sz-large .lrf-n{font-size:17px}
+        ${LG_CSS}
         /* Utelys-kortet */
         .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .4s}
         .uc.lit{background:linear-gradient(160deg, ${TONE(Y, 0.12)}, var(--ki-surface, var(--gray200,#3a3a3a)) 55%)}
@@ -33637,12 +33944,8 @@ try {
         .fb{display:flex;flex-direction:column;padding:0 18px 10px}
         .frr{display:flex;align-items:center;gap:10px;padding:9px 0}
         .fv{font-size:12px;font-weight:600;padding:6px 11px;border-radius:12px;background:var(--ki-ctrl, var(--gray400,#545454))}
-        /* etasje */
-        .sc{display:flex;gap:12px;overflow-x:auto;padding:2px 4px}
-        .scb{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:62px}
-        .scbb{width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, var(--gray800,#afafaf));transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
-        .scb:active .scbb{transform:scale(.9)}
-        .scl{font-size:11px;font-weight:500;color:var(--ki-text-3, var(--gray600,#7f7f7f));max-width:62px}
+        /* etasje · scener (36.8: Scenestil) */
+        ${SC_CSS}
         .rh{display:flex;align-items:center;gap:10px;padding:4px 6px 0}
         .all{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:600;flex:none}
         /* Lys på */
@@ -33664,8 +33967,6 @@ try {
     a.floors.forEach((F) => M.lysScenes(h, { ...c, scene_order: null }, F).forEach((s) => { if (!list.some((x) => x.key === s.key)) list.push(s); }));
     return byOrder(list, c.scene_order, (x) => x.key);
   }
-  const PAGE_OF = { tabs: 'tabs', scenes: 'scenes', rooms: 'rooms', utelys: 'out', out: 'out', look: 'main', spacing: 'main' };
-  const TITLES = { main: 'Tilpass lys', tabs: 'Faner', scenes: 'Scener', rooms: 'Rom og lys', out: 'Utelys' };
   const clone = (o) => JSON.parse(JSON.stringify(o || {}));
   // Sett/fjern en verdi på en punktum-sti i utkastet (tomme objekter ryddes bort)
   const setPath = (o, path, v) => {
@@ -33688,88 +33989,118 @@ try {
     return d;
   };
 
+  // 36.8 · «Tilpass lys» (Lys v5): faner i arket [nøkkel, navn, ikon] og fokus fra GUI-seksjoner / tannhjul
+  const ETABS = [['tabs', 'Faner', 'mdi:tab'], ['rooms', 'Rom', 'mdi:door'], ['scenes', 'Scener', 'mdi:palette'], ['out', 'Utelys', 'mdi:lightbulb-outline'], ['design', 'Design', 'mdi:brush-variant'], ['vis', 'Visning', 'mdi:tune']];
+  const TAB_OF = { tabs: 'tabs', faner: 'tabs', rooms: 'rooms', rom: 'rooms', scenes: 'scenes', scener: 'scenes', utelys: 'out', out: 'out', ute: 'out', design: 'design', look: 'vis', spacing: 'vis', vis: 'vis', visning: 'vis' };
+  // Ikonrutenett (16) og fargeprikker for scener (Lys v5 SC_ICONS / SC_COLS; temafarger lagres som var(--navn))
+  const SC_ICONS = ['mdi:white-balance-sunny', 'mdi:sofa', 'mdi:brightness-4', 'mdi:weather-night', 'mdi:moon-waning-crescent', 'mdi:silverware-fork-knife', 'mdi:movie-open', 'mdi:book-open-variant', 'mdi:party-popper', 'mdi:spa', 'mdi:weather-sunset', 'mdi:meditation', 'mdi:coffee', 'mdi:gamepad-variant', 'mdi:lightbulb-night', 'mdi:creation'];
+  const SC_COLS = [['Gul', 'var(--yellow)'], ['Oransje', 'var(--orange)'], ['Rød', 'var(--red)'], ['Rosa', 'var(--pink)'], ['Lilla', 'var(--purple)'], ['Blå', 'var(--blue)'], ['Grønn', 'var(--green)'], ['Grå', 'var(--gray800)']];
+  const DESIGN = [
+    ['mdi:tab', 'Fanestil', 'tab_style', 'pill', [['pill', 'Piller', 'Tekst, rosa aktiv', 'mdi:radiobox-marked'], ['icon', 'Ikoner', 'Aktiv viser navn', 'mdi:apps'], ['iconText', 'Ikon + tekst', 'Ikon over navnet', 'mdi:view-agenda-outline'], ['underline', 'Understrek', 'Lett, uten flate', 'mdi:minus'], ['segment', 'Segment', 'Nøytral grå aktiv', 'mdi:view-week-outline']]],
+    ['mdi:label-outline', 'Faneetiketter', 'tab_label', 'short', [['short', 'Kort', '1. etg · 2. etg', 'mdi:text-short'], ['long', 'Lang', '1. etasje · 2. etasje', 'mdi:text-long']]],
+    ['mdi:cog-outline', 'Tannhjul', 'gear_position', 'right', [['right', 'Høyre', 'Etter fanene', 'mdi:align-horizontal-right'], ['left', 'Venstre', 'Før fanene', 'mdi:align-horizontal-left']]],
+    ['mdi:palette-outline', 'Scenestil', 'scene_style', 'bubble', [['bubble', 'Bobler', 'Runde ikoner', 'mdi:chart-bubble'], ['pill', 'Piller', 'Ikon + navn i rad', 'mdi:view-sequential-outline'], ['grid', 'Rutenett', '3 per rad', 'mdi:view-grid-outline']]],
+    ['mdi:door', 'Romoverskrift', 'room_header', 'icon', [['icon', 'Ikon + navn', 'Som i dag', 'mdi:label-outline'], ['text', 'Kun navn', 'Uten ikon', 'mdi:format-title'], ['hidden', 'Skjult', 'Bare lysene', 'mdi:eye-off-outline']]],
+  ];
+  const DESIGN_SW = [['tab_count', 'Antall lys på i fanene', '«1. etg · 3»', false], ['show_scenes', 'Vis scener', 'Raden øverst i etasjefanene', true], ['room_toggle', '«Av / På»-knapp per rom', 'Til høyre i romoverskriften', true]];
+  const NUMK = ['gap', 'cols', 'top', 'bottom', 'slider_height', 'tile_gap', 'outdoor.ring_start'];
+
   function openSheet(card, focus) {
-    if (card._sheet && !card._sheet.ov.closed) return card._sheet;
+    if (card._sheet && !card._sheet.ov.closed) { if (focus && TAB_OF[focus]) card._sheet.go(TAB_OF[focus]); return card._sheet; }
     const orig = card._rawConfig || card.config;
-    const st = { page: PAGE_OF[focus] || 'main', busy: false, adding: false, q: '' };
-    let ov = null;
-    // Felles utkast (MSH.draftEditor): st.draft er utkastet, «Last inn» bytter det ut
+    const prep = (d) => migrateV4(migrateOutdoor(clone(d)));
+    const st = { tab: TAB_OF[focus] || 'tabs', full: false, room: null, sc: null, busy: false, adding: false, q: '' };
+    let ov = null, box = null;
+    // Felles utkast (MSH.draftEditor): st.draft er utkastet, «Last inn» bytter det ut. Eldre nøkler flyttes (migrateV4).
     const ctl = M.draftEditor(card, {
-      config: migrateOutdoor(clone(orig)), saved: orig,
-      prepare: (d) => migrateOutdoor(clone(d)),
+      config: prep(orig), saved: orig,
+      prepare: prep,
       saveOpts: { scope: 'shared' },
-      banner: () => ov && ov.body,
+      banner: () => box && box.querySelector('.scr'),
       alive: () => !ov || ov.host.isConnected,
       close: () => ov && ov.close(),
-      onBusy: (b) => { st.busy = b; draw(); },
+      onBusy: (b) => { st.busy = b; const d = box && box.querySelector('[data-a="done"]'); if (d) { d.disabled = b; d.textContent = b ? 'Lagrer …' : 'Ferdig'; } },
       onReload: () => draw(),
     });
     Object.defineProperty(st, 'draft', { get: () => ctl.draft, set: (v) => ctl.set(v) });
-    const preview = () => ctl.preview();
+    // Live bak arket: kortet viser utkastet (setConfig __eff) og får arkets høyde ekstra bunnluft
+    const preview = () => { ctl.preview(); if (card._applySpacing) card._applySpacing(); };
     const upd = (fn, hap) => { fn(st.draft); preview(); if (hap) M.haptic(hap); draw(); };
     const hass = () => card.hass;
+    const auto = () => M.lysAuto(hass(), st.draft);
 
-    // ---------- byggeklosser
-    const nav = () => {
-      const main = st.page === 'main';
-      return `<div class="nav${main ? ' main' : ''}">${main ? '<button class="nb" data-a="cancel">Avbryt</button>' : `<button class="nb" data-a="page" data-p="main">${M.icon('mdi:chevron-left', 22)}Tilpass</button>`}
-        <span class="nt">${esc(TITLES[st.page] || '')}</span>
-        ${main ? `<button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button>` : '<span></span>'}</div>`;
-    };
+    // ---------- byggeklosser (Utelys-siden bruker de samme som før)
     const seg = (label, key, opts, cur) => `<div class="r"><span class="rl">${esc(label)}</span><div class="seg">${opts.map(([v, l]) => `<button class="${String(v) === String(cur) ? 'on' : ''}" data-a="seg" data-k="${key}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div></div>`;
-    const navRow = (p, icon, col, label, val) => `<button class="r nr press" data-a="page" data-p="${p}"><span class="ic" style="background:${col}">${M.icon(icon, 18)}</span><span class="rl">${esc(label)}</span><span class="rv">${esc(val)}</span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, var(--gray600,#7f7f7f))')}</button>`;
-    const eyeRow = (label, sub, act, key, hidden, extra) => `<div class="r${hidden ? ' off' : ''}${extra ? ' ' + extra : ''}"><span class="rl col"><span class="ell">${esc(label)}</span>${sub ? `<span class="rs ell">${esc(sub)}</span>` : ''}</span>
-      <button class="eye" data-a="${act}" data-k="${esc(key)}" aria-label="${hidden ? 'Vis' : 'Skjul'} ${esc(label)}">${M.icon(hidden ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 22)}</button></div>`;
-    // Tider/tall i Utelys: stepper med systemets velger (09-pickers, lokal modus → 'change' med data-f/data-t)
     const stp = (label, path, kind, ph, o) => M.stepperHTML(hass(), null, { label, kind, key: 'stp-' + path, value: getPath(st.draft, path), placeholder: ph != null ? ph : '', attrs: `data-f="${esc(path)}" data-t="${kind}"`, ...(o || {}) });
     const sw = (label, sub, path, on) => `<button class="r" data-a="sw" data-k="${esc(path)}" data-v="${on ? 0 : 1}"><span class="rl col"><span>${esc(label)}</span>${sub ? `<span class="rs">${esc(sub)}</span>` : ''}</span><span class="sw${on ? ' on' : ''}"><span></span></span></button>`;
+    // v5-rader: dra-håndtak (touch-action none), øye, chevron
+    const handle = (kind, id, grp, extra) => `<span class="hd" data-drag="${kind}" data-id="${esc(id)}" data-grp="${esc(grp)}" ${extra || ''} role="button" aria-label="Dra for å flytte">${M.icon('mdi:drag', kind === 'light' ? 18 : 20)}</span>`;
+    const eye = (act, k, hid, sm) => `<button class="eyb${hid ? ' hid' : ''}${sm ? ' sm' : ''}" data-a="${act}" data-k="${esc(k)}" aria-pressed="${!hid}" aria-label="${hid ? 'Vis' : 'Skjul'}">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', sm ? 20 : 22)}</button>`;
+    const chev = (act, k, open) => `<button class="chv${open ? ' open' : ''}" data-a="${act}" data-k="${esc(k)}" aria-expanded="${open}" aria-label="Vis mer">${M.icon('mdi:chevron-down', 22)}</button>`;
+    const mini = (k, v, l, on) => `<button class="mini${on ? ' on' : ''}" data-a="seg" data-k="${esc(k)}" data-v="${esc(v)}">${esc(l)}</button>`;
+    const seg5 = (label, key, opts, cur) => `<div class="sgr"><span>${esc(label)}</span><div class="sg5">${opts.map(([v, l]) => `<button class="${String(v) === String(cur) ? 'on' : ''}" data-a="seg" data-k="${key}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div></div>`;
+    const slider = (icon, label, key, val, min, max, step, presets, unit) => `<div class="slb" data-key="sl-${key}">
+        <div class="slh">${M.icon(icon, 18, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}<span>${esc(label)}</span><b data-slv="${key}">${val} ${unit || 'px'}</b></div>
+        <input class="rg5" type="range" min="${min}" max="${max}" step="${step}" value="${val}" data-sl="${key}" data-unit="${unit || 'px'}" aria-label="${esc(label)}">
+        <div class="pre">${presets.map(([v, l]) => mini(key, v, `${l} ${v}`, Number(val) === v)).join('')}</div></div>`;
+    const swRow = (key, label, sub, on) => `<button class="swrow" data-a="dsw" data-k="${key}" data-v="${on ? 0 : 1}" role="switch" aria-checked="${on}"><span class="t"><b>${esc(label)}</b><i>${esc(sub)}</i></span><span class="sw${on ? ' on' : ''}"><span></span></span></button>`;
+    const swatch = (key, v, name, css, on) => `<button class="swc${on ? ' on' : ''}" data-a="set" data-k="${key}" data-v="${esc(v)}" title="${esc(name)}" aria-label="${esc(name)}" aria-pressed="${on}" style="background:${css}"></button>`;
 
-    // ---------- sider
-    const pageMain = (A) => {
-      const d = st.draft, tabs = tabDefs(A, d), hidT = new Set(d.hidden_tabs || []);
-      const sc = sceneOpts(hass(), d, A), hidS = new Set(d.hidden_scenes || []);
-      const rooms = A.floors.reduce((n, F) => n + F.rooms.length, 0), hidR = new Set(d.hidden_rooms || []);
-      const roomsVis = A.floors.reduce((n, F) => n + F.rooms.filter((r) => !hidR.has(r.area || '_')).length, 0);
-      const H = M.lightRowHeight(d), gap = gapOf(d);
-      return `<div class="grp">
-          ${seg('Mellomrom', 'gap', [[8, 'Tett'], [12, 'Standard'], [18, 'Luftig']], gap)}
-          ${seg('Kolonner', 'columns', [[1, '1'], [2, '2']], Number(d.columns) === 2 ? 2 : 1)}
-          ${seg('Størrelse', 'size', [['compact', 'Kompakt'], ['standard', 'Standard']], d.slider_height != null && d.slider_height !== '' && ![32, 40].includes(H) ? '' : sizeOf(d))}
-          <div class="r"><span class="rl">Slider-høyde</span><input class="rg" type="range" min="32" max="56" step="2" value="${H}" data-f="slider_height" data-t="range"><span class="rv hv num">${H} px</span></div>
-        </div>
-        <span class="cap">Innhold</span>
-        <div class="grp">
-          ${navRow('tabs', 'mdi:tab', 'var(--pink,#f285c9)', 'Faner', `${tabs.filter(([k]) => !hidT.has(k)).length} av ${tabs.length}`)}
-          ${navRow('scenes', 'mdi:palette', 'var(--purple,#ad99e6)', 'Scener', sc.length ? `${sc.filter((s) => !hidS.has(s.key)).length} av ${sc.length}` : 'Ingen')}
-          ${navRow('rooms', 'mdi:lightbulb-group', 'var(--yellow,#f2d26f)', 'Rom og lys', `${roomsVis} av ${rooms} rom`)}
-          ${navRow('out', 'mdi:outdoor-lamp', 'var(--orange,#f2b573)', 'Utelys', `${A.lamps.length} ${A.lamps.length === 1 ? 'lampe' : 'lamper'}`)}
-        </div>
-        <div class="grp" style="margin-top:16px"><button class="r rst" data-a="reset">Tilbakestill til standard</button></div>
-        ${st.reset ? '<p class="note">Tilbakestilt i utkastet – trykk Ferdig for å lagre, Avbryt for å angre.</p>' : ''}`;
-    };
+    // ---------- Faner: Startfane (MSH.startTab) + radliste med håndtak, «Start»-pille og øye (min. én synlig)
     const pageTabs = (A) => {
-      const d = st.draft, defs = tabDefs(A, d), hid = new Set(d.hidden_tabs || []);
-      const keys = M.mshOrder(defs.map((x) => x[0]), d.tab_order, []);
-      const name = Object.fromEntries(defs.map(([k, l]) => [k, l]));
-      // 33.4: fanehøyde – felles felt (MSH.tabH), live i kortet bak arket
-      const th = M.tabH ? `<div class="grp" style="padding:14px 16px">${M.tabH.editorHTML(d.tab_height, { items: keys.filter((k) => !hid.has(k)).map((k) => name[k]), native: 48, variant: 'gear' })}</div>` : '';
-      return `${th}<div class="grp">${keys.map((k) => eyeRow(name[k], k === 'out' ? 'Utelys og tidslinje' : k === 'on' ? 'Alle lys som er på' : 'Etasje', 'tab', k, hid.has(k))).join('')}</div>
-        <p class="note">Minst én fane må vises. Flytt faner med langt trykk i fane-raden og dra.</p>`;
+      const d = st.draft, defs = tabDefs(A, d), by = Object.fromEntries(defs.map((x) => [x[0], x])), hid = new Set(V.hideTabs(d));
+      const keys = M.mshOrder(defs.map((x) => x[0]), d.tab_order, []), vis = keys.filter((k) => !hid.has(k));
+      const start = M.startTab ? `<section class="card pad stc">${M.startTab.editorHTML(d, vis.map((k) => ({ key: k, label: by[k][1], icon: by[k][3] })), { label: 'Startfane', help: 'Fanen popupen åpner på. «Sist brukte» åpner fanen du var på sist.' })}</section>` : '';
+      return `${start}${keys.map((k) => `<div class="card row${hid.has(k) ? ' off' : ''}" data-row="tab" data-id="${esc(k)}" data-grp="tabs" data-key="tr-${esc(k)}">
+          ${handle('tab', k, 'tabs')}<span class="rib">${M.icon(by[k][3], 18)}</span><span class="rn">${esc(by[k][1])}</span>${M.startTab ? M.startTab.pill(d, k, vis) : ''}${eye('teye', k, hid.has(k))}</div>`).join('')}
+        <span class="hint">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span>`;
     };
-    const pageScenes = (A) => {
-      const d = st.draft, sc = sceneOpts(hass(), d, A), hid = new Set(d.hidden_scenes || []);
-      if (!sc.length) return '<div class="grp"><div class="r"><span class="rl rs">Fant ingen scener</span></div></div>';
-      return `<div class="grp">${sc.map((s) => eyeRow(s.label, s.ki ? 'KI Rom' : s.level != null ? `Lysnivå ${s.level} %` : s.key, 'scene', s.key, hid.has(s.key))).join('')}</div>
-        <p class="note">Scener er engangshandlinger og vises aldri som aktive.</p>`;
-    };
+    // ---------- Rom: per etasje, navn, «N lys», øye; utvidet: lysene (håndtak, farge, gruppe, flytt, øye) + gruppe
     const pageRooms = (A) => {
-      const d = st.draft, hidR = new Set(d.hidden_rooms || []), ex = new Set(d.exclude || []), h = hass();
-      if (!A.floors.length) return '<div class="grp"><div class="r"><span class="rl rs">Fant ingen lys</span></div></div>';
-      return A.floors.map((F) => `<span class="cap">${esc(F.name)}</span><div class="grp">${F.rooms.map((r) => {
-        const rk = r.area || '_', rh = hidR.has(rk);
-        return eyeRow(r.name, `${r.ids.length} av ${r.all.length} lys`, 'room', rk, rh) + (rh ? '' : r.all.map((id) => eyeRow(lcfg(d, id).name || cap(M.name(h, id, r.name)), id, 'light', id, ex.has(id), 'sub')).join(''));
-      }).join('')}</div>`).join('');
+      const d = st.draft, h = hass(), hidR = new Set(V.hideRooms(d)), hidL = new Set(V.hideLights(d)), ex = new Set(d.exclude || []);
+      if (!A.floors.length) return '<div class="card pad"><span class="hint">Fant ingen lys</span></div>';
+      const rName = (id) => { const o = A.roomOpts.find((x) => x.id === id); return o ? o.name : (id === '_' ? 'Uten rom' : M.areaName(h, id)); };
+      const opts = A.roomOpts;
+      return A.floors.map((F) => `<div class="flr" data-key="fl-${esc(F.id || '_')}"><span class="capf">${esc(F.name)}</span>${F.rooms.map((r) => {
+        const rk = r.area || '_', hid = hidR.has(rk), open = st.room === rk, g = (d.groups || {})[rk] || {}, gm = (g.members || []).filter((id) => r.all.includes(id));
+        const lights = open ? `<div class="lls">${r.all.map((id) => {
+          const s = h.states[id], lh = hidL.has(id) || ex.has(id), inG = gm.includes(id), orig = A.aOrig[id] || '_', cur = A.aOf[id] || '_';
+          const col = M.lampColor ? M.lampColor(s, card._modeColor(id, s) || undefined).css : Y;
+          return `<div class="lr${lh ? ' off' : ''}" data-row="light" data-id="${esc(id)}" data-grp="l:${esc(rk)}" data-key="lr-${esc(id)}">
+            ${handle('light', id, 'l:' + rk, `data-room="${esc(rk)}"`)}<span class="dot" style="background:${col}"></span>
+            <span class="ln"><b>${esc(lcfg(d, id).name || cap(M.name(h, id, r.name)))}</b><i>${esc(orig !== cur ? `Flyttet fra ${rName(orig)}` : id)}</i></span>
+            <button class="lnk${inG ? ' on' : ''}" data-a="grp" data-room="${esc(rk)}" data-k="${esc(id)}" aria-pressed="${inG}" aria-label="Slå sammen i gruppe">${M.icon('mdi:link-variant', 20)}</button>
+            <select class="msel" data-mv="${esc(id)}" data-room="${esc(rk)}" aria-label="Flytt til rom">${opts.map((o) => `<option value="${esc(o.id)}"${o.id === cur ? ' selected' : ''}>${esc(o.name)}</option>`).join('')}</select>
+            ${eye('leye', id, lh, true)}</div>`;
+        }).join('')}
+          ${gm.length >= 2 ? `<div class="gbox" data-key="gb-${esc(rk)}"><div class="gbh">${M.icon('mdi:lightbulb-group', 20, `color:${YT}`)}<span>Gruppe · ${gm.length} lys i én rad</span><button class="gbx" data-a="ungroup" data-k="${esc(rk)}">Del opp</button></div>
+            <input class="rin gin" data-gname="${esc(rk)}" value="${esc(g.name || '')}" placeholder="${esc(r.name + ' · alle')}" aria-label="Gruppenavn" autocomplete="off" autocapitalize="off" spellcheck="false"></div>` : ''}
+          <span class="hint">Trykk på lenken for å slå lys sammen til én rad. Velg rom i listen for å flytte et lys.</span></div>` : '';
+        return `<div class="card rcd${hid ? ' off' : ''}" data-row="room" data-id="${esc(rk)}" data-grp="r:${esc(F.id || '_')}" data-key="rc-${esc(rk)}">
+          <div class="row">${handle('room', rk, 'r:' + (F.id || '_'), `data-floor="${esc(F.id || '_')}"`)}<span class="rib">${M.icon(r.icon || 'mdi:texture-box', 18)}</span>
+            <input class="rin" data-rname="${esc(rk)}" data-auto="${esc(r.auto || '')}" value="${esc(r.name)}" placeholder="${esc(r.auto || 'Romnavn')}" aria-label="Romnavn" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <span class="meta">${r.ids.length} lys</span>${eye('reye', rk, hid)}${chev('rtog', rk, open)}</div>${lights}</div>`;
+      }).join('')}</div>`).join('') + '<span class="hint">Dra rom for rekkefølge, skriv i feltet for nytt navn. Skjulte rom styres fortsatt av scener og «Slå av alle».</span>';
     };
+    // ---------- Scener: håndtak, ikonboble (scenens farge), navn + entitet · nivå, øye, chevron → ikon + farge
+    const pageScenes = (A) => {
+      const d = st.draft, h = hass(), list = sceneOpts(h, d, A), hid = new Set(V.hideScenes(d)), extra = V.extraScenes(d);
+      const rows = list.map((x) => {
+        const open = st.sc === x.key, col = scColor(d, x.key), ic = scIcon(d, x), isX = extra.includes(x.key);
+        const sub = x.ki ? `KI Rom · ${(x.ids || []).length} rom` : x.level != null ? `Lysnivå · ${x.level} %` : x.key;
+        return `<div class="card rcd${hid.has(x.key) ? ' off' : ''}" data-row="scene" data-id="${esc(x.key)}" data-grp="sc" data-key="scr-${esc(x.key)}">
+          <div class="row" style="gap:8px">${handle('scene', x.key, 'sc')}<button class="sbub" data-a="stog" data-k="${esc(x.key)}" aria-label="Ikon og farge" style="color:${scInk(col)}">${M.icon(ic, 22)}</button>
+            <button class="stx" data-a="stog" data-k="${esc(x.key)}"><b class="ell">${esc(x.label)}</b><i class="ell">${esc(sub)}</i></button>${eye('seye', x.key, hid.has(x.key))}${chev('stog', x.key, open)}</div>
+          ${open ? `<div class="sx"><span class="sxl">Ikon</span><div class="icg">${SC_ICONS.map((i) => `<button class="${i === ic ? 'on' : ''}" data-a="sicon" data-k="${esc(x.key)}" data-v="${i}" aria-label="${esc(i)}">${M.icon(i, 20)}</button>`).join('')}</div>
+            <span class="sxl">Farge</span><div class="swr">${SC_COLS.map(([n, v]) => swatch('scene_color:' + x.key, v, n, M.color(v), v === col)).join('')}</div>
+            ${isX ? `<button class="sdel" data-a="sdel" data-k="${esc(x.key)}">${M.icon('mdi:delete-outline', 18)}Fjern scene</button>` : ''}</div>` : ''}</div>`;
+      }).join('') || '<div class="card pad"><span class="hint">Fant ingen scener</span></div>';
+      const have = new Set([...list.map((x) => x.key), ...extra]);
+      const avail = M.all(h, ['scene', 'script']).filter((id) => !have.has(id));
+      return `${rows}${avail.length ? `<section class="card avl" data-key="sc-avail"><span class="avh">Legg til scene fra Home Assistant</span>${avail.map((id) => `<button class="avr" data-a="sadd" data-k="${esc(id)}"><span class="rib">${M.icon((h.states[id].attributes.icon) || M.domainIcon(id, h.states[id]), 18)}</span><span class="ln"><b>${esc(M.name(h, id))}</b><i>${esc(id)}</i></span>${M.icon('mdi:plus-circle', 22, 'color:var(--ki-pink-text, var(--pink,#f285c9))')}</button>`).join('')}</section>` : ''}
+        <span class="hint">Scener er engangshandlinger og viser aldri på-tilstand. Fargen gjelder ikonet.</span>`;
+    };
+    // ---------- Utelys (som før): Visning, reserve-tider/terskler, entiteter, lamper og søk
     const pageOut = (A) => {
       const d = st.draft, o = outCfg(d), h = hass(), sun = A.sun && h.states[A.sun], at = (sun && sun.attributes) || {};
       const sOn = hm(at.next_setting), sOff = hm(at.next_rising);
@@ -33778,14 +34109,14 @@ try {
       const ents = [...UT_ENTS.map(([k, l, dom]) => ['overrides.' + k, l, A.UA[k], UT_DOMS[dom].join(',')]), ['overrides.lux', 'Lysnivåsensor', A.autoLux, 'sensor', 'illuminance'], ['overrides.modus', 'Modusvelger (eldre)', A.autoModus, 'input_select,select']];
       const oc = (d.outdoor && typeof d.outdoor === 'object') ? d.outdoor : {}, hidS = new Set(oc.hidden_sections || []);
       const secs = M.mshOrder(UT_SECS.map((x) => x[0]), oc.sections, []), secName = Object.fromEntries(UT_SECS);
-      const pick = (o) => M.entityPicker.html(o);
+      const pick = (x) => M.entityPicker.html(x);
       const lamps = sheetLamps(d, A, h);
-      return `<span class="cap">Visning</span><div class="grp">
+      return `<div class="pg"><span class="cap">Visning</span><div class="grp">
           ${seg('Døgnringen', 'outdoor.ring_start', [[0, '00 øverst'], [12, '12 øverst']], Number(oc.ring_start) === 12 ? 12 : 0)}
           ${secs.map((k, i) => `<div class="r${hidS.has(k) ? ' off' : ''}"><span class="rl">${esc(secName[k])}</span>${i ? `<button class="eye" data-a="usup" data-k="${k}" aria-label="Flytt opp ${esc(secName[k])}">${M.icon('mdi:arrow-up', 20)}</button>` : ''}<button class="eye" data-a="usec" data-k="${k}" aria-label="${hidS.has(k) ? 'Vis' : 'Skjul'} ${esc(secName[k])}">${M.icon(hidS.has(k) ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 22)}</button></div>`).join('')}
         </div>
         <p class="note">Toppkortet med døgnringen vises alltid først. Pil = flytt opp, øye = skjul.</p>
-        <span class="cap">Reserve uten KI Utelys</span><div class="grp">
+        <span class="cap">Tider og terskler (reserve uten KI Utelys)</span><div class="grp">
           ${seg('Styring', 'outdoor.mode', [['auto', 'Auto'], ['tid', 'Tidsplan'], ['manuell', 'Manuelt']], o.mode)}
           ${stp('Tennes', 'outdoor.on', 'time', sOn != null ? fmt(sOn + Number(o.offset || 0)) : '')}
           ${stp('Slukkes', 'outdoor.off', 'time', sOff != null ? fmt(sOff) : '')}
@@ -33799,7 +34130,7 @@ try {
         </div>
         <p class="note">Tomt «Tennes» = solnedgang + forskyvning${sOn != null ? ` (i dag ${fmt(sOn + Number(o.offset || 0))})` : ''}. Tomt «Slukkes» = soloppgang${sOff != null ? ` (${fmt(sOff)})` : ''}.</p>
         <span class="cap">Entiteter</span><div class="grp">
-          ${ents.map(([p, l, auto, doms, dc]) => `<div class="r fp"><span class="rl">${esc(l)}</span>${pick({ key: 'pk-' + p, value: getPath(d, p) || '', auto: auto || '', autoMode: true, domains: doms, deviceClass: dc || '', attrs: `data-f="${p}" data-t="entity"` })}</div>`).join('')}
+          ${ents.map(([p, l, au, doms, dc]) => `<div class="r fp"><span class="rl">${esc(l)}</span>${pick({ key: 'pk-' + p, value: getPath(d, p) || '', auto: au || '', autoMode: true, domains: doms, deviceClass: dc || '', attrs: `data-f="${p}" data-t="entity"` })}</div>`).join('')}
         </div>
         <span class="cap">Lamper</span><div class="grp">
           ${lamps.map((l, i) => `<div class="lp" data-key="lp-${i}"><span class="lpi">${M.icon(l.icon || (h.states[l.id] && h.states[l.id].attributes.icon) || 'mdi:lightbulb', 20)}</span>
@@ -33810,13 +34141,13 @@ try {
           ${st.adding ? `<div class="lp"><span class="lpi">${M.icon('mdi:lightbulb-outline', 20)}</span><div class="lpf">${pick({ key: 'pk-lp-new', mode: 'add', domains: OUT_DOMS, placeholder: 'Velg lampe …', attrs: 'data-new="1"' })}</div><button class="del" data-a="addx" aria-label="Avbryt">${M.icon('mdi:close', 18)}</button></div>` : ''}
         </div>
         ${findCard(A)}
-        <button class="add press" data-a="add">${M.icon('mdi:plus', 20)}Legg til lampe</button>`;
+        <button class="add press" data-a="add">${M.icon('mdi:plus', 20)}Legg til lampe</button></div>`;
     };
     // «Finner du ikke lampen?»: søk i light/switch/input_boolean (+ group/script), maks 8 treff, «Legg til» / «Lagt til»
     const hitsHTML = (A) => {
       const q = st.q.trim(), h = hass();
       if (!q || !h) return '';
-      const have = new Set(sheetLamps(st.draft, A || M.lysAuto(h, st.draft)).map((l) => l.id));
+      const have = new Set(sheetLamps(st.draft, A || auto()).map((l) => l.id));
       const hits = M.entitySearch(h, q, { domains: OUT_DOMS }).slice(0, 8);
       if (!hits.length) return `<div class="fnone">Ingen treff på «${esc(q)}»</div>`;
       return `<div class="fl">${hits.map((x) => {
@@ -33827,60 +34158,207 @@ try {
     const findCard = (A) => `<div class="fnd" data-key="fnd"><span class="fndt">Finner du ikke lampen?</span><span class="fnds">Søk fram et hvilket som helst lys, bryter eller hjelper og legg det til som utelampe.</span>
       <div class="fsr">${M.icon('mdi:magnify', 20)}<input class="fsq" data-q="1" value="${esc(st.q)}" placeholder="Søk navn eller entity_id" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Søk etter lampe"><button class="fsx" data-a="qx" aria-label="Tøm søket" ${st.q ? '' : 'hidden'}>${M.icon('mdi:close', 18)}</button></div>
       <div class="fhits" data-hits>${hitsHTML(A)}</div></div>`;
-    const PAGES = { main: pageMain, tabs: pageTabs, scenes: pageScenes, rooms: pageRooms, out: pageOut };
-    const draw = () => {
-      if (!ov) return;
-      const A = M.lysAuto(hass(), st.draft);
-      const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
-      box.innerHTML = nav() + `<div class="pg">${(PAGES[st.page] || pageMain)(A)}</div>`;
-      if (sh && st.keepScroll) sh.scrollTop = top;
-      st.keepScroll = true;
+    // ---------- Design: forhåndsvisning (fanelinje + scener, live og trykkbar) + valgkort, Fanehøyde 40–56, brytere
+    const pvHTML = (A) => {
+      const d = st.draft, h = hass(), keys = card._tabs(A, d), cur = card._curTab();
+      const F = A.floors.find((f) => f.key === cur) || A.floors[0];
+      const sc = F && V.on(d, 'show_scenes', true) ? M.lysScenes(h, d, F).filter((x) => !V.hideScenes(d).includes(x.key)) : [];
+      return `<section class="pv" data-key="pv"><div class="pvh">${M.icon('mdi:eye-outline', 18, 'color:var(--ki-pink-text, var(--pink,#f285c9))')}<span>Forhåndsvisning</span><i>trykk for å prøve</i></div>
+        ${lysBar(d, card._tabItems(A, d, keys), cur, { key: 'pvbar', keyPrefix: 'pv-', attrs: (t) => `data-a="pvtab" data-k="${esc(t.key)}"`, gearAttrs: 'data-a="pvgear" tabindex="-1"' })}
+        ${sc.length ? scenesHTML(d, sc, (x) => `data-a="pvsc" data-k="${esc(x.key)}"`) : `<span class="hint" style="padding:0 2px">${V.on(d, 'show_scenes', true) ? 'Ingen scener i etasjen' : 'Scener er skjult'}</span>`}</section>`;
     };
-    const go = (p) => { st.page = p; st.keepScroll = false; st.adding = false; M.haptic('light'); draw(); const sh = ov.root.querySelector('.sh'); if (sh) sh.scrollTop = 0; };
+    const pageDesign = (A) => {
+      const d = st.draft, own = M.tabH ? M.tabH.own(d) : null, g = M.tabH ? M.tabH.global() : null, eff = own != null ? own : g != null ? g : 48;
+      const groups = DESIGN.map(([icon, title, key, def, opts]) => { const cur = d[key] != null && opts.some((o) => o[0] === d[key]) ? d[key] : def; return `<section class="card dg" data-key="dg-${key}"><div class="dgh">${M.icon(icon, 20, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}<span>${esc(title)}</span></div>
+        <div class="dgo">${opts.map(([v, l, sub, oi]) => `<button class="dob${v === cur ? ' on' : ''}" data-a="dopt" data-k="${key}" data-v="${v}" aria-pressed="${v === cur}">${M.icon(oi, 20)}<span><b>${esc(l)}</b><i>${esc(sub)}</i></span></button>`).join('')}</div></section>`; }).join('');
+      // Fanehøyde: tab_height (samme nøkkel som MSH.tabH). «Følg global» = ingen egen verdi (global «Fanehøyde i popups», ellers 48)
+      const th = `<div class="slb" data-mth-field="tab_height" data-key="sl-th">
+          <div class="slh">${M.icon('mdi:arrow-expand-vertical', 18, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}<span>Fanehøyde</span><b data-mth-val>${eff} px</b></div>
+          <input class="rg5" type="range" min="40" max="56" step="2" value="${M.clamp(eff, 40, 56)}" data-mth-r="1" aria-label="Fanehøyde i px">
+          <div class="pre"><button class="mini${own == null ? ' on' : ''}" data-mth="auto" data-haptic="off">Følg global ${g != null ? g : 48}</button>${[[40, 'Lav'], [48, 'Standard'], [56, 'Høy']].map(([v, l]) => `<button class="mini${own === v ? ' on' : ''}" data-mth="${v}" data-haptic="off">${l} ${v}</button>`).join('')}</div>
+          <span class="hint" style="padding:0">Tannhjulet følger høyden + 8 px. «Følg global» = «Fanehøyde i popups» i Tilpass Hjem.</span></div>`;
+      return `${pvHTML(A)}${groups}<section class="card sls" data-key="dg-sl">${th}<div class="sep"></div>${DESIGN_SW.map(([k, l, sub, def]) => swRow(k, l, sub, V.on(d, k, def))).join('')}</section>`;
+    };
+    // ---------- Visning: Kort (kolonner, størrelse, slider-høyde), Farger, Mellomrom (helt dekkende kort, 36.7)
+    const pageVis = () => {
+      const d = st.draft, cm = V.colorMode(d), H = M.lightRowHeight(d);
+      const hint = cm === 'lamp' ? 'Bruker lampens egen farge fra Home Assistant (rgb_color).' : cm === 'kelvin' ? 'Fargen følger fargetemperaturen: varm = oransje, kald = blåhvit.' : 'Alle lys som er på bruker samme farge.';
+      const onC = d.on_color || 'var(--yellow)';
+      return `<section class="card sls" data-key="vis-kort"><div class="vh">${M.icon('mdi:view-grid-outline', 20, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}Kort</div>
+          ${seg5('Kolonner', 'cols', [[1, '1'], [2, '2'], [3, '3']], V.cols(d))}
+          ${seg5('Kortstørrelse', 'size', [['compact', 'Kompakt'], ['standard', 'Standard'], ['large', 'Stor']], sizeOf(d))}
+          ${slider('mdi:arrow-expand-vertical', 'Slider-høyde', 'slider_height', H, 40, 80, 2, [[48, 'Lav'], [56, 'Standard'], [64, 'Høy'], [72, 'Ekstra']])}</section>
+        <section class="card sls fc" data-key="vis-farger"><div class="vh">${M.icon('mdi:palette-outline', 20, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}Farger</div>
+          ${seg5('Farge på lys', 'color_mode', [['lamp', 'Lampens'], ['kelvin', 'Temperatur'], ['single', 'Én farge']], cm)}
+          <span class="hint" style="padding:0">${esc(hint)}</span>
+          ${cm === 'single' ? `<span class="sxl">På-farge</span><div class="swr">${SC_COLS.slice(0, 7).map(([n, v]) => swatch('on_color', v, n, M.color(v), v === onC)).join('')}</div>` : ''}
+          <span class="sxl">Av-farge (bakgrunn bak lysene)</span><div class="swr">${OFF_SW.map(([v, n, css]) => swatch('off_color', v, n, css, (d.off_color || '') === v)).join('')}</div>
+          <div class="sep"></div>${swRow('show_kelvin', 'Vis fargetemperatur', '«70 % · 2700 K» ved lysnavnet', !!d.show_kelvin)}</section>
+        <section class="card sls" data-key="vis-mellomrom"><div class="vh">${M.icon('mdi:arrow-expand-vertical', 20, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}Mellomrom</div>
+          ${slider('mdi:arrow-split-horizontal', 'Mellom seksjonene', 'gap', gapOf(d), 0, 24, 1, [[8, 'Tett'], [12, 'Standard'], [18, 'Luftig']])}
+          ${slider('mdi:format-vertical-align-top', 'Fra popup-headeren til første kort', 'top', V.top(d), -20, 44, 1, [[-20, 'Tett'], [-10, 'Standard'], [16, 'Luftig']])}
+          ${slider('mdi:format-vertical-align-bottom', 'Luft i bunnen', 'bottom', V.bottom(d), 0, 300, 10, [[0, 'Ingen'], [150, 'Standard'], [220, 'Stor']])}</section>`;
+    };
+    const PAGES = { tabs: pageTabs, rooms: pageRooms, scenes: pageScenes, out: pageOut, design: pageDesign, vis: pageVis };
 
-    // ---------- lagring
-    // Ferdig: én lagring (dobbelttrykk ignoreres mens den pågår); feil → arket står med utkastet
-    const done = () => ctl.done();
+    // ---------- skall: håndtak (halv ⇄ full), header, faner, innhold
+    const shell = () => `<button class="hdl" data-a="height" aria-label="${st.full ? 'Halv høyde – se endringene bak' : 'Full høyde'}"><span></span></button>
+      <div class="hdr" data-sheet-head><span class="ttl"><span class="tt">Tilpass lys</span><span class="ts">Endringer vises live bak arket</span></span>
+        <button class="hb" data-a="reset">Nullstill</button><button class="nd5" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      <div class="etw"><div class="et" role="tablist">${ETABS.map(([k, l, ic]) => `<button class="${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="page" data-p="${k}" title="${esc(l)}">${M.icon(ic, 20)}${k === st.tab ? `<span>${esc(l)}</span>` : ''}</button>`).join('')}</div></div>
+      <div class="scr" data-tab="${st.tab}"></div>`;
+    const draw = (keep) => {
+      if (!ov || !box) return;
+      const A = auto(), scr0 = box.querySelector('.scr'), top = scr0 ? scr0.scrollTop : 0, same = scr0 && scr0.dataset.tab === st.tab;
+      const ban = scr0 && scr0.querySelector('.msh-draft-banner');
+      box.innerHTML = shell();
+      const scr = box.querySelector('.scr');
+      scr.innerHTML = (PAGES[st.tab] || pageTabs)(A);
+      if (ban) scr.insertBefore(ban, scr.firstChild);
+      if (same && keep !== false) scr.scrollTop = top;
+    };
+    const go = (t) => { if (!PAGES[t]) return; st.tab = t; st.room = null; st.sc = null; st.adding = false; draw(false); };
+    const setFull = (on) => {
+      st.full = !!on;
+      const sh = ov.root.querySelector('.sh');
+      if (sh) sh.classList.toggle('full', st.full);
+      const b = box.querySelector('.hdl'); if (b) b.setAttribute('aria-label', st.full ? 'Halv høyde – se endringene bak' : 'Full høyde');
+      if (card._applySpacing) card._applySpacing();
+    };
 
-    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + SHEET_CSS + FIND_CSS, maxWidth: 520, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });
+    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + (M.tabBar ? M.tabBar.CSS : '') + TS_CSS + SC_CSS + SHEET_CSS + FIND_CSS + V5_CSS, maxWidth: 520, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; if (card._applySpacing) card._applySpacing(); } });
+    // Ingen bakteppe: bare arket tar imot trykk – popupen bak er synlig, trykkbar og scrollbar (live forhåndsvisning)
+    ov.host.style.pointerEvents = 'none';
+    ov.host.setAttribute('data-lys-sheet', '');
     const R = ov.root;
+    const shEl = R.querySelector('.sh');
+    if (shEl) shEl.classList.add('lys5');
     if (M.bindSteppers) M.bindSteppers(R, card); // −/+ og native velgere i Utelys (lokal modus → 'change' under)
-    // 33.4: fanehøyde (segment + slider) – slider live uten ny tegning av arket, lagres i utkastet
-    if (M.tabH) M.tabH.bindEditor(R, { set: (v, commit) => { if (v == null) delete st.draft.tab_height; else st.draft.tab_height = v; preview(); if (commit) draw(); } });
+    // Fanehøyde (Design): tab_height i utkastet, live i popupen bak (MSH.tabH-variabler); slider uten ny tegning
+    if (M.tabH) M.tabH.bindEditor(R, { set: (v, commit) => { if (v == null) delete st.draft.tab_height; else st.draft.tab_height = M.clamp(v, 28, 64); preview(); if (commit) draw(); else { const pv = R.querySelector('[data-key="pvbar"]'); if (pv && v != null) pv.setAttribute('style', M.tabH.vars(v)); } } });
+    // Startfane (Faner): chips data-mst → start_tab; valgt fane vises også i popupen
+    if (M.startTab) M.startTab.bindEditor(R, { set: (v) => { upd((d) => { d.start_tab = v; }); if (v !== 'last' && card.setUI) card.setUI({ tab: v }); } });
     // Arkets innhold i én fast beholder; _config = utkastet (samme config som GUI-editoren, sjekkes i test/checklist.mjs)
-    const box = document.createElement('div');
+    box = document.createElement('div');
     box.className = 'lys-sheet';
     Object.defineProperty(box, '_config', { get: () => st.draft });
     ov.body.appendChild(box);
+
+    // ---------- dra-håndtak: rekkefølge for faner, rom, lys og scener (touch-action none + stopPropagation, fallgruve 2)
+    let dg = null;
+    const D = box; // lytterne på arkets innhold: .sh stopper pointerdown/touch* før de når shadow-roten
+    const ORDER = {
+      tab: (d, o) => { d.tab_order = o; },
+      room: (d, o, el) => { d.room_order = { ...(d.room_order || {}), [el.dataset.floor]: o }; },
+      light: (d, o, el) => { d.light_order = { ...(d.light_order || {}), [el.dataset.room]: o }; },
+      scene: (d, o) => { d.scene_order = o; },
+    };
+    D.addEventListener('pointerdown', (e) => {
+      const hd = e.target.closest && e.target.closest('[data-drag]');
+      if (!hd || e.button) return;
+      e.preventDefault(); e.stopPropagation();
+      const row = hd.closest('[data-row]');
+      if (!row) return;
+      const sib = [...row.parentElement.children].filter((x) => x.dataset && x.dataset.row === row.dataset.row && x.dataset.grp === row.dataset.grp);
+      const rects = sib.map((x) => x.getBoundingClientRect());
+      dg = { hd, row, sib, rects, i: sib.indexOf(row), y0: e.clientY, dy: 0, id: e.pointerId };
+      try { hd.setPointerCapture(e.pointerId); } catch (x) { /* */ }
+      row.classList.add('lift');
+      M.haptic('medium');
+    });
+    D.addEventListener('pointermove', (e) => {
+      if (!dg || e.pointerId !== dg.id) return;
+      e.preventDefault(); e.stopPropagation();
+      dg.dy = e.clientY - dg.y0;
+      dg.row.style.transform = `translateY(${dg.dy}px) scale(1.02)`;
+    });
+    const dragEnd = (e) => {
+      if (!dg || (e.pointerId != null && e.pointerId !== dg.id)) return;
+      const G0 = dg; dg = null;
+      e.stopPropagation();
+      G0.row.classList.remove('lift'); G0.row.style.transform = '';
+      if (e.type !== 'pointerup') return;
+      const r0 = G0.rects[G0.i], cy = r0.top + r0.height / 2 + G0.dy;
+      let j = G0.rects.filter((r, k) => k !== G0.i && r.top + r.height / 2 < cy).length;
+      j = M.clamp(j, 0, G0.sib.length - 1);
+      if (j === G0.i) return;
+      const ids = G0.sib.map((x) => x.dataset.id), id = ids[G0.i], o = ids.filter((x) => x !== id);
+      o.splice(j, 0, id);
+      const kind = G0.hd.dataset.drag;
+      if (kind === 'room') st.room = null;
+      if (kind === 'scene') st.sc = null;
+      upd((d) => ORDER[kind](d, o, G0.hd), 'selection');
+    };
+    D.addEventListener('pointerup', dragEnd);
+    D.addEventListener('pointercancel', dragEnd);
+    ['touchstart', 'touchmove'].forEach((t) => D.addEventListener(t, (e) => { if (e.target.closest && e.target.closest('[data-drag]')) e.stopPropagation(); }, { passive: true }));
+
+    // ---------- klikk
+    const toggleArr = (d, key, k) => { d[key] = toggleIn(d[key], k, !(d[key] || []).includes(k)); if (!d[key].length) delete d[key]; };
     R.addEventListener('click', (e) => {
       const el = e.target.closest && e.target.closest('[data-a]');
       if (!el || el.disabled) return;
       const a = el.dataset.a, k = el.dataset.k;
       switch (a) {
-        case 'cancel': M.haptic('light'); return ov.close();
-        case 'done': return done();
-        case 'page': return go(el.dataset.p);
+        case 'done': return ctl.done().then((r) => { if (r && r.unchanged) M.haptic('success'); });
+        case 'reset': M.haptic('medium'); return upd((d) => { Object.keys(d).forEach((x) => { if (x !== 'type' && x !== 'card_id') delete d[x]; }); });
+        case 'height': M.haptic('selection'); return setFull(!st.full);
+        case 'page': M.haptic('selection'); return go(el.dataset.p);
         case 'seg': {
           let v = el.dataset.v;
-          if (k === 'gap' || k === 'columns' || k === 'outdoor.ring_start') v = Number(v);
-          return upd((d) => {
-            if (k === 'size') { d.size = v; delete d.slider_height; delete d.tile_height; } else setPath(d, k, v);
-          }, 'selection');
+          if (NUMK.includes(k)) v = Number(v);
+          return upd((d) => { if (k === 'top' || k === 'bottom') { delete d['pad_' + k]; } if (k === 'cols') delete d.columns; setPath(d, k, v); }, 'selection');
         }
         case 'sw': return upd((d) => setPath(d, k, el.dataset.v === '1'), 'selection');
-        case 'tab': {
-          const A = M.lysAuto(hass(), st.draft), all = tabDefs(A, st.draft).map((x) => x[0]), hid = new Set(st.draft.hidden_tabs || []);
-          const hide = !hid.has(k);
-          if (hide && all.filter((x) => !hid.has(x)).length <= 1) { M.haptic('failure'); M.toast('Minst én fane må vises'); return; }
-          return upd((d) => { d.hidden_tabs = toggleIn(d.hidden_tabs, k, hide); if (!d.hidden_tabs.length) delete d.hidden_tabs; }, 'selection');
+        case 'set': {
+          const v = el.dataset.v;
+          if (k.startsWith('scene_color:')) { const key = k.slice(12); return upd((d) => { d.scene_color = { ...(d.scene_color || {}), [sk(key)]: v }; }, 'selection'); }
+          return upd((d) => setPath(d, k, v || undefined), 'selection');
         }
-        case 'scene': return upd((d) => { d.hidden_scenes = toggleIn(d.hidden_scenes, k, !(d.hidden_scenes || []).includes(k)); if (!d.hidden_scenes.length) delete d.hidden_scenes; }, 'selection');
-        case 'room': return upd((d) => { d.hidden_rooms = toggleIn(d.hidden_rooms, k, !(d.hidden_rooms || []).includes(k)); if (!d.hidden_rooms.length) delete d.hidden_rooms; }, 'selection');
-        case 'light': return upd((d) => { d.exclude = toggleIn(d.exclude, k, !(d.exclude || []).includes(k)); if (!d.exclude.length) delete d.exclude; }, 'selection');
+        // Faner
+        case 'teye': {
+          const A = auto(), all = tabDefs(A, st.draft).map((x) => x[0]), hid = new Set(V.hideTabs(st.draft)), hide = !hid.has(k);
+          if (hide && all.filter((x) => !hid.has(x)).length <= 1) { M.haptic('failure'); M.toast('Minst én fane må vises'); return undefined; }
+          return upd((d) => { const h0 = toggleIn(V.hideTabs(d), k, hide); delete d.hidden_tabs; if (h0.length) d.hide_tabs = h0; else delete d.hide_tabs; }, 'selection');
+        }
+        // Rom
+        case 'reye': return upd((d) => { const h0 = toggleIn(V.hideRooms(d), k, !V.hideRooms(d).includes(k)); delete d.hidden_rooms; if (h0.length) d.hide_rooms = h0; else delete d.hide_rooms; }, 'selection');
+        case 'rtog': st.room = st.room === k ? null : k; M.haptic('selection'); return draw();
+        case 'leye': return upd((d) => {
+          const hidden = V.hideLights(d).includes(k) || (d.exclude || []).includes(k);
+          if (hidden) { d.hide_lights = V.hideLights(d).filter((x) => x !== k); d.exclude = (d.exclude || []).filter((x) => x !== k); if (!d.exclude.length) delete d.exclude; } else d.hide_lights = [...V.hideLights(d), k];
+          if (!d.hide_lights.length) delete d.hide_lights;
+        }, 'selection');
+        case 'grp': {
+          const rk = el.dataset.room, A = auto(), F = A.floors.flatMap((f) => f.rooms).find((r) => (r.area || '_') === rk);
+          return upd((d) => {
+            const g = (d.groups || {})[rk] || { name: '', members: [] }, m = (g.members || []).includes(k) ? g.members.filter((x) => x !== k) : [...(g.members || []), k];
+            const gs = { ...(d.groups || {}) };
+            if (m.length) gs[rk] = { name: g.name || `${F ? F.name : 'Rom'} · alle`, members: m }; else delete gs[rk];
+            if (Object.keys(gs).length) d.groups = gs; else delete d.groups;
+          }, 'selection');
+        }
+        case 'ungroup': return upd((d) => { const gs = { ...(d.groups || {}) }; delete gs[k]; if (Object.keys(gs).length) d.groups = gs; else delete d.groups; }, 'medium');
+        // Scener
+        case 'stog': st.sc = st.sc === k ? null : k; M.haptic('selection'); return draw();
+        case 'seye': return upd((d) => { const h0 = toggleIn(V.hideScenes(d), k, !V.hideScenes(d).includes(k)); delete d.hidden_scenes; if (h0.length) d.hide_scenes = h0; else delete d.hide_scenes; }, 'selection');
+        case 'sicon': return upd((d) => { d.scene_icon = { ...(d.scene_icon || {}), [sk(k)]: el.dataset.v }; }, 'selection');
+        case 'sadd': return upd((d) => { d.extra_scenes = uni(V.extraScenes(d), [k]); if (d.include && d.include.scener_lys) { delete d.include.scener_lys; if (!Object.keys(d.include).length) delete d.include; } }, 'light');
+        case 'sdel': st.sc = null; return upd((d) => {
+          d.extra_scenes = V.extraScenes(d).filter((x) => x !== k); if (!d.extra_scenes.length) delete d.extra_scenes;
+          if (d.include && d.include.scener_lys) { delete d.include.scener_lys; if (!Object.keys(d.include).length) delete d.include; }
+          if (d.scene_icon) delete d.scene_icon[sk(k)]; if (d.scene_color) delete d.scene_color[sk(k)];
+        }, 'medium');
+        // Design
+        case 'dopt': return upd((d) => { d[k] = el.dataset.v; }, 'selection');
+        case 'dsw': return upd((d) => { d[k] = el.dataset.v === '1'; }, 'selection');
+        case 'pvtab': M.haptic('selection'); if (card.setUI) card.setUI({ tab: k }); return draw();
+        case 'pvsc': case 'pvgear': M.haptic('light'); return undefined;
+        // Utelys (som før)
         case 'usec': return upd((d) => { const o = { ...(d.outdoor || {}) }; o.hidden_sections = toggleIn(o.hidden_sections, k, !(o.hidden_sections || []).includes(k)); if (!o.hidden_sections.length) delete o.hidden_sections; d.outdoor = o; }, 'selection');
-        case 'usup': return upd((d) => { const o = { ...(d.outdoor || {}) }, a = M.mshOrder(UT_SECS.map((x) => x[0]), o.sections, []), i = a.indexOf(k); if (i > 0) { a.splice(i, 1); a.splice(i - 1, 0, k); } o.sections = a; d.outdoor = o; }, 'selection');
+        case 'usup': return upd((d) => { const o = { ...(d.outdoor || {}) }, a2 = M.mshOrder(UT_SECS.map((x) => x[0]), o.sections, []), i = a2.indexOf(k); if (i > 0) { a2.splice(i, 1); a2.splice(i - 1, 0, k); } o.sections = a2; d.outdoor = o; }, 'selection');
         case 'lup': {
-          const A = M.lysAuto(hass(), st.draft), i = Number(el.dataset.i);
+          const A = auto(), i = Number(el.dataset.i);
           return upd((d) => {
             if (Array.isArray(d.lamps) && d.lamps.length) { const L = d.lamps.slice(); if (i > 0) L.splice(i - 1, 0, L.splice(i, 1)[0]); d.lamps = L; return; }
             const ids = A.lampsAll.slice(), vis = A.lamps.map((l) => l.id), id = vis[i], prev = vis[i - 1];
@@ -33889,23 +34367,23 @@ try {
             d.order = { ...(d.order || {}), utelys: ids };
           }, 'selection');
         }
-        case 'ldel': { const A = M.lysAuto(hass(), st.draft); return upd((d) => lampOp(d, A, 'del', Number(el.dataset.i)), 'medium'); }
-        case 'add': st.adding = true; M.haptic('light'); draw(); { const i = R.querySelector('msh-entity-picker[data-new]'); if (i && i.open) i.open(); } return;
+        case 'ldel': { const A = auto(); return upd((d) => lampOp(d, A, 'del', Number(el.dataset.i)), 'medium'); }
+        case 'add': st.adding = true; M.haptic('light'); draw(); { const i = R.querySelector('msh-entity-picker[data-new]'); if (i && i.open) i.open(); } return undefined;
         case 'addx': st.adding = false; M.haptic('light'); return draw();
-        case 'qx': { st.q = ''; M.haptic('light'); draw(); const i = R.querySelector('.fsq'); if (i) i.focus(); return; }
-        case 'qadd': { const A = M.lysAuto(hass(), st.draft); return upd((d) => lampOp(d, A, 'add', -1, k), 'light'); }
-        case 'reset': st.reset = true; return upd((d) => { Object.keys(d).forEach((x) => { if (x !== 'type' && x !== 'card_id') delete d[x]; }); }, 'warning');
+        case 'qx': { st.q = ''; M.haptic('light'); draw(); const i = R.querySelector('.fsq'); if (i) i.focus(); return undefined; }
+        case 'qadd': { const A = auto(); return upd((d) => lampOp(d, A, 'add', -1, k), 'light'); }
         default: return undefined;
       }
     });
-    // Slider-høyde: live mens man drar (uten ny tegning av arket), lagres i utkastet ved slipp
+    // Slidere (Visning): live mens man drar (uten ny tegning av arket), lagres i utkastet ved slipp
     R.addEventListener('input', (e) => {
       const i = e.target;
-      if (!i || i.dataset.t !== 'range') return;
-      const v = Number(i.value), lab = R.querySelector('.hv');
-      if (lab) lab.textContent = `${v} px`;
-      clearTimeout(st.rt); st.rt = setTimeout(() => { st.draft.slider_height = v; preview(); }, 40);
+      if (!i || !i.dataset || !i.dataset.sl) return;
+      const k = i.dataset.sl, v = Number(i.value), lab = R.querySelector(`[data-slv="${k}"]`);
+      if (lab) lab.textContent = `${v} ${i.dataset.unit || 'px'}`;
+      clearTimeout(st.rt); st.rt = setTimeout(() => { st.draft[k] = v; if (k === 'top' || k === 'bottom') delete st.draft['pad_' + k]; preview(); }, 40);
     });
+    ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => D.addEventListener(t, (e) => { const x = e.target; if (x && x.dataset && (x.dataset.sl || x.dataset.mthR)) e.stopPropagation(); }, { passive: true }));
     // Søkefeltet: debounce 150 ms, oppdaterer bare trefflisten (fokus og markør står)
     R.addEventListener('input', (e) => {
       const i = e.target;
@@ -33914,7 +34392,10 @@ try {
       const x = R.querySelector('.fsx'); if (x) x.hidden = !st.q;
       clearTimeout(st.qt); st.qt = setTimeout(() => { const b = R.querySelector('[data-hits]'); if (b) b.innerHTML = hitsHTML(); }, 150);
     });
-    R.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.dataset && e.target.dataset.q) { e.preventDefault(); const b = R.querySelector('.fh .fhp[data-a="qadd"]'); if (b) b.click(); } });
+    R.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target && e.target.dataset && e.target.dataset.q) { e.preventDefault(); const b = R.querySelector('.fh .fhp[data-a="qadd"]'); if (b) b.click(); }
+      if (e.key === 'Enter' && e.target && e.target.dataset && (e.target.dataset.rname || e.target.dataset.gname)) e.target.blur();
+    });
     // Trefflisten: vannrett/loddrett scroll skal ikke nå popupen under
     ['touchstart', 'touchmove', 'wheel'].forEach((t) => R.addEventListener(t, (e) => { if (e.composedPath().some((n) => n.classList && n.classList.contains('fhits'))) e.stopPropagation(); }, { passive: true }));
     // Entitetsvelgerne (msh-entity-picker): entitet-feltene, lampens entity_id og «Legg til lampe»
@@ -33922,7 +34403,7 @@ try {
       const i = e.composedPath()[0];
       if (!i || !i.dataset || i.tagName !== 'MSH-ENTITY-PICKER') return;
       e.stopPropagation();
-      const v = String((e.detail && e.detail.value) || '').trim(), A = M.lysAuto(hass(), st.draft);
+      const v = String((e.detail && e.detail.value) || '').trim(), A = auto();
       if (i.dataset.f) return upd((d) => setPath(d, i.dataset.f, v || undefined), 'light');
       if (i.dataset.lamp != null) { if (!v) return; return upd((d) => lampOp(d, A, 'entity', Number(i.dataset.lamp), v), 'light'); }
       if (i.dataset.new) { if (!v) return; st.adding = false; return upd((d) => lampOp(d, A, 'add', -1, v), 'success'); }
@@ -33931,32 +34412,181 @@ try {
     R.addEventListener('change', (e) => {
       const i = e.target;
       if (!i || !i.dataset || i.dataset.q) return;
-      const A = M.lysAuto(hass(), st.draft);
-      if (i.dataset.t === 'range') return upd((d) => { d.slider_height = Number(i.value); }, 'selection');
+      const A = auto();
+      if (i.dataset.sl) { const k = i.dataset.sl; return upd((d) => { d[k] = Number(i.value); if (k === 'top' || k === 'bottom') delete d['pad_' + k]; }, 'selection'); }
+      if (i.dataset.rname) { const rk = i.dataset.rname, v = String(i.value || '').trim(); return upd((d) => { const n = { ...(d.room_names || {}) }; if (v && v !== i.dataset.auto) n[rk] = v; else delete n[rk]; if (Object.keys(n).length) d.room_names = n; else delete d.room_names; }, 'light'); }
+      if (i.dataset.gname) { const rk = i.dataset.gname, v = String(i.value || '').trim(); return upd((d) => { const gs = { ...(d.groups || {}) }; if (gs[rk]) gs[rk] = { ...gs[rk], name: v }; d.groups = gs; }, 'light'); }
+      if (i.dataset.mv) {
+        // Flytt lys til et annet rom (light_room.<objekt-id>); lyset tas ut av gruppen i rommet det forlater
+        const id = i.dataset.mv, from = i.dataset.room, to = i.value, orig = A.aOrig[id] || '_';
+        return upd((d) => {
+          const lr = { ...(d.light_room || {}) };
+          if (to === orig) delete lr[obj(id)]; else lr[obj(id)] = to;
+          if (Object.keys(lr).length) d.light_room = lr; else delete d.light_room;
+          const gs = { ...(d.groups || {}) };
+          if (gs[from]) { const m = (gs[from].members || []).filter((x) => x !== id); if (m.length) gs[from] = { ...gs[from], members: m }; else delete gs[from]; }
+          if (Object.keys(gs).length) d.groups = gs; else delete d.groups;
+        }, 'selection');
+      }
       if (i.dataset.f) {
         const t = i.dataset.t, raw = String(i.value || '').trim();
         const v = raw === '' ? undefined : t === 'number' ? Number(raw) : raw;
-        if (t === 'number' && raw !== '' && isNaN(v)) return;
-        if (t === 'entity' && raw && !hass().states[raw]) { M.haptic('failure'); M.toast('Finner ikke ' + raw); return; }
+        if (t === 'number' && raw !== '' && isNaN(v)) return undefined;
+        if (t === 'entity' && raw && !hass().states[raw]) { M.haptic('failure'); M.toast('Finner ikke ' + raw); return undefined; }
         return upd((d) => setPath(d, i.dataset.f, v), 'light');
       }
       if (i.dataset.lamp != null) {
         const raw = String(i.value || '').trim();
-        if (i.dataset.lf === 'entity' && raw && (!OUT_DOMS.includes(raw.split('.')[0]) || !hass().states[raw])) { M.haptic('failure'); M.toast('Velg et lys eller en bryter'); return; }
+        if (i.dataset.lf === 'entity' && raw && (!OUT_DOMS.includes(raw.split('.')[0]) || !hass().states[raw])) { M.haptic('failure'); M.toast('Velg et lys eller en bryter'); return undefined; }
         return upd((d) => lampOp(d, A, i.dataset.lf, Number(i.dataset.lamp), raw), 'light');
       }
       if (i.dataset.new) {
         const raw = String(i.value || '').trim();
-        if (!OUT_DOMS.includes(raw.split('.')[0]) || !hass().states[raw]) { M.haptic('failure'); M.toast('Velg et lys eller en bryter'); return; }
+        if (!OUT_DOMS.includes(raw.split('.')[0]) || !hass().states[raw]) { M.haptic('failure'); M.toast('Velg et lys eller en bryter'); return undefined; }
         st.adding = false;
         return upd((d) => lampOp(d, A, 'add', -1, raw), 'success');
       }
       return undefined;
     });
-    card._sheet = { ov, st };
+    card._sheet = { ov, st, go, close: () => ov.close(), full: setFull };
     draw();
+    // Popupen får arkets høyde ekstra luft i bunnen (scroll fram alt bak det halve arket)
+    requestAnimationFrame(() => { if (card._applySpacing) card._applySpacing(); });
     return card._sheet;
   }
+  // 36.8 · «Tilpass lys» (Lys v5): halvhøyt ark uten bakteppe, helt dekkende --ki-popup (aldri gjennomsiktig, 36.7),
+  // radius 38 øverst; kort --ki-surface r24 + innerkant, rader inni --ki-surface-2; aktiv = rosa gradient + mørk tekst.
+  const V5_CSS = `
+    :host{pointer-events:none}
+    .bg{display:none!important}
+    .sh.tp.lys5{pointer-events:auto;top:auto;bottom:0;height:58%;max-height:calc(100% - var(--ki-tp-top,50px));padding:0;overflow:hidden;display:flex;flex-direction:column;border-radius:38px 38px 0 0;
+      background:var(--ki-popup, #282828)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+      box-shadow:inset 0 1px 0 ${WA(0.06)},0 -12px 40px ${KA(0.55)};transition:transform 280ms cubic-bezier(.2,.8,.2,1),height .3s cubic-bezier(.3,.9,.3,1)}
+    .sh.tp.lys5.full{height:calc(100% - var(--ki-tp-top,50px))}
+    .sh.lys5>.gz{display:none}
+    .sh.lys5>.body{flex:1;min-height:0;display:flex;flex-direction:column}
+    .lys-sheet{flex:1;min-height:0;display:flex;flex-direction:column;color:var(--ki-text, #fafafa)}
+    .lys-sheet button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
+    .hdl{display:flex;justify-content:center;align-items:center;width:100%;padding:10px 0 2px;flex:none;border:0;background:none;cursor:pointer}
+    .hdl span{width:40px;height:5px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))}
+    .hdr{display:flex;align-items:center;gap:8px;padding:10px 20px 12px;flex:none}
+    .hdr .ttl{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .hdr .tt{font-size:24px;font-weight:600;letter-spacing:-0.01em;line-height:1.2;color:var(--ki-text, #fafafa)}
+    .hdr .ts{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .hb{height:40px;padding:0 16px;border-radius:20px;border:0;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:14px;font-weight:500;flex:none;cursor:pointer;transition:transform .15s}
+    .nd5{${M.DONE_PILL}flex:none;transition:transform .15s}
+    .hb:active,.nd5:active{transform:scale(.96)}
+    .nd5:disabled{opacity:.6}
+    .etw{padding:0 14px 10px;flex:none}
+    .et{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)}}
+    .et button{flex:1 1 0;min-width:0;height:44px;border-radius:20px;border:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;background:transparent;color:var(--ki-text-1, var(--gray900,#c7c7c7));cursor:pointer;transition:flex .25s,background .25s}
+    .et button.on{flex:1.8 1 auto;background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .scr{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:flex;flex-direction:column;gap:8px;padding:2px 14px calc(32px + env(safe-area-inset-bottom, 0px))}
+    .scr>*{flex-shrink:0}
+    .scr .msh-draft-banner{margin:0}
+    .card{display:flex;flex-direction:column;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};position:relative;transition:transform .2s,opacity .2s}
+    .card.pad{padding:16px;gap:12px}
+    .row{display:flex;flex-direction:row;align-items:center;gap:6px;min-height:60px;padding:0 6px 0 2px;position:relative}
+    .card.off,.lr.off{opacity:.55}
+    .lift{z-index:3;box-shadow:0 10px 24px ${KA(0.45)}!important;transition:none!important;opacity:1}
+    .hd{width:36px;height:48px;flex:none;display:grid;place-items:center;color:var(--ki-text-3, var(--gray600,#7f7f7f));touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+    .hd:active{cursor:grabbing}
+    .rcd>.row .hd{width:32px}
+    .rib{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
+    .rn{flex:1;min-width:0;font-size:15px;font-weight:500;padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .eyb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;border:0;background:none;color:var(--ki-text-1, var(--gray1000,#e1e1e1));cursor:pointer;transition:transform .15s}
+    .eyb.sm{width:36px;height:36px}
+    .eyb.hid{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .eyb:active,.lnk:active,.sbub:active{transform:scale(.9)}
+    .chv{width:36px;height:40px;flex:none;display:grid;place-items:center;border:0;background:none;color:var(--ki-text-mid, var(--gray700,#979797));cursor:pointer}
+    .chv ha-icon{transition:transform .25s}
+    .chv.open ha-icon{transform:rotate(180deg)}
+    .flr{display:flex;flex-direction:column;gap:8px}
+    .capf{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:6px 6px 0}
+    .hint{font-size:12px;line-height:1.45;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 6px}
+    .rin{flex:1;min-width:0;height:40px;border-radius:12px;border:0;outline:none;padding:0 10px;background:var(--ki-popup, #282828);color:var(--ki-text, #fafafa);font:inherit;font-size:14px;font-weight:500;box-sizing:border-box;-webkit-user-select:text;user-select:text}
+    .rin::placeholder{color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .meta{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;padding:0 2px}
+    .lls{display:flex;flex-direction:column;gap:6px;padding:0 8px 10px}
+    .lr{display:flex;align-items:center;gap:4px;min-height:52px;padding:0 4px 0 0;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));position:relative;transition:transform .2s,opacity .2s}
+    .lr .hd{width:30px}
+    .dot{width:12px;height:12px;border-radius:6px;flex:none;margin:0 4px}
+    .ln{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .ln b{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ln i{font-style:normal;font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .lnk{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;border:0;background:transparent;color:var(--ki-text-mid, var(--gray700,#979797));cursor:pointer;transition:transform .15s}
+    .lnk.on{background:${M.alpha(Y, 0.18)};color:${YT}}
+    .msel{width:96px;flex:none;height:36px;border-radius:18px;border:0;outline:none;padding:0 8px;background:var(--ki-popup, #282828);color:var(--ki-text-1, var(--gray1000,#e1e1e1));font:inherit;font-size:12px}
+    .gbox{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.25)}}
+    .gbh{display:flex;align-items:center;gap:8px}
+    .gbh span{flex:1;font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+    .gbx{height:30px;padding:0 12px;border-radius:15px;border:0;background:var(--ki-ctrl, var(--gray400,#545454));font-size:12px;font-weight:500;cursor:pointer}
+    .gin{flex:none;width:100%;padding:0 12px}
+    .sbub{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;border:0;background:var(--ki-popup, #282828);cursor:pointer;transition:transform .15s}
+    .stx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left;border:0;background:none;padding:0;cursor:pointer}
+    .stx b{font-size:15px;font-weight:500}
+    .stx i{font-style:normal;font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .sx{display:flex;flex-direction:column;gap:10px;padding:2px 14px 14px}
+    .sxl{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+    .icg{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+    .icg button{aspect-ratio:1;border-radius:14px;border:0;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray1000,#e1e1e1));cursor:pointer;min-width:0;padding:0}
+    .icg button.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .swr{display:flex;gap:10px;flex-wrap:wrap;padding:2px}
+    .swc{width:36px;height:36px;border-radius:18px;flex:none;border:0;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px ${WA(0.12)}}
+    .swc.on{box-shadow:0 0 0 2px var(--ki-surface, var(--gray200,#3a3a3a)),0 0 0 4px var(--ki-text, #fafafa)}
+    .sdel{height:40px;border-radius:20px;border:0;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-red-text, var(--red,#f28073));font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+    .avl{gap:4px;padding:12px}
+    .avh{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));padding:2px 6px 6px}
+    .avr{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 6px;border-radius:18px;border:0;background:none;text-align:left;cursor:pointer;width:100%}
+    .avr:active{background:var(--ki-surface-2, var(--gray300,#404040))}
+    .pv{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:var(--ki-bg, var(--gray000,#232323));box-shadow:inset 0 0 0 1px ${WA(0.06)};flex-shrink:0}
+    .pvh{display:flex;align-items:center;gap:8px}
+    .pvh span{flex:1;font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .pvh i{font-style:normal;font-size:11px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    .pv .sc{padding:2px 0}
+    .dg{gap:10px;padding:14px}
+    .dgh{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500}
+    .dgo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .dob{display:flex;align-items:center;gap:10px;min-height:60px;padding:8px 12px;border-radius:18px;border:0;text-align:left;background:var(--ki-surface-3, var(--gray100,#2f2f2f));box-shadow:inset 0 0 0 1px ${WA(0.05)};cursor:pointer;min-width:0;transition:box-shadow .2s,background .2s,transform .15s}
+    .dob:active{transform:scale(.97)}
+    .dob.on{background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:inset 0 0 0 2px var(--pink, #f285c9)}
+    .dob>ha-icon{color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .dob.on>ha-icon{color:var(--ki-pink-text, var(--pink,#f285c9))}
+    .dob>span{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .dob b{font-size:14px;font-weight:500}
+    .dob i{font-style:normal;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
+    .sls{padding:4px 16px 8px}
+    .vh{display:flex;align-items:center;gap:8px;padding:10px 0 6px;font-size:15px;font-weight:500}
+    .slb{display:flex;flex-direction:column;gap:8px;padding:12px 0 8px}
+    .vh+.slb,.sgr+.slb,.slb+.slb{border-top:1px solid ${WA(0.06)}}
+    .slh{display:flex;align-items:center;gap:8px}
+    .slh span{flex:1;font-size:14px}
+    .slh b{font-size:12px;font-weight:400;color:var(--ki-text-mid, var(--gray700,#979797));font-variant-numeric:tabular-nums}
+    .rg5{width:100%;height:24px;margin:0;accent-color:var(--pink, #f285c9);touch-action:none;cursor:pointer}
+    .pre{display:flex;gap:6px;flex-wrap:wrap}
+    .mini{height:32px;padding:0 12px;border-radius:16px;border:0;font-size:12px;font-weight:500;white-space:nowrap;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray1000,#e1e1e1));cursor:pointer}
+    .mini.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .sep{height:1px;background:${WA(0.06)};flex:none}
+    .swrow{display:flex;align-items:center;gap:12px;min-height:60px;width:100%;text-align:left;border:0;background:none;padding:0;cursor:pointer}
+    .swrow+.swrow{border-top:1px solid ${WA(0.06)}}
+    .swrow .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .swrow b{font-size:14px;font-weight:400}
+    .swrow i{font-style:normal;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
+    .sgr{display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid ${WA(0.06)};flex-wrap:wrap}
+    .sgr>span{flex:1;font-size:14px;white-space:nowrap}
+    .sg5{display:flex;gap:2px;padding:3px;border-radius:19px;background:var(--ki-popup, #282828);flex:none}
+    .sg5 button{height:32px;padding:0 12px;border-radius:16px;border:0;font-size:12px;font-weight:500;white-space:nowrap;background:transparent;color:var(--ki-text-2, var(--gray800,#afafaf));cursor:pointer}
+    .sg5 button.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .fc{gap:10px;padding-bottom:4px}
+    .fc .sgr{border-top:0}
+    .stc .mst-c{height:36px;padding:0 14px}
+    .pg{display:flex;flex-direction:column}
+    .pg .cap:first-child{padding-top:6px}
+    /* 36.7: aldri gjennomsiktig i arket – også med Liquid Glass-temaet */
+    .lys-sheet .grp{background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:none}
+    .lys-sheet .seg{background:var(--ki-popup, #282828)}
+    :host(.glass) .lys-sheet .seg button.on{background:${PINK};box-shadow:none;color:var(--ki-on-accent, #3a3a3a)}
+  `;
   // Utelampene slik arket viser dem: eldre lamps-liste når den er satt, ellers auto + include.utelys − exclude
   function sheetLamps(d, A) {
     if (Array.isArray(d.lamps) && d.lamps.length) return d.lamps.map((l) => ({ id: (l && l.entity) || '', name: (l && l.name) || '', icon: (l && l.icon) || '' }));
@@ -34006,14 +34636,6 @@ try {
   // aktivt segment = rosa (glassboble med temaet). Ingen hardkodet blur her.
   const SHEET_CSS = `
     .sh{--ki-sh-pt:8px;--ki-sh-px:16px}
-    .nav{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:3;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;min-height:52px;margin:0 -16px 6px;padding:4px 16px;background:var(--ki-sheet-bg,var(--ki-popup, #282828));-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
-    .nb{justify-self:start;display:inline-flex;align-items:center;height:36px;padding:0 4px;font-size:15px;font-weight:500;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
-    .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .nd{justify-self:end;${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille i alle Tilpass-ark */ /* Fiks 26 (brukerens valg): hovedsiden får samme header som de andre Tilpass-arkene – tittel 22/600 til venstre, knappene til høyre */
-    .nav.main{display:flex}
-    .nav.main .nt{order:-1;flex:1;min-width:0;text-align:left;font-size:22px;letter-spacing:-0.01em}
-    .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,var(--ki-surface, #3a3a3a));font-size:14px}
-    .nd:disabled{opacity:.6}
     .pg{display:flex;flex-direction:column}
     .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:16px 8px 8px}
     .grp{background:var(--ki-sheet-grp,var(--ki-surface, #3a3a3a));box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
@@ -38227,12 +38849,12 @@ try {
       return `<div class="f"><label>${esc(dk === 'school' ? 'Retning før byttetidspunktet' : 'Retning etter byttetidspunktet')}</label>${inp(dk + '.name', D.name, STD_TRIPS[dk].name)}
         ${D.alts.map((alt, i) => {
           const id = `${dk}.${i}`, on = alt.enabled !== false, isOpen = open === id, A = `data-dir="${dk}" data-i="${i}"`;
-          return `<div class="ruter-alt" style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border-radius:16px;background:${WA(0.04)}">
+          return `<div class="ruter-alt" style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border-radius:16px;background:var(--ki-surface, #3a3a3a)">
             <div class="line" style="gap:6px">${b('toggle', A, '', `sw ${on ? 'on' : ''}`)}
               ${b('edit', A, `<span style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(altTitle(alt))}</span>`, '', 'flex:1;min-width:0;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:4px 0;cursor:pointer')}
               ${b('up', A, M.icon('mdi:chevron-up', 20))}${b('down', A, M.icon('mdi:chevron-down', 20))}${b('del', A, M.icon('mdi:delete-outline', 20))}</div>
             ${isOpen ? `${lab('Gangtid til første stopp (min) · tomt = stoppets gangtid', inp(`${dk}.alts.${i}.walk_min`, alt.walk_min, 'f.eks. 4', true))}
-              ${(alt.legs || []).map((l, j) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:12px;background:${KA(0.15)}">
+              ${(alt.legs || []).map((l, j) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:12px;background:var(--ki-surface-3, #2f2f2f)">
                 <span class="small" style="grid-column:1/-1;display:flex;align-items:center;gap:6px">Etappe ${j + 1}<span style="flex:1"></span>${b('rmleg', `${A} data-j="${j}"`, M.icon('mdi:close', 18))}</span>
                 ${lab('Fra (stopp / sensor / NSR · «A / B» = begge)', inp(`${dk}.alts.${i}.legs.${j}.from`, l.from, 'Majorstuen'))}${lab('Til', inp(`${dk}.alts.${i}.legs.${j}.to`, l.to, 'Holbergs plass'))}
                 ${lab('Linje(r) · tomt = alle som går', inp(`${dk}.alts.${i}.legs.${j}.lines`, l.lines, 'f.eks. 45', false, true))}
@@ -45430,8 +46052,13 @@ try {
  * popupen vises som «Erstattet av Kalender» i Egne popups (MSH.POPUP_SUPERSEDE → 04-strategy/28-popup-editor).
  *
  * Topp: fane-pille (Kalender · Hytta · Framover · Bursdager · Posten, MSH.iconTabs, Liquid Glass-drag) + 48×48
- *   modusknapp med to ikoner på en loddrett skinne: trykk = Liste/Måned (Kalender/Framover), hold 480 ms = «Vis
- *   kalendere» (portalt), sveip opp/ned > 16 px = vipp til tannhjul (trykk → «Tilpass kalender»). To prikker = modus.
+ *   modusknapp. Kalender/Framover: to ikoner på en loddrett skinne: trykk = Liste/Måned, hold 480 ms = «Vis kalendere»
+ *   (bare Kalender, portalt), sveip opp/ned > 16 px = vipp til tannhjul (trykk → «Tilpass kalender»), to prikker = modus.
+ *   36.6: Hytta/Bursdager/Posten: KUN tannhjul (trykk → Tilpass), ingen vipp/sveip/hold, ingen prikker.
+ * 36.6: Startvisning (`default_view: list|month`, gammel `defaultView: liste|maned`) gjelder Kalender og Framover ved
+ *   hver åpning; knappen bytter bare visningen i økten (lagres ikke). Framover: filteret (Alle/Serier/Filmer/Plex) gjelder
+ *   også i måned (merker + dagspanel), chipsene står alltid rett under fanelinjen. Posten: dagene er knapper (ui.pSel).
+ * 36.7: «Tilpass kalender» = helt dekkende ark (--ki-popup/#282828), top 52, maks 440, radius 38, bakteppe .5 + blur 4.
  * Faner og deler (section_order/section_hidden per fane, tab_order/tab_hidden):
  *   kalender: main · hytta: sok, steder, seg · framover: filter, hero, kommende, plex · bursdager: hero, kommende ·
  *   posten: posten, pakker
@@ -45483,6 +46110,9 @@ try {
   const UKE1 = ['M', 'T', 'O', 'T', 'F', 'L', 'S'];
   // Fiks 24.1: visning list|month (config default_view, ki-store kalender.view.<fane>) ↔ intern liste|maned
   const normView = (v) => (v === 'month' || v === 'maned' ? 'maned' : v === 'list' || v === 'liste' ? 'liste' : null);
+  // 36.6: lagret startvisning – `default_view` (list|month) vinner, ellers gamle `defaultView` (liste|maned)
+  const startView = (c) => normView((c || {}).default_view) || normView((c || {}).defaultView) || 'liste';
+  const FILTERS = [['alle', 'Alle'], ['serier', 'Serier'], ['filmer', 'Filmer'], ['plex', 'Plex']];
   const DEF = { days: 14, defaultView: 'liste', showPlex: true, birthdayToday: true, tab_labels: 'icon' };
 
   /* ------------------------------------------------------------ dato-hjelpere */
@@ -45815,6 +46445,12 @@ try {
     R.addEventListener('pointercancel', end);
   }
 
+  // Nullstill (36.7: knappen i headeren på «Tilpass kalender», GUI-editoren: nederst)
+  function resetCfg(hh, cc, ed) {
+    cc = cc || {};
+    const id = cc.card_id || M.uid(); EXP.delete(id); OPEN.delete(id);
+    ed._config = { type: cc.type || 'custom:msh-kalender-card', card_id: id }; ed._set('card_id', id);
+  }
   function editorSchema(h, c) {
     c = c || {};
     // Faner: piller (56) med dra, ikon, navn + «N deler», pil og øye; utvidet → deler (52) med dra + øye
@@ -45825,7 +46461,7 @@ try {
         const [, label, icon] = TABL[k], P = PARTS[k], ph = partHidden(cc, k), isO = open === k && P.length > 1;
         const row = `<div class="ordrow ktab" data-edk="${k}" data-elist="tab" data-key="kt-${k}" style="height:56px;border-radius:28px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;${hid.has(k) ? 'opacity:.5' : ''}">${hdl('tab')}
           <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface-2, #404040);flex:none">${M.icon(icon, 20)}</span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length} ${P.length === 1 ? 'del' : 'deler'}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px">${esc(label)}${M.startTab && M.startTab.pill ? M.startTab.pill(cc, k, visTabs(cc), cc.startTab) : ''}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length} ${P.length === 1 ? 'del' : 'deler'}</span></span>
           ${P.length > 1 ? `<button class="ib" data-a="fn" data-k="${key}" data-op="exp" data-v="${k}" aria-expanded="${isO}" aria-label="Deler i ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:chevron-down', 22)}</button>` : ''}
           ${eyeB(key, 'eye', '', k, hid.has(k), label)}</div>`;
         const parts = isO ? partOrder(cc, k).map((p) => { const pl = P.find((x) => x[0] === p)[1]; return `<div class="ordrow kpart" data-edk="${p}" data-elist="sec:${k}" data-key="kp-${k}-${p}" style="height:52px;border-radius:26px;margin-left:28px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;${ph.has(p) ? 'opacity:.5' : ''}">${hdl('sec:' + k)}<span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`; }).join('') : '';
@@ -45912,8 +46548,16 @@ try {
     const visning = [
       { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['icon', 'Symboler'], ['name', 'Navn']], default: 'icon', help: 'Symboler: bare ikon, den aktive fanen viser også navnet. Navn: bare tekst.' },
       { type: 'select', name: 'days', label: 'Dager fremover', options: [[7, '7'], [14, '14'], [30, '30']], default: 14 },
-      { type: 'select', name: 'defaultView', label: 'Standardvisning', options: [['liste', 'Liste'], ['maned', 'Måned']], default: 'liste' },
-      ...(M.startTab ? [M.startTab.field({ legacy: (cc) => cc.startTab, clear: ['startTab'], items: (hh, cc) => visTabs(cc).map((k) => { const t = TABS.find((x) => x[0] === k) || [k, k]; return { key: k, label: t[1] }; }) })] : []), // 36.5: Startfane (felles MSH.startTab; gamle startTab leses)
+      ...(M.startTab ? [M.startTab.field({ legacy: (cc) => cc.startTab, clear: ['startTab'], items: (hh, cc) => visTabs(cc).map((k) => { const t = TABS.find((x) => x[0] === k) || [k, k]; return { key: k, label: t[1], icon: t[2] }; }) })] : []), // 36.5: Startfane (felles MSH.startTab; gamle startTab leses)
+      // 36.6: Startvisning for Kalender og Framover ved åpning (default_view; gamle defaultView vises/fjernes)
+      { type: 'html', id: 'default_view', html: (hh, cc, key, ed) => {
+        const v = startView(cc) === 'maned' ? 'month' : 'list', help = 'Gjelder Kalender og Framover hver gang popupen åpnes. Knappen ved fanene bytter bare visningen der og da.';
+        if (ed && !ed._inline && customElements.get('ha-selector')) {
+          const sel = { select: { mode: 'dropdown', options: [{ value: 'list', label: 'Liste' }, { value: 'month', label: 'Måned' }] } };
+          return `<div class="f"><ha-selector data-name="default_view" data-nomorph data-sdef="${v}" data-selector="${esc(JSON.stringify(sel))}" data-label="Startvisning" data-helper="${esc(help)}"></ha-selector></div>`;
+        }
+        return `<div class="f" data-name="default_view"><label>Startvisning</label><div class="chips sg">${[['list', 'Liste'], ['month', 'Måned']].map(([k, l]) => `<button class="chip ${k === v ? 'on' : ''}" aria-selected="${k === v}" data-a="fn" data-k="${key}" data-op="dv" data-v="${k}">${l}</button>`).join('')}</div><span class="help">${help}</span></div>`;
+      }, click: (dd, ed) => { if (dd.op !== 'dv') return; M.haptic('selection'); if ((ed._config || {}).defaultView != null) { const n = { ...ed._config }; delete n.defaultView; ed._config = n; } return ed._set('default_view', dd.v); } },
       { type: 'boolean', name: 'showPlex', label: 'Vis «Nylig i Plex»', default: true },
       { type: 'boolean', name: 'birthdayToday', label: 'Konfetti når noen har bursdag i dag', default: true },
       spacing,
@@ -45925,7 +46569,7 @@ try {
         { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder'], fields: [info, ...SRC.map(kilde)] },
         { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing', 'visning'], fields: visning },
       ] },
-      { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); EXP.delete(id); OPEN.delete(id); ed._config = { type: cc.type || 'custom:msh-kalender-card', card_id: id }; ed._set('card_id', id); } },
+      { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); resetCfg(hh, cc, ed); } }, // også i headeren (36.7); knappen er dekkende #3a3a3a
     ];
   }
 
@@ -45942,7 +46586,8 @@ try {
       // `spacing: { gap, top, bottom }` (designet) → felles nøkler gap/pad_top/pad_bottom (MSH.Card._applySpacing)
       if (c && c.spacing && typeof c.spacing === 'object') { const s = c.spacing; c = { ...c, gap: c.gap != null ? c.gap : s.gap, pad_top: c.pad_top != null ? c.pad_top : s.top, pad_bottom: c.pad_bottom != null ? c.pad_bottom : s.bottom }; }
       // Fiks 24.1: `default_view: list|month` (YAML) = defaultView (GUI-editoren)
-      if (c && c.default_view != null && c.defaultView == null && normView(c.default_view)) c = { ...c, defaultView: normView(c.default_view) };
+      // 36.6: `default_view` (Startvisning, GUI + Tilpass) vinner over gamle `defaultView`
+      if (c && normView(c.default_view)) c = { ...c, defaultView: normView(c.default_view) };
       super.setConfig(c);
     }
     connectedCallback() {
@@ -45955,17 +46600,24 @@ try {
       if (super.disconnectedCallback) super.disconnectedCallback();
       if (this._kvOff) { this._kvOff(); this._kvOff = null; }
     }
-    // Fiks 24.1: visning for Kalender/Framover: denne økten → ki-store (per bruker) → default_view → liste
+    // 36.6: visning for Kalender/Framover: byttet med knappen i denne åpningen → Startvisning (default_view) → liste.
+    // Knappen lagrer ingenting – neste åpning starter i Startvisning igjen.
     _view(t) {
       const k = t === 'kalender' ? 'kview' : 'fview';
-      if (this.ui[k]) return this.ui[k];
-      let s = null; try { s = M.store && M.store.get ? M.store.get('kalender.view.' + t) : null; } catch (e) { /* */ }
-      return normView(s) || normView(this.config.defaultView) || 'liste';
+      return normView(this.ui[k]) || startView(this.config);
     }
-    onOpen() { this.update(); }
+    onOpen() { this._ui = { ...this._ui, kview: null, fview: null, btn: 'view', pSel: null }; this.update(); }
     // 36.5: startfane ved åpning (MSH.startTab via basekortet) – start_tab, ellers gamle startTab
     static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (c) => c.startTab }; }
-    onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '' }; }
+    onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null }; }
+    // 36.7: «Tilpass kalender» – tittel uten «·», «Nullstill» i headeren (ingen X), eget ark: top 52, maks 440, radius 38,
+    // bakteppe rgba(0,0,0,.5) + blur(4px) over dashbordflaten. Arket er portalt (MSH.overlay i ki-overlay-root) og helt dekkende.
+    static get editorTitle() { return 'Tilpass kalender'; }
+    static get editorHead() { return { reset: resetCfg }; }
+    customize(focus, opts) {
+      return super.customize(focus, { ...(opts || {}), sheet: { top: 52, maxWidth: 440, css: `.sh.tp{border-radius:38px 38px 0 0;background:var(--ki-popup, #282828);opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 -12px 40px ${BA(0.45)}}
+        .bg{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}` } });
+    }
     get tab() { const V = visTabs(this.config); const t = this.ui.tab || this.config.startTab; return V.includes(t) ? t : V[0]; }
     _upd() { if (this.isConnected) this.update(); }
     _ev(id, s, e) { if (!id || !this.hass || !this.isOpen) { const k = `${id}|${dk(s)}|${dk(e)}`; const x = EV.get(k); return x ? x.list : null; } return evFetch(this.hass, id, s, e, () => this._upd()); }
@@ -45988,13 +46640,14 @@ try {
         const b = mb(e); if (!b || e.button) return;
         e.stopPropagation();
         try { b.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-        g = { id: e.pointerId, y0: e.clientY, done: false };
-        g.t = setTimeout(() => { if (!g || g.done) return; g.done = true; M.haptic('medium'); this._calMenu(b); }, 480);
+        const t = this.tab, flip = t === 'kalender' || t === 'framover'; // 36.6: bare Kalender/Framover kan vippe
+        g = { id: e.pointerId, y0: e.clientY, done: false, flip };
+        if (t === 'kalender' && this.ui.btn !== 'gear') g.t = setTimeout(() => { if (!g || g.done) return; g.done = true; M.haptic('medium'); this._calMenu(b); }, 480);
       });
       R.addEventListener('pointermove', (e) => {
         if (!g || e.pointerId !== g.id) return;
         e.stopPropagation();
-        if (g.done) return;
+        if (g.done || !g.flip) return;
         const dy = e.clientY - g.y0;
         if (Math.abs(dy) > 16) { g.done = true; clearTimeout(g.t); M.haptic('selection'); this.setUI({ btn: this.ui.btn === 'gear' ? 'view' : 'gear' }); }
       });
@@ -46046,9 +46699,9 @@ try {
     _modeTap() {
       const t = this.tab;
       if (this.ui.btn === 'gear' || !(t === 'kalender' || t === 'framover')) return this.customize();
+      // 36.6: byttet gjelder bare denne åpningen – lagret Startvisning (default_view) endres ikke. Framover-filteret beholdes.
       const k = t === 'kalender' ? 'kview' : 'fview', nv = this._view(t) === 'maned' ? 'liste' : 'maned';
       this.setUI({ [k]: nv, selDay: null, fSel: null });
-      if (M.store && M.store.set) M.store.set('kalender.view.' + t, nv === 'maned' ? 'month' : 'list', { now: true });
     }
     // «Vis kalendere» (portalt, fallgruve 1): avkrysning per calendar.* med farge-prikk. Fiks 24.1: rett under knappen
     // som åpnet den (modusknappen eller `event`-knappen i månedslinjen), høyrejustert, 264 px, #404040, radius 24.
@@ -46095,12 +46748,14 @@ try {
         return names ? `<button class="ntab ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-act="tab" data-v="${k}" data-haptic="selection">${esc(label)}</button>`
           : M.iconTabs.btn({ label, icon }, k === t, `data-act="tab" data-v="${k}" data-haptic="selection"`, k === t ? 'on' : '');
       }).join('')}</div>`;
-      const gear = this.ui.btn === 'gear', viewTab = t === 'kalender' || t === 'framover';
+      const viewTab = t === 'kalender' || t === 'framover', gear = viewTab && this.ui.btn === 'gear';
       const view = viewTab ? this._view(t) : 'liste';
-      const vIcon = !viewTab ? 'mdi:tune-variant' : view === 'maned' ? 'mdi:view-agenda' : 'mdi:calendar-month'; // calendar_month ↔ view_agenda
-      const mode = `<div class="mode"><button class="mb press" aria-label="${gear ? 'Tilpass kalender' : viewTab ? (view === 'maned' ? 'Vis liste' : 'Vis måned') : 'Tilpass kalender'} · hold for kalendere · sveip for tannhjul" data-mode="${gear ? 'gear' : 'view'}">
+      const vIcon = view === 'maned' ? 'mdi:view-agenda' : 'mdi:calendar-month'; // calendar_month ↔ view_agenda
+      // 36.6: Hytta/Bursdager/Posten – knappen er KUN tannhjul (ingen skinne, ingen prikker, ingen vipp/hold)
+      const mode = viewTab ? `<div class="mode"><button class="mb press" aria-label="${gear ? 'Tilpass kalender' : view === 'maned' ? 'Vis liste' : 'Vis måned'}${t === 'kalender' ? ' · hold for kalendere' : ''} · sveip for tannhjul" data-mode="${gear ? 'gear' : 'view'}">
         <span class="rail" style="transform:translateY(${gear ? 'calc(-1 * var(--mbh, 48px))' : '0px'})"><span>${M.icon(vIcon, 22)}</span><span>${M.icon('mdi:cog', 22)}</span></span></button>
-        <span class="mdots" aria-hidden="true"><i class="${gear ? '' : 'on'}"></i><i class="${gear ? 'on' : ''}"></i></span></div>`;
+        <span class="mdots" aria-hidden="true"><i class="${gear ? '' : 'on'}"></i><i class="${gear ? 'on' : ''}"></i></span></div>`
+        : `<div class="mode"><button class="mb press gear" aria-label="Tilpass kalender" data-mode="gear"><span class="rail"><span>${M.icon('mdi:cog', 22)}</span></span></button></div>`;
       let body;
       try { body = this['_t_' + t](); } catch (e) { body = this._failHTML(e); }
       return `<div class="wrap"><div class="top"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>${tabs}${mode}</div><div class="pane" data-key="pane-${t}">${body}</div></div>`;
@@ -46294,6 +46949,23 @@ try {
     }
     _plex() { const id = srcOf(this.hass, this.config, 'plex'); if (!id) return []; this.s(id); return mediaFromSensor(this.hass, id, 'plex'); }
     _mItems() { if (!this.__mi) { const m = this._media(); this.__mi = [...m.list, ...this._plex()]; this.__mBusy = m.busy; } return this.__mi; }
+    // 36.6: valgt filter → elementene som teller i månedsvisningen (merker + dagspanel). Alle = Sonarr + Radarr (+ Plex når
+    // «Nylig i Plex» er på), Serier = Sonarr, Filmer = Radarr, Plex = bare «lagt til i Plex».
+    _fFilter() {
+      const c = this.config, P = this._parts('framover');
+      let f = this.ui.ff || 'alle';
+      if (!P.includes('filter') || !FILTERS.some((x) => x[0] === f) || (f === 'plex' && c.showPlex === false)) f = 'alle';
+      return f;
+    }
+    _fPool(f) {
+      const items = this._mItems(), up = items.filter((x) => x.kind !== 'plex'), plex = items.filter((x) => x.kind === 'plex');
+      const L = f === 'serier' ? up.filter((x) => x.kind === 'serie') : f === 'filmer' ? up.filter((x) => x.kind === 'film') : f === 'plex' ? plex : this.config.showPlex !== false ? [...up, ...plex] : up;
+      return L.filter((x) => x.date);
+    }
+    _fChips(f) {
+      const c = this.config;
+      return `<div class="chips fchips noscroll" role="toolbar" aria-label="Filter">${FILTERS.filter(([k]) => k !== 'plex' || c.showPlex !== false).map(([k, l]) => `<button class="fc ${k === f ? 'on' : ''}" data-act="ff" data-v="${k}" data-haptic="selection" aria-pressed="${k === f}">${l}</button>`).join('')}</div>`;
+    }
     _t_framover() {
       this.__mi = null;
       const h = this.hass, c = this.config;
@@ -46301,14 +46973,13 @@ try {
       if (!has) return this._missing('Ingen Sonarr, Radarr eller Plex', 'kilder');
       const items = this._mItems(), busy = this.__mBusy;
       const up = items.filter((x) => x.kind !== 'plex'), plex = items.filter((x) => x.kind === 'plex');
-      const f = this.ui.ff || 'alle';
+      const P = this._parts('framover'), f = this._fFilter();
+      // 36.6: filter-chipsene står ALLTID øverst – rett under fanelinjen, over månedsnavigasjonen – i begge visninger
+      const chips = P.includes('filter') ? this._fChips(f) : '';
+      if (this._view('framover') === 'maned') return chips + this._fMonth(this._fPool(f), f);
       const L = f === 'serier' ? up.filter((x) => x.kind === 'serie') : f === 'filmer' ? up.filter((x) => x.kind === 'film') : f === 'plex' ? [] : up;
-      // Fiks 24.1: Måned = KUN månedskalenderen + dagspanelet (media-rader)
-      if (this._view('framover') === 'maned') return this._fMonth(up);
-      const view = 'liste';
-      const out = [];
-      this._parts('framover').forEach((p) => {
-        if (p === 'filter') out.push(`<div class="chips noscroll">${[['alle', 'Alle'], ['serier', 'Serier'], ['filmer', 'Filmer'], ['plex', 'Plex']].map(([k, l]) => `<button class="fc ${k === f ? 'on' : ''}" data-act="ff" data-v="${k}" data-haptic="selection" aria-pressed="${k === f}">${l}</button>`).join('')}</div>`);
+      const out = [chips];
+      P.forEach((p) => {
         if (p === 'hero' && f !== 'plex') {
           const x = L[0];
           if (!x) { out.push(`<div class="card none">${busy ? 'Henter …' : 'Ingen kommende utgivelser'}</div>`); return; }
@@ -46320,7 +46991,6 @@ try {
         }
         if (p === 'kommende') {
           if (f === 'plex') { out.push(this._plexGrid(plex, true)); return; }
-          if (view === 'maned') { out.push(this._fMonth(L)); return; }
           const rest = L.slice(1), days = uniq(rest.map((x) => dk(d0(x.date))));
           const nShow = this.ui.fmore ? days.length : Math.min(5, days.length);
           out.push(days.length ? days.slice(0, nShow).map((k) => `<section class="day" data-key="fd-${k}"><div class="dh">${esc(dayLabel(fromKey(k)))}</div><div class="card evl">${rest.filter((x) => dk(d0(x.date)) === k).map((x) => this._mRow(x)).join('')}</div></section>`).join('') + (days.length > 5 ? `<button class="more press" data-act="fmore">${this.ui.fmore ? 'Vis færre' : `Vis mer (${days.length - 5})`}</button>` : '') : '');
@@ -46334,12 +47004,26 @@ try {
       const items = this._mItems();
       return `<div class="${full ? 'pgrid' : 'prow noscroll'}">${plex.slice(0, full ? 24 : 12).map((x) => `<button class="pc press" data-act="mdet" data-i="${items.indexOf(x)}"><span class="pst xl ${x.poster ? '' : 'ph'}">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy">` : M.icon('mdi:plex', 24)}</span><b class="ell">${esc(x.title)}</b><span class="ell">${esc(x.ep || x.epTitle || '')}</span></button>`).join('')}</div>`;
     }
-    _fMonth(L) {
+    // Valgt dag i Framover-måneden (ui.fSel, ellers i dag / den 1. i en annen måned)
+    _fSelKey() { const off = Number(this.ui.fOff) || 0, now = d0(new Date()), f = new Date(now.getFullYear(), now.getMonth() + off, 1); return this.ui.fSel || (off ? dk(f) : dk(now)); }
+    _fMonth(L, flt) {
       const off = Number(this.ui.fOff) || 0, now = d0(new Date()), f = new Date(now.getFullYear(), now.getMonth() + off, 1);
-      const sel = this.ui.fSel || (off ? dk(f) : dk(now));
+      const sel = this._fSelKey();
       const grid = this._mvGrid(f.getFullYear(), f.getMonth(), 'fstep', sel, (d, key) => L.filter((x) => dk(d0(x.date)) === key).length);
       const ms = L.filter((x) => dk(d0(x.date)) === sel);
-      return `<div class="mvc">${this._mvHead(f.getFullYear(), f.getMonth(), 'fstep', off, false)}${grid}</div>${this._dayPanel(fromKey(sel), ms.map((x) => this._mRow(x)).join(''), 'Ingen utgivelser denne dagen')}`;
+      const empty = flt === 'plex' ? 'Ingenting lagt til i Plex denne dagen' : flt === 'serier' ? 'Ingen episoder denne dagen' : flt === 'filmer' ? 'Ingen filmer denne dagen' : 'Ingen utgivelser denne dagen';
+      return `<div class="mvc">${this._mvHead(f.getFullYear(), f.getMonth(), 'fstep', off, false)}${grid}</div>${this._dayPanel(fromKey(sel), ms.map((x) => this._mRow(x)).join(''), empty)}`;
+    }
+    // 36.6: nytt filter i månedsvisningen og valgt dag har ingen treff → hopp til første dag med treff (i den viste måneden
+    // hvis den har noen, ellers første fra i dag, ellers den siste) – måneden følger med.
+    _fJump(flt) {
+      this.__mi = null;
+      const L = this._fPool(flt).slice().sort((a, b) => a.date - b.date), sel = this._fSelKey();
+      if (!L.length || L.some((x) => dk(d0(x.date)) === sel)) return null;
+      const now = d0(new Date()), off = Number(this.ui.fOff) || 0, mf = new Date(now.getFullYear(), now.getMonth() + off, 1);
+      const inM = L.find((x) => x.date.getFullYear() === mf.getFullYear() && x.date.getMonth() === mf.getMonth());
+      const x = inM || L.find((y) => d0(y.date) >= now) || L[L.length - 1], d = d0(x.date);
+      return { fSel: dk(d), fOff: (d.getFullYear() - now.getFullYear()) * 12 + d.getMonth() - now.getMonth() };
     }
     // Detaljark (portalt, fallgruve 1): plakat, tittel, tid, chips, beskrivelse, «Spill av», «Åpne i Sonarr/Radarr»
     _mDetail(x) {
@@ -46437,9 +47121,13 @@ try {
           if (!P) { out.push(this._hdr('Når kommer Posten') + this._missing('Ingen Posten-sensor', 'kilder')); return; }
           const now = d0(new Date()), n = P.next ? dayDiff(now, P.next) : null, today = n === 0;
           const days = []; for (let d = now; days.length < 10; d = addD(d, 1)) if (d.getDay() !== 0 && d.getDay() !== 6) days.push(d);
-          const rel = P.next ? (n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n <= 6 ? `På ${DAG_L[P.next.getDay()]}` : dShort(P.next)) : '–';
-          out.push(`<div class="card post" data-ent="${esc(id)}"><div class="pt"><span class="pic ${today ? 'on' : ''}">${M.icon('mdi:email', 26)}</span><div class="grow"><span class="pchip ${today ? 'on' : ''}">${today ? 'Posten kommer i dag' : 'Ikke i dag'}</span><b class="prel">${esc(rel)}</b><span class="dim">${esc(P.rel && P.rel.toLowerCase() !== rel.toLowerCase() ? P.rel : P.next ? `${DAG_L[P.next.getDay()]} ${dShort(P.next)}${n > 1 ? ' · ' + relDays(n) : ''}` : '')}</span></div></div>
-            <div class="pg">${days.map((d) => { const on = P.dates.has(dk(d)); return `<span class="pd ${on ? 'on' : ''} ${dk(d) === dk(now) ? 'today' : ''}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b></span>`; }).join('')}</div></div>`);
+          let rel = P.next ? (n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n <= 6 ? `På ${DAG_L[P.next.getDay()]}` : dShort(P.next)) : '–';
+          let sub = P.rel && P.rel.toLowerCase() !== rel.toLowerCase() ? P.rel : P.next ? `${DAG_L[P.next.getDay()]} ${dShort(P.next)}${n > 1 ? ' · ' + relDays(n) : ''}` : '';
+          // 36.6: valgt dag (trykk i rutenettet) → «I morgen» / «Om 5 dager» + «tirsdag 29. sep · posten kommer|ingen utdeling»
+          const sk = this.ui.pSel && days.some((d) => dk(d) === this.ui.pSel) ? this.ui.pSel : null;
+          if (sk) { const sd = fromKey(sk), sn = dayDiff(now, sd); rel = sn === 0 ? 'I dag' : sn === 1 ? 'I morgen' : `Om ${sn} dager`; sub = `${DAG_L[sd.getDay()]} ${dShort(sd)} · ${P.dates.has(sk) ? 'posten kommer' : 'ingen utdeling'}`; }
+          out.push(`<div class="card post" data-ent="${esc(id)}"><div class="pt"><span class="pic ${today ? 'on' : ''}">${M.icon('mdi:email', 26)}</span><div class="grow"><span class="pchip ${today ? 'on' : ''}">${today ? 'Posten kommer i dag' : 'Ikke i dag'}</span><b class="prel">${esc(rel)}</b><span class="dim psub">${esc(sub)}</span></div></div>
+            <div class="pg">${days.map((d) => { const k = dk(d), on = P.dates.has(k), sl = k === sk; return `<button class="pd ${on ? 'on' : ''} ${k === dk(now) ? 'today' : ''} ${sl ? 'sel' : ''}" data-act="psel" data-v="${k}" data-haptic="selection" aria-pressed="${sl}" aria-label="${esc(`${DAG_L[d.getDay()]} ${dShort(d)} · ${on ? 'posten kommer' : 'ingen utdeling'}`)}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b></button>`; }).join('')}</div></div>`);
         }
         if (p === 'pakker') {
           const all = parcelsOf(h, c); all.forEach((x) => this.s(x.id));
@@ -46493,7 +47181,7 @@ try {
         case 'hseg': return this.setUI({ hSeg: d.v });
         case 'hqclr': return this.setUI({ q: '' });
         case 'hshow': { const s = fromKey(d.v), now = d0(new Date()); return this.setUI({ hSeg: 'kalender', hOff: (s.getFullYear() - now.getFullYear()) * 12 + s.getMonth() - now.getMonth() }); }
-        case 'ff': return this.setUI({ ff: d.v, fmore: false });
+        case 'ff': { if (d.v === this._fFilter()) return; const o = { ff: d.v, fmore: false }; if (this.tab === 'framover' && this._view('framover') === 'maned') Object.assign(o, this._fJump(d.v) || {}); return this.setUI(o); }
         case 'fmore': return this.setUI({ fmore: !this.ui.fmore });
         case 'mdet': { this.__mi = null; const x = this._mItems()[Number(d.i)]; return this._mDetail(x); }
         case 'evd': { if (d.cal) M.moreInfo(this, d.cal); return; }
@@ -46502,6 +47190,7 @@ try {
         case 'padd': return this.setUI({ pAdd: !this.ui.pAdd });
         case 'psave': return this._pSave();
         case 'pdel': return this.setUI({ pDel: !this.ui.pDel });
+        case 'psel': return this.setUI({ pSel: this.ui.pSel === d.v ? null : d.v }); // 36.6: trykk samme dag igjen → neste utdeling
         case 'popen': return this.setUI({ pOpen: this.ui.pOpen === d.v ? null : d.v });
         case 'phome': if (d.v) window.open(d.v, '_blank', 'noopener'); return;
         default: return super.onAction(name, el, ev);
@@ -46694,10 +47383,12 @@ try {
         .pchip.on{background:${TONE(C.red, 0.25)};color:${AT(C.red)}}
         .prel{font-size:22px;font-weight:500}
         .pg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-        .pd{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .pd{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;border:0;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));font:inherit;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,box-shadow .15s}
+        .pd:active{transform:scale(.94)}
         .pd b{font-size:15px;font-weight:500;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .pd.on{background:${TONE(C.red, 0.22)};color:${AT(C.red)}}.pd.on b{color:${AT(C.red)}}
         .pd.today{box-shadow:inset 0 0 0 2px var(--ki-text, var(--gray1000,#e1e1e1))}
+        .pd.sel{box-shadow:inset 0 0 0 2px var(--ki-text, #fafafa)}
         .pkr{border-radius:20px}
         .pkr.open{background:var(--ki-surface-2, var(--gray300,#404040))}
         .pkr+.pkr{box-shadow:inset 0 1px 0 ${WA(0.05)}}

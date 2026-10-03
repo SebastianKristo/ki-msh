@@ -704,8 +704,8 @@
   const SH = {
     solid: {
       scrim: 'background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));backdrop-filter:none;-webkit-backdrop-filter:none;',
-      sheet: 'background:var(--ki-popup, var(--gray050,#282828));backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:28px 28px 0 0;box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 -12px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));color:var(--ki-text, #fafafa);',
-      vars: '--ki-sheet-bg:var(--ki-popup, var(--gray050,#282828));--ki-sheet-blur:none;--ki-sheet-grp:var(--ki-surface, var(--gray200,#3a3a3a));--ki-sheet-grp-sh:none;--ki-sheet-in:var(--ki-surface-2, var(--gray300,#404040));--ki-sheet-seg:var(--ki-popup, var(--gray050,#282828));--ki-sheet-line:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sheet-grab:var(--ki-ctrl, var(--gray400,#545454));',
+      sheet: 'background:var(--ki-popup, #282828);backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:28px 28px 0 0;box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 -12px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));color:var(--ki-text, #fafafa);',
+      vars: '--ki-sheet-bg:var(--ki-popup, #282828);--ki-sheet-blur:none;--ki-sheet-grp:var(--ki-surface, var(--gray200,#3a3a3a));--ki-sheet-grp-sh:none;--ki-sheet-in:var(--ki-surface-2, var(--gray300,#404040));--ki-sheet-seg:var(--ki-popup, #282828);--ki-sheet-line:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sheet-grab:var(--ki-ctrl, var(--gray400,#545454));',
     },
     glass: {
       // Fiks 20.8: ingen backdrop-filter på bakteppet – blur over hele skjermen bak et ark som scroller hakker på mobil
@@ -1062,12 +1062,17 @@
   // full bredde på mobil. Radius 28 28 0 0, håndtak 40×5 (#545454) øverst, bunnpadding 16 px + safe-area.
   // Inn: translateY(100%) → 0 på 280 ms cubic-bezier(.2,.8,.2,1). Dra ned på håndtaket lukker (> 90 px eller raskt sveip).
   MSH.TILPASS_TOP = 50;
-  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false, tilpass = false } = {}) {
+  // 36.7 · Tilpass-ark i popups er ALLTID helt dekkende (#282828 / --ki-popup, ingen blur/opasitet): rotårsaken til
+  // gjennomsiktige ark i HA var at MSH.glassOn() også slår inn via navbar-stilen «glass» (bakoverkompatibelt), og da fikk
+  // arket glassflaten rgba(34,34,37,.72) + blur og gruppene rgba(255,255,255,.06) – popupen bak skinte gjennom. tilpass: true
+  // ignorerer derfor Liquid Glass (menyer/andre overlegg følger det fortsatt). tpTop/tpMaxW: egen toppkant/maks bredde
+  // (sentrert i innholdsflaten), f.eks. «Tilpass kalender» (36.7: top 52 px, maks 440 px, radius 38 via css).
+  MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false, tilpass = false, tpTop = null, tpMaxW = null } = {}) {
     const tp = !!tilpass && !center;
     if (tp) sheet = true;
     const host = document.createElement('div');
     host.className = 'msh-portal';
-    const gl = glass != null ? !!glass : MSH.glassOn();
+    const gl = tp ? false : glass != null ? !!glass : MSH.glassOn();
     if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     if (!glassSub && MSH.store && MSH.store.subscribe) glassSub = MSH.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) MSH.glassNotify(); });
     // Fiks 18.4: med vertikal navbar (Fold-oppsettet) ligger ARKET på innholdsflaten til høyre for railen (--ki-rail-x).
@@ -1120,7 +1125,7 @@
       host.classList.remove('on');
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('hashchange', onHash);
-      if (glass == null) window.removeEventListener('ki-glass-change', onGlass);
+      if (glass == null && !tp) window.removeEventListener('ki-glass-change', onGlass);
       setTimeout(() => host.remove(), 250);
       off();
       MSH.sheetCount(-1);
@@ -1143,7 +1148,7 @@
       const st = sr.querySelector('style[data-gl]'); if (g) st.removeAttribute('media'); else st.setAttribute('media', 'not all');
       sr.querySelectorAll('.body *').forEach((el) => { if (el._glassSync) el._glassSync(); });
     };
-    if (glass == null) window.addEventListener('ki-glass-change', onGlass);
+    if (glass == null && !tp) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
     const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); if (tp) tpPlace(D, x); };
@@ -1151,11 +1156,12 @@
     function tpPlace(D, x) {
       const cw = Math.max(0, D.width - x);
       let l = x, w = cw;
-      if (window.innerWidth >= 768) {
+      if (tpMaxW) { w = Math.min(Number(tpMaxW), cw); l = x + (cw - w) / 2; } // 36.7: fast maks bredde, sentrert nederst
+      else if (window.innerWidth >= 768) {
         const pop = openPopupEl(), pr = pop && pop.getBoundingClientRect();
         if (pr && pr.width > 0 && pr.width <= D.width + 1) { l = Math.max(0, pr.left - D.left); w = Math.min(pr.width, D.width - l); } else { w = Math.min(MSH.TILPASS_W || 540, cw); l = x + (cw - w) / 2; }
       }
-      host.style.setProperty('--ki-tp-top', (MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 50) + 'px');
+      host.style.setProperty('--ki-tp-top', (tpTop != null ? Number(tpTop) : MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 50) + 'px');
       host.style.setProperty('--ki-tp-l', Math.round(l) + 'px');
       host.style.setProperty('--ki-tp-w', Math.round(w) + 'px');
       host.dataset.tpSheet = '1'; // data-tp-sheet (ikke data-tilpass – det er navbarens «Tilpass»-menyark, 24.5)
@@ -2335,13 +2341,15 @@
   // Kortets egen editor (samme skjema som GUI-editoren) i et høyt ark; Avbryt/Ferdig ligger i den sticky headeren (Fiks 26).
   // Utkastflyten over (MSH.draftEditor): endringer vises live i alle instanser av kortet, men lagres først ved Ferdig.
   // Er arket for samme kort/nøkkel allerede åpent, gis det åpne tilbake (aldri to ark oppå hverandre).
-  MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title } = {}) {
+  MSH.openEditor = function (card, { cardClass, focus, areaCtx, tag, title, sheet } = {}) {
     if (!customElements.get(tag || 'msh-editor')) return null;
     const key = MSH.store ? MSH.storeKey(card._yamlConfig || card._rawConfig || card.config, card) : null;
     const open = MSH.draftFor(key || card);
     if (open && open.ui && !open.ui.overlay.closed) return open.ui;
     // Høyt ark med sticky bunnlinje (Avbryt/Ferdig) og alltid synlig håndtak (Fiks 11)
-    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, tilpass: true }); // Fiks 26: Ferdig/Avbryt i headeren · 28.11: popupens høyde
+    // sheet: { top, maxWidth, css } – egen geometri for kortets ark (36.7 «Tilpass kalender»)
+    const sg = sheet || {};
+    const ov = MSH.overlay({ html: '', maxWidth: 420, tall: true, tilpass: true, guard: 350 /* 36.6: klikket etter et touch-trykk (tannhjul på pointerup) lander ellers på bakteppet og lukker arket med en gang */, tpTop: sg.top != null ? sg.top : null, tpMaxW: sg.maxWidth || null, css: sg.css || '' }); // Fiks 26: Ferdig/Avbryt i headeren · 28.11: popupens høyde
     const ed = document.createElement(tag || 'msh-editor');
     ed.cardClass = cardClass || card.constructor;
     ed.inline = true;

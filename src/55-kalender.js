@@ -5,8 +5,13 @@
  * popupen vises som «Erstattet av Kalender» i Egne popups (MSH.POPUP_SUPERSEDE → 04-strategy/28-popup-editor).
  *
  * Topp: fane-pille (Kalender · Hytta · Framover · Bursdager · Posten, MSH.iconTabs, Liquid Glass-drag) + 48×48
- *   modusknapp med to ikoner på en loddrett skinne: trykk = Liste/Måned (Kalender/Framover), hold 480 ms = «Vis
- *   kalendere» (portalt), sveip opp/ned > 16 px = vipp til tannhjul (trykk → «Tilpass kalender»). To prikker = modus.
+ *   modusknapp. Kalender/Framover: to ikoner på en loddrett skinne: trykk = Liste/Måned, hold 480 ms = «Vis kalendere»
+ *   (bare Kalender, portalt), sveip opp/ned > 16 px = vipp til tannhjul (trykk → «Tilpass kalender»), to prikker = modus.
+ *   36.6: Hytta/Bursdager/Posten: KUN tannhjul (trykk → Tilpass), ingen vipp/sveip/hold, ingen prikker.
+ * 36.6: Startvisning (`default_view: list|month`, gammel `defaultView: liste|maned`) gjelder Kalender og Framover ved
+ *   hver åpning; knappen bytter bare visningen i økten (lagres ikke). Framover: filteret (Alle/Serier/Filmer/Plex) gjelder
+ *   også i måned (merker + dagspanel), chipsene står alltid rett under fanelinjen. Posten: dagene er knapper (ui.pSel).
+ * 36.7: «Tilpass kalender» = helt dekkende ark (--ki-popup/#282828), top 52, maks 440, radius 38, bakteppe .5 + blur 4.
  * Faner og deler (section_order/section_hidden per fane, tab_order/tab_hidden):
  *   kalender: main · hytta: sok, steder, seg · framover: filter, hero, kommende, plex · bursdager: hero, kommende ·
  *   posten: posten, pakker
@@ -58,6 +63,9 @@
   const UKE1 = ['M', 'T', 'O', 'T', 'F', 'L', 'S'];
   // Fiks 24.1: visning list|month (config default_view, ki-store kalender.view.<fane>) ↔ intern liste|maned
   const normView = (v) => (v === 'month' || v === 'maned' ? 'maned' : v === 'list' || v === 'liste' ? 'liste' : null);
+  // 36.6: lagret startvisning – `default_view` (list|month) vinner, ellers gamle `defaultView` (liste|maned)
+  const startView = (c) => normView((c || {}).default_view) || normView((c || {}).defaultView) || 'liste';
+  const FILTERS = [['alle', 'Alle'], ['serier', 'Serier'], ['filmer', 'Filmer'], ['plex', 'Plex']];
   const DEF = { days: 14, defaultView: 'liste', showPlex: true, birthdayToday: true, tab_labels: 'icon' };
 
   /* ------------------------------------------------------------ dato-hjelpere */
@@ -390,6 +398,12 @@
     R.addEventListener('pointercancel', end);
   }
 
+  // Nullstill (36.7: knappen i headeren på «Tilpass kalender», GUI-editoren: nederst)
+  function resetCfg(hh, cc, ed) {
+    cc = cc || {};
+    const id = cc.card_id || M.uid(); EXP.delete(id); OPEN.delete(id);
+    ed._config = { type: cc.type || 'custom:msh-kalender-card', card_id: id }; ed._set('card_id', id);
+  }
   function editorSchema(h, c) {
     c = c || {};
     // Faner: piller (56) med dra, ikon, navn + «N deler», pil og øye; utvidet → deler (52) med dra + øye
@@ -400,7 +414,7 @@
         const [, label, icon] = TABL[k], P = PARTS[k], ph = partHidden(cc, k), isO = open === k && P.length > 1;
         const row = `<div class="ordrow ktab" data-edk="${k}" data-elist="tab" data-key="kt-${k}" style="height:56px;border-radius:28px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;${hid.has(k) ? 'opacity:.5' : ''}">${hdl('tab')}
           <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface-2, #404040);flex:none">${M.icon(icon, 20)}</span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length} ${P.length === 1 ? 'del' : 'deler'}</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px">${esc(label)}${M.startTab && M.startTab.pill ? M.startTab.pill(cc, k, visTabs(cc), cc.startTab) : ''}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length} ${P.length === 1 ? 'del' : 'deler'}</span></span>
           ${P.length > 1 ? `<button class="ib" data-a="fn" data-k="${key}" data-op="exp" data-v="${k}" aria-expanded="${isO}" aria-label="Deler i ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:chevron-down', 22)}</button>` : ''}
           ${eyeB(key, 'eye', '', k, hid.has(k), label)}</div>`;
         const parts = isO ? partOrder(cc, k).map((p) => { const pl = P.find((x) => x[0] === p)[1]; return `<div class="ordrow kpart" data-edk="${p}" data-elist="sec:${k}" data-key="kp-${k}-${p}" style="height:52px;border-radius:26px;margin-left:28px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;${ph.has(p) ? 'opacity:.5' : ''}">${hdl('sec:' + k)}<span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`; }).join('') : '';
@@ -487,8 +501,16 @@
     const visning = [
       { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['icon', 'Symboler'], ['name', 'Navn']], default: 'icon', help: 'Symboler: bare ikon, den aktive fanen viser også navnet. Navn: bare tekst.' },
       { type: 'select', name: 'days', label: 'Dager fremover', options: [[7, '7'], [14, '14'], [30, '30']], default: 14 },
-      { type: 'select', name: 'defaultView', label: 'Standardvisning', options: [['liste', 'Liste'], ['maned', 'Måned']], default: 'liste' },
-      ...(M.startTab ? [M.startTab.field({ legacy: (cc) => cc.startTab, clear: ['startTab'], items: (hh, cc) => visTabs(cc).map((k) => { const t = TABS.find((x) => x[0] === k) || [k, k]; return { key: k, label: t[1] }; }) })] : []), // 36.5: Startfane (felles MSH.startTab; gamle startTab leses)
+      ...(M.startTab ? [M.startTab.field({ legacy: (cc) => cc.startTab, clear: ['startTab'], items: (hh, cc) => visTabs(cc).map((k) => { const t = TABS.find((x) => x[0] === k) || [k, k]; return { key: k, label: t[1], icon: t[2] }; }) })] : []), // 36.5: Startfane (felles MSH.startTab; gamle startTab leses)
+      // 36.6: Startvisning for Kalender og Framover ved åpning (default_view; gamle defaultView vises/fjernes)
+      { type: 'html', id: 'default_view', html: (hh, cc, key, ed) => {
+        const v = startView(cc) === 'maned' ? 'month' : 'list', help = 'Gjelder Kalender og Framover hver gang popupen åpnes. Knappen ved fanene bytter bare visningen der og da.';
+        if (ed && !ed._inline && customElements.get('ha-selector')) {
+          const sel = { select: { mode: 'dropdown', options: [{ value: 'list', label: 'Liste' }, { value: 'month', label: 'Måned' }] } };
+          return `<div class="f"><ha-selector data-name="default_view" data-nomorph data-sdef="${v}" data-selector="${esc(JSON.stringify(sel))}" data-label="Startvisning" data-helper="${esc(help)}"></ha-selector></div>`;
+        }
+        return `<div class="f" data-name="default_view"><label>Startvisning</label><div class="chips sg">${[['list', 'Liste'], ['month', 'Måned']].map(([k, l]) => `<button class="chip ${k === v ? 'on' : ''}" aria-selected="${k === v}" data-a="fn" data-k="${key}" data-op="dv" data-v="${k}">${l}</button>`).join('')}</div><span class="help">${help}</span></div>`;
+      }, click: (dd, ed) => { if (dd.op !== 'dv') return; M.haptic('selection'); if ((ed._config || {}).defaultView != null) { const n = { ...ed._config }; delete n.defaultView; ed._config = n; } return ed._set('default_view', dd.v); } },
       { type: 'boolean', name: 'showPlex', label: 'Vis «Nylig i Plex»', default: true },
       { type: 'boolean', name: 'birthdayToday', label: 'Konfetti når noen har bursdag i dag', default: true },
       spacing,
@@ -500,7 +522,7 @@
         { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder'], fields: [info, ...SRC.map(kilde)] },
         { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing', 'visning'], fields: visning },
       ] },
-      { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); EXP.delete(id); OPEN.delete(id); ed._config = { type: cc.type || 'custom:msh-kalender-card', card_id: id }; ed._set('card_id', id); } },
+      { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); resetCfg(hh, cc, ed); } }, // også i headeren (36.7); knappen er dekkende #3a3a3a
     ];
   }
 
@@ -517,7 +539,8 @@
       // `spacing: { gap, top, bottom }` (designet) → felles nøkler gap/pad_top/pad_bottom (MSH.Card._applySpacing)
       if (c && c.spacing && typeof c.spacing === 'object') { const s = c.spacing; c = { ...c, gap: c.gap != null ? c.gap : s.gap, pad_top: c.pad_top != null ? c.pad_top : s.top, pad_bottom: c.pad_bottom != null ? c.pad_bottom : s.bottom }; }
       // Fiks 24.1: `default_view: list|month` (YAML) = defaultView (GUI-editoren)
-      if (c && c.default_view != null && c.defaultView == null && normView(c.default_view)) c = { ...c, defaultView: normView(c.default_view) };
+      // 36.6: `default_view` (Startvisning, GUI + Tilpass) vinner over gamle `defaultView`
+      if (c && normView(c.default_view)) c = { ...c, defaultView: normView(c.default_view) };
       super.setConfig(c);
     }
     connectedCallback() {
@@ -530,17 +553,24 @@
       if (super.disconnectedCallback) super.disconnectedCallback();
       if (this._kvOff) { this._kvOff(); this._kvOff = null; }
     }
-    // Fiks 24.1: visning for Kalender/Framover: denne økten → ki-store (per bruker) → default_view → liste
+    // 36.6: visning for Kalender/Framover: byttet med knappen i denne åpningen → Startvisning (default_view) → liste.
+    // Knappen lagrer ingenting – neste åpning starter i Startvisning igjen.
     _view(t) {
       const k = t === 'kalender' ? 'kview' : 'fview';
-      if (this.ui[k]) return this.ui[k];
-      let s = null; try { s = M.store && M.store.get ? M.store.get('kalender.view.' + t) : null; } catch (e) { /* */ }
-      return normView(s) || normView(this.config.defaultView) || 'liste';
+      return normView(this.ui[k]) || startView(this.config);
     }
-    onOpen() { this.update(); }
+    onOpen() { this._ui = { ...this._ui, kview: null, fview: null, btn: 'view', pSel: null }; this.update(); }
     // 36.5: startfane ved åpning (MSH.startTab via basekortet) – start_tab, ellers gamle startTab
     static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (c) => c.startTab }; }
-    onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '' }; }
+    onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null }; }
+    // 36.7: «Tilpass kalender» – tittel uten «·», «Nullstill» i headeren (ingen X), eget ark: top 52, maks 440, radius 38,
+    // bakteppe rgba(0,0,0,.5) + blur(4px) over dashbordflaten. Arket er portalt (MSH.overlay i ki-overlay-root) og helt dekkende.
+    static get editorTitle() { return 'Tilpass kalender'; }
+    static get editorHead() { return { reset: resetCfg }; }
+    customize(focus, opts) {
+      return super.customize(focus, { ...(opts || {}), sheet: { top: 52, maxWidth: 440, css: `.sh.tp{border-radius:38px 38px 0 0;background:var(--ki-popup, #282828);opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 -12px 40px ${BA(0.45)}}
+        .bg{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}` } });
+    }
     get tab() { const V = visTabs(this.config); const t = this.ui.tab || this.config.startTab; return V.includes(t) ? t : V[0]; }
     _upd() { if (this.isConnected) this.update(); }
     _ev(id, s, e) { if (!id || !this.hass || !this.isOpen) { const k = `${id}|${dk(s)}|${dk(e)}`; const x = EV.get(k); return x ? x.list : null; } return evFetch(this.hass, id, s, e, () => this._upd()); }
@@ -563,13 +593,14 @@
         const b = mb(e); if (!b || e.button) return;
         e.stopPropagation();
         try { b.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-        g = { id: e.pointerId, y0: e.clientY, done: false };
-        g.t = setTimeout(() => { if (!g || g.done) return; g.done = true; M.haptic('medium'); this._calMenu(b); }, 480);
+        const t = this.tab, flip = t === 'kalender' || t === 'framover'; // 36.6: bare Kalender/Framover kan vippe
+        g = { id: e.pointerId, y0: e.clientY, done: false, flip };
+        if (t === 'kalender' && this.ui.btn !== 'gear') g.t = setTimeout(() => { if (!g || g.done) return; g.done = true; M.haptic('medium'); this._calMenu(b); }, 480);
       });
       R.addEventListener('pointermove', (e) => {
         if (!g || e.pointerId !== g.id) return;
         e.stopPropagation();
-        if (g.done) return;
+        if (g.done || !g.flip) return;
         const dy = e.clientY - g.y0;
         if (Math.abs(dy) > 16) { g.done = true; clearTimeout(g.t); M.haptic('selection'); this.setUI({ btn: this.ui.btn === 'gear' ? 'view' : 'gear' }); }
       });
@@ -621,9 +652,9 @@
     _modeTap() {
       const t = this.tab;
       if (this.ui.btn === 'gear' || !(t === 'kalender' || t === 'framover')) return this.customize();
+      // 36.6: byttet gjelder bare denne åpningen – lagret Startvisning (default_view) endres ikke. Framover-filteret beholdes.
       const k = t === 'kalender' ? 'kview' : 'fview', nv = this._view(t) === 'maned' ? 'liste' : 'maned';
       this.setUI({ [k]: nv, selDay: null, fSel: null });
-      if (M.store && M.store.set) M.store.set('kalender.view.' + t, nv === 'maned' ? 'month' : 'list', { now: true });
     }
     // «Vis kalendere» (portalt, fallgruve 1): avkrysning per calendar.* med farge-prikk. Fiks 24.1: rett under knappen
     // som åpnet den (modusknappen eller `event`-knappen i månedslinjen), høyrejustert, 264 px, #404040, radius 24.
@@ -670,12 +701,14 @@
         return names ? `<button class="ntab ${k === t ? 'on' : ''}" role="tab" aria-selected="${k === t}" data-act="tab" data-v="${k}" data-haptic="selection">${esc(label)}</button>`
           : M.iconTabs.btn({ label, icon }, k === t, `data-act="tab" data-v="${k}" data-haptic="selection"`, k === t ? 'on' : '');
       }).join('')}</div>`;
-      const gear = this.ui.btn === 'gear', viewTab = t === 'kalender' || t === 'framover';
+      const viewTab = t === 'kalender' || t === 'framover', gear = viewTab && this.ui.btn === 'gear';
       const view = viewTab ? this._view(t) : 'liste';
-      const vIcon = !viewTab ? 'mdi:tune-variant' : view === 'maned' ? 'mdi:view-agenda' : 'mdi:calendar-month'; // calendar_month ↔ view_agenda
-      const mode = `<div class="mode"><button class="mb press" aria-label="${gear ? 'Tilpass kalender' : viewTab ? (view === 'maned' ? 'Vis liste' : 'Vis måned') : 'Tilpass kalender'} · hold for kalendere · sveip for tannhjul" data-mode="${gear ? 'gear' : 'view'}">
+      const vIcon = view === 'maned' ? 'mdi:view-agenda' : 'mdi:calendar-month'; // calendar_month ↔ view_agenda
+      // 36.6: Hytta/Bursdager/Posten – knappen er KUN tannhjul (ingen skinne, ingen prikker, ingen vipp/hold)
+      const mode = viewTab ? `<div class="mode"><button class="mb press" aria-label="${gear ? 'Tilpass kalender' : view === 'maned' ? 'Vis liste' : 'Vis måned'}${t === 'kalender' ? ' · hold for kalendere' : ''} · sveip for tannhjul" data-mode="${gear ? 'gear' : 'view'}">
         <span class="rail" style="transform:translateY(${gear ? 'calc(-1 * var(--mbh, 48px))' : '0px'})"><span>${M.icon(vIcon, 22)}</span><span>${M.icon('mdi:cog', 22)}</span></span></button>
-        <span class="mdots" aria-hidden="true"><i class="${gear ? '' : 'on'}"></i><i class="${gear ? 'on' : ''}"></i></span></div>`;
+        <span class="mdots" aria-hidden="true"><i class="${gear ? '' : 'on'}"></i><i class="${gear ? 'on' : ''}"></i></span></div>`
+        : `<div class="mode"><button class="mb press gear" aria-label="Tilpass kalender" data-mode="gear"><span class="rail"><span>${M.icon('mdi:cog', 22)}</span></span></button></div>`;
       let body;
       try { body = this['_t_' + t](); } catch (e) { body = this._failHTML(e); }
       return `<div class="wrap"><div class="top"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>${tabs}${mode}</div><div class="pane" data-key="pane-${t}">${body}</div></div>`;
@@ -869,6 +902,23 @@
     }
     _plex() { const id = srcOf(this.hass, this.config, 'plex'); if (!id) return []; this.s(id); return mediaFromSensor(this.hass, id, 'plex'); }
     _mItems() { if (!this.__mi) { const m = this._media(); this.__mi = [...m.list, ...this._plex()]; this.__mBusy = m.busy; } return this.__mi; }
+    // 36.6: valgt filter → elementene som teller i månedsvisningen (merker + dagspanel). Alle = Sonarr + Radarr (+ Plex når
+    // «Nylig i Plex» er på), Serier = Sonarr, Filmer = Radarr, Plex = bare «lagt til i Plex».
+    _fFilter() {
+      const c = this.config, P = this._parts('framover');
+      let f = this.ui.ff || 'alle';
+      if (!P.includes('filter') || !FILTERS.some((x) => x[0] === f) || (f === 'plex' && c.showPlex === false)) f = 'alle';
+      return f;
+    }
+    _fPool(f) {
+      const items = this._mItems(), up = items.filter((x) => x.kind !== 'plex'), plex = items.filter((x) => x.kind === 'plex');
+      const L = f === 'serier' ? up.filter((x) => x.kind === 'serie') : f === 'filmer' ? up.filter((x) => x.kind === 'film') : f === 'plex' ? plex : this.config.showPlex !== false ? [...up, ...plex] : up;
+      return L.filter((x) => x.date);
+    }
+    _fChips(f) {
+      const c = this.config;
+      return `<div class="chips fchips noscroll" role="toolbar" aria-label="Filter">${FILTERS.filter(([k]) => k !== 'plex' || c.showPlex !== false).map(([k, l]) => `<button class="fc ${k === f ? 'on' : ''}" data-act="ff" data-v="${k}" data-haptic="selection" aria-pressed="${k === f}">${l}</button>`).join('')}</div>`;
+    }
     _t_framover() {
       this.__mi = null;
       const h = this.hass, c = this.config;
@@ -876,14 +926,13 @@
       if (!has) return this._missing('Ingen Sonarr, Radarr eller Plex', 'kilder');
       const items = this._mItems(), busy = this.__mBusy;
       const up = items.filter((x) => x.kind !== 'plex'), plex = items.filter((x) => x.kind === 'plex');
-      const f = this.ui.ff || 'alle';
+      const P = this._parts('framover'), f = this._fFilter();
+      // 36.6: filter-chipsene står ALLTID øverst – rett under fanelinjen, over månedsnavigasjonen – i begge visninger
+      const chips = P.includes('filter') ? this._fChips(f) : '';
+      if (this._view('framover') === 'maned') return chips + this._fMonth(this._fPool(f), f);
       const L = f === 'serier' ? up.filter((x) => x.kind === 'serie') : f === 'filmer' ? up.filter((x) => x.kind === 'film') : f === 'plex' ? [] : up;
-      // Fiks 24.1: Måned = KUN månedskalenderen + dagspanelet (media-rader)
-      if (this._view('framover') === 'maned') return this._fMonth(up);
-      const view = 'liste';
-      const out = [];
-      this._parts('framover').forEach((p) => {
-        if (p === 'filter') out.push(`<div class="chips noscroll">${[['alle', 'Alle'], ['serier', 'Serier'], ['filmer', 'Filmer'], ['plex', 'Plex']].map(([k, l]) => `<button class="fc ${k === f ? 'on' : ''}" data-act="ff" data-v="${k}" data-haptic="selection" aria-pressed="${k === f}">${l}</button>`).join('')}</div>`);
+      const out = [chips];
+      P.forEach((p) => {
         if (p === 'hero' && f !== 'plex') {
           const x = L[0];
           if (!x) { out.push(`<div class="card none">${busy ? 'Henter …' : 'Ingen kommende utgivelser'}</div>`); return; }
@@ -895,7 +944,6 @@
         }
         if (p === 'kommende') {
           if (f === 'plex') { out.push(this._plexGrid(plex, true)); return; }
-          if (view === 'maned') { out.push(this._fMonth(L)); return; }
           const rest = L.slice(1), days = uniq(rest.map((x) => dk(d0(x.date))));
           const nShow = this.ui.fmore ? days.length : Math.min(5, days.length);
           out.push(days.length ? days.slice(0, nShow).map((k) => `<section class="day" data-key="fd-${k}"><div class="dh">${esc(dayLabel(fromKey(k)))}</div><div class="card evl">${rest.filter((x) => dk(d0(x.date)) === k).map((x) => this._mRow(x)).join('')}</div></section>`).join('') + (days.length > 5 ? `<button class="more press" data-act="fmore">${this.ui.fmore ? 'Vis færre' : `Vis mer (${days.length - 5})`}</button>` : '') : '');
@@ -909,12 +957,26 @@
       const items = this._mItems();
       return `<div class="${full ? 'pgrid' : 'prow noscroll'}">${plex.slice(0, full ? 24 : 12).map((x) => `<button class="pc press" data-act="mdet" data-i="${items.indexOf(x)}"><span class="pst xl ${x.poster ? '' : 'ph'}">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy">` : M.icon('mdi:plex', 24)}</span><b class="ell">${esc(x.title)}</b><span class="ell">${esc(x.ep || x.epTitle || '')}</span></button>`).join('')}</div>`;
     }
-    _fMonth(L) {
+    // Valgt dag i Framover-måneden (ui.fSel, ellers i dag / den 1. i en annen måned)
+    _fSelKey() { const off = Number(this.ui.fOff) || 0, now = d0(new Date()), f = new Date(now.getFullYear(), now.getMonth() + off, 1); return this.ui.fSel || (off ? dk(f) : dk(now)); }
+    _fMonth(L, flt) {
       const off = Number(this.ui.fOff) || 0, now = d0(new Date()), f = new Date(now.getFullYear(), now.getMonth() + off, 1);
-      const sel = this.ui.fSel || (off ? dk(f) : dk(now));
+      const sel = this._fSelKey();
       const grid = this._mvGrid(f.getFullYear(), f.getMonth(), 'fstep', sel, (d, key) => L.filter((x) => dk(d0(x.date)) === key).length);
       const ms = L.filter((x) => dk(d0(x.date)) === sel);
-      return `<div class="mvc">${this._mvHead(f.getFullYear(), f.getMonth(), 'fstep', off, false)}${grid}</div>${this._dayPanel(fromKey(sel), ms.map((x) => this._mRow(x)).join(''), 'Ingen utgivelser denne dagen')}`;
+      const empty = flt === 'plex' ? 'Ingenting lagt til i Plex denne dagen' : flt === 'serier' ? 'Ingen episoder denne dagen' : flt === 'filmer' ? 'Ingen filmer denne dagen' : 'Ingen utgivelser denne dagen';
+      return `<div class="mvc">${this._mvHead(f.getFullYear(), f.getMonth(), 'fstep', off, false)}${grid}</div>${this._dayPanel(fromKey(sel), ms.map((x) => this._mRow(x)).join(''), empty)}`;
+    }
+    // 36.6: nytt filter i månedsvisningen og valgt dag har ingen treff → hopp til første dag med treff (i den viste måneden
+    // hvis den har noen, ellers første fra i dag, ellers den siste) – måneden følger med.
+    _fJump(flt) {
+      this.__mi = null;
+      const L = this._fPool(flt).slice().sort((a, b) => a.date - b.date), sel = this._fSelKey();
+      if (!L.length || L.some((x) => dk(d0(x.date)) === sel)) return null;
+      const now = d0(new Date()), off = Number(this.ui.fOff) || 0, mf = new Date(now.getFullYear(), now.getMonth() + off, 1);
+      const inM = L.find((x) => x.date.getFullYear() === mf.getFullYear() && x.date.getMonth() === mf.getMonth());
+      const x = inM || L.find((y) => d0(y.date) >= now) || L[L.length - 1], d = d0(x.date);
+      return { fSel: dk(d), fOff: (d.getFullYear() - now.getFullYear()) * 12 + d.getMonth() - now.getMonth() };
     }
     // Detaljark (portalt, fallgruve 1): plakat, tittel, tid, chips, beskrivelse, «Spill av», «Åpne i Sonarr/Radarr»
     _mDetail(x) {
@@ -1012,9 +1074,13 @@
           if (!P) { out.push(this._hdr('Når kommer Posten') + this._missing('Ingen Posten-sensor', 'kilder')); return; }
           const now = d0(new Date()), n = P.next ? dayDiff(now, P.next) : null, today = n === 0;
           const days = []; for (let d = now; days.length < 10; d = addD(d, 1)) if (d.getDay() !== 0 && d.getDay() !== 6) days.push(d);
-          const rel = P.next ? (n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n <= 6 ? `På ${DAG_L[P.next.getDay()]}` : dShort(P.next)) : '–';
-          out.push(`<div class="card post" data-ent="${esc(id)}"><div class="pt"><span class="pic ${today ? 'on' : ''}">${M.icon('mdi:email', 26)}</span><div class="grow"><span class="pchip ${today ? 'on' : ''}">${today ? 'Posten kommer i dag' : 'Ikke i dag'}</span><b class="prel">${esc(rel)}</b><span class="dim">${esc(P.rel && P.rel.toLowerCase() !== rel.toLowerCase() ? P.rel : P.next ? `${DAG_L[P.next.getDay()]} ${dShort(P.next)}${n > 1 ? ' · ' + relDays(n) : ''}` : '')}</span></div></div>
-            <div class="pg">${days.map((d) => { const on = P.dates.has(dk(d)); return `<span class="pd ${on ? 'on' : ''} ${dk(d) === dk(now) ? 'today' : ''}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b></span>`; }).join('')}</div></div>`);
+          let rel = P.next ? (n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n <= 6 ? `På ${DAG_L[P.next.getDay()]}` : dShort(P.next)) : '–';
+          let sub = P.rel && P.rel.toLowerCase() !== rel.toLowerCase() ? P.rel : P.next ? `${DAG_L[P.next.getDay()]} ${dShort(P.next)}${n > 1 ? ' · ' + relDays(n) : ''}` : '';
+          // 36.6: valgt dag (trykk i rutenettet) → «I morgen» / «Om 5 dager» + «tirsdag 29. sep · posten kommer|ingen utdeling»
+          const sk = this.ui.pSel && days.some((d) => dk(d) === this.ui.pSel) ? this.ui.pSel : null;
+          if (sk) { const sd = fromKey(sk), sn = dayDiff(now, sd); rel = sn === 0 ? 'I dag' : sn === 1 ? 'I morgen' : `Om ${sn} dager`; sub = `${DAG_L[sd.getDay()]} ${dShort(sd)} · ${P.dates.has(sk) ? 'posten kommer' : 'ingen utdeling'}`; }
+          out.push(`<div class="card post" data-ent="${esc(id)}"><div class="pt"><span class="pic ${today ? 'on' : ''}">${M.icon('mdi:email', 26)}</span><div class="grow"><span class="pchip ${today ? 'on' : ''}">${today ? 'Posten kommer i dag' : 'Ikke i dag'}</span><b class="prel">${esc(rel)}</b><span class="dim psub">${esc(sub)}</span></div></div>
+            <div class="pg">${days.map((d) => { const k = dk(d), on = P.dates.has(k), sl = k === sk; return `<button class="pd ${on ? 'on' : ''} ${k === dk(now) ? 'today' : ''} ${sl ? 'sel' : ''}" data-act="psel" data-v="${k}" data-haptic="selection" aria-pressed="${sl}" aria-label="${esc(`${DAG_L[d.getDay()]} ${dShort(d)} · ${on ? 'posten kommer' : 'ingen utdeling'}`)}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b></button>`; }).join('')}</div></div>`);
         }
         if (p === 'pakker') {
           const all = parcelsOf(h, c); all.forEach((x) => this.s(x.id));
@@ -1068,7 +1134,7 @@
         case 'hseg': return this.setUI({ hSeg: d.v });
         case 'hqclr': return this.setUI({ q: '' });
         case 'hshow': { const s = fromKey(d.v), now = d0(new Date()); return this.setUI({ hSeg: 'kalender', hOff: (s.getFullYear() - now.getFullYear()) * 12 + s.getMonth() - now.getMonth() }); }
-        case 'ff': return this.setUI({ ff: d.v, fmore: false });
+        case 'ff': { if (d.v === this._fFilter()) return; const o = { ff: d.v, fmore: false }; if (this.tab === 'framover' && this._view('framover') === 'maned') Object.assign(o, this._fJump(d.v) || {}); return this.setUI(o); }
         case 'fmore': return this.setUI({ fmore: !this.ui.fmore });
         case 'mdet': { this.__mi = null; const x = this._mItems()[Number(d.i)]; return this._mDetail(x); }
         case 'evd': { if (d.cal) M.moreInfo(this, d.cal); return; }
@@ -1077,6 +1143,7 @@
         case 'padd': return this.setUI({ pAdd: !this.ui.pAdd });
         case 'psave': return this._pSave();
         case 'pdel': return this.setUI({ pDel: !this.ui.pDel });
+        case 'psel': return this.setUI({ pSel: this.ui.pSel === d.v ? null : d.v }); // 36.6: trykk samme dag igjen → neste utdeling
         case 'popen': return this.setUI({ pOpen: this.ui.pOpen === d.v ? null : d.v });
         case 'phome': if (d.v) window.open(d.v, '_blank', 'noopener'); return;
         default: return super.onAction(name, el, ev);
@@ -1269,10 +1336,12 @@
         .pchip.on{background:${TONE(C.red, 0.25)};color:${AT(C.red)}}
         .prel{font-size:22px;font-weight:500}
         .pg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-        .pd{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .pd{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;border:0;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));font:inherit;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,box-shadow .15s}
+        .pd:active{transform:scale(.94)}
         .pd b{font-size:15px;font-weight:500;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .pd.on{background:${TONE(C.red, 0.22)};color:${AT(C.red)}}.pd.on b{color:${AT(C.red)}}
         .pd.today{box-shadow:inset 0 0 0 2px var(--ki-text, var(--gray1000,#e1e1e1))}
+        .pd.sel{box-shadow:inset 0 0 0 2px var(--ki-text, #fafafa)}
         .pkr{border-radius:20px}
         .pkr.open{background:var(--ki-surface-2, var(--gray300,#404040))}
         .pkr+.pkr{box-shadow:inset 0 1px 0 ${WA(0.05)}}

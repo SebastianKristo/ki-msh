@@ -7,9 +7,10 @@
  * fargen under en 22→50 %-maske (mørke farger 30→60 %), overgang 300 ms. Aldri romfarge/adaptiv/localStorage.
  * Av/på-lys: samme spor, trykk veksler. Dra = lysstyrke (touch-action pan-y + stopPropagation), én haptic ved slipp.
  *   M.lightType(state)                          → 'color' | 'ct' | 'dim' | 'onoff' (fra supported_color_modes)
- *   M.lightRowCfg(id, { name, type, user, height }) → config til mysmart-light-control
+ *   M.lightRowCfg(id, { name, type, user, height, color, kelvin }) → config til mysmart-light-control
+ *       color = fast farge (Lys «Farge på lys»: Én farge / Temperatur), kelvin = «45 % · 2700 K» (Lys show_kelvin)
  *       user = lights.<objekt-id> (brightness_min/max, color_control, hide_*, color_presets, live_update)
- *   M.lightRowHeight(cfg)                       → slider_height (32–56, std 40)
+ *   M.lightRowHeight(cfg)                       → slider_height (32–80, std 40; size compact 32 / large 48)
  *   M.mountLightRows(card, cfgOf(id, wrap))     → monter/oppdater i plassholdere [data-lc] (gjenbrukes per entity)
  *   M.lightRowsHass(card, hass)                 → gi nye hass til monterte rader
  *   M.LIGHT_ROW_CSS                             → CSS for plassholderne (.lsl; høyden fra --lr-h på en forelder)
@@ -27,12 +28,14 @@
     if (m.some((x) => x !== 'onoff') || (!m.length && s && s.attributes.brightness != null)) return 'dim';
     return 'onoff';
   };
-  // Slider-høyde: slider_height (32–56), ellers eldre tile_height (56 → 40, 64 → 48, 72 → 56) / size: compact → 32
+  // Slider-høyde: slider_height (32–80, Lys v5 40–80), ellers eldre tile_height (56 → 40, 64 → 48, 72 → 56) /
+  // size: compact → 32, large → 48
   M.lightRowHeight = function (c) {
     c = c || {};
     const v = Number(c.slider_height);
-    if (c.slider_height != null && c.slider_height !== '' && !isNaN(v)) return Math.max(32, Math.min(56, Math.round(v)));
+    if (c.slider_height != null && c.slider_height !== '' && !isNaN(v)) return Math.max(32, Math.min(80, Math.round(v)));
     if (c.size === 'compact') return 32;
+    if (c.size === 'large') return 48;
     const th = Number(c.tile_height);
     if (!c.size && th >= 56) return Math.max(32, Math.min(56, 40 + (th - 56)));
     return 40;
@@ -74,7 +77,7 @@
   M.lampMask = (lum) => (lum < 0.35 ? 'linear-gradient(90deg, rgb(0 0 0 / .3), rgb(0 0 0 / .6))' : 'linear-gradient(90deg, rgb(0 0 0 / .22), rgb(0 0 0 / .5))');
 
   const B = (v) => (v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined);
-  M.lightRowCfg = function (id, { name, type, user, height, color } = {}) {
+  M.lightRowCfg = function (id, { name, type, user, height, color, kelvin } = {}) {
     const u = user || {};
     const T = type || 'dim';
     const out = {
@@ -89,6 +92,7 @@
     };
     if (name) out.name = name;
     if (color) out.msh_color = color;
+    if (kelvin) out.msh_kelvin = true;
     Object.keys(u).forEach((k) => {
       let v = u[k];
       if (v == null || v === '') return;
@@ -116,7 +120,8 @@
     const h = card.hass, s = h && h.states[id], on = s && s.state === 'on';
     const p = on && s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : null;
     const lc = on ? M.lampColor(s, ov(card, id)) : null;
-    const val = !s ? 'Finnes ikke' : M.unavailable && M.unavailable(s) ? 'Utilgjengelig' : on ? (p != null ? `${p} %` : 'På') : 'Av';
+    const k = on && card && card.config && card.config.show_kelvin ? Number(s.attributes.color_temp_kelvin) : 0;
+    const val = !s ? 'Finnes ikke' : M.unavailable && M.unavailable(s) ? 'Utilgjengelig' : on ? (p != null ? `${p} %` : 'På') + (k > 0 ? ` · ${Math.round(k)} K` : '') : 'Av';
     return `<div class="lrf"><div class="lrf-hd"><span class="lrf-n">${esc(name || (s ? M.name(h, id) : id))}</span><span class="lrf-v">${esc(val)}</span></div>
       <div class="lrf-t"><span class="lrf-f" style="width:${on ? (p != null ? p : 100) : 0}%${on ? `;background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span></div></div>`;
   };
@@ -176,7 +181,7 @@
     .lsl mysmart-light-control{--gray1000:var(--ki-text-1, #e1e1e1);--gray700:var(--ki-text-mid, #979797);--gray400:var(--ki-surface-3, #545454);display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--primary-text-color:var(--ki-text-1, var(--gray1000,#e1e1e1));--secondary-text-color:var(--ki-text-mid, var(--gray700,#979797))}
     .lrf{display:grid;grid-template-columns:minmax(0,1fr) 32px;column-gap:8px;row-gap:8px}
     .lrf-hd{grid-column:1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 2px;min-width:0}
-    .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:20px;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
+    .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--msh-nf,15px);font-weight:500;line-height:20px;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
     .lrf-v{flex:none;font-size:13px;line-height:20px;color:var(--ki-text-mid, var(--gray700,#979797))}
     .lrf-t{grid-column:1;position:relative;height:var(--lr-h,40px);border-radius:14px;background:var(--ki-ctrl, var(--gray400,#545454));overflow:hidden}
     .lrf-f{position:absolute;left:0;top:0;bottom:0;background-color:transparent;transition:background-color .3s ease}

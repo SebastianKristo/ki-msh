@@ -145,7 +145,7 @@ res.andre = await p.evaluate(async () => {
   const lys = window.__card('msh-lys-card');
   if (lys) {
     const n0 = window.__sets.length;
-    lys.customize(); await W(300);
+    lys.customize('look'); await W(300); // 36.8: Mellomrom ligger i Visning-fanen i «Tilpass lys»
     const R = M.portals().pop().shadowRoot;
     const seg = R.querySelector('[data-a="seg"][data-k="gap"][data-v="18"]') || [...R.querySelectorAll('[data-a="seg"]')].find((x) => !x.classList.contains('on'));
     seg.click(); await W(700);

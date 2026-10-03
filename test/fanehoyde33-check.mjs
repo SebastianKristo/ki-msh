@@ -37,7 +37,7 @@ const CARDS = [
   ['Kamera', 'msh-kamera-card', '#kamera', {}, null, true],
   ['Innstillinger', 'msh-innstillinger-card', '#settings', {}, 'faner', true],
   ['Basseng', 'msh-basseng-card', '#mitt-basseng', {}, null, true],
-  ['Lys', 'msh-lys-card', '#lys', {}, 'tabs', true],
+  ['Lys', 'msh-lys-card', '#lys', {}, 'design', true], // 36.8: Fanehøyde ligger i Design-fanen i «Tilpass lys»
   ['Klima', 'msh-klima-card', '#klima', {}, null, true],
   ['Media', 'msh-media-card', '#media', {}, 'faner', true],
   ['Tesla', 'msh-tesla-card', '#tesla', {}, 'faner', true],

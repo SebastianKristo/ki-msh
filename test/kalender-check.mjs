@@ -95,7 +95,7 @@ const S = await p.evaluate(async () => {
 ok('Sveip > 16 px → tannhjul (selection-haptic, prikkene bytter, bobler ikke)', S.mode === 'gear' && S.dots.join() === ',on' && S.hp.includes('selection') && S.bubbled === 0 && Math.round(S.railY) === -Math.round(S.mbH) && Math.round(S.mbH) === 48, S); // 33.4: skinnen flyttes én knapphøyde (følger fanehøyden, 48 px uten valg)
 await tapMb(p);
 const ed1 = await p.evaluate(async () => { await new Promise((q) => setTimeout(q, 400)); const portal = window.MSH.portals().pop(); const ed = portal && portal.shadowRoot.querySelector('msh-editor'); return ed ? { title: ed.shadowRoot.querySelector('.ttl .tt').textContent, tabs: [...ed.shadowRoot.querySelectorAll('.chips.tabs [role="tab"]')].map((t) => t.getAttribute('aria-label') || t.textContent.trim()) } : null; });
-ok('Tannhjul + trykk → «Tilpass kalender» med Faner/Kalendere/Kilder/Visning', ed1 && /Kalender/.test(ed1.title) && ed1.tabs.join('|') === 'Faner|Kalendere|Kilder|Visning', ed1);
+ok('Tannhjul + trykk → «Tilpass kalender» med Faner/Kalendere/Kilder/Visning', ed1 && ed1.title === 'Tilpass kalender' && ed1.tabs.join('|') === 'Faner|Kalendere|Kilder|Visning', ed1);
 if (shots) await p.screenshot({ path: `${shots}/kal-3-tilpass-faner.png` });
 // Faner: utvid Hytta → deler; skjul Posten
 const F = await p.evaluate(async () => {
@@ -141,7 +141,7 @@ const V = await p.evaluate(async () => {
   const sl = KS.map((k) => k.querySelector('.ks[data-spn="gap"]')).find(Boolean);
   return { labels, cfg: ed._config, slTA: sl && getComputedStyle(sl).touchAction, pres: KS.flatMap((k) => [...k.querySelectorAll('.p[data-spn="pad_bottom"]')]).map((b) => b.textContent) };
 });
-ok('Visning: Faner viser / Dager fremover / Standardvisning / Vis «Nylig i Plex» / Mellomrom', ['Faner viser', 'Dager fremover', 'Standardvisning'].every((l) => V.labels.some((x) => x.includes(l))) && V.labels.some((x) => /Mellom seksjonene/.test(x)) && V.labels.some((x) => /Luft i bunnen/.test(x)), V.labels);
+ok('Visning: Faner viser / Dager fremover / Startvisning / Vis «Nylig i Plex» / Mellomrom', ['Faner viser', 'Dager fremover', 'Startvisning'].every((l) => V.labels.some((x) => x.includes(l))) && V.labels.some((x) => /Mellom seksjonene/.test(x)) && V.labels.some((x) => /Luft i bunnen/.test(x)), V.labels);
 ok('Mellomrom: forvalg Ingen 0/Litt 60/Standard 150/Maks 300, slider pan-y (drag tas over)', V.pres.join('|') === 'Ingen 0|Litt 60|Standard 150|Maks 300', V);
 ok('Visning: tab_labels=name og pad_top=44 i utkastet', V.cfg.tab_labels === 'name' && V.cfg.pad_top === 44, V.cfg);
 if (shots) await p.screenshot({ path: `${shots}/kal-5-tilpass-visning.png` });
@@ -238,7 +238,7 @@ const G = await e.evaluate(async () => {
 ok('GUI-editor: samme faner (Faner/Kalendere/Kilder/Visning)', G.tabs.join('|') === 'Faner|Kalendere|Kilder|Visning', G.tabs);
 ok('GUI-editor: øye → tab_hidden (config-changed)', G.last && (G.last.tab_hidden || []).includes('framover'), G.last);
 ok('GUI-editor: Kilder bruker entitetsvelger (ha-selector) per kilde', ['src.hytta', 'src.bday', 'src.post', 'src.parcel', 'src.sonarr', 'src.radarr', 'src.plex'].every((n) => G.selectors.includes(n)), G.selectors);
-ok('GUI-editor: Visning med tab_labels/days/defaultView/showPlex + Mellomrom gap/pad_top/pad_bottom', ['tab_labels', 'days', 'defaultView', 'showPlex', 'gap', 'pad_top', 'pad_bottom'].every((n) => G.vis.includes(n)), G.vis);
+ok('GUI-editor: Visning med tab_labels/days/default_view/showPlex + Mellomrom gap/pad_top/pad_bottom', ['tab_labels', 'days', 'default_view', 'showPlex', 'gap', 'pad_top', 'pad_bottom'].every((n) => G.vis.includes(n)), G.vis);
 
 // ---------------------------------------------------------------- migrering + «Erstattet av Kalender»
 const Mg = await e.evaluate(async () => {
@@ -279,7 +279,7 @@ ok('24.1 Liste: dagslisten vises, ikon calendar_month', v0.list > 1 && !v0.mv &&
 const r0 = await v.evaluate(() => { const x = window.__c.shadowRoot.querySelector('.mb').getBoundingClientRect(); return [x.left + 24, x.top + 24]; });
 await v.touchscreen.tap(r0[0], r0[1]); await wait(v, 400);
 const v1 = await vs(v);
-ok('24.1 Ekte trykk → KUN månedskalender + dagspanel, ikon view_agenda, lagret per bruker', v1.mv === 1 && v1.dp === 1 && !v1.list && v1.kids.join('|') === 'mvc|card dp' && v1.icon === 'mdi:view-agenda' && v1.store && v1.store.kalender === 'month', v1);
+ok('24.1/36.6 Ekte trykk → KUN månedskalender + dagspanel, ikon view_agenda, lagres IKKE (Startvisning uendret)', v1.mv === 1 && v1.dp === 1 && !v1.list && v1.kids.join('|') === 'mvc|card dp' && v1.icon === 'mdi:view-agenda' && !(v1.store && v1.store.kalender), v1);
 const G1 = await v.evaluate(() => { const sr = window.__c.shadowRoot, g = sr.querySelector('.mv7'), d = sr.querySelector('.mvd:not(.out):not(.sel):not(.today)'), o = sr.querySelector('.mvd.out'), s = sr.querySelector('.mvd.sel'), n = sr.querySelector('.mvn'), b = sr.querySelectorAll('.mvh .mvb'), dp = sr.querySelector('.dp'), gr = g.getBoundingClientRect(), pr = sr.querySelector('.pane').getBoundingClientRect(), cs = (e) => getComputedStyle(e);
   return { wd: [...sr.querySelectorAll('.mvw')].map((e) => e.textContent).join(''), gap: cs(g).columnGap, ta: cs(g).touchAction, cell: [cs(d).borderRadius, cs(d).backgroundColor, cs(d).fontSize, cs(d).fontWeight, Math.round(d.getBoundingClientRect().width) === Math.round(d.getBoundingClientRect().height)], out: o ? [cs(o).backgroundColor, cs(o).color, !o.querySelector('.mvn')] : null, sel: s && cs(s).backgroundImage, badge: n && [cs(n).height, cs(n).fontSize, cs(n).backgroundColor], btns: [...b].map((x) => Math.round(x.getBoundingClientRect().width) + (x.dataset.act || '')), dp: [cs(dp).backgroundColor, cs(dp).borderRadius, dp.querySelector('.dph b').textContent], full: Math.abs(gr.width - pr.width) < 2 }; });
 ok('24.1 Månedsgrid som designet (M T O T F L S, gap 8, runde celler, rosa valgt, merke 18 px, 36 px-knapper, fyller bredden)', G1.wd === 'MTOTFLS' && G1.gap === '8px' && G1.ta === 'pan-y' && G1.cell[0] === '50%' && G1.cell[1] === 'rgb(58, 58, 58)' && G1.cell[2] === '15px' && G1.cell[4] && (!G1.out || (G1.out[0] === 'rgba(0, 0, 0, 0)' && G1.out[1] === 'rgb(84, 84, 84)' && G1.out[2])) && /gradient/.test(G1.sel) && G1.badge[0] === '18px' && G1.btns.join() === '36mstep,36calmenu,36mstep' && G1.dp[0] === 'rgb(58, 58, 58)' && G1.dp[1] === '24px' && /^[A-ZÆØ][a-zæøå]+ \d+\. [a-z]+$/.test(G1.dp[2]) && G1.full, G1);
@@ -310,15 +310,15 @@ ok('24.1 Sveip venstre → neste måned, høyre → tilbake; bobler ikke, popupe
 // trykk igjen → listen tilbake; Framover har egen visning med media-rader
 await v.touchscreen.tap(r0[0], r0[1]); await wait(v, 400);
 const v2 = await vs(v);
-ok('24.1 Trykk igjen → listen tilbake, ikon calendar_month', v2.list > 1 && !v2.mv && v2.icon === 'mdi:calendar-month' && v2.store.kalender === 'list', v2);
+ok('24.1 Trykk igjen → listen tilbake, ikon calendar_month', v2.list > 1 && !v2.mv && v2.icon === 'mdi:calendar-month' && !(v2.store && v2.store.kalender), v2);
 await tab(v, 'framover');
 await v.touchscreen.tap(r0[0], r0[1]); await wait(v, 400);
 const F1 = await v.evaluate(() => { const sr = window.__c.shadowRoot; return { kids: [...sr.querySelector('.pane').children].map((e) => e.className), cal: sr.querySelectorAll('.mvb[data-act="calmenu"]').length, rows: sr.querySelectorAll('.dp .mr').length, badges: sr.querySelectorAll('.mvn').length, store: window.MSH.store.get('kalender.view') }; });
-ok('24.1 Framover: samme månedsvisning (uten filter/hero), media-merker, ingen event-knapp', F1.kids.join('|') === 'mvc|card dp' && F1.cal === 0 && F1.badges > 0 && F1.store.framover === 'month', F1);
+ok('24.1/36.6 Framover: månedsvisning med filter-chips øverst (uten hero), media-merker, ingen event-knapp', F1.kids.join('|') === 'chips fchips noscroll|mvc|card dp' && F1.cal === 0 && F1.badges > 0 && !(F1.store && F1.store.framover), F1);
 await shot(v, '24-1-framover');
 await tab(v, 'hytta');
 const Hk = await v.evaluate(() => ({ sok: !!window.__c.shadowRoot.querySelector('.srch'), icon: window.__c.shadowRoot.querySelector('.mb .rail > span:first-child').innerHTML.match(/mdi:[a-z-]+/)?.[0] }));
-ok('24.1 Hytta beholder søk, knappen = tilpass', Hk.sok && Hk.icon === 'mdi:tune-variant', Hk);
+ok('24.1/36.6 Hytta beholder søk, knappen = kun tannhjul', Hk.sok && Hk.icon === 'mdi:cog', Hk);
 await v.close();
 // default_view: month (YAML) → starter i måned når brukeren ikke har valgt
 const w = await page({ width: 1280, height: 900 });
