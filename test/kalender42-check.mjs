@@ -43,7 +43,7 @@ async function page(pn, cfg) {
       H.devices = { ...(H.devices || {}), dev_pn_j: { id: 'dev_pn_j', name: 'PostNord (jemtlands@gmail.com)', manufacturer: 'PostNord', config_entries: ['ce_j'] }, dev_pn_k: { id: 'dev_pn_k', name: 'PostNord (kari@example.no)', manufacturer: 'PostNord', config_entries: ['ce_k'] } };
       const st = (id, state, attrs, ago) => ({ entity_id: id, state: String(state), attributes: { friendly_name: id, ...attrs }, last_updated: new Date(Date.now() - (ago || 60000)).toISOString(), last_changed: new Date(Date.now() - (ago || 60000)).toISOString(), context: {} });
       // konto 1: registeret som ha-postnord (translation_key + unique_id = <entry_id>_<rolle|strekkode>)
-      window.addJ = (id, state, attrs, tk, uid) => { H.states[id] = st(id, state, attrs); H.entities[id] = { entity_id: id, platform: 'postnord', device_id: 'dev_pn_j', config_entry_id: 'ce_j', translation_key: tk, unique_id: 'ce_j_' + uid, has_entity_name: true }; };
+      window.addJ = (id, state, attrs, tk, uid) => { const H = window.__h; H.states[id] = st(id, state, attrs); H.entities[id] = { entity_id: id, platform: 'postnord', device_id: 'dev_pn_j', config_entry_id: 'ce_j', translation_key: tk, unique_id: 'ce_j_' + uid, has_entity_name: true }; };
       // konto 2: bare entity_id (ingen translation_key/unique_id) – norske suffikser
       const addK = (id, state, attrs) => { H.states[id] = st(id, state, attrs); H.entities[id] = { entity_id: id, platform: 'postnord', device_id: 'dev_pn_k' }; };
       const P = (code, status, extra) => ({ carrier: 'PostNord', barcode: code, sender: null, receiver: null, status, raw_status: null, delivered: status === 'delivered', delivered_at: null, planned_from: null, planned_to: null, pickup: status === 'at_pickup_point', pickup_point: null, url: `https://tracking.postnord.com/tracking?id=${code}`, weight: null, dimensions: null, history: null, ...extra });
@@ -227,19 +227,23 @@ const D = await p.evaluate(async () => {
   const leg = sr().querySelector('.pleg');
   const row = sr().querySelector('.pnday'), rc = row && getComputedStyle(row), ci = row && row.querySelector('.pndi');
   return { dots, today: window.key(window.d0(0)), red: window.REDDAY, w: cs.width, bg: cs.backgroundColor, top: Math.round(r.top - pd.top), right: Math.round(pd.right - r.right), ring: red ? getComputedStyle(red).boxShadow : null, ringPlain: getComputedStyle(sr().querySelector(`.pd[data-v="${window.key(window.d0(0))}"] .pnd`) || i).boxShadow, todayOn: !!sr().querySelector(`.pd.on[data-v="${window.key(window.d0(0))}"]`),
-    leg: leg && [leg.textContent.replace(/\s+/g, ' ').trim(), getComputedStyle(leg).fontSize, getComputedStyle(leg).color, [...leg.querySelectorAll('i')].map((x) => getComputedStyle(x).backgroundColor)],
-    row: row && [row.textContent.replace(/\s+/g, ' ').trim(), rc.backgroundColor, rc.borderRadius, getComputedStyle(ci).width, getComputedStyle(ci).backgroundColor, ci.querySelector('ha-icon').getAttribute('icon')], cal: window.CAL.slice() };
+    leg: leg && [[...leg.querySelectorAll('span')].map((x) => x.textContent.trim()).join(' '), getComputedStyle(leg).fontSize, getComputedStyle(leg).color, [...leg.querySelectorAll('i')].map((x) => getComputedStyle(x).backgroundColor)],
+    row: row && [[...row.querySelectorAll('b,.evc>span')].map((x) => x.textContent.trim()).join(' | '), rc.backgroundColor, rc.borderRadius, getComputedStyle(ci).width, getComputedStyle(ci).backgroundColor, ci.querySelector('ha-icon').getAttribute('icon')], cal: window.CAL.slice() };
 });
-ok('42.1 Blå prikk på leveringsdagene (i dag + den røde dagen)', D.dots.includes(D.today) && (!D.red || D.dots.includes(D.red)) && D.dots.length === (D.red ? 2 : 1), D);
+const wk = new Date().getDay() % 6 !== 0; // i dag er bare i rutenettet på hverdager
+ok('42.1 Blå prikk på leveringsdagene i rutenettet (i dag på hverdager + den røde dagen)', (!wk || D.dots.includes(D.today)) && (!D.red || D.dots.includes(D.red)) && D.dots.length === (D.red ? 1 : 0) + (wk ? 1 : 0), D);
 ok('42.1 Prikken: 7px, blå, øverst til høyre', D.w === '7px' && D.bg === 'rgb(115, 185, 242)' && D.top <= 6 && D.right <= 6, D);
 ok('42.1 Mørk 1,5px ring når flisa er rød', D.red ? /rgb\(40, 40, 40\) 0px 0px 0px 1\.5px/.test(D.ring) : true, D.ring);
 ok('42.1 Forklaring «● Posten ● PostNord-levering» 11px #979797', D.leg && D.leg[0] === 'Posten PostNord-levering' && D.leg[1] === '11px' && D.leg[2] === 'rgb(151, 151, 151)' && D.leg[3][0] === 'rgb(242, 128, 115)' && D.leg[3][1] === 'rgb(115, 185, 242)', D.leg);
-ok('42.1 I dag (ingen valgt): rad #404040 r18, blå 32px sirkel local_shipping, «PostNord · Zalando» / «I dag 14–18»', D.row && D.row[0] === 'PostNord · Zalando I dag 14–18' && D.row[1] === 'rgb(64, 64, 64)' && D.row[2] === '18px' && D.row[3] === '32px' && D.row[4] === 'rgb(115, 185, 242)' && /truck/.test(D.row[5]), D.row);
-const span = D.cal.length ? (Date.parse(D.cal[0][2]) - Date.parse(D.cal[0][1])) / 86400000 : null;
-ok('42.1 Kalenderen hentes bare for de 14 dagene som vises (fra i dag)', D.cal.length >= 1 && D.cal.every((c) => c[0] === `calendars/calendar.${J}_leveringer`) && new Date(D.cal[0][1]).getDate() === new Date().getDate() && span >= 12 && span <= 15, { cal: D.cal, span });
+ok('42.1 I dag (ingen valgt): rad #404040 r18, blå 32px sirkel local_shipping, «PostNord · Zalando» / «I dag 14–18»', D.row && D.row[0] === 'PostNord · Zalando | I dag 14–18' && D.row[1] === 'rgb(64, 64, 64)' && D.row[2] === '18px' && D.row[3] === '32px' && D.row[4] === 'rgb(115, 185, 242)' && /truck/.test(D.row[5]), D.row);
+// (Kalender-fanen henter alle calendar.* ±40 dager som før; Posten-kortet henter bare dagene i rutenettet)
+const pc = D.cal.filter((c) => new Date(c[1]).getTime() === window0());
+function window0() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+const span = pc.length ? (Date.parse(pc[0][2]) - Date.parse(pc[0][1])) / 86400000 : null;
+ok('42.1 Posten-kortet henter leveringskalenderen bare for de 14 dagene som vises (fra i dag)', pc.length === 1 && pc[0][0] === `calendars/calendar.${J}_leveringer` && span >= 12 && span <= 15, { cal: D.cal, span });
 if (D.red) {
-  const SD = await p.evaluate(async () => { sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(200); const r = [...sr().querySelectorAll('.pnday')].map((x) => x.textContent.replace(/\s+/g, ' ').trim()); sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(150); return r; });
-  ok('42.1 Valgt dag med levering → raden for den dagen', SD.length === 1 && /^PostNord · Pakke UC333333333SE \S+.* 9–12$/.test(SD[0]), SD);
+  const SD = await p.evaluate(async () => { sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(200); const r = [...sr().querySelectorAll('.pnday')].map((x) => [...x.querySelectorAll('b,.evc>span')].map((y) => y.textContent.trim()).join(' | ')); sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(150); return r; });
+  ok('42.1 Valgt dag med levering → raden for den dagen', SD.length === 1 && /^PostNord · Pakke UC333333333SE \| \S+ \d+\. [a-z]+ 9–12$/.test(SD[0]), SD);
 }
 
 // ---------------------------------------------------------------- 42.3 entity_registry_updated
@@ -302,7 +306,7 @@ const ED = await p.evaluate(async () => {
   // Faner → Posten har tre deler
   return { head, roleRows, picks, v1, v2, view };
 });
-ok('Tilpass → Kilder: «PostNord – roller» (Auto, kontoene), 9 roller', /^PostNord – roller jemtlands@gmail\.com · kari@example\.no Auto/.test(ED.head) && ED.roleRows.length === 9 && /^Neste levering sensor\.postnord_jemtlands_gmail_com_neste_levering Auto/.test(ED.roleRows[3]), ED);
+ok('Tilpass → Kilder: «PostNord – roller» (Auto, kontoene), 9 roller', /^PostNord – roller\s*jemtlands@gmail\.com · kari@example\.no\s*Auto/.test(ED.head) && ED.roleRows.length === 9 && /^Neste levering\s*sensor\.postnord_jemtlands_gmail_com_neste_levering\s*Auto/.test(ED.roleRows[3]), ED);
 ok('Tilpass: velg «Av» → sources.postnord.next_delivery = none; «Automatisk» fjerner', ED.picks.includes(`sensor.${J}_neste_levering`) && ED.v1 && ED.v1.next_delivery === 'none' && ED.v2 === null && ED.view, ED);
 const GUI = await p.evaluate(async () => {
   const ed = customElements.get('msh-kalender-card').getConfigElement(); ed.hass = window.__h; ed.setConfig({ type: 'custom:msh-kalender-card', card_id: 'gui42', sources: { postnord: { refresh: 'button.x' } } }); document.body.appendChild(ed);

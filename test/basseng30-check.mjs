@@ -1,10 +1,10 @@
-// Basseng: bassengpopupene er slettet (brukerens beslutning; erstatter fiks 30.1 «én popup #badebasseng»).
-//   A · strategien: ingen popup #badebasseng/#basseng, ingen rom-popup for området «Basseng», ingen navbar-knapp,
-//       ingen alias/omdirigering; navbar-config med «basseng» lager ingen popup
+// Basseng (Fiks 42 Del C oppdaterer «bassengpopupene er slettet»): strategien lager #basseng igjen.
+//   A · strategien: ÉN popup #basseng (mal A, msh-basseng-card) for mock-området «Basseng», aldri #badebasseng, ingen
+//       rom-popup for området, ingen alias/omdirigering
 //   B · importerte/egne gamle bassengpopups i dashbord-config droppes (report.dropped); en helt annen popup på #basseng
-//       og en manuell popup med msh-basseng-card beholdes
-//   C · engangsmigrering av ki-store (custom_popups, popup_overrides, popups, navbar-knapper, lenker, Lovelace-ressursene),
-//       logget én gang og merket migrations.basseng_fjernet – kjører ikke igjen
+//       (erstatter den genererte) og en manuell popup med msh-basseng-card beholdes
+//   C · den gamle engangsmigreringen (migrations.basseng_fjernet) er fjernet: ki-store (popups.basseng, custom_popups,
+//       navbar, lenker) røres ikke ved generering, og ingen Lovelace-ressurser slettes
 //   D · ingen omdirigering #basseng → #badebasseng (URL, location-changed, navbaren uten basseng-knapp)
 //   E · alias-elementene ki-basseng-card / ki-basseng-hero-card (msh-basseng-card + console.warn; hero ved siden av
 //       et bassengkort i samme popup = ingenting)
@@ -66,16 +66,16 @@ const A = await p.evaluate(async () => {
   const d2 = await S.generate({ navbar: { bar: ['vanning', 'basseng', 'media'], buttons: { basseng: { tap: { action: 'navigate', navigation_path: '#badebasseng' } } } } }, h);
   const pops2 = d2.views[0].cards[0].cards.filter((c) => c.card_type === 'pop-up' && /basseng/.test(c.hash)).map((c) => c.hash);
   return {
-    hashes: pool.map((c) => c.hash), entries: M.popupReport.entries.filter((e) => /basseng|pool/.test(e.hash)).map((e) => e.hash),
+    hashes: pool.map((c) => c.hash), card: (pool[0] && pool[0].cards.map((x) => x.type).join()) || null, entries: M.popupReport.entries.filter((e) => /basseng|pool/.test(e.hash)).map((e) => e.hash),
     all: M.allPopups(h, { hidden: true }).filter((x) => /basseng|pool/.test(x.hash)).map((x) => x.hash), nav: st[1].bar.concat(st[1].more || []), area: !!(h.areas && h.areas.basseng),
     FP: M.FUNCTION_POPUPS.filter((f) => f[3] === 'msh-basseng-card' || /basseng/.test(f[0])).length, ref: Object.keys(M.REF_POPUPS).filter((k) => /basseng/.test(k)),
     alias: Object.keys(M.HASH_ALIAS).filter((k) => /basseng|pool/.test(k)), canon: M.canonHash('#basseng'), blocked: M.roomBlocked(h, 'basseng'), stue: M.roomBlocked(h, 'stue'), pops2,
     drop: typeof (M.POPUP_DROP && M.POPUP_DROP.basseng && M.POPUP_DROP.basseng.test), sup: !!(M.POPUP_SUPERSEDE || {})['#badebasseng'], al: Object.keys(M.POPUP_ALIAS || {}).filter((k) => /basseng|pool/.test(k)),
   };
 });
-ok('A · strategien lager ingen bassengpopup (#badebasseng/#basseng) og ingen rom-popup for området «Basseng»', !A.hashes.length && !A.entries.length && !A.all.length && A.area && A.blocked && !A.stue, A);
-ok('A · ingen funksjons-popup, REF_POPUPS, alias, SUPERSEDE/POPUP_ALIAS for basseng; POPUP_DROP finnes', A.FP === 0 && !A.ref.length && !A.alias.length && A.canon === '#basseng' && !A.sup && !A.al.length && A.drop === 'function', A);
-ok('A · navbaren har ingen basseng-knapp; navbar-config med «basseng» lager ingen popup', !A.nav.includes('basseng') && !A.pops2.length, A);
+ok('A · strategien lager ÉN bassengpopup #basseng (ingen #badebasseng) og ingen rom-popup for området «Basseng»', A.hashes.join() === '#basseng' && A.entries.join() === '#basseng' && A.all.join() === '#basseng' && A.area && A.blocked && !A.stue && A.card === 'custom:msh-basseng-card', A);
+ok('A · funksjons-popup #basseng; ingen REF_POPUPS, alias, SUPERSEDE/POPUP_ALIAS for basseng; POPUP_DROP finnes', A.FP === 1 && !A.ref.length && !A.alias.length && A.canon === '#basseng' && !A.sup && !A.al.length && A.drop === 'function', A);
+ok('A · navbar-config med gammel «basseng»-knapp mot #badebasseng lager ingen #badebasseng', A.pops2.join() === '#basseng', A);
 await p.close();
 
 /* ---------------- B · importerte bassengpopups droppes */
@@ -99,52 +99,31 @@ ok('B · gamle/importerte bassengpopups (gamle kort, basseng-maler på bassengha
 ok('B · en helt annen popup på #basseng og en manuell popup med msh-basseng-card beholdes', B.pops.join() === '#basseng:Notater:markdown,#mitt-basseng:Basseng:msh-basseng-card', B);
 await p.close();
 
-/* ---------------- C · engangsmigrering av ki-store */
+/* ---------------- C · ingen engangsmigrering lenger: ki-store røres ikke */
 logs = [];
 p = await page(null, logs);
 const C = await p.evaluate(async (LEGACY_CARDS) => {
   const M = window.MSH, h = window.__h, w = (ms) => new Promise((q) => setTimeout(q, ms));
   const S = customElements.get('ll-strategy-dashboard-ki-dashboard') || customElements.get('ll-strategy-ki-dashboard');
-  // tilstand som en bruker etter 26.14/28.14/30.1 kan ha
-  await M.store.set('migrations', { basseng30: { at: '2026-01-01', log: [] } }, { immediate: true });
   await M.store.set('custom_popups', [
-    { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', name: 'Badebasseng', icon: 'mdi:pool', cards: LEGACY_CARDS },
-    { yaml: "type: custom:bubble-card\ncard_type: pop-up\nhash: '#pool'\nname: Pool\ncards:\n  - type: custom:decluttering-card\n    template: basseng_popup\n" },
-    { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#badebasseng', name: 'Basseng', cards: [{ type: 'custom:msh-basseng-card', card_id: 'pop-basseng' }] },
     { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#egen', name: 'Egen', cards: [{ type: 'markdown', content: 'x' }] },
-    { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#basseng', name: 'Notater', icon: 'mdi:note', cards: [{ type: 'markdown', content: 'y' }] },
+    { type: 'custom:bubble-card', card_type: 'pop-up', hash: '#mitt-basseng', name: 'Basseng', cards: [{ type: 'custom:msh-basseng-card', card_id: 'pop-basseng-2' }] },
   ], { immediate: true });
-  await M.store.set('popup_overrides', { basseng: { name: 'Bassenget mitt' }, '#badebasseng': { name: 'X' }, '#vanning': { name: 'Vanning X' } }, { immediate: true });
-  await M.store.set('popups', { basseng: { color: 'var(--blue)', prefer: 'custom' }, badebasseng: { hidden: true }, stue: { name: 'Stua' } }, { immediate: true });
+  await M.store.set('popups', { basseng: { enabled: true, color: 'var(--blue)' }, stue: { name: 'Stua' } }, { immediate: true });
   const I = M.CARD_IDS;
-  await M.store.set('cards', {
-    [I.navbar]: { bar: ['vanning', 'basseng', 'x1', 'media'], more: ['gjoremal', 'x2'], hidden: ['basseng'], buttons: { basseng: { tap: { action: 'navigate', navigation_path: '#badebasseng' } }, x1: { custom: true, label: 'Pool', tap: { action: 'navigate', navigation_path: '#basseng' } }, x2: { custom: true, label: 'Tesla', tap: { action: 'navigate', navigation_path: '#tesla' } } } },
-    [I.prosa]: { pills: [{ text: 'Bassenget', tap_action: { action: 'navigate', navigation_path: '#badebasseng' } }, { text: 'Gammel', link: 'basseng' }] },
-    [I.faner]: { cards: [{ type: 'link', name: 'Basseng', popup_hash: '#basseng' }, { type: 'link', popup_hash: '#bassengene' }], tile_cfg: { a: { popup_hash: '#pool' } } },
-    'pop-basseng': { anim: false },
-  }, { immediate: true });
-  M._poolStoreMig = false;
+  await M.store.set('cards', { [I.faner]: { cards: [{ type: 'link', name: 'Basseng', popup_hash: '#basseng' }] } }, { immediate: true });
+  const before = JSON.stringify({ cp: M.store.get('custom_popups'), pu: M.store.get('popups'), cards: M.store.get('cards') });
+  let writes = 0; const set0 = M.store.set; M.store.set = function (...a) { if (/^(custom_popups|popups|popup_overrides|cards)(\.|$)|basseng/.test(String(a[0]))) writes++; return set0.apply(this, a); }; // andre engangsmigreringer (f.eks. varmepumpe) teller ikke
   const d = await S.generate({}, h);
-  const pool = d.views[0].cards[0].cards.filter((c) => c.card_type === 'pop-up' && /basseng|pool/.test(c.hash)).map((c) => c.hash + ':' + c.name);
   await w(300);
-  const snap = JSON.parse(JSON.stringify({ cp: M.store.get('custom_popups'), po: M.store.get('popup_overrides'), pu: M.store.get('popups'), cards: M.store.get('cards'), mig: M.store.get('migrations.basseng_fjernet'), m30: M.store.get('migrations.basseng30') }));
-  // andre generering (ny økt): migreringen kjører ikke igjen
-  let writes = 0; const set0 = M.store.set; M.store.set = function (...a) { writes++; return set0.apply(this, a); };
-  M._poolStoreMig = false;
-  await S.generate({}, h);
   M.store.set = set0;
-  return { pool, snap, writes, del: window.__del.slice(), I };
+  const after = JSON.stringify({ cp: M.store.get('custom_popups'), pu: M.store.get('popups'), cards: M.store.get('cards') });
+  const pool = d.views[0].cards[0].cards.filter((c) => c.card_type === 'pop-up' && /basseng|pool/.test(c.hash)).map((c) => c.hash + ':' + c.name);
+  return { same: before === after, writes, mig: M.store.get('migrations.basseng_fjernet') || null, fn: typeof M.bassengMigrateStore, del: window.__del.slice(), pool };
 }, LEGACY_CARDS);
-const S0 = C.snap, C0 = S0.cards || {}, N0 = C0[C.I.navbar] || {}, js = JSON.stringify(C0);
-ok('C · ALLE bassengpopups fjernet fra ki-store custom_popups (gamle kort, decluttering-mal på #pool, msh-basseng-card); andre beholdes', Array.isArray(S0.cp) && S0.cp.map((x) => x.hash + ':' + x.name).join() === '#egen:Egen,#basseng:Notater', S0.cp);
-ok('C · popup_overrides.basseng/#badebasseng og popups.basseng/badebasseng fjernet (andre beholdes)', !S0.po.basseng && !S0.po['#badebasseng'] && S0.po['#vanning'].name === 'Vanning X' && !S0.pu.basseng && !S0.pu.badebasseng && S0.pu.stue.name === 'Stua', { po: S0.po, pu: S0.pu });
-ok('C · navbar: knappen «basseng» og egne knapper mot bassenghashene fjernet fra buttons/bar/more/hidden; andre beholdes', !N0.buttons.basseng && !N0.buttons.x1 && N0.buttons.x2 && N0.bar.join() === 'vanning,media' && N0.more.join() === 'gjoremal,x2' && N0.hidden.length === 0, N0);
-ok('C · lenker til #basseng/#badebasseng/#pool i prosa-piller og Hjem-kort fjernet – pillene/kortene beholdes, andre strenger røres ikke', !/"#(bade)?basseng"|"#pool"|"link":"basseng"/.test(js) && js.includes('"text":"Bassenget"') && js.includes('"text":"Gammel"') && js.includes('"name":"Basseng"') && js.includes('#bassengene') && C0['pop-basseng'] && C0['pop-basseng'].anim === false, js);
-ok('C · strategien viser fortsatt ingen bassengpopup; bare den helt andre #basseng («Notater») er igjen', C.pool.join() === '#basseng:Notater', C.pool);
-ok('C · migreringen er merket (migrations.basseng_fjernet, også etter basseng30) og kjører ikke igjen', S0.mig && S0.mig.at && Array.isArray(S0.mig.log) && S0.mig.log.length >= 8 && S0.m30 && C.writes === 0, { mig: S0.mig, writes: C.writes });
-ok('C · admin: Lovelace-ressursene ki-basseng-card.js og ki-basseng-hero-card.js slettes (bare de)', [...new Set(C.del)].sort().join() === 'r1,r2', C.del);
-const mlog = logs.filter(([t, x]) => t === 'info' && /Basseng-popupene er slettet/.test(x));
-ok('C · migreringen logges i konsollen (én gang)', mlog.length === 1 && /kjørt én gang/.test(mlog[0][1]) && /custom_popups #basseng fjernet/.test(mlog[0][1]), mlog);
+ok('C · generering endrer ikke ki-store (popups.basseng, custom_popups med msh-basseng-card, lenker til #basseng beholdes)', C.same && C.writes === 0 && !C.mig && C.fn === 'undefined', C);
+ok('C · ingen Lovelace-ressurser slettes; #basseng og den manuelle #mitt-basseng vises', !C.del.length && C.pool.includes('#basseng:Basseng') && C.pool.includes('#mitt-basseng:Basseng'), C);
+ok('C · ingen «Basseng-popupene er slettet»-logg', !logs.some(([, x]) => /Basseng-popupene er slettet/.test(x)), logs.slice(0, 3));
 await p.close();
 
 /* ---------------- D · ingen omdirigering #basseng → #badebasseng */

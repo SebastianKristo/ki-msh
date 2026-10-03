@@ -705,7 +705,7 @@
     const kilde = ([k, label, icon, col]) => ({ type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
       if (!hh) return '';
-      const ov = (cc.src || {})[k], au = autoSrc(hh, k), cur = ov && ov !== 'none' ? ov : ov === 'none' ? null : au;
+      const ov = k === 'postnord' ? pnStr(cc) : (cc.src || {})[k], au = autoSrc(hh, k), cur = ov && ov !== 'none' ? ov : ov === 'none' ? null : au; // 42: src.postnord kan være et rolle-objekt
       const kind = ov ? 'over' : au ? 'auto' : 'none';
       if (!ed._inline) {
         const sel = { entity: {} };

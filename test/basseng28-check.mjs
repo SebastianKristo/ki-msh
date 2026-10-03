@@ -1,8 +1,8 @@
-// Fiks 28.14 · Basseng: HA skal aldri vise den gamle popupen. (Oppdatert: bassengpopupene er slettet – strategien lager
-//   verken #badebasseng eller #basseng. Se test/basseng30-check.mjs.)
-//   Gamle kort (ki-basseng-card, ki-basseng-hero-card, msh-basseng-hero-card, gap-card) i importerte/overstyrte popups
-//   (strategi-YAML custom_popups og popup_overrides, ki-store custom_popups/popup_overrides) gir ingen popup; ki-store
-//   ryddes én gang. msh-basseng-card i en manuell popup rendres som v4a. Bundelen refererer ikke Basseng v3, og
+// Fiks 28.14 · Basseng: HA skal aldri vise den gamle popupen. (Oppdatert Fiks 42 C: strategien lager #basseng igjen,
+//   aldri #badebasseng. Se test/basseng42-check.mjs.)
+//   Gamle kort (ki-basseng-card, ki-basseng-hero-card, msh-basseng-hero-card, gap-card) i importerte popups (strategi-YAML
+//   custom_popups) droppes; i overstyringer av #basseng (YAML/ki-store popup_overrides) slås de sammen til ÉTT
+//   msh-basseng-card (MSH.POPUP_MIGRATE) – ki-store røres ikke. msh-basseng-card i en manuell popup rendres som v4a. Bundelen refererer ikke Basseng v3, og
 //   versjonen/ressurs-URL-sjekken er på plass.
 //   node test/basseng28-check.mjs   (SHOTS=<mappe> gir skjermbilder) – uavhengig av klokkeslett.
 import { createRequire } from 'node:module';
@@ -47,10 +47,10 @@ const A = await p.evaluate(async (LEGACY_CARDS) => {
   let writes = 0; const set0 = M.store.set; M.store.set = function (...a) { if (a[0] === 'popup_overrides') writes++; return set0.apply(this, a); };
   await S.generate({}, h);
   M.store.set = set0;
-  return { hashes: pool.map((c) => c.hash), st: st1, writes, entries: M.popupReport.entries.filter((e) => /basseng/.test(e.hash)).map((e) => e.hash), vanning: (pops.find((c) => c.hash === '#vanning') || {}).name };
+  return { hashes: pool.map((c) => c.hash), cards: pool.map((c) => c.cards.map((x) => x.type.replace('custom:', '')).join('+')), st: st1, writes, entries: M.popupReport.entries.filter((e) => /basseng/.test(e.hash)).map((e) => e.hash), vanning: (pops.find((c) => c.hash === '#vanning') || {}).name };
 }, LEGACY_CARDS);
-ok('A · ingen bassengpopup – heller ikke med overstyringer på #basseng/#badebasseng i ki-store', !A.hashes.length && !A.entries.length, A);
-ok('A · ki-store popup_overrides ryddes én gang (#basseng/#badebasseng fjernet, andre overstyringer beholdes og virker)', !A.st['#basseng'] && !A.st['#badebasseng'] && A.st['#vanning'].name === 'Vanning X' && A.vanning === 'Vanning X' && A.writes === 0, A);
+ok('A · ki-store-overstyring med gamle kort på #basseng → ÉTT msh-basseng-card (ingen gamle kort), aldri #badebasseng', A.hashes.join() === '#basseng' && A.cards.join() === 'msh-basseng-card' && A.entries.join() === '#basseng', A);
+ok('A · ki-store popup_overrides røres ikke (ingen sletting), andre overstyringer virker', !!A.st['#basseng'] && !!A.st['#badebasseng'] && A.st['#vanning'].name === 'Vanning X' && A.vanning === 'Vanning X' && A.writes === 0, A);
 await p.close();
 
 /* ---------------- B · strategi-YAML: custom_popups og popup_overrides med gamle kort → droppes */
@@ -65,11 +65,11 @@ const B = await p.evaluate(async (LEGACY_CARDS) => {
   let d = await S.generate({ strategy: { type: 'custom:ki-dashboard' }, custom_popups: [legacy, { ...legacy, hash: '#pool', name: 'Pool', cards: [{ type: 'custom:decluttering-card', template: 'basseng_popup' }] }, { ...legacy, hash: '#hage', name: 'Hage', cards: [{ type: 'custom:ki-basseng-card' }, { type: 'markdown', content: 'x' }] }] }, h);
   out.yaml = poolOf(d).map((c) => c.hash); out.dropped = M.popupReport.dropped.map((x) => x.source + ':' + x.hash);
   d = await S.generate({ popup_overrides: { '#basseng': { replace: true, config: { ...legacy, hash: '#basseng', cards: [{ type: 'custom:ki-basseng-card', navn: 'Pool' }, { type: 'custom:gap-card' }, { type: 'markdown', content: 'egen' }] } } } }, h);
-  out.rep = poolOf(d).map((c) => c.hash);
+  out.rep = poolOf(d).map((c) => c.hash + ':' + c.cards.map((x) => x.type.replace('custom:', '')).join('+'));
   return out;
 }, LEGACY_CARDS);
-ok('B · YAML custom_popups med gamle bassengpopups (gamle kort på alle hasher, basseng-mal på #pool) droppes', !B.yaml.length && B.dropped.sort().join() === 'yaml:#badebasseng,yaml:#hage,yaml:#pool', B);
-ok('B · YAML popup_overrides (replace) på #basseng lager ingen popup', !B.rep.length, B);
+ok('B · YAML custom_popups med gamle bassengpopups (gamle kort på alle hasher, basseng-mal på #pool) droppes; bare den genererte #basseng', B.yaml.join() === '#basseng' && B.dropped.sort().join() === 'yaml:#badebasseng,yaml:#hage,yaml:#pool', B);
+ok('B · YAML popup_overrides (replace) på #basseng med gamle kort → gamle kort blir ÉTT msh-basseng-card, eget kort beholdes', B.rep.join() === '#basseng:msh-basseng-card+markdown', B);
 await p.close();
 
 /* ---------------- C · manuell popup med msh-basseng-card rendres som v4a (toppkort + 4 faner) på mobil og PC */
