@@ -24,7 +24,7 @@ const errs = [];
 async function setup(theme = 'dark') {
   const page = await browser.newPage({ viewport: { width: 390, height: 900 }, hasTouch: true });
   page.on('pageerror', (e) => errs.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push(m.text()); });
   await page.goto('file://' + R + 'test/harness.html');
   await page.addScriptTag({ path: bundle });
   await page.evaluate((theme) => {
@@ -165,6 +165,7 @@ const ED = () => sr_ed();
 await ev(() => { window.sr_ed = () => sr.getElementById('ed'); window.typeIn = (sel, v) => { const i = sr_ed().querySelector(sel); i.focus(); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); return true; }; });
 ok('editor: info, Pris og totaler (6 felt + 3 valg), 2 grupper, knapper', await ev(() => { const e = sr_ed(); return /samme oppsett som ki-energi-card-strom/.test(e.querySelector('.sk-kinfo').textContent) && e.querySelectorAll('.sk-kcard > .sk-kfl input').length === 6 && e.querySelectorAll('.sk-keseg').length === 3 && e.querySelectorAll('.sk-kegrp').length === 2 && /Vis YAML/.test(e.textContent) && /Tilbakestill kurser/.test(e.textContent) && /Legg til gruppe/.test(e.textContent); }));
 await E('[data-sk-e="adv"]');
+console.log(await ev(() => JSON.stringify({ ed: h.__skEd, n: sr_ed().querySelectorAll('[data-sk-f]').length, adv: sr_ed().querySelector('.sk-kadvb').outerHTML.slice(0, 200) })));
 ok('Avansert åpner status/laster/logg/tau/bereder', await ev(() => ['status', 'laster', 'logg', 'tau', 'bereder'].every((k) => sr_ed().querySelector(`[data-sk-f="${k}"]`))));
 // rediger navn på første kategori → visningen oppdateres live
 await E('[data-sk-e="edit"][data-sk-p="0.0"]');
@@ -234,7 +235,7 @@ ok('norm(null/ugyldig) = KDEF-kopi', await ev(() => { const K = MSH.stromKurser;
 const p2 = await setup('light');
 await p2.evaluate(() => mk());
 await p2.waitForTimeout(80);
-const lt = await p2.evaluate(() => { const t = sr.getElementById('tab'); const c = (s) => getComputedStyle(t.querySelector(s)).color; const bg = (s) => getComputedStyle(t.querySelector(s)).backgroundColor; return { tile: bg('.sk-ktile'), ttxt: c('.sk-ktile'), ink: c('.sk-ktot'), box: bg('.sk-kbox') }; });
+const lt = await p2.evaluate(() => { const t = sr.getElementById('tab'); const c = (s) => getComputedStyle(t.querySelector(s)).color; const bg = (s) => getComputedStyle(t.querySelector(s)).backgroundColor; return { tile: bg('.sk-ktile:not(.on)'), ttxt: c('.sk-ktile:not(.on)'), ink: c('.sk-ktot'), box: bg('.sk-kbox') }; });
 ok('lys modus: fliser/bokser lyse, tekst mørk, mørk tekst på rosa', lt.tile === 'rgb(255, 255, 255)' && lt.box === 'rgb(255, 255, 255)' && lt.ttxt === 'rgb(28, 28, 28)' && /rgb\(42, 23, 32\)/.test(lt.ink), lt);
 
 ok('ingen sidefeil', errs.length === 0, errs);

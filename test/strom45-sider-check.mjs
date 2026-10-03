@@ -55,7 +55,11 @@ async function open(opts = {}) {
             else if (id === 'sensor.totalpris_strom') L.push({ start: t, end: t + HR, mean: o.spot + (h % 2 ? 0.1 : -0.1) });
             else if (id === 'sensor.norgespris_pris_na') L.push({ start: t, end: t + HR, mean: 0.5 });
           }
-          if (L.length) out[id] = L;
+          // period day/month: timeradene samles (change = sum, mean = snitt) – som recorderen
+          const bucket = (t) => { const d = new Date(t); return m.period === 'month' ? new Date(d.getFullYear(), d.getMonth(), 1).getTime() : m.period === 'day' ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : t; };
+          const B = new Map(); L.forEach((r) => { const k = bucket(r.start); const x = B.get(k) || { start: k, change: 0, mean: 0, n: 0 }; x.change += r.change || 0; x.mean += r.mean || 0; x.n++; B.set(k, x); });
+          const R = [...B.values()].map((x) => (id === 'sensor.forbruk_i_dag' ? { start: x.start, change: x.change } : { start: x.start, mean: x.mean / x.n }));
+          if (R.length) out[id] = R;
         }
         return Promise.resolve(out);
       },
@@ -92,7 +96,12 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
 {
   const p = await open({ spot: 1.2 });
   ok('modul finnes', await p.evaluate(() => !!(window.MSH.stromSider && window.MSH.stromSider.css && window.MSH.stromSider.html && window.MSH.stromSider.bind)));
-  ok('statistikk hentet én gang (hour, change+mean)', await p.evaluate(() => { const L = window.__ws.filter((m) => m.type === 'recorder/statistics_during_period'); return L.length === 1 && L[0].period === 'hour' && L[0].types.includes('change') && L[0].types.includes('mean') && L[0].statistic_ids.includes('sensor.forbruk_i_dag'); }));
+  ok('timestatistikk hentet én gang (hour, change+mean) fra min(mandag, 1. i mnd)', await p.evaluate(() => {
+    const L = window.__ws.filter((m) => m.type === 'recorder/statistics_during_period'), n = new Date();
+    const mon = new Date(n); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    const start = Math.min(mon.getTime(), new Date(n.getFullYear(), n.getMonth(), 1).getTime());
+    return L.length === 1 && L[0].period === 'hour' && L[0].types.includes('change') && L[0].types.includes('mean') && L[0].statistic_ids.includes('sensor.forbruk_i_dag') && Date.parse(L[0].start_time) === start;
+  }), await p.evaluate(() => window.__ws.map((m) => [m.period, m.start_time])));
   ok('hode: tilbake + «Norgespris» + ikon', (await q(p, '.ss-title')) === 'Norgespris' && !!(await p.evaluate(() => window.__R.querySelector('.ss-back .ss-back, .ss-back'))));
   ok('toppkort grønt (won) når Norgespris billigst', (await p.evaluate(() => window.__R.querySelector('[data-ss-hero]').getAttribute('data-ss-hero'))) === 'won');
   ok('tittel «Spart med Norgespris · denne måneden»', (await q(p, '.ss-nx-title')) === 'Spart med Norgespris · denne måneden', await q(p, '.ss-nx-title'));
@@ -106,6 +115,8 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
   ok('periode I dag: tittel og verdier byttes, haptic', /· i dag$/.test(await q(p, '.ss-nx-title')) && (await q(p, '.ss-cmp-v')) !== mon && (await p.evaluate(() => window.__hp.includes('selection'))) && (await p.evaluate(() => window.__h.ui.ssNp)) === 'I dag');
   await tap(p, '.ss-seg-n .ss-pill:nth-child(4)');
   ok('periode År', /· i år$/.test(await q(p, '.ss-nx-title')));
+  ok('År: tidligere måneder med period month (ingen time-henting for hele året)', await p.evaluate(() => { const L = window.__ws.filter((m) => m.type === 'recorder/statistics_during_period'), n = new Date(); const mo = L.filter((m) => m.period === 'month'); return (n.getMonth() === 0 ? mo.length === 0 : mo.length === 1 && Date.parse(mo[0].end_time) === new Date(n.getFullYear(), n.getMonth(), 1).getTime()) && L.filter((m) => m.period === 'hour').every((m) => Date.parse(m.end_time) - Date.parse(m.start_time) < 40 * 86400000); }), await p.evaluate(() => window.__ws.map((m) => [m.period, m.start_time, m.end_time])));
+  ok('År: tall i toppkortet', /\d/.test(await q(p, '.ss-nx-big')), await q(p, '.ss-nx-big'));
   await tap(p, '.ss-seg-n .ss-pill:nth-child(2)');
   ok('periode Uke', /· denne uken$/.test(await q(p, '.ss-nx-title')));
   // scrub i timegrafen
@@ -156,14 +167,20 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
   const nowD = new Date().getDate();
   if (nowD > 2) ok('topp 1 = 5,25 kW den 1.', /#1 · 1\. \w+ ?5,25 kW/.test(await q(p, '.ss-peaks')), await q(p, '.ss-peaks'));
   ok('effektledd: 12 måneder, inneværende valgt', await p.evaluate(() => window.__R.querySelectorAll('.ss-ecol').length === 12 && window.__R.querySelectorAll('.ss-ebar.on').length === 1 && [...window.__R.querySelectorAll('.ss-ecol')].findIndex((c) => c.querySelector('.ss-ebar.on')) === new Date().getMonth()));
-  await tap(p, '.ss-ecol:nth-child(1)');
+  await tap(p, '.ss-ecol:nth-child(1)'); await p.waitForTimeout(120);
   ok('trykk på måned velger den', /^Januar/.test(await q(p, '.ss-eff-s')) && (await p.evaluate(() => window.__h.ui.ssEm)) === 0);
+  if (new Date().getMonth() > 0) {
+    ok('tidligere måned: timer hentes bare for den måneden, bare forbruk', await p.evaluate(() => { const n = new Date(); const m = window.__ws.filter((x) => x.period === 'hour' && Date.parse(x.start_time) === new Date(n.getFullYear(), 0, 1).getTime()); return m.length === 1 && Date.parse(m[0].end_time) === new Date(n.getFullYear(), 1, 1).getTime() && m[0].statistic_ids.join() === 'sensor.forbruk_i_dag'; }), await p.evaluate(() => window.__ws.filter((m) => m.statistic_ids).map((m) => [m.period, m.start_time, m.end_time, m.statistic_ids.join()])));
+    ok('januar-søylen vises etter henting', /^Januar · .*snittet$|^Januar$/.test(await q(p, '.ss-eff-s')) && (await q(p, '.ss-eff-v')) !== '–', [await q(p, '.ss-eff-s'), await q(p, '.ss-eff-v')]);
+  }
   await tap(p, '.ss-seg-b .ss-pill:nth-child(1)');
   ok('periode Dag: total = kostnad i dag-sensoren', /^42/.test(await q(p, '.ss-bill-big')) && /i dag/.test(await q(p, '.ss-bill-p')), await q(p, '.ss-bill-big'));
   await tap(p, '.ss-seg-b .ss-pill:nth-child(2)');
   ok('periode Uke: beregnet total og «uke N»', /\d/.test(await q(p, '.ss-bill-big')) && /uke \d+/.test(await q(p, '.ss-bill-p')));
   await tap(p, '.ss-seg-b .ss-pill:nth-child(4)');
-  ok('periode År', new RegExp(String(new Date().getFullYear())).test(await q(p, '.ss-bill-p')) && /i år/.test(await q(p, '.ss-saved')));
+  await p.waitForTimeout(120);
+  ok('periode År', new RegExp(String(new Date().getFullYear())).test(await q(p, '.ss-bill-p')) && /i år/.test(await q(p, '.ss-saved')) && /\d/.test(await q(p, '.ss-bill-big')), [await q(p, '.ss-bill-p'), await q(p, '.ss-saved'), await q(p, '.ss-bill-big')]);
+  ok('År: kWh for hele året, dag/natt «–»', /Dag · – %/.test(await q(p, '.ss-dn-l')) && parseFloat((await q(p, '.ss-v17')).replace(/\s/g, '').replace(',', '.')) > 24 * 28, [await q(p, '.ss-v17'), await q(p, '.ss-dn-l')]);
   // effektledd-priser i config → kr
   await p.evaluate(() => { window.__h.config = { sider: { effektledd: [200, 300, 450, 600, 750] } }; window.__h.render(); });
   ok('effektledd-priser gir kr og «i år … kr»', /^i år [\d\s ]+ kr$/.test(await q(p, '.ss-p-stromregning .ss-card:last-child .ss-sm')), await q(p, '.ss-p-stromregning .ss-card:last-child .ss-sm'));

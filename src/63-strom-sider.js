@@ -7,7 +7,9 @@
  * Data (aldri mock – mangler → «–» og flate grafer):
  *   Timeforbruk: recorder/statistics_during_period (period hour, types change+mean) for host.ent('forbruk')
  *     (ellers Energi-oppsettets nett-import, MSH.energiSources), spotpris host.ent('spot'), Norgespris host.ent('norge')
- *     og Nord Pool-sensoren (MSH.powerPrice). Hentes bare når en underside åpnes, fra 1. januar (eller mandag denne uken),
+ *     og Nord Pool-sensoren (MSH.powerPrice). Hentes bare mens en underside er åpen. Timer (period hour) bare fra
+ *     min(mandag, 1. i måneden) – i dag, Uke, Måned og effekttrinn; År: tidligere måneder med period month (bare når År
+ *     er valgt); effektledd for en tidligere måned: timer for den ene måneden når den velges. Alt
  *     mellomlagres 5 min. Dagens priser uten statistikk fylles fra prislistene (MSH.priceSeries); Norgespris er fast
  *     sats → nåverdien brukes for timer uten statistikk. Inneværende time = dagssensorens tilstand − dagens timesum.
  *   Norgespris: «Med spotpris» = Σ kWh × spot, «Med Norgespris» = Σ kWh × Norgespris for timer der begge er kjent.
@@ -71,26 +73,44 @@
     const forbruk = ent(host, 'forbruk');
     return { energy: [forbruk, ...gin].filter((x, i, a) => x && a.indexOf(x) === i), spot: ent(host, 'spot'), norge: ent(host, 'norge') || (pp && pp.norgespris && pp.norgespris.entity) || null, nord: (pp && pp.entity) || null, pp, forbruk };
   }
-  function fetchStats(host, ids) {
+  // Felles WS-hent med 5 min mellomlager; vertene tegnes på nytt når svaret kommer
+  function ws(host, key, req) {
     const h = host.hass;
-    const all = [...ids.energy, ids.spot, ids.norge, ids.nord].filter((x, i, a) => x && a.indexOf(x) === i);
-    if (!all.length || !h || !h.callWS) return null;
-    const now = new Date(), start = new Date(Math.min(new Date(now.getFullYear(), 0, 1).getTime(), monday(now).getTime()));
-    const key = all.join(',') + '|' + start.getTime();
+    if (!h || !h.callWS) return null;
     let c = CACHE.get(key);
     if (!c) CACHE.set(key, (c = { t: 0, busy: false, data: null, hosts: new Set() }));
     c.hosts.add(host);
     if (!c.busy && Date.now() - c.t > TTL) {
       c.busy = true;
-      Promise.resolve().then(() => h.callWS({ type: 'recorder/statistics_during_period', start_time: start.toISOString(), end_time: new Date(now.getTime() + HR).toISOString(), statistic_ids: all, period: 'hour', types: ['change', 'mean'], units: { energy: 'kWh' } }))
+      Promise.resolve().then(() => h.callWS({ type: 'recorder/statistics_during_period', ...req }))
         .then((r) => { c.data = r || {}; }).catch(() => { c.data = c.data || {}; })
         .finally(() => { c.busy = false; c.t = Date.now(); c.hosts.forEach((x) => { if (x.isConnected !== false) { try { x.render(); } catch (e) { /* */ } } }); c.hosts.clear(); });
     }
     return c.data;
   }
+  const allIds = (ids) => [...ids.energy, ids.spot, ids.norge, ids.nord].filter((x, i, a) => x && a.indexOf(x) === i);
+  // Timedata bare for det som trenger timer: i dag, denne uken og denne måneden (effekttrinn) → fra min(mandag, 1. i mnd)
+  function fetchHourly(host, ids) {
+    const all = allIds(ids);
+    if (!all.length) return null;
+    const now = new Date(), start = new Date(Math.min(new Date(now.getFullYear(), now.getMonth(), 1).getTime(), monday(now).getTime()));
+    return ws(host, 'h|' + all.join(',') + '|' + start.getTime(), { start_time: start.toISOString(), end_time: new Date(now.getTime() + HR).toISOString(), statistic_ids: all, period: 'hour', types: ['change', 'mean'], units: { energy: 'kWh' } });
+  }
+  // År: tidligere måneder i år som månedsstatistikk (period month) – hentes bare når År er valgt
+  function fetchMonths(host, ids) {
+    const all = allIds(ids), now = new Date(), y0 = new Date(now.getFullYear(), 0, 1), m0 = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (!all.length || m0 <= y0) return {};
+    return ws(host, 'm|' + all.join(',') + '|' + y0.getTime() + '|' + m0.getTime(), { start_time: y0.toISOString(), end_time: m0.toISOString(), statistic_ids: all, period: 'month', types: ['change', 'mean'], units: { energy: 'kWh' } });
+  }
+  // Effektledd for en tidligere måned: timeforbruk for den ene måneden, hentes når måneden velges
+  function fetchMonthHours(host, id, y, m) {
+    if (!id) return null;
+    const a = new Date(y, m, 1), b = new Date(y, m + 1, 1);
+    return ws(host, 'p|' + id + '|' + a.getTime(), { start_time: a.toISOString(), end_time: b.toISOString(), statistic_ids: [id], period: 'hour', types: ['change'], units: { energy: 'kWh' } });
+  }
   // Timeserier: E (kWh), SP (spot kr/kWh), NG (Norgespris), NP (Nord Pool) – nøkkel = hk(ts)
-  function dataOf(host) {
-    const h = host.hass, ids = srcIds(host), raw = fetchStats(host, ids);
+  function dataOf(host, o) {
+    const h = host.hass, ids = srcIds(host), raw = fetchHourly(host, ids);
     const D = { loaded: raw != null, ids, E: new Map(), SP: new Map(), NG: new Map(), NP: new Map(), eId: null };
     const now = new Date(), kNow = hk(now.getTime()), kDay = hk(d0(now).getTime());
     const rows = (id) => (raw && id && Array.isArray(raw[id]) ? raw[id] : []);
@@ -116,7 +136,19 @@
       const v = s && isNum(s.state) ? Number(s.state) * (/^Wh$/i.test(u) ? 0.001 : /^MWh$/i.test(u) ? 1000 : 1) : null;
       if (v != null) { let sum = 0; D.E.forEach((x, k) => { if (k >= kDay && k < kNow) sum += x; }); const rem = v - sum; if (rem >= 0 && rem < 60 && !D.E.has(kNow)) D.E.set(kNow, rem); }
     }
-    D.kNow = kNow; D.kDay = kDay;
+    D.kNow = kNow; D.kDay = kDay; D.kMon = hk(new Date(now.getFullYear(), now.getMonth(), 1).getTime());
+    // År: tidligere måneder (månedsstatistikk) → D.Mo[m] = { kwh, sp, ng, np }
+    D.Mo = []; D.moLoaded = true;
+    if (o && o.year) {
+      const mr = fetchMonths(host, ids); D.moLoaded = mr != null;
+      const rowsM = (id) => (mr && id && Array.isArray(mr[id]) ? mr[id] : []);
+      const mOf = (r) => new Date(tsOf(r.start)).getMonth();
+      const eM = rowsM(D.eId || ids.energy[0]);
+      eM.forEach((r) => { if (r && isNum(r.change)) D.Mo[mOf(r)] = { kwh: Number(r.change), sp: null, ng: null, np: null }; });
+      const put = (id, f) => { const sc = M.priceScale ? M.priceScale(st(h, id)) : 1; rowsM(id).forEach((r) => { const x = D.Mo[mOf(r)]; if (x && r && isNum(r.mean)) x[f] = Number(r.mean) * sc; }); };
+      put(ids.spot, 'sp'); put(ids.norge, 'ng'); put(ids.nord, 'np');
+      D.Mo.forEach((x) => { if (x && x.ng == null) x.ng = D.norgeNow; });
+    }
     return D;
   }
   const ng = (D, k) => (D.NG.has(k) ? D.NG.get(k) : D.norgeNow);
@@ -125,6 +157,12 @@
     let sp = 0, n = 0, g = 0;
     D.E.forEach((kwh, k) => { if (k < from || k >= to) return; const s = D.SP.get(k), q = ng(D, k); if (s == null || q == null) return; sp += kwh * s; g += kwh * q; n++; });
     return n ? { sp, ng: g, n } : null;
+  }
+  // År = denne måneden (timer) + tidligere måneder (månedssnitt × månedsforbruk)
+  function yearSum(D) {
+    const R = cmpSum(D, D.kMon, D.kNow + 1) || { sp: 0, ng: 0, n: 0 };
+    D.Mo.forEach((x) => { if (x && x.sp != null && x.ng != null) { R.sp += x.kwh * x.sp; R.ng += x.kwh * x.ng; R.n++; } });
+    return R.n ? R : null;
   }
   const rangeOf = (key, now) => {
     const n = now || new Date(); let a;
@@ -186,9 +224,10 @@
 
   /* ------------------------------------------------------------ Norgespris */
   function norgespris(host) {
-    const D = dataOf(host), u = ui(host);
+    const u = ui(host);
     const np = NP_PER.some((p) => p[0] === u.ssNp) ? u.ssNp : 'Måned', nWhen = NP_PER.find((p) => p[0] === np)[1];
-    const [a, b] = rangeOf(np), R = cmpSum(D, a, b);
+    const D = dataOf(host, { year: np === 'År' });
+    const [a, b] = rangeOf(np), R = np === 'År' ? yearSum(D) : cmpSum(D, a, b);
     const sp = R ? R.sp : null, g = R ? R.ng : null;
     const has = sp != null && g != null, won = has && sp >= g, diff = has ? Math.abs(sp - g) : null;
     const state = !has ? 'none' : won ? 'won' : 'lost';
@@ -196,7 +235,7 @@
     const title = has ? `${won ? 'Spart' : 'Tapt'} med Norgespris · ${nWhen}` : `Norgespris · ${nWhen}`;
     const pct = has && Math.max(sp, g) > 0 ? `${Math.round(diff / Math.max(sp, g) * 100)} % ${won ? 'billigere' : 'dyrere'}` : '–';
     const big = has ? (won ? '' : '−') + fmt1(diff) : '–';
-    const sub = !has ? (D.loaded ? 'Mangler forbruk eller spotpris for perioden' : 'Henter statistikk …') : won ? `Fast ${npTxt} var billigere enn spotpris ${nWhen}` : `Spotpris var billigere enn ${npTxt} ${nWhen}`;
+    const sub = !has ? (D.loaded && D.moLoaded ? 'Mangler forbruk eller spotpris for perioden' : 'Henter statistikk …') : won ? `Fast ${npTxt} var billigere enn spotpris ${nWhen}` : `Spotpris var billigere enn ${npTxt} ${nWhen}`;
     const nmax = has ? Math.max(sp, g, 1e-9) : 1;
     const cmp = [['Med spotpris', sp, ORANGE], ['Med Norgespris', g, BLUE]].map(([l, v, c]) => `<div class="ss-cmp"><span class="ss-cmp-h"><span class="ss-cmp-l"><span class="ss-dot" style="background:${c}"></span>${l}</span><span class="ss-cmp-v">${v == null ? '–' : fmt1(v)} kr</span></span><span class="ss-track"><span class="ss-bar" style="width:${v == null ? 0 : (v / nmax * 100).toFixed(2)}%;background:${c}"></span></span></div>`).join('');
     // Timegraf i dag: spot − Norgespris per time (opp = Norgespris billigst)
@@ -231,8 +270,9 @@
 
   /* ------------------------------------------------------------ Strømregning */
   function stromregning(host) {
-    const D = dataOf(host), u = ui(host), h = host.hass, V = settings(host), sider = cfgS(host);
+    const u = ui(host), h = host.hass, V = settings(host), sider = cfgS(host);
     const bp = BP_PER.includes(u.ssBp) ? u.ssBp : 'Måned', now = new Date();
+    const D = dataOf(host, { year: bp === 'År' });
     const [a, b, aD] = rangeOf(bp, now);
     const vat = V.vat.v != null ? V.vat.v / 100 : null;
     let kwh = 0, nE = 0, strom = 0, nStrom = 0, grid = 0, gridOk = V.grid.v != null && V.night.v != null, fr = 0, nFr = 0, eDay = 0, eNight = 0;
@@ -246,8 +286,29 @@
       const s = D.SP.get(k), q = ng(D, k);
       if (s != null && q != null) { fr += e * (q - s); nFr++; }
     });
+    // År: tidligere måneder fra månedsstatistikken (nettleie med denne månedens dag-/nattandel)
+    const dayShare = eDay + eNight > 0 ? eDay / (eDay + eNight) : 0.5;
+    if (bp === 'År') D.Mo.forEach((x) => {
+      if (!x) return;
+      kwh += x.kwh; nE++;
+      const pr = x.np != null ? x.np : x.sp;
+      if (pr != null) { strom += x.kwh * (pr + (V.surch.v || 0) / 100); nStrom++; }
+      if (gridOk) grid += x.kwh * (dayShare * V.grid.v + (1 - dayShare) * V.night.v) / 100;
+      if (x.sp != null && x.ng != null) { fr += x.kwh * (x.ng - x.sp); nFr++; }
+    });
     // Effekttrinn: døgnmaks (kWh/t ≈ kW) per måned
-    const peaksOf = (y, m) => { const md = new Map(); D.E.forEach((e, k) => { const d = new Date(k * HR); if (d.getFullYear() !== y || d.getMonth() !== m || k === D.kNow) return; const key = d.getDate(); if (!md.has(key) || md.get(key) < e) md.set(key, e); }); return [...md.entries()].sort((x, y2) => y2[1] - x[1]).slice(0, 3); };
+    // Tidligere måneder: timedata hentes bare for valgt måned (eller ligger i mellomlageret fra før)
+    const em0 = isNum(u.ssEm) && u.ssEm >= 0 && u.ssEm < 12 ? Number(u.ssEm) : now.getMonth();
+    const eId = D.eId || D.ids.energy[0];
+    const pastE = (m) => {
+      if (!eId) return null;
+      const c = m === em0 ? fetchMonthHours(host, eId, now.getFullYear(), m) : (CACHE.get('p|' + eId + '|' + new Date(now.getFullYear(), m, 1).getTime()) || {}).data;
+      const L = c && Array.isArray(c[eId]) ? c[eId] : null;
+      if (!L) return null;
+      const mp = new Map(); L.forEach((r) => { if (r && isNum(r.change)) mp.set(hk(tsOf(r.start)), Number(r.change)); });
+      return mp;
+    };
+    const peaksOf = (y, m) => { const md = new Map(); (m === now.getMonth() ? D.E : pastE(m) || new Map()).forEach((e, k) => { const d = new Date(k * HR); if (d.getFullYear() !== y || d.getMonth() !== m || k === D.kNow) return; const key = d.getDate(); if (!md.has(key) || md.get(key) < e) md.set(key, e); }); return [...md.entries()].sort((x, y2) => y2[1] - x[1]).slice(0, 3); };
     const stepOf = (kw) => (kw == null ? -1 : Math.min(STEPS.length - 1, STEPS.findIndex((s) => kw < s[2]) < 0 ? STEPS.length - 1 : STEPS.findIndex((s) => kw < s[2])));
     const EL = Array.isArray(sider.effektledd) && sider.effektledd.length >= STEPS.length && sider.effektledd.every(isNum) ? sider.effektledd.map(Number) : null;
     const monthAvg = Array.from({ length: 12 }, (_, m) => { if (m > now.getMonth()) return null; const p = peaksOf(now.getFullYear(), m); return p.length ? p.reduce((s, x) => s + x[1], 0) / p.length : null; });
@@ -274,7 +335,7 @@
       .map(([l, icon, v, c, s]) => `<div class="ss-part" data-ss-part="${l}"><span class="ss-part-ic" style="background:color-mix(in oklab, ${c} 22%, var(--ki-surface-2, #2e2e2e));color:${AT(c)}">${ic(icon, 20)}</span><span class="ss-part-t"><span class="ss-part-l">${l}</span><span class="ss-part-s">${esc(s)}</span></span><span class="ss-part-v${v != null && v < 0 ? ' neg' : ''}">${v == null ? '–' : fx(v, 0)} kr</span></div>`).join('');
     const savedV = frT != null ? -frT : null;
     const savedTxt = savedV == null ? `Norgespris · ${D.loaded ? 'mangler spotpris eller forbruk' : 'henter statistikk …'}` : savedV >= 0 ? `Norgespris har spart deg ${fx(savedV, 0)} kr ${when}` : `Norgespris har kostet deg ${fx(-savedV, 0)} kr mer ${when}`;
-    const dn = eDay + eNight, pDay = dn > 0 ? Math.round(eDay / dn * 100) : null;
+    const dn = eDay + eNight, pDay = dn > 0 && bp !== 'År' ? Math.round(eDay / dn * 100) : null; // År: bare månedsstatistikk → ingen dag/natt
     // Effekttrinn (denne måneden)
     const pk = peaksOf(now.getFullYear(), now.getMonth()), cur = monthAvg[now.getMonth()], ci = stepOf(cur);
     const steps = STEPS.map(([l], i) => `<span class="ss-step"><span class="ss-step-b${i === ci ? ' on' : i < ci ? ' past' : ''}" style="height:${14 + i * 9}px"></span><span class="ss-step-l${i === ci ? ' on' : ''}">${l}</span></span>`).join('');

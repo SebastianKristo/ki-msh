@@ -406,7 +406,7 @@
   };
   // Designets kYaml (reserve når MSH.yaml mangler)
   const kYaml = (o, ind = 0) => { const p = ' '.repeat(ind), q = (v) => (typeof v === 'string' && /[:#{}[\],&*!|>'"%@`]|^\s|\s$|^$|^(true|false|null|~|yes|no|on|off|[-+]?[\d.]+)$/i.test(v) ? JSON.stringify(v) : String(v));
-    return Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => (Array.isArray(v) ? `${p}${k}:\n${v.map((it) => (it && typeof it === 'object' ? p + '  - ' + kYaml(it, ind + 4).slice(ind + 4) : `${p}  - ${q(it)}`)).join('\n')}` : typeof v === 'object' ? `${p}${k}:\n${kYaml(v, ind + 2)}` : `${p}${k}: ${q(v)}`)).join('\n'); };
+    return Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => (Array.isArray(v) && !v.length ? `${p}${k}: []` : Array.isArray(v) ? `${p}${k}:\n${v.map((it) => (it && typeof it === 'object' ? p + '  - ' + kYaml(it, ind + 4).slice(ind + 4) : `${p}  - ${q(it)}`)).join('\n')}` : typeof v === 'object' ? `${p}${k}:\n${kYaml(v, ind + 2)}` : `${p}${k}: ${q(v)}`)).join('\n'); };
   function toYaml(kurs) {
     const obj = { type: 'custom:ki-energi-card-strom', ...prune(norm(kurs)) };
     if (M.yaml && M.yaml.dump) { try { return String(M.yaml.dump(obj)).replace(/\n+$/, '') + '\n'; } catch (e) { /* */ } }
