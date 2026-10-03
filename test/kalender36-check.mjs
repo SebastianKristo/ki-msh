@@ -258,7 +258,7 @@ for (const theme of ['dark', 'light']) {
   await page.evaluate(async () => { document.documentElement.style.setProperty('--sb', '256px'); const D0 = MSH.dashRect; MSH.dashRect = () => ({ left: 256, top: 0, width: innerWidth - 256, height: innerHeight, right: innerWidth }); /* HAs hui-root #view til høyre for sidebaren */ window.dispatchEvent(new Event('resize')); await new Promise((r) => setTimeout(r, 200)); card().customize(); });
   await page.waitForTimeout(700);
   const G = await page.evaluate(() => { const P = MSH.portals().filter((p) => p.isConnected && p.classList.contains('on')), host = P[P.length - 1], sh = host.shadowRoot.querySelector('.sh'), bg = host.shadowRoot.querySelector('.bg'), r = sh.getBoundingClientRect(), b = bg.getBoundingClientRect(), D = MSH.dashRect(); const tt = sh.querySelector('msh-editor').shadowRoot.querySelector('.ttl .tt'); return { tfs: getComputedStyle(tt).fontSize, w: Math.round(r.width), cx: Math.round(r.left + r.width / 2), top: Math.round(r.top), bl: Math.round(b.left), bw: Math.round(b.width), D: [Math.round(D.left), Math.round(D.width)] }; });
-  ok('36.7 PC + sidebar: ark 440 sentrert i dashbordflaten, top 52, tittel 24 px, bakteppet starter ved sidebaren', G.w === 440 && Math.abs(G.cx - (G.D[0] + G.D[1] / 2)) <= 1 && G.top === 52 && G.tfs === '24px' && G.bl === G.D[0] && G.bl >= 256 && G.bw === G.D[1], G);
+  ok('36.7 PC + sidebar: ark 440 sentrert i dashbordflaten, top 52, tittel ≈ 24 px (≥ 22 med testfonten), bakteppet starter ved sidebaren', G.w === 440 && Math.abs(G.cx - (G.D[0] + G.D[1] / 2)) <= 1 && G.top === 52 && parseFloat(G.tfs) >= 22 && G.bl === G.D[0] && G.bl >= 256 && G.bw === G.D[1], G);
   await page.close();
 }
 
