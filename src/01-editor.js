@@ -410,6 +410,9 @@
     /* Fiks 26 (brukerens valg): «Ferdig» er en rosa pille ØVERST TIL HØYRE i headeren (ingen bunnlinje); Avbryt = liten ×-knapp ved siden av */
     .ttl .hb{flex:none;width:40px;height:40px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);color:#c7c7c7;display:grid;place-items:center}
     .ttl .done{flex:none;${M.DONE_PILL}}
+    /* 36.7: header som designet («Tilpass kalender»): tittel 24/600, «Nullstill» #3a3a3a (dekkende) + rosa «Ferdig» */
+    .ttl.v2{gap:8px}.ttl.v2 .tt{font-size:24px;font-weight:600}
+    .ttl .hb.rs{width:auto;padding:0 16px;font-size:14px;font-weight:500;color:var(--ki-text, #fafafa);background:var(--ki-surface, #3a3a3a)}
     .ttl .done[disabled]{opacity:.7;cursor:progress}
     @media (max-width:380px){.ttl .tt{font-size:20px}.ttl .done{padding:0 14px}}
     .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, var(--gray000,#232323));opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
@@ -444,6 +447,8 @@
     .fsec.ksp>.sec{background:none;box-shadow:none;border:0;border-radius:24px}
     .fsec.ksp>.sec>.in{padding:0}
     .sec>.in>ki-spacing-editor{margin:0}
+    /* 36.7: flat «Mellomrom» (fane i Tilpass-arket) = helt dekkende seksjonskort #3a3a3a r24 + inset .05, forvalg #404040 */
+    .fsec.ksp ki-spacing-editor{--ki-sp-bg:var(--ki-surface, #3a3a3a);--ki-sp-ring:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sp-p:var(--ki-surface-2, #404040)}
     .f{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:var(--ki-surface-2, #404040)}
     .f label{font-size:12px;color:var(--ki-text-2, #afafaf)}
     .f .help{font-size:11px;color:var(--ki-text-3, #7f7f7f)}
@@ -541,7 +546,7 @@
   // f.eks. Tilpass Tesla) lytter og lagrer i utkastet.
   const SP_CSS = `:host{display:block;width:100%;min-width:0;box-sizing:border-box;font-family:${M.FONT};color:var(--ki-text, #fafafa)}
     *{box-sizing:border-box}
-    .box{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0;padding:14px 16px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .box{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0;padding:14px 16px;border-radius:24px;background:var(--ki-sp-bg, var(--ki-surface-2, var(--gray300,#404040)));box-shadow:var(--ki-sp-ring, none);opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none}
     .r{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
     .t{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-width:0}
     .l{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;font-weight:500;line-height:1.25}
@@ -552,7 +557,7 @@
     .ks.drag{cursor:grabbing}
     .ks input{display:block;width:100%;accent-color:rgb(242 133 201);pointer-events:none;cursor:inherit}
     .c{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
-    .p{height:30px;padding:0 12px;border-radius:15px;border:0;margin:0;font:500 12px ${M.FONT};white-space:nowrap;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa);cursor:pointer;transition:transform .12s}
+    .p{height:30px;padding:0 12px;border-radius:15px;border:0;margin:0;font:500 12px ${M.FONT};white-space:nowrap;background:var(--ki-sp-p, var(--ki-ctrl, #545454));color:var(--ki-text, #fafafa);cursor:pointer;transition:transform .12s}
     .p:active{transform:scale(.95)}
     .p.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:var(--ki-on-accent, #3a3a3a)}
     .h{font-size:11px;color:var(--ki-text-3, #7f7f7f)}`;
@@ -755,7 +760,13 @@
       el.innerHTML = this._saveBtnInner();
     }
     _saveBtnInner() { return this._busy ? '<span class="spin" aria-hidden="true"></span>Lagrer …' : 'Ferdig'; }
-    connectedCallback() { this._glassSync(); }
+    connectedCallback() { this._glassSync(); if (this._inline) requestAnimationFrame(() => this._fitTitle()); }
+    _fitTitle() {
+      const tt = this.shadowRoot && this.shadowRoot.querySelector('.ttl.v2 .tt');
+      if (!tt || !tt.clientWidth) return;
+      tt.style.fontSize = ''; let fs = 24;
+      while (tt.scrollWidth > tt.clientWidth + 1 && fs > 16) { fs -= 1; tt.style.fontSize = fs + 'px'; }
+    }
     // Liquid glass-UTSEENDET: kun i et glassark (MSH.overlay med Liquid Glass-tema → vertens data-glass).
     // Segmentvelgerne får Liquid Glass-drag (linse ved trykk og dra) ALLTID, også i standardarket og GUI-editoren (Fiks 15.2).
     _glassSync() {
@@ -790,6 +801,8 @@
       if (!this._config || !this._hass) return;
       if (M.pickerBusy && M.pickerBusy(this.shadowRoot)) return; // native velger har fokus (09-pickers) – tegnes ved blur
       const cls = this.cardClass || {};
+      // 36.7: editorHead { reset(hass, cfg, ed) } → header som «Tilpass kalender»: tittel 24/600, «Nullstill» + rosa «Ferdig», ingen X
+      let EH = null; try { EH = cls.editorHead || null; } catch (e) { EH = null; }
       // 31.1: teller tegninger (ed.renders, MSH.renderStats) – logges i debug-modus (localStorage ki:debug = 1)
       this.renders = (this.renders || 0) + 1;
       const rk = 'msh-editor:' + (cls.cardName || this.localName);
@@ -799,12 +812,14 @@
       try { schema = this.schema; } catch (e) { console.error('[ki-msh] editor-skjema', e); schema = [{ type: 'info', label: 'Kunne ikke laste denne delen' }]; }
       const body = schema.map((f, i) => this._safeField(f, 'r' + i)).join('');
       const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
-        ${this._inline ? `<div class="ttl"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span><button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button><button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
+        ${this._inline ? `<div class="ttl${EH ? ' v2' : ''}"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span>${EH && EH.reset ? '<button class="hb rs" data-a="hreset">Nullstill</button>' : `<button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button>`}<button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
       this._glassSync();
+      // 36.7: tittelen (24/600) får plass ved siden av «Nullstill» + «Ferdig» – smal skjerm: krymp til den passer (min 16 px)
+      if (EH) this._fitTitle();
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
       this.shadowRoot.querySelectorAll('ha-selector').forEach((p) => {
         p.hass = this._hass;
@@ -1134,6 +1149,7 @@
         case 'hid': { const hs = new Set(get(c, d.name) || []); hs.has(d.v) ? hs.delete(d.v) : hs.add(d.v); return this._set(d.name, [...hs]); }
         case 'save': if (this._busy || b.disabled) return; return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
         case 'cancel': M.haptic('light'); return this.dispatchEvent(new CustomEvent('msh-cancel'));
+        case 'hreset': { const EH = (this.cardClass || {}).editorHead; if (EH && EH.reset) { M.haptic('medium'); EH.reset(this._hass, this._config, this); } return; }
         case 'fn': { const f = (this._htmlF || {})[d.k]; if (f && f.click) f.click(d, this); return; }
         default:
       }

@@ -297,11 +297,13 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
     const r = await SP(open);
     if (r.err) { ok(`${vn} 28.10 ${name}: ki-spacing-editor`, false, r); await closeAll(); continue; }
     if (shots) await p.screenshot({ path: `${shots}/f28-${vn}-mellomrom-${name.replace(/[^a-zA-Z]+/g, '-').toLowerCase()}.png` });
-    ok(`${vn} 28.10 ${name}: flate #404040 r24, padding 14 16, kolonne gap 16`, r.box.bg === 'rgb(64, 64, 64)' && r.box.rad === '24px' && r.box.pad === '14px 16px' && r.box.gap === '16px' && r.box.dir === 'column', r.box);
+    // 36.7: flat «Mellomrom» i et Tilpass-ark (msh-editor-fane) = dekkende kort #3a3a3a med forvalg #404040; ellers 28.10 (#404040 / #545454)
+    const flat36 = r.box.bg === 'rgb(58, 58, 58)', offExp = flat36 ? 'rgb(64, 64, 64)' : 'rgb(84, 84, 84)';
+    ok(`${vn} 28.10/36.7 ${name}: flate #404040 (flat i arket: #3a3a3a) r24, padding 14 16, kolonne gap 16`, (r.box.bg === 'rgb(64, 64, 64)' || flat36) && r.box.rad === '24px' && r.box.pad === '14px 16px' && r.box.gap === '16px' && r.box.dir === 'column', r.box);
     ok(`${vn} 28.10 ${name}: etikett på ÉN linje (nowrap + ellipsis, 14/500), ikon 20 #afafaf`, r.rows.length >= 2 && r.rows.every((x) => x.lh <= 20 && x.ws === 'nowrap' && x.to === 'ellipsis' && x.lfs === '14px' && x.lfw === '500' && x.icW === 20 && x.icCol === 'rgb(175, 175, 175)'), r.rows.map((x) => [x.label, x.lh, x.ws, x.icW]));
     ok(`${vn} 28.10 ${name}: «N px» til høyre på samme linje, 13 px #afafaf tabular-nums`, r.rows.every((x) => x.valRight && /^-?\d+ px$/.test(x.val) && x.vfs === '13px' && x.vcol === 'rgb(175, 175, 175)' && /tabular-nums/.test(x.vnum)), r.rows.map((x) => [x.val, x.valRight]));
     ok(`${vn} 28.10 ${name}: slider i full bredde UNDER etiketten, rosa aksent, step 2`, r.rows.every((x) => x.slBelow && x.slW >= x.rowW - 1 && /242, 133, 201/.test(x.accent) && x.step === '2'), r.rows.map((x) => [x.slW, x.rowW, x.accent, x.step]));
-    ok(`${vn} 28.10 ${name}: chips UNDER slideren, 30 px, r15, 12 px, padding 0 12, nowrap; valgt rosa gradient / #3a3a3a, ellers #545454`, r.rows.every((x) => x.chBelow && x.chipRowsOk && x.chRad === '15px' && x.chFs === '12px' && x.chPad === '0px 12px' && x.chWs === 'nowrap' && (!x.onBg || /linear-gradient/.test(x.onBg)) && (!x.onCol || x.onCol === 'rgb(58, 58, 58)') && x.offBg === 'rgb(84, 84, 84)'), r.rows.map((x) => [x.chips, x.chH, x.onBg && x.onBg.slice(0, 30)]));
+    ok(`${vn} 28.10 ${name}: chips UNDER slideren, 30 px, r15, 12 px, padding 0 12, nowrap; valgt rosa gradient / #3a3a3a, ellers #545454 (flat 36.7: #404040)`, r.rows.every((x) => x.chBelow && x.chipRowsOk && x.chRad === '15px' && x.chFs === '12px' && x.chPad === '0px 12px' && x.chWs === 'nowrap' && (!x.onBg || /linear-gradient/.test(x.onBg)) && (!x.onCol || x.onCol === 'rgb(58, 58, 58)') && x.offBg === offExp), r.rows.map((x) => [x.chips, x.chH, x.onBg && x.onBg.slice(0, 30)]));
     await closeAll();
   }
   // interaksjon: chip og vannrett drag endrer verdien i utkastet; loddrett drag gjør det ikke (Fiks 11)

@@ -358,12 +358,12 @@
       return `<div class="f"><label>${esc(dk === 'school' ? 'Retning før byttetidspunktet' : 'Retning etter byttetidspunktet')}</label>${inp(dk + '.name', D.name, STD_TRIPS[dk].name)}
         ${D.alts.map((alt, i) => {
           const id = `${dk}.${i}`, on = alt.enabled !== false, isOpen = open === id, A = `data-dir="${dk}" data-i="${i}"`;
-          return `<div class="ruter-alt" style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border-radius:16px;background:${WA(0.04)}">
+          return `<div class="ruter-alt" style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border-radius:16px;background:var(--ki-surface, #3a3a3a)">
             <div class="line" style="gap:6px">${b('toggle', A, '', `sw ${on ? 'on' : ''}`)}
               ${b('edit', A, `<span style="font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(altTitle(alt))}</span>`, '', 'flex:1;min-width:0;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:4px 0;cursor:pointer')}
               ${b('up', A, M.icon('mdi:chevron-up', 20))}${b('down', A, M.icon('mdi:chevron-down', 20))}${b('del', A, M.icon('mdi:delete-outline', 20))}</div>
             ${isOpen ? `${lab('Gangtid til første stopp (min) · tomt = stoppets gangtid', inp(`${dk}.alts.${i}.walk_min`, alt.walk_min, 'f.eks. 4', true))}
-              ${(alt.legs || []).map((l, j) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:12px;background:${KA(0.15)}">
+              ${(alt.legs || []).map((l, j) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:12px;background:var(--ki-surface-3, #2f2f2f)">
                 <span class="small" style="grid-column:1/-1;display:flex;align-items:center;gap:6px">Etappe ${j + 1}<span style="flex:1"></span>${b('rmleg', `${A} data-j="${j}"`, M.icon('mdi:close', 18))}</span>
                 ${lab('Fra (stopp / sensor / NSR · «A / B» = begge)', inp(`${dk}.alts.${i}.legs.${j}.from`, l.from, 'Majorstuen'))}${lab('Til', inp(`${dk}.alts.${i}.legs.${j}.to`, l.to, 'Holbergs plass'))}
                 ${lab('Linje(r) · tomt = alle som går', inp(`${dk}.alts.${i}.legs.${j}.lines`, l.lines, 'f.eks. 45', false, true))}
