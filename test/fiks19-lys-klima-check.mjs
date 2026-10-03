@@ -120,24 +120,23 @@ const ok = (name, cond, info) => { if (!cond) fail++; console.log(`${cond ? 'OK 
     const res = { tbox: { bg: tb.backgroundColor, bf: tb.backdropFilter, r: tb.borderRadius, pad: tb.padding, sh: tb.boxShadow }, gap: tabsCs.columnGap, gear: { w: g.width, bg: g.backgroundColor, bf: g.backdropFilter } };
     res.tabs = [...R.querySelectorAll('.tab')].map((t) => t.dataset.key);
     res.cur0 = k._curTab();
-    // Tilpass klima → Faner: Åpne med
+    // Tilpass klima → Faner: Startfane (36.5, felles MSH.startTab – erstatter «Åpne med»/stjerne/«Husk siste fane»)
     k.customize(); await wait(300);
     const ov = window.MSH.portals().pop(), sh = ov.shadowRoot || ov, box = sh.querySelector('.klima-sheet');
-    const sel = box.querySelector('select[data-deftab]');
-    res.selOpts = sel ? [...sel.options].map((o) => o.value) : null;
-    res.hasRemember = !!box.querySelector('[data-a="remember"]');
+    const chips = () => [...box.querySelectorAll('[data-mst-field] [data-mst]')];
+    res.selOpts = chips().map((o) => o.dataset.mst).filter((v) => v !== 'last');
+    res.hasRemember = chips().some((o) => o.dataset.mst === 'last');
     const target = res.tabs[2] || res.tabs[1];
-    sel.value = target; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(300);
-    res.afterSel = { cur: k._curTab(), star: (box.querySelector('.star.on') || {}).dataset?.k, draft: (k.config.layout || {}).default_tab };
-    // Stjerne → nedtrekkslisten følger
+    chips().find((o) => o.dataset.mst === target).click(); await wait(300);
+    res.afterSel = { cur: k._curTab(), star: (box.querySelector('[data-mst-pill]') || {}).dataset?.mstPill, draft: k.config.start_tab };
     const target2 = res.tabs[1];
-    box.querySelector(`.star[data-k="${target2}"]`).click(); await wait(300);
-    res.afterStar = { cur: k._curTab(), sel: box.querySelector('select[data-deftab]').value };
+    chips().find((o) => o.dataset.mst === target2).click(); await wait(300);
+    res.afterStar = { cur: k._curTab(), sel: (box.querySelector('[data-mst-field] .mst-c.on') || {}).dataset?.mst };
     // Ferdig (lagre) med Husk siste fane av
     box.querySelector('[data-a="done"]').click(); await wait(1200);
     const vis = () => all().find((e) => e.localName === 'msh-klima-card' && e.getBoundingClientRect().height > 0) || k;
     let kk = vis();
-    res.saved = JSON.parse(JSON.stringify(kk.config.layout || {}));
+    res.saved = { default_tab: kk.config.start_tab }; // 36.5: lagres som start_tab
     // Velg en annen fane, lukk og åpne popupen → tilbake til «Åpne med»
     const other = res.tabs.find((x) => x !== target2);
     kk._selectTab(other); await wait(200);
@@ -152,11 +151,11 @@ const ok = (name, cond, info) => { if (!cond) fail++; console.log(`${cond ? 'OK 
   ok('fanelinje #3a3a3a uten backdrop', x.tbox.bg === 'rgb(58, 58, 58)' && (x.tbox.bf === 'none' || !x.tbox.bf) && x.tbox.r === '30px' && x.tbox.pad === '6px', x.tbox);
   ok('fanelinje gap 4', x.gap === '4px', x.gap);
   ok('tannhjul = sporets høyde (66 px, 35.8) #3a3a3a', x.gear.w === '66px' && x.gear.bg === 'rgb(58, 58, 58)' && (x.gear.bf === 'none' || !x.gear.bf), x.gear);
-  ok('Åpne med = synlige faner', JSON.stringify(x.selOpts) === JSON.stringify(x.tabs), [x.selOpts, x.tabs]);
-  ok('Husk siste fane-bryter finnes', x.hasRemember);
-  ok('Åpne med bytter straks + stjerne synk', x.afterSel.cur === x.afterSel.draft && x.afterSel.star === x.afterSel.draft, x.afterSel);
-  ok('stjerne → nedtrekksliste synk', x.afterStar.cur === r.target2 && x.afterStar.sel === r.target2, x.afterStar);
-  ok('lagret layout.default_tab', x.saved.default_tab === r.target2, x.saved);
+  ok('Startfane-chips = synlige faner', JSON.stringify(x.selOpts) === JSON.stringify(x.tabs), [x.selOpts, x.tabs]);
+  ok('«Sist brukte» finnes', x.hasRemember);
+  ok('Startfane bytter straks + «Start»-pill synk', x.afterSel.cur === x.afterSel.draft && x.afterSel.star === x.afterSel.draft, x.afterSel);
+  ok('nytt valg → aktiv chip synk', x.afterStar.cur === r.target2 && x.afterStar.sel === r.target2, x.afterStar);
+  ok('lagret start_tab', x.saved.default_tab === r.target2, x.saved);
   ok('Husk av: gjenåpning → Åpne med', x.reopenOff === r.target2, [x.reopenOff, x.dbg]);
   await p.close();
 }

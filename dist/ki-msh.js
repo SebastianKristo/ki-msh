@@ -7452,6 +7452,7 @@ try {
  *     legacy(cfg) → verdi | undefined, // valgfritt: gamle nøkler ('' / null = ikke satt)
  *     get(card) → id, set(card, id),   // valgfritt: egen lagring av aktiv fane (standard card.ui[key] / setUI quiet)
  *     id(card) → nøkkel for «Sist brukte» (standard card_id, ellers popupens hash)
+ *     lastFallback(cfg) → fane når «Sist brukte» ikke har noe husket ennå (standard første synlige)
  *   }; }
  *   Ved åpning (hash → popupen åpnes): MSH.startTab.apply(card) setter fanen til startfanen før første tegning.
  *   Fanebytte (setUI med key) og lukking husker fanen for «Sist brukte».
@@ -7504,7 +7505,7 @@ try {
     const V = (visible || []).map(String);
     if (!V.length) return undefined;
     const v = value(cfg, o.legacy);
-    if (v === LAST) { const l = lastOf(o.id); return l != null && V.includes(l) ? l : V[0]; }
+    if (v === LAST) { const l = lastOf(o.id); if (l != null && V.includes(l)) return l; const f = o.lastFallback ? (() => { try { return o.lastFallback(cfg || {}); } catch (e) { return null; } })() : null; return f != null && V.includes(String(f)) ? String(f) : V[0]; }
     return v != null && V.includes(v) ? v : V[0];
   }
   // Fanen som får «Start»-pillen i Faner-listen (null ved «Sist brukte»)
@@ -7536,7 +7537,7 @@ try {
     if (!spec || !spec.tabs) return null;
     const V = visOf(card, spec);
     if (!V.length) return null;
-    const t = resolve(cfgOf(card), V, { id: idOf(card, spec), legacy: spec.map ? { legacy: spec.legacy, map: spec.map } : spec.legacy });
+    const t = resolve(cfgOf(card), V, { id: idOf(card, spec), lastFallback: spec.lastFallback, legacy: spec.map ? { legacy: spec.legacy, map: spec.map } : spec.legacy });
     if (t == null) return null;
     card.__stApply = true;
     try {
@@ -32426,7 +32427,7 @@ try {
       if (M.klimaInput && safe(() => M.klimaInput(this, name, el, ev, kind), false)) return;
     }
     // 36.5: startfanen settes av MSH.startTab.apply (basekortet) før onOpen – start_tab / gamle «Åpne med»/«Husk siste fane»
-    static get startTabSpec() { return { tabs: (card) => visibleTabs(card, card.layout), legacy: startLegacy, get: (card) => card._curTab(), set: (card, id) => { card._tab = id; card.setUI({ tab: id }, true); } }; }
+    static get startTabSpec() { return { tabs: (card) => visibleTabs(card, card.layout), legacy: startLegacy, lastFallback: (c) => layoutOf({ ...c, start_tab: undefined }).default_tab, get: (card) => card._curTab(), set: (card, id) => { card._tab = id; card.setUI({ tab: id }, true); } }; }
     onOpen() {
       if (M.klimaOnOpen) safe(() => M.klimaOnOpen(this)); this._armWatch();
     }

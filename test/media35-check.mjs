@@ -138,14 +138,15 @@ const pv = await p.evaluate(async () => {
   const read = () => { const r = row(); return r ? { tabs: [...r.querySelectorAll('.mtp-t')].map((x) => x.textContent.trim()), on: (r.querySelector('.mtp-t.on') || {}).textContent } : null; };
   const firstInSec = sec && [...sec.querySelectorAll('[data-key]')].find((x) => x.getBoundingClientRect().height > 0);
   const o = { sec: !!sec, top: firstInSec && firstInSec.getAttribute('data-key'), a: read() };
-  const dt = R.querySelector('[data-a="sel"][data-name="default_tab"][data-v="musikk"]');
+  // 36.5: «Fane ved åpning» er nå felles Startfane-chips (MSH.startTab, start_tab)
+  const dt = R.querySelector('[data-mst-field] [data-a="fn"][data-v="musikk"]');
   if (dt) { dt.click(); await wait2(400); }
   o.b = read();
   // Flytt «Musikk» først (rekkefølge-feltet)
   const mv = [...R.querySelectorAll('[data-a="mv"],[data-a="omv"],[data-a="ord"],button')].find((x) => /tab_order/.test(x.getAttribute('data-name') || '') && (x.getAttribute('data-d') === '-1' || /opp/i.test(x.getAttribute('aria-label') || x.title || '')) && !x.disabled);
   if (mv) { mv.click(); await wait2(400); }
   o.c = read();
-  o.draft = { dt: E._config.default_tab, order: E._config.tab_order };
+  o.draft = { dt: E._config.start_tab, order: E._config.tab_order };
   // lys modus: forhåndsvisningen
   await window.__theme(true);
   const r = row(), on = r.querySelector('.mtp-t.on'), off = r.querySelector('.mtp-t:not(.on)');
@@ -155,7 +156,7 @@ const pv = await p.evaluate(async () => {
   return o;
 });
 ok('Tilpass media → Faner: forhåndsvisningen ligger øverst i seksjonen og viser TV · Musikk', pv.sec && pv.top === 'mtp' && pv.a && pv.a.tabs.join() === 'TV,Musikk' && pv.a.on === 'TV', pv);
-ok('forhåndsvisningen følger «Fane ved åpning» live (Musikk aktiv)', pv.b && pv.b.on === 'Musikk' && pv.draft.dt === 'musikk', pv);
+ok('forhåndsvisningen følger «Startfane» live (Musikk aktiv)', pv.b && pv.b.on === 'Musikk' && pv.draft.dt === 'musikk', pv);
 ok('forhåndsvisningen følger rekkefølgen live (Musikk først)', pv.c && pv.c.tabs.join() === 'Musikk,TV', pv.c);
 ok('lys · forhåndsvisning: lys flate, inaktiv ≥ 4,5:1, aktiv mørk tekst på rosa', pv.light.bg === 'rgb(240, 240, 240)' && pv.light.crOff >= 4.5 && pv.light.crOn >= 4.5, pv.light);
 

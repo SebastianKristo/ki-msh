@@ -889,7 +889,7 @@
       if (M.klimaInput && safe(() => M.klimaInput(this, name, el, ev, kind), false)) return;
     }
     // 36.5: startfanen settes av MSH.startTab.apply (basekortet) før onOpen – start_tab / gamle «Åpne med»/«Husk siste fane»
-    static get startTabSpec() { return { tabs: (card) => visibleTabs(card, card.layout), legacy: startLegacy, get: (card) => card._curTab(), set: (card, id) => { card._tab = id; card.setUI({ tab: id }, true); } }; }
+    static get startTabSpec() { return { tabs: (card) => visibleTabs(card, card.layout), legacy: startLegacy, lastFallback: (c) => layoutOf({ ...c, start_tab: undefined }).default_tab, get: (card) => card._curTab(), set: (card, id) => { card._tab = id; card.setUI({ tab: id }, true); } }; }
     onOpen() {
       if (M.klimaOnOpen) safe(() => M.klimaOnOpen(this)); this._armWatch();
     }

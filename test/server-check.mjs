@@ -149,8 +149,8 @@ await wait(p, 400);
 ok('«Setning under toppkortet» av → setningen forsvinner live', await p.evaluate(() => !__R('.prose')));
 await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; [...er.querySelectorAll('.chips.tabs [data-a="tab"]')].find((x) => /Faner/.test(x.getAttribute('aria-label') || x.textContent)).click(); });
 await wait(p, 300);
-X = await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; return { txt: er.textContent.replace(/\s+/g, ' '), start: [...er.querySelectorAll('[data-name="start_tab"]')].map((x) => x.textContent.trim()) }; });
-ok('Faner: rekkefølge (tab_order/hidden_tabs) + «Åpne med»', /Rekkefølge/.test(X.txt) && ['Nettverk', 'Proxmox', 'Unraid', 'HA'].every((n) => X.txt.includes(n)) && X.start.join() === 'Sist brukt,Nettverk,Proxmox,Unraid,HA', X.start);
+X = await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; return { txt: er.textContent.replace(/\s+/g, ' '), start: [...er.querySelectorAll('[data-mst-field] .mst-c')].map((x) => x.textContent.trim()) }; }); // 36.5: felles Startfane-chips
+ok('Faner: rekkefølge (tab_order/hidden_tabs) + «Startfane» (36.5)', /Rekkefølge/.test(X.txt) && ['Nettverk', 'Proxmox', 'Unraid', 'HA'].every((n) => X.txt.includes(n)) && X.start.join() === 'Nettverk,Proxmox,Unraid,HA,Sist brukte', X.start);
 await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; [...er.querySelectorAll('.chips.tabs [data-a="tab"]')].find((x) => /Integrasjoner/.test(x.getAttribute('aria-label') || x.textContent)).click(); });
 await wait(p, 300);
 const it = await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; return [...er.querySelectorAll('[data-op="int"]')].map((x) => x.textContent.replace(/\s+/g, ' ').trim()); });
