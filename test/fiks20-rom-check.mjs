@@ -58,8 +58,9 @@ const out = await p.evaluate(async () => {
     ok('20.15 av: pille #2f2f2f', cs(kaffe).backgroundColor === rgb('#2f2f2f'), cs(kaffe).backgroundColor);
     ok('20.15 av: ikon-sirkel #3a3a3a', cs(ic).backgroundColor === rgb('#3a3a3a'), cs(ic).backgroundColor);
     ok('20.15 av: ikon #e1e1e1', cs(ic).color === rgb('#e1e1e1'), cs(ic).color);
-    ok('20.15 av: undertekst #979797', cs(kaffe.querySelector('.u-n')).color === rgb('#979797'), cs(kaffe.querySelector('.u-n')).color);
-    ok('20.15 av: tekst #fafafa', cs(kaffe.querySelector('.u-l')).color === rgb('#fafafa'), cs(kaffe.querySelector('.u-l')).color);
+    // 38: navnet (.u-n) står øverst i --ki-text, statusen (.u-l) under i --ki-text-mid (Rom v4 devices)
+    ok('20.15/38 av: undertekst (status) #979797', cs(kaffe.querySelector('.u-l')).color === rgb('#979797'), cs(kaffe.querySelector('.u-l')).color);
+    ok('20.15/38 av: tittel (navn) #fafafa', cs(kaffe.querySelector('.u-n')).color === rgb('#fafafa'), cs(kaffe.querySelector('.u-n')).color);
     ok('20.15 av: inset-kant', /inset/.test(cs(ic).boxShadow), cs(ic).boxShadow);
   } else ok('20.15 fant Kaffetrakter', false);
   ok('20.15 på: uendret (ikke #2f2f2f, ikke d-off)', lampe && !lampe.classList.contains('d-off') && cs(lampe).backgroundColor !== rgb('#2f2f2f'), lampe && cs(lampe).backgroundColor);

@@ -260,7 +260,7 @@
   const rowOn = (card, id, mOn) => (mOn ? isOn(card, id) : ((card.ui.amMem || {}).ids || []).includes(id));
 
   /* ------------------------------------------------------------ «Tilpass …»-arket */
-  // Ark 50 px fra toppen, til bunnen, samme høyde i alle faner (MSH.overlay tilpass: true). Utkast (MSH.draftEditor):
+  // Ark 52 px fra toppen, maks 440 px (Fiks 40), til bunnen, samme høyde i alle faner (MSH.overlay tilpass: true). Utkast (MSH.draftEditor):
   // endringer vises straks i popupen og lagres i kortets config ved Ferdig (rosa pille). Bakteppe/Esc = Avbryt.
   //   o.tabs: [[k, label]] | () => …   o.body(tab, draft, api) → HTML   o.click(a, el, api)   o.change(el, api)   o.pick(el, value, api)
   //   api: { st, D(), set(patch, haptic), path(p, v, haptic), draw() }   (undefined fjerner nøkkelen)

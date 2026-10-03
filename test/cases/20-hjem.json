@@ -3,7 +3,8 @@
     "name": "Hjem · header+prosa+søppel+gjøremål",
     "cards": [
       {
-        "type": "custom:msh-hjem-header-card"
+        "type": "custom:msh-hjem-header-card",
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       },
       {
         "type": "custom:msh-prosa-card"
@@ -24,21 +25,25 @@
         "type": "custom:msh-hjem-header-card",
         "mode": "hjem",
         "show_name": true,
-        "show_place": true
+        "show_place": true,
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       },
       {
         "type": "custom:msh-hjem-header-card",
-        "mode": "profil"
+        "mode": "profil",
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       },
       {
         "type": "custom:msh-hjem-header-card",
-        "mode": "stor"
+        "mode": "stor",
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       },
       {
         "type": "custom:msh-hjem-header-card",
         "mode": "kompakt",
         "badge": "ring",
-        "size": "L"
+        "size": "L",
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       }
     ]
   },
@@ -114,7 +119,8 @@
         "overrides": {
           "weather": "weather.finnes_ikke"
         },
-        "mode": "hjem"
+        "mode": "hjem",
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       }
     ]
   },
@@ -136,7 +142,8 @@
             "entity": "person.rune",
             "display": "icon"
           }
-        ]
+        ],
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       },
       {
         "type": "custom:msh-hjem-header-card",
@@ -147,7 +154,8 @@
           "cybele": {
             "picture": "/local/cybele.jpg"
           }
-        }
+        },
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       }
     ]
   },
@@ -198,7 +206,8 @@
           "double_tap": "config",
           "hold": "kiosk"
         },
-        "kiosk_entity": "input_boolean.kiosk_mode"
+        "kiosk_entity": "input_boolean.kiosk_mode",
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       },
       {
         "type": "custom:msh-hjem-header-card",
@@ -206,7 +215,8 @@
         "away_marker": true,
         "title_actions": {
           "double_tap": "none"
-        }
+        },
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       }
     ]
   },
@@ -216,7 +226,8 @@
       {
         "type": "custom:msh-hjem-header-card",
         "mode": "stor",
-        "g_gap": -8
+        "g_gap": -8,
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       },
       {
         "type": "custom:msh-prosa-card",
@@ -256,7 +267,8 @@
         "zone_away": {
           "icon": "mdi:airplane",
           "color": "var(--purple)"
-        }
+        },
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       },
       {
         "type": "custom:msh-hjem-header-card",
@@ -269,7 +281,8 @@
         },
         "overrides": {
           "sover_emma": "input_boolean.cybele_sover"
-        }
+        },
+        "servere": "Oslo, Strömstad=Strømstad, Toten"
       }
     ]
   }

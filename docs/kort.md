@@ -94,6 +94,7 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `zones` | Soner med eget ikon og farge · rows | Status og soner |
 | `away_marker` | Borte · vis merke · boolean | Status og soner |
 | `greeting` | Hilsen | Hilsen |
+| `undertekst` | Undertekst (valgfri) | Hilsen |
 | `size` | Størrelse (S \| M \| L) | Bilder |
 | `badge` | Merke (icon \| dot \| ring \| none) | Bilder |
 | `show_name` | Vis navn · boolean | Bilder |
@@ -101,10 +102,11 @@ Hilsen, vær og personprofiler med soner, hurtigark og servermeny. Ligger på Hj
 | `ring_me` | Ring rundt meg · markerer bildet ditt · boolean | Bilder |
 | `weather_tap` | Trykk på været åpner Vær · gjelder «Hjem» og «Profil» · boolean | Bilder |
 | `weather_hash` | Vær-popup · hash | Bilder |
-| `this_server.name` | Navn på dette stedet | Steder |
-| `this_server.icon` | Ikon for dette stedet · icon | Steder |
-| `this_server.color` | Farge for dette stedet · color | Steder |
-| `servers` | Bytt sted – Home Assistant-servere · rows | Steder |
+| `servere` | Bytt sted – Home Assistant-servere · rows | Steder |
+| `server_navn` | Denne serverens navn (valgfri) | Steder |
+| `server_sti` | Side som åpnes (valgfri) | Steder |
+| `server_plass` | Hvor stedsnavnet står (tittel \| under \| navn) | Steder |
+| `server_meny_med` | Menyen åpnes med (tap \| double_tap \| hold \| ingen) | Steder |
 | `overrides.weather` | Vær · entity | Bytt entiteter |
 | `people.0.home` | Cybele · hjemme · entity | Bytt entiteter |
 | `people.0.sleep` | Cybele · søvn · entity | Bytt entiteter |

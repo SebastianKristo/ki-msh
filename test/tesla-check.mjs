@@ -246,7 +246,7 @@ const G = await g.evaluate(async () => {
   [...R.querySelectorAll('[data-a="tab"]')].find((t) => t.dataset.v === 'faner').click(); await new Promise((q) => setTimeout(q, 100));
   R.querySelector('[data-tdk="sparing"] [data-op="eye"]').click(); await new Promise((q) => setTimeout(q, 100));
   const hid = last && last.tabs && last.tabs.hidden;
-  const faner = [...new Set([...R.querySelectorAll('[data-name]')].map((s) => s.dataset.name))];
+  const faner = [...new Set([...R.querySelectorAll('[data-name]')].map((s) => s.dataset.name).concat([...R.querySelectorAll('[data-mst-field]')].map((s) => s.dataset.mstField)))]; // 36.5: Startfane = felles MSH.startTab-felt (start_tab)
   const prev = !!R.querySelector('.tsp');
   [...R.querySelectorAll('[data-a="tab"]')].find((t) => t.dataset.v === 'entiteter').click(); await new Promise((q) => setTimeout(q, 100));
   const ents = [...R.querySelectorAll('ha-selector,msh-entity-picker')].map((s) => s.dataset.name);
@@ -257,7 +257,7 @@ const G = await g.evaluate(async () => {
 });
 ok('GUI-editor: samme faner (Bil/Faner/Entiteter/Avansert)', G.tabs.join('|') === 'Bil|Faner|Entiteter|Avansert', G.tabs);
 ok('GUI-editor: lakk og skjul fane → config-changed', G.paint === '#233f8c' && (G.hid || []).includes('sparing'), G);
-ok('GUI-editor: Bil (navn/lakk/kapasitet/knapper), Faner (stil/innhold/start + forhåndsvisning), Entiteter, Avansert', ['name', 'paint', 'button_text'].every((n) => G.bil.includes(n)) && ['tabs.style', 'tabs.content', 'tabs.start'].every((n) => G.faner.includes(n)) && G.prev && G.ents.includes('entities.battery') && G.ents.includes('entities.co2') && ['lock_inverted', 'confirm', 'prefix'].every((n) => G.adv.includes(n)), G);
+ok('GUI-editor: Bil (navn/lakk/kapasitet/knapper), Faner (stil/innhold/start + forhåndsvisning), Entiteter, Avansert', ['name', 'paint', 'button_text'].every((n) => G.bil.includes(n)) && ['tabs.style', 'tabs.content', 'start_tab'].every((n) => G.faner.includes(n)) && G.prev && G.ents.includes('entities.battery') && G.ents.includes('entities.co2') && ['lock_inverted', 'confirm', 'prefix'].every((n) => G.adv.includes(n)), G);
 // Samme lagring ↔ popupen: config fra GUI-editoren vises likt i kortet
 const G2 = await g.evaluate(async () => { window.__c.setConfig({ type: 'custom:msh-tesla-card', card_id: 'pop-tesla', paint: '#233f8c', tabs: { hidden: ['sparing'] } }); await new Promise((q) => setTimeout(q, 300)); return { lakk: window.__c.shadowRoot.querySelector('msh-tesla-scene').shadowRoot.querySelector('.tc').style.getPropertyValue('--lakk'), tabs: [...window.__c.shadowRoot.querySelectorAll('.tabs .tab')].map((t) => t.textContent.trim()) }; });
 ok('GUI-config → popupen viser samme lakk og faner', G2.lakk === '#233f8c' && G2.tabs.join('|') === 'Lading|Kjøring', G2);

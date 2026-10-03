@@ -1,4 +1,5 @@
-// Fiks 19.2 / 19.8 · #lys: lampe-radene bruker lampens egen farge (rgb/kelvin/temagul/override, av = grå, live)
+// Fiks 19.2 / 19.8 · #lys: lampe-radene bruker lampens egen farge (rgb/kelvin/override, av = ingen fyll, live;
+// Fiks 39: lys-radene er msh-light-slider – kun dimbar = varmhvit, fargetemp = Kelvin-farge, full opasitet)
 // og #klima: fast fanelinje (#3a3a3a, ingen backdrop-filter), «Åpne med» + «Husk siste fane» (overlever reload).
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -54,6 +55,7 @@ const ok = (name, cond, info) => { if (!cond) fail++; console.log(`${cond ? 'OK 
       k6500: lc({ color_mode: 'color_temp', color_temp_kelvin: 6500 }).css,
       dim: lc({ color_mode: 'brightness' }).css,
       over: M.lampColor({ state: 'on', attributes: { color_mode: 'rgb', rgb_color: [0, 255, 0] } }, 'var(--pink)').css,
+      s4000: 'rgb(' + M.kelvinRgb(4000).join(', ') + ')',
       maskDark: M.lampMask(lc({ color_mode: 'rgb', rgb_color: [0, 0, 255] }).lum),
       maskLight: M.lampMask(lc({ color_mode: 'color_temp', color_temp_kelvin: 6500 }).lum),
     };
@@ -70,7 +72,7 @@ const ok = (name, cond, info) => { if (!cond) fail++; console.log(`${cond ? 'OK 
     const all = () => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; };
     const card = all().find((e) => e.localName === 'msh-lys-card');
     // Fane «Lys på»
-    const rows = () => { const o = {}; card.shadowRoot.querySelectorAll('mysmart-light-control').forEach((el) => { const f = el.shadowRoot && el.shadowRoot.querySelector('.msh-fill'); if (f) { const cs = getComputedStyle(f); o[el.config.entity] = { bg: cs.backgroundColor, mask: cs.maskImage || cs.webkitMaskImage, w: f.style.width, tr: cs.transition }; } }); card.shadowRoot.querySelectorAll('.lp').forEach((el) => { const f = el.querySelector('.lpf'); if (f) { const cs = getComputedStyle(f); o[el.dataset.lp] = { bg: cs.backgroundColor, mask: cs.maskImage || cs.webkitMaskImage, w: f.style.width, tr: cs.transition }; } }); return o; };
+    const rows = () => { const o = {}; card.shadowRoot.querySelectorAll('msh-light-slider').forEach((el) => { const f = el.shadowRoot && el.shadowRoot.querySelector('.fl'); if (f && el.config.entity) { const cs = getComputedStyle(f); o[el.config.entity] = { bg: cs.backgroundColor, mask: cs.maskImage || cs.webkitMaskImage, w: cs.width, op: cs.opacity, tr: cs.transition }; } }); card.shadowRoot.querySelectorAll('.lp').forEach((el) => { const f = el.querySelector('.lpf'); if (f) { const cs = getComputedStyle(f); o[el.dataset.lp] = { bg: cs.backgroundColor, mask: cs.maskImage || cs.webkitMaskImage, w: f.style.width, tr: cs.transition }; } }); return o; };
     const oni = () => { const o = {}; card.shadowRoot.querySelectorAll('.onr').forEach((b) => { o[b.dataset.id] = getComputedStyle(b.querySelector('.oni')).backgroundColor; }); return o; };
     const tabs = [...card.shadowRoot.querySelectorAll('.tab')].map((t) => t.dataset.key).filter((k) => k !== 'on');
     const scan = async () => { const o = {}; for (const t of tabs) { card.setUI({ tab: t }); await wait(700); Object.assign(o, rows()); } card.setUI({ tab: 'on' }); await wait(600); return { rows: o, oni: oni() }; };
@@ -97,10 +99,11 @@ const ok = (name, cond, info) => { if (!cond) fail++; console.log(`${cond ? 'OK 
   ok('Lys på-sirkler', oi['light.verandalampe'] === 'rgb(0, 255, 0)' && oi['light.gang_tak'] === 'rgb(242, 228, 185)' && oi['light.soverom_nattbord'] === 'rgb(242, 210, 111)' && oi['light.bad_tak'] === 'rgb(242, 133, 201)', oi);
   ok('rad: grønn', on['light.verandalampe'] && on['light.verandalampe'].bg === 'rgb(0, 255, 0)', on['light.verandalampe']);
   ok('rad: rosa', on['light.utelys_inngang'] && on['light.utelys_inngang'].bg === 'rgb(255, 80, 200)', on['light.utelys_inngang']);
-  ok('rad: 4000 K krem', on['light.gang_tak'] && on['light.gang_tak'].bg === 'rgb(242, 228, 185)', on['light.gang_tak']);
-  ok('rad: uten farge gul', on['light.soverom_nattbord'] && on['light.soverom_nattbord'].bg === 'rgb(242, 210, 111)', on['light.soverom_nattbord']);
+  // Fiks 39 (overstyrer 19.2 for lys-radene): fargetemp → Kelvin-farge (MSH.kelvinRgb), kun dimbar = varmhvit #ffc896
+  ok('rad: 4000 K → Kelvin-farge', on['light.gang_tak'] && on['light.gang_tak'].bg === u.s4000, [on['light.gang_tak'], u.s4000]);
+  ok('rad: kun dimbar = varmhvit #ffc896', on['light.soverom_nattbord'] && on['light.soverom_nattbord'].bg === 'rgb(255, 200, 150)', on['light.soverom_nattbord']);
   ok('rad: override rosa', on['light.bad_tak'] && on['light.bad_tak'].bg === 'rgb(242, 133, 201)', on['light.bad_tak']);
-  ok('rad: maske + 300 ms', on['light.gang_tak'] && /gradient/.test(on['light.gang_tak'].mask) && /0\.3s/.test(on['light.gang_tak'].tr), on['light.gang_tak']);
+  ok('rad: full opasitet uten maske + 250 ms (Fiks 39)', on['light.gang_tak'] && !/gradient/.test(on['light.gang_tak'].mask || '') && on['light.gang_tak'].op === '1' && /0\.25s/.test(on['light.gang_tak'].tr), on['light.gang_tak']);
   const lv = r.live.rows;
   ok('live: fargebytte', lv['light.utelys_inngang'] && lv['light.utelys_inngang'].bg === 'rgb(0, 0, 255)', lv['light.utelys_inngang']);
   const vo = lv['light.verandalampe'];

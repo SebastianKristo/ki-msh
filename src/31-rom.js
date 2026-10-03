@@ -13,8 +13,8 @@
  * klimakortene med −/+; klima_order ['cards','fans'] + klima_hidden. Topplinjen = sum W.
  * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
  * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
- * Lys: felles lys-rad (08-light-row.js, samme som Lys-popupen) per lys, gjenbrukt per entity. slider_height (32–56,
- * std 40) gjelder alle rader. lights.<object_id> {brightness_min/max, color_control, hide_temperature_slider,
+ * Lys: felles lysslider msh-light-slider (08-light-row.js, Fiks 39 – samme som Lys-popupen) per lys, gjenbrukt per
+ * entity, 14 px mellom radene. slider_height (40–72, std 52) gjelder alle rader. lights.<object_id> {brightness_min/max, color_control, hide_temperature_slider,
  * hide_color_controls, hide_color_presets, color_presets ("a, b" eller [..])}. Eldre utseende-nøkler (size, label_layout,
  * show_…, slider_color_mode, bar-, håndtak-, ikon- og pilfarger) ignoreres. Objekt-id som nøkkel fordi entity_id har punktum.
  */
@@ -30,6 +30,18 @@
   // Regel 4 · gjennomsiktig hvit (flate/kant) → svart i lys modus; mørk uendret
   const wa = (a) => (TH && TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   const ON_ACC = 'var(--ki-on-accent, var(--gray000, #232323))';
+  // 38: tekst/ikon på aksentflater i Enheter (Rom v4 devices: #1f1f1f)
+  const DEV_ON_ACC = 'var(--ki-on-accent, #1f1f1f)';
+  // 38: første egne tilstandsregel (1..3) som treffer → { bg } (samme regel som M.universal), ellers null
+  const ruleHit = (o, st) => {
+    for (let i = 1; i <= 3; i++) {
+      const p = 'state_rule_' + i + '_', v = o[p + 'value'];
+      const hit = v != null && String(v).trim() !== '' ? !!st && (Array.isArray(v) ? v.map(String) : String(v).split('|').map((x) => x.trim())).includes(String(st.state))
+        : o[p + 'condition'] != null ? (M.uTruthy ? M.uTruthy(o[p + 'condition'], st) : !!o[p + 'condition']) : false;
+      if (hit) return { bg: o[p + 'background_color'] };
+    }
+    return null;
+  };
 
   // Seksjoner (design-rekkefølge; toppkortet er eget kort: msh-rom-klima-card)
   const SECS = [['curtain', 'Rullegardin', 'blinds'], ['scenes', 'Scener', 'auto_awesome'], ['lys', 'Lys', 'floor_lamp'], ['dev', 'Enheter', 'radio'], ['klima', 'Klima', 'thermostat'], ['media', 'Media', 'speaker'], ['sens', 'Sensorer', 'directions_walk']];
@@ -377,8 +389,8 @@
       if (L && L.lists.lys.length) {
         // Felles lys-rad (08-light-row.js): samme utseende for alle lys – bare høyden (slider_height) og funksjon per lys
         const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
-        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: (hh, cc) => `${L.lists.lys.length} lys · ${M.lightRowHeight ? M.lightRowHeight(cc) : 40} px`, fields: [
-          { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 32, max: 56, default: 40, presets: [[32, 'Kompakt 32'], [40, 'Standard 40'], [48, 'Stor 48'], [56, 'Ekstra stor 56']] },
+        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: (hh, cc) => `${L.lists.lys.length} lys · ${M.lightRowHeight ? M.lightRowHeight(cc) : 52} px`, fields: [
+          { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 40, max: 72, default: 52, presets: [[44, 'Kompakt 44'], [52, 'Standard 52'], [60, 'Stor 60'], [68, 'Ekstra stor 68']] },
           { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter. Farge/temperatur vises bare for lys som støtter det.' },
           ...L.lists.lys.map((id) => {
             const p = 'lights.' + obj(id), st = h.states[id];
@@ -650,7 +662,7 @@
     /* ------------ lys: felles lys-rad (08-light-row.js, samme som Lys-popupen), gjenbrukt per entity */
     // Innstillinger per lys: config.lights.<object_id> (objekt-id-en – entity_id har punktum som ellers
     // ville blitt en ekstra nivå i editorens dotted names). lights.<entity_id> godtas også (YAML).
-    // Utseendet er felles for alle rader (ingen romfarge/egne farger); høyden fra slider_height (32–56, std 40).
+    // Utseendet er felles for alle rader (ingen romfarge/egne farger); høyden fra slider_height (40–72, std 52).
     _lightCfg(id) {
       const c = this.config, L = c.lights || {}, s = this.hass.states[id];
       const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
@@ -734,20 +746,25 @@
         const kindA = P && ANIM[P.anim] ? P.anim : null;
         const anim = act && kindA && lvl !== 'off' ? `animation:${kindA} ${lvl === 'calm' ? ANIM[kindA].replace(/^[\d.]+/, (x) => String(Number(x) * 2)) : ANIM[kindA]} infinite` : '';
         const icon = lk.icon || (P && P.icon) || icon0;
-        const mc = multi && isOn && !unav && !P && !ownRule && !(lk.background_color || lk.bg) ? MULTI[ci++ % MULTI.length] : null;
+        const ownBg = !!(lk.background_color || lk.bg);
+        const mc = multi && isOn && !unav && !P && !ownRule && !ownBg ? MULTI[ci++ % MULTI.length] : null;
         // 20.15: av (eller hvitevare som hviler under terskelen) → pille --ki-surface-3, ikon-sirkel --ki-surface, ikon --ki-text-1
-        const off = !unav && !ownRule && !(lk.background_color || lk.bg) && !(P ? act : isOn);
+        const off = !unav && !ownRule && !ownBg && !(P ? act : isOn);
+        // 38: aksentflate (på-farge, hvitevare aktiv, egen regel som treffer med farge, egen bakgrunn fra «Utseende på kort»)
+        // → mørk tekst/ikon (--ki-on-accent), ikon-sirkel rgba(0,0,0,.12) uten kant
+        const hitR = ownRule ? ruleHit(lk, s) : null;
+        const acc = !unav && (ownRule ? (hitR ? !!hitR.bg : ownBg) : (P ? act : isOn) || ownBg);
         return M.universal({
           // Tilstandsregel 1 (som sensorene): på → grønn; hvitevare aktiv → profilfargen. Hvitevare på men hviler = vanlig rad.
-          state_rule_1_condition: ownRule ? undefined : P ? act : isOn && !unav, state_rule_1_background_color: P ? P.col : mc || 'var(--green)', state_rule_1_text_color: 'var(--ki-on-accent, var(--gray000))',
+          state_rule_1_condition: ownRule ? undefined : P ? act : isOn && !unav, state_rule_1_background_color: P ? P.col : mc || 'var(--green)', state_rule_1_text_color: DEV_ON_ACC,
           ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
           act: unav ? null : lk.mode && lk.mode !== 'sensor' ? undefined : 'dtoggle', id, haptic: 'success',
-          cls: `msh-inner${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}${mc ? ' d-on' : ''}${off ? ' d-off' : ''}`,
+          cls: `msh-inner d-row${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}${mc ? ' d-on' : ''}${off ? ' d-off' : ''}${acc ? ' d-acc' : ''}`,
           icon_html: M.icon(icon, 30, anim ? anim + ';' : ''),
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : status),
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : '', ...(this._tag(id) && !lk.alt_text ? { sub_html: esc(lk.sub_text || lk.name || nm) + this._tag(id) } : {}),
-          background_color: lk.background_color || lk.bg || (off ? 'var(--ki-surface-3, var(--gray100, #2f2f2f))' : undefined), text_color: lk.text_color || (off ? 'var(--ki-text, var(--white, #fafafa))' : undefined),
-          circle_color: lk.cell || (mc ? 'rgb(255 255 255 / 0.18)' : act ? 'rgb(0 0 0 / 0.12)' : off ? 'var(--ki-surface, var(--gray200, #3a3a3a))' : undefined),
+          background_color: lk.background_color || lk.bg || (off ? 'var(--ki-surface-3, var(--gray100, #2f2f2f))' : undefined), text_color: lk.text_color || (off ? 'var(--ki-text, var(--white, #fafafa))' : acc ? DEV_ON_ACC : undefined),
+          circle_color: lk.cell || (acc ? 'rgb(0 0 0 / 0.12)' : off ? 'var(--ki-surface, var(--gray200, #3a3a3a))' : undefined),
           icon_color: lk.icon_color || (off ? 'var(--ki-text-1, var(--gray1000, #e1e1e1))' : P && !act && P.col ? P.col : undefined) });
       })(id); });
       const rows = open ? this._grp(ids, (id) => DH[id]) : '';
@@ -1178,8 +1195,8 @@
         .box>.bd,.box>.cw,.cvo{animation:accin .22s cubic-bezier(.3,.9,.3,1)}
         @keyframes accin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
         @media (prefers-reduced-motion:reduce){.box>.bd,.box>.cw,.cvo{animation:none}}
-        /* lys (mysmart-light-control inni radens --ki-surface-flate – ingen egen bakgrunn/padding) */
-        .lts{display:flex;flex-direction:column;gap:12px;padding:0 8px 6px}
+        /* lys (Fiks 39: msh-light-slider inni radens --ki-surface-flate – 14 px mellom radene, håndtaket stikker 11 px ut) */
+        .lts{display:flex;flex-direction:column;gap:14px;padding:4px 8px 14px}
         .lt{display:flex;flex-direction:column;gap:8px}
         .lth{display:flex;align-items:center;gap:12px}
         .ltn{flex:1;min-width:0;font-size:14px;font-weight:500}
@@ -1203,16 +1220,20 @@
         /* enheter (16.5) / vifter (16.8) */
         .u-act .u-l{font-weight:600}
         .d-unav{opacity:.55}
-        /* 17.6: flere enheter på – fargerekkefølge, navn øverst (17/500), status under (15, .65), ikon-sirkel .18 + lys kant */
+        /* 38 (Rom v4 devices): navn øverst 15/500, status under 12 – alle enhetsrader (sensor-/small-varianten) */
+        .u-small.u-m-sensor.d-row .u-n{grid-area:l;align-self:end;padding-top:0;font-size:15px;font-weight:500;opacity:1;color:var(--u-fg)}
+        .u-small.u-m-sensor.d-row .u-l{grid-area:n;align-self:start;padding-top:2px;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:${G.g700}}
+        /* 38: aksentflate – undertekst 12/600 rgba(31,31,31,.8), ikon-sirkel rgba(0,0,0,.12) uten kant, mørkt ikon */
+        .u-small.u-m-sensor.d-row.d-acc .u-l{font-weight:600;color:var(--u-fg);opacity:.8}
+        .u.d-acc.d-acc{box-shadow:none}
+        .d-acc .u-i{border:none;box-shadow:none}
+        /* 17.6: flere enheter på – fargerekkefølge */
         .u.d-on.d-on{box-shadow:none;transition:background .3s,transform .2s}
-        .d-on .u-i{border:none;box-shadow:inset 0 0 0 1px rgb(255 255 255 / 0.25)}
-        .u-small.d-on .u-l{grid-area:n;align-self:start;padding-top:2px;font-size:15px;font-weight:400;opacity:.65}
-        .u-small.d-on .u-n{grid-area:l;align-self:end;padding-top:0;font-size:17px;font-weight:500;opacity:1}
         .d-unav .u-l,.d-unav .u-i{opacity:1}
-        /* 20.15: av – pille --ki-surface-3, tekst --ki-text, undertekst --ki-text-mid, ikon-sirkel --ki-surface med svak kant, 250 ms */
+        /* 20.15: av – pille --ki-surface-3, tekst --ki-text, undertekst --ki-text-mid 12/400, ikon-sirkel --ki-surface med svak kant, 250 ms */
         .u.d-off{transition:background .25s,transform .2s}
         .d-off .u-i{border:none;box-shadow:inset 0 0 0 1px ${wa(0.06)}}
-        .d-off .u-n{color:${G.g700};opacity:1}
+        .d-off .u-n{opacity:1}
         .fbtn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:var(--ki-text-1, var(--gray1000, #e1e1e1));flex:none;transition:transform .15s,background .25s}
         .fbtn:active{transform:scale(.92)}
         .fbtn[disabled]{opacity:.35}

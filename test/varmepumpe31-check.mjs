@@ -222,7 +222,7 @@ const sheet = () => p.evaluate(() => {
     okBg: getComputedStyle(R.querySelector('.ok')).backgroundImage };
 });
 let SH = await sheet();
-ok('C · arket: tilpass-geometri (50 px fra toppen, til bunnen), «Tilpass varmepumpe» + Ferdig (rosa pille)', SH && SH.tp === '1' && SH.top === 50 && SH.bottom === SH.vh && SH.title === 'Tilpass varmepumpe' && SH.ok === 'Ferdig' && /linear-gradient\(145deg, rgb\(242, 133, 201\) -10%, rgb\(245, 205, 198\) 100%\)/.test(SH.okBg), SH);
+ok('C · arket: tilpass-geometri (52 px fra toppen, til bunnen – Fiks 40), «Tilpass varmepumpe» + Ferdig (rosa pille)', SH && SH.tp === '1' && SH.top === 52 && SH.bottom === SH.vh && SH.title === 'Tilpass varmepumpe' && SH.ok === 'Ferdig' && /linear-gradient\(145deg, rgb\(242, 133, 201\) -10%, rgb\(245, 205, 198\) 100%\)/.test(SH.okBg), SH);
 ok('C · fast forhåndsvisning (knapper + faner + tannhjul) og fanene Knapper · Faner · Entiteter · Visning', SH.pv === 'Forhåndsvisning' && SH.pvq.join() === 'Boost,Vifte,Eco,Alarm,Wi-Fi' && SH.pvt.join() === 'Info,Varme,Varmtvann,Luft' && SH.tabs.join() === 'Knapper,Faner,Entiteter,Visning' && SH.on === 'Knapper', SH);
 ok('C · Knapper: 6 rader med dra-håndtak (touch-action none), navnefelt og bryter (Pumpe av); «Knappene viser» Bare ikon / Ikon + tekst', SH.rows.join() === 'boost,vent,pump:av,eco,alarm,wifi' && SH.names.join() === 'Boost,Vifte,Pumpe,Eco,Alarm,Wi-Fi' && SH.handles.every((t) => t === 'none') && SH.caps.join() === 'Hurtigknapper · rekkefølge og navn,Knappene viser' && SH.segs.join() === 'Bare ikon,Ikon + tekst*', SH);
 ok('C · scrollområdet er en blokk med overflow-y auto (30.2-mønsteret)', SH.scrOv === 'auto' && SH.scrDisp === 'block', SH);

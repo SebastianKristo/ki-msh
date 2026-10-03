@@ -125,7 +125,7 @@ for (const [vp, size, touch] of [['mobil', { width: 390, height: 844 }, true], [
       dashTop: Math.round(D.top || 0),
     };
   });
-  ok(`${vp} 30.2 arket: topp 50 px, radius 38 38 0, #282828, helt ned`, sh.top === 50 && sh.rad === '38px 38px 0px' && sh.bg === 'rgb(40, 40, 40)' && Math.abs(sh.bottom - sh.vh) <= 1, sh);
+  ok(`${vp} 30.2 arket: topp 52 px (Fiks 40), radius 38 38 0, #282828, helt ned`, sh.top === 52 && sh.rad === '38px 38px 0px' && sh.bg === 'rgb(40, 40, 40)' && Math.abs(sh.bottom - sh.vh) <= 1, sh);
   ok(`${vp} 30.2 arket er flex-kolonne uten egen scroll`, sh.disp === 'flex column' && sh.sOv === 'hidden', sh.disp);
   ok(`${vp} 30.2 tittel «Velg popup» 22/600 + «36 popups i dashbordet», lukk 40 px`, sh.title === 'Velg popup' && sh.count === '36 popups i dashbordet' && sh.tSize === '22px/600' && sh.x === 40, sh);
   ok(`${vp} 30.2 søk 46 px r23 «Søk navn eller #hash», filter Alle/Rom/Funksjoner/Importert (rosa gradient)`, sh.search[0] === 46 && sh.search[1] === '23px' && sh.search[2] === 'Søk navn eller #hash' && sh.filters.join('|') === 'Alle|Rom|Funksjoner|Importert' && /gradient/.test(sh.fOn), sh);

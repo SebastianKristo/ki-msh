@@ -34,13 +34,14 @@ const measure = `(() => {
   const bd = [...R.querySelectorAll('.faces .bd')].map((e) => Math.round(e.getBoundingClientRect().width));
   const f = [...R.querySelectorAll('.faces .face')].map((e) => e.getBoundingClientRect());
   const over = f.slice(1).map((r, i) => Math.round(r.left - f[i].right));
-  const arrow = tx.nextElementSibling ? Math.round(tx.nextElementSibling.getBoundingClientRect().left - tx.getBoundingClientRect().right) : null;
+  const upil = !!R.querySelector('.hd.upil'); // Fiks 37.4: pila skjules først når navn + pil ikke får plass
+  const arrow = tx.nextElementSibling && !upil ? Math.round(tx.nextElementSibling.getBoundingClientRect().left - tx.getBoundingClientRect().right) : null;
   const hr = H.getBoundingClientRect(), last = f.length ? f[f.length - 1] : null, lastBd = [...R.querySelectorAll('.faces .bd')].pop();
   const g = all.find((e) => e.classList && e.classList.contains('g'));
   const f0 = R.querySelector('.faces .face'), more = R.querySelector('.faces .face.more');
   return { txR: Math.round(tx.getBoundingClientRect().right), f0L: f0 ? Math.round(f0.getBoundingClientRect().left) : null, more: more ? more.textContent.trim() : null, hR: Math.round(hr.right),
     hil: !!R.querySelector('.hd.hil'), wrap: !!R.querySelector('.hd.hwrap'), text: tx.textContent, fs: parseFloat(getComputedStyle(tx).fontSize), cut: tx.scrollWidth > tx.clientWidth + 1,
-    av, bd, gaps: over, arrowGap: arrow, overflow: top.scrollWidth > top.clientWidth + 1 || (lastBd ? lastBd.getBoundingClientRect().right > hr.right + 0.5 : false),
+    av, bd, gaps: over, arrowGap: arrow, upil, pilEl: !!tx.nextElementSibling, overflow: top.scrollWidth > top.clientWidth + 1 || (lastBd ? lastBd.getBoundingClientRect().right > hr.right + 0.5 : false),
     layout: g ? g.className : null, gW: g ? Math.round(g.getBoundingClientRect().width) : null, dashW: Math.round(document.getElementById('dash').getBoundingClientRect().width),
     padL: g ? parseFloat(getComputedStyle(g).paddingLeft) : null, zoom: g ? getComputedStyle(g).zoom : null, grid: g ? getComputedStyle(g).display : null,
     cols: (() => { const F = all.find((e) => e.localName === 'msh-hjem-faner-card'); const c = F && F.shadowRoot.querySelector('.cols'); return c ? getComputedStyle(c).gridTemplateColumns.split(' ').length : null; })(),
@@ -50,7 +51,7 @@ const hjem = async (p, header) => p.evaluate(async (header) => {
   const h = window.mockHass(); window.__h = h;
   const d = document.getElementById('dash'); d.innerHTML = '';
   const c = document.createElement('msh-hjem-card');
-  c.setConfig({ type: 'custom:msh-hjem-card', card_id: 'ki-home', cards: { header: header || {} } }); c.hass = h;
+  c.setConfig({ type: 'custom:msh-hjem-card', card_id: 'ki-home', cards: { header: { servere: 'Oslo, Toten, Strømstad', ...(header || {}) } } }); c.hass = h; // Fiks 37: uten servere ingen pil
   d.appendChild(c); window.__c = c;
   await new Promise((q) => setTimeout(q, 900));
 }, header);
@@ -104,7 +105,7 @@ for (const w of [360, 393, 412, 430]) {
   ok(m.av.every((x) => x === (nw ? 56 : 80)), `26.22 ${w}: bilder ${m.av} (ventet ${nw ? 56 : 80})`);
   ok(m.gaps.every((g) => g === 8), `26.22 ${w}: bildene står ikke side om side med 8 px (${m.gaps})`);
   ok(m.bd.every((x) => x === (nw ? 26 : 34)), `26.22 ${w}: merker ${m.bd} (ventet ${nw ? 26 : 34})`);
-  ok(m.arrowGap != null && m.arrowGap <= 6, `26.22 ${w}: ▾ står ikke rett etter teksten: ${m.arrowGap}`);
+  ok(m.pilEl && (m.upil || (m.arrowGap != null && m.arrowGap <= 6)), `26.22 ${w}: ▾ står ikke rett etter teksten (eller skjult for plass, 37.4): ${m.arrowGap} ${m.upil}`);
   ok(!m.overflow, `26.22 ${w}: overflow`);
   if (SHOTS) await p.screenshot({ path: `${SHOTS}/hdr2622-${w}.png` });
   ok(!p.__errs.length, `26.22 ${w}: ${p.__errs.join(' | ')}`);
@@ -120,14 +121,14 @@ for (const w of [360, 393, 412, 430]) {
     mk('person.ola', 'Ola', 'Jobb'); mk('person.kari', 'Kari', 'not_home');
     h.states['zone.jobb'] = { entity_id: 'zone.jobb', state: '0', attributes: { friendly_name: 'Jobb', icon: 'mdi:briefcase' } };
     const d = document.getElementById('dash'); d.innerHTML = '';
-    const c = document.createElement('msh-hjem-header-card'); c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hdr' }); c.hass = h; d.appendChild(c);
+    const c = document.createElement('msh-hjem-header-card'); c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hdr', servere: 'Oslo, Toten' }); c.hass = h; d.appendChild(c);
     await new Promise((q) => setTimeout(q, 800));
     const R = c.shadowRoot, faces = [...R.querySelectorAll('.faces .face')];
     const me = Object.keys(h.states).find((k) => k.startsWith('person.') && h.states[k].attributes.user_id && h.user && h.states[k].attributes.user_id === h.user.id) || null;
     const B = MSH.hjemHilBadge, st = (kind, extra) => ({ status: { kind, ...extra } });
     return { n: base.length + 2, faces: faces.length, more: (R.querySelector('.faces .face.more') || {}).textContent, first: faces[0] && faces[0].dataset.id, me,
       op: [...R.querySelectorAll('.faces .av')].map((e) => getComputedStyle(e).opacity), round: [...R.querySelectorAll('.faces .av')].map((e) => getComputedStyle(e).borderRadius),
-      ttl: (() => { const t = R.querySelector('.ttl'), a = t.querySelector('ha-icon'); const r1 = t.querySelector('.tx').getBoundingClientRect(), r2 = a.getBoundingClientRect(); return { icon: a.getAttribute('icon'), oneLine: Math.abs((r1.top + r1.bottom) / 2 - (r2.top + r2.bottom) / 2) < 6, fw: getComputedStyle(t).fontWeight }; })(),
+      ttl: (() => { const t = R.querySelector('.ttl'), a = t.querySelector('ha-icon'), hid = !!R.querySelector('.hd.upil'); const r1 = t.querySelector('.tx').getBoundingClientRect(), r2 = a.getBoundingClientRect(); return { icon: a.getAttribute('icon'), oneLine: hid || Math.abs((r1.top + r1.bottom) / 2 - (r2.top + r2.bottom) / 2) < 6, fw: getComputedStyle(t).fontWeight }; })(),
       map: {
         home: B(st('home'), {}), unknown: B(st('unknown'), {}),
         sleep: B({ sleep: true, status: { kind: 'home' } }, {}),
@@ -163,7 +164,7 @@ for (const w of [360, 393, 412, 430]) {
   ok(m.text === '👋 Sebastian!', `tekst: ${m.text}`);
   ok(m.av.length === 3 || m.av.length >= 3, `bilder: ${m.av.length}`);
   ok(m.bd.every((x) => x === 26 && x <= Math.max(...m.av) / 2 + 0.5), `merker (26 px under 420 px): ${m.bd}`);
-  ok(m.arrowGap != null && m.arrowGap <= 6, `▾ står ikke rett etter teksten: ${m.arrowGap}`);
+  ok(m.pilEl && (m.upil || (m.arrowGap != null && m.arrowGap <= 6)), `▾ står ikke rett etter teksten (eller skjult for plass, 37.4): ${m.arrowGap} ${m.upil}`);
   res.def412 = m;
   // migrering: familie/under/kompakt → hilsen
   for (const mode of ['familie', 'under', 'kompakt']) {
@@ -302,7 +303,7 @@ for (const w of [360, 393, 412, 430]) {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     const h = window.mockHass(); h.user = { id: 'u2', name: 'Kari Nordmann', is_admin: false };
     const d = document.getElementById('dash'); d.innerHTML = '';
-    const c = document.createElement('msh-hjem-header-card'); c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hdr' }); c.hass = h; d.appendChild(c);
+    const c = document.createElement('msh-hjem-header-card'); c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hdr', servere: 'Oslo, Toten' }); c.hass = h; d.appendChild(c);
     await wait(500);
     const fs = parseFloat(getComputedStyle(c.shadowRoot.querySelector('.ttl .tx')).fontSize);
     c.customize(); await wait(500);
