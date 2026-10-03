@@ -23,7 +23,7 @@
   if (!M || customElements.get('msh-strom-card')) return;
   const esc = M.esc, TH = M.theme || {};
   const HASH = '#strom';
-  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgba(255,255,255,${a})`);
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgba(255,255,255,${a})`); // ki-hex-ok: fallback uten tema / mørk fallback
   const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0 / ${a})`);
   const ic = (n, s, st) => M.icon(n, s || 24, st || '');
   const nf = (v, d) => M.nf(v, d || 0);
@@ -200,7 +200,7 @@
     pille: { name: 'Pille', sub: 'Ikon + tekst', wrap: '', bar: `display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;padding:4px;border-radius:999px;background:${SURF}`,
       btn: (on) => `${pillS(on, 44)};padding:0 8px;display:flex;align-items:center;justify-content:center;gap:6px`, icon: () => true, label: () => true },
     kontur: { name: 'Kontur', sub: 'Standard', wrap: 'justify-content:center', bar: `display:flex;gap:2px;padding:2px;border-radius:999px;box-shadow:inset 0 0 0 1px ${WA(0.3)}`,
-      btn: (on) => `${pillS(on, 40)};padding:0 20px;display:flex;align-items:center;justify-content:center;color:${on ? INK : 'var(--ki-text-1, rgba(255,255,255,.72))'};box-shadow:${on ? '0 1px 6px ' + KA(0.35) : 'none'}`, icon: () => false, label: () => true },
+      btn: (on) => `${pillS(on, 40)};padding:0 20px;display:flex;align-items:center;justify-content:center;color:${on ? INK : 'var(--ki-text-1, rgba(255,255,255,.72))'};box-shadow:${on ? '0 1px 6px ' + KA(0.35) : 'none'}`, icon: () => false, label: () => true }, // ki-hex-ok: fallback uten tema / mørk fallback
     ikoner: { name: 'Ikoner', sub: 'Aktiv viser tekst', wrap: '', bar: `display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px ${WA(0.05)}`,
       btn: (on) => `flex:${on ? '1 0 auto' : '0 0 52px'};height:44px;padding:${on ? '0 16px 0 12px' : '0'};border-radius:20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;white-space:nowrap;background:${on ? PINK : 'transparent'};color:${on ? INK2 : 'var(--ki-text-2, #afafaf)'};transition:flex .25s,background .25s,transform .18s,box-shadow .18s`, icon: () => true, label: (on) => on },
     kompakt: { name: 'Kompakt', sub: 'Lav, nøytral', wrap: '', bar: `display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:3px;border-radius:14px;background:${KA(0.25)}`,
@@ -231,7 +231,7 @@
     button{text-align:inherit}
     .hero{position:relative;min-height:250px;border-radius:28px;overflow:hidden;background:radial-gradient(ellipse 55% 50% at 70% 55%,rgba(242,176,79,.22),transparent 70%),linear-gradient(175deg,#1f232c 0%,#272d39 55%,#313948 100%);padding:16px 18px 18px;display:flex;flex-direction:column;color:var(--ki-text, #fafafa)}
     .hglow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 40% 38% at 72% 52%, rgba(242,176,79,.28), transparent 70%);animation:glowP 4s ease-in-out infinite}
-    .hgear{position:absolute;top:14px;right:14px;z-index:2;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;color:var(--ki-text, #fafafa);transition:transform .15s}
+    .hgear{position:absolute;top:14px;right:14px;z-index:2;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;color:var(--ki-text, #fafafa);transition:transform .15s} /* ki-hex-ok: glass på mørk øy / aksentflate */
     .hgear:active,.tgear:active,.back:active{transform:scale(.92)}
     .hus{position:absolute;right:-6px;top:6px;width:58%;max-width:290px;height:auto;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6%);mask-image:linear-gradient(90deg,transparent 0,#000 6%)}
     .hnow{position:relative;display:flex;flex-direction:column;gap:4px;margin-top:4px}
@@ -240,9 +240,9 @@
     .hchip{align-self:flex-start;display:flex;align-items:center;gap:6px;height:26px;padding:0 12px;border-radius:999px;background:rgba(242,176,79,.2);font-size:12px;font-weight:500;color:rgb(246 200 130);margin-top:4px}
     .pdot{position:relative;width:7px;height:7px;flex:none}.pdot i{position:absolute;inset:0;border-radius:50%;background:rgb(242 176 79)}.pdot i.pg{animation:ping 1.8s cubic-bezier(0,0,.2,1) infinite}
     .htiles{position:relative;margin-top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:18px}
-    .ht{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);min-width:0}
+    .ht{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);min-width:0} /* ki-hex-ok: glass på mørk øy / aksentflate */
     .ht .l{font-size:11px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ht .v{font-size:18px;font-weight:500;white-space:nowrap}
-    .ht.trinn{gap:6px}.ht .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:4px}.ht .bar i{display:block;height:100%;background:#f2b04f}.ht .s{font-size:10px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ht.trinn{gap:6px}.ht .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:4px}.ht .bar i{display:block;height:100%;background:#f2b04f}.ht .s{font-size:10px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* ki-hex-ok: glass på mørk øy / aksentflate */
     .tabrow{display:flex;align-items:center;gap:8px}
     .tbar>button{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
     .tgear{width:52px;height:52px;flex:none;border-radius:50%;background:${SURF};display:flex;align-items:center;justify-content:center;animation:fade .25s ease;transition:transform .15s}
@@ -252,7 +252,7 @@
     .fade{animation:fade .3s ease}
     .k2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:10px}
     .bill{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px 16px;border-radius:26px;background:${PINK};color:${INK};text-align:left;min-height:168px}
-    .bill .bi{border-radius:50%;background:rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;flex:none}
+    .bill .bi{border-radius:50%;background:rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;flex:none} /* ki-hex-ok: glass på mørk øy / aksentflate */
     .bill .bl{margin-top:auto;font-size:14px}.bill .bv{display:flex;align-items:baseline;gap:5px}.bill .bv small{font-size:13px;font-weight:500}.bill .bs{font-size:12px;opacity:.75;margin-top:4px}
     .kcol{display:flex;flex-direction:column;gap:10px;min-width:0}
     .kc{position:relative;flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:22px;background:var(--s-card);text-align:left}
@@ -260,7 +260,7 @@
     .kc .cl{font-size:13px;color:${T1};margin-top:10px}.kc .cs{display:flex;align-items:center;gap:6px;font-size:12px;color:${T2}}
     .kc .cv{display:flex;align-items:baseline;gap:4px}.kc .cv small{font-size:12px;color:${T2}}
     .exr{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px 0 16px;border-radius:999px;background:var(--s-card);text-align:left;width:100%}
-    .exr .t{flex:1;font-size:15px;font-weight:500}.exr .h{font-size:12px;color:${T2};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .exr .t{flex:1;font-size:15px;font-weight:500;white-space:nowrap}.exr .h{font-size:12px;color:${T2};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
     .chev{transition:transform .25s;color:${T2}}.chev.up{transform:rotate(180deg)}
     .exl{background:var(--s-card);border-radius:26px;padding:4px 16px;animation:fade .25s ease}
     .exi{display:flex;align-items:center;gap:12px;min-height:64px}.exi+.exi{border-top:1px solid var(--ln)}
@@ -296,7 +296,7 @@
     .tg:active{transform:scale(.97)}
     .tg .ti{width:52px;height:52px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:var(--ki-surface-2, #4a4a4a);color:${T1};box-shadow:inset 0 0 0 1px ${WA(0.06)};transition:background .25s,color .25s,box-shadow .25s}
     .tg.on .ti{background:${PINK};color:${INK};box-shadow:0 4px 14px rgba(242,138,201,.28)}
-    .tg .tn{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;min-width:0}.tg .tn b{font-size:15px;font-weight:600}.tg .tn span{font-size:13px;color:${TM};transition:color .25s}.tg.on .tn span{color:var(--ki-pink-text, rgb(246 170 215))}
+    .tg .tn{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;min-width:0}.tg .tn b{font-size:15px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tg .tn span{font-size:13px;color:${TM};transition:color .25s}.tg.on .tn span{color:var(--ki-pink-text, rgb(246 170 215))}
     .uc2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;animation:fade .3s ease}
     .uc{background:var(--s-card);border-radius:26px;padding:14px 16px 16px;display:flex;flex-direction:column;gap:2px;min-height:156px;transition:transform .18s,box-shadow .18s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;min-width:0}
     .uc .ui{width:48px;height:48px;border-radius:50%;background:var(--s-in);display:flex;align-items:center;justify-content:center;margin-bottom:auto}
@@ -618,7 +618,7 @@
         if (anyV(D.sol) && sum(D.sol) > 0) layers.push({ l: 'Sol', vals: D.sol, bg: 'rgba(242,210,111,.75)', bd: '1px solid rgba(242,210,111,.9)', dot: '#f2d26f' });
       }
       const tot = Array.from({ length: 24 }, (_, i) => layers.reduce((s, L) => s + (L.vals[i] || 0), 0));
-      const mx = Math.max(0, ...tot), top = mx > 0 ? Math.max(1, Math.ceil(mx)) : 4, ticks = top <= 4 ? top : 4, stepK = top / ticks;
+      const mx = Math.max(0, ...tot), stepK = mx > 4 ? Math.ceil(mx / 4) : 1, ticks = 4, top = stepK * ticks;
       const bkey = `fb-${off}-${D ? D.t : 0}`;
       const anim = this.anim;
       const bars = !D ? `<div class="none">${R && !R.grid_in.length ? 'Energi-oppsettet mangler strømnett' : R ? 'Henter …' : 'Energi-oppsettet er ikke satt opp i Home Assistant'}</div>`
@@ -626,7 +626,7 @@
           <div class="cols">${tot.map((_, bi) => `<span class="col">${[...layers].reverse().map((L, li) => { const v = L.vals[bi] || 0, ri = layers.length - 1 - li; return v > 0 ? `<i style="height:${(v / top * 100).toFixed(2)}%;background:${L.bg};border:${L.bd};${ri ? 'border-bottom:none;' : ''}border-radius:${ri === layers.length - 1 ? '2px 2px 0 0' : ri ? '0' : layers.slice(1).some((x) => (x.vals[bi] || 0) > 0) ? '0 0 2px 2px' : '2px 2px 0 0'};${anim ? `animation:grow .55s cubic-bezier(.2,.8,.2,1) ${bi * 18 + ri * 120}ms both` : ''}"></i>` : ''; }).join('')}</span>`).join('')}</div>`;
       const xs = [[0, `${d.getDate()}. ${MNK[d.getMonth()]}`], [4, '4:00'], [8, '8:00'], [12, '12:00'], [16, '16:00'], [20, '20:00']].map(([hh, l]) => `<span class="xl" style="left:${((hh + 0.5) / 24 * 100).toFixed(2)}%;font-weight:${hh ? 400 : 600}">${l}</span>`).join('');
       const legend = layers.map((L) => `<span>${ic('mdi:check-circle', 16, 'color:' + L.dot)}${esc(L.l)}</span>`).join('') + (R && R.grid_out.length ? `<span>${ic('mdi:check-circle', 16, 'color:#8a7fb0')}${esc(M.name(this.hass, R.grid_out[0]))}</span>` : '');
-      const graf = `<div class="dh">${ic('mdi:calendar-today', 22)}<span class="dl">${off === 0 ? 'I dag' : off === -1 ? 'I går' : `${d.getDate()}. ${MNK[d.getMonth()]}`}</span>
+      const graf = `<div class="dh">${ic('mdi:calendar-today', 22)}<span class="dl">${d.getDate()}. ${MNK[d.getMonth()]}</span>
           <button class="dnow" data-act="fday" data-v="0" data-haptic="selection">Nå</button>
           <button class="r40" data-act="fday" data-v="${off - 1}" data-haptic="selection" title="Forrige dag">${ic('mdi:chevron-left', 22)}</button>
           <button class="r40" data-act="fday" data-v="${off + 1}" data-haptic="selection" title="Neste dag" ${off < 0 ? '' : 'disabled'}>${ic('mdi:chevron-right', 22)}</button></div>
@@ -761,7 +761,7 @@
         if (e.button || H || this._drag) return;
         const path = e.composedPath ? e.composedPath() : [];
         let el = null;
-        for (const n of path) { if (n === R) break; if (n.matches && n.matches('input,textarea,select,[data-scrub],[data-tabbar],[data-glass-drag]')) return; if (!el && n.dataset && n.dataset.rk && n.getRootNode() === R) el = n; }
+        for (const n of path) { if (n === R) break; if (n.matches && n.matches('input,textarea,select,[data-scrub],[data-tabbar],[data-glass-drag],[data-skhost],[data-sshost]')) return; /* B/C har egen hold + dra */ if (!el && n.dataset && n.dataset.rk && n.getRootNode() === R) el = n; }
         if (!el) return;
         H = { key: el.dataset.rk, id: el.dataset.rid, pid: e.pointerId, x: e.clientX, y: e.clientY, on: false, el };
         H.t = setTimeout(() => {
@@ -785,7 +785,7 @@
     /* ---------------- «Tilpass strøm» (MSH.overlay tilpass, full høyde, håndtaket bytter til 58 %) */
     _openTilpass(tab) {
       if (this._tp && this._tp.ov && !this._tp.ov.closed) return;
-      const ov = M.overlay({ html: '', css: TP_CSS, maxWidth: 440, tall: true, tilpass: true, guard: 350, onClose: () => { this._tp = null; } });
+      const ov = M.overlay({ html: '', css: TP_CSS + ((M.stromKurser && M.stromKurser.css) || ''), maxWidth: 440, tall: true, tilpass: true, guard: 350, onClose: () => { this._tp = null; } });
       this._tp = { ov, st: { tab: tab || 'faner', half: false } };
       const sh = ov.root.querySelector('.sh'), gz = ov.root.querySelector('.gz');
       if (gz) {
@@ -869,7 +869,7 @@
     .swi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, #4a4a4a)}.swr.big .swi{width:44px;height:44px;border-radius:22px}
     .swn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.swn b{font-size:14px;font-weight:500}.swr.big .swn b{font-size:15px}.swn span{font-size:12px;color:var(--ki-text-mid, #979797);line-height:1.35}
     .trk{width:46px;height:28px;border-radius:999px;flex:none;position:relative;background:var(--ki-ctrl, #555);transition:background .25s}.trk.on{background:${ACC}}
-    .trk i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ki-knob, #fff);box-shadow:0 1px 3px rgba(0,0,0,.35);transition:left .25s cubic-bezier(.3,1.4,.5,1)}.trk.on i{left:21px}
+    .trk i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ki-knob, #fff);box-shadow:0 1px 3px ${KA(0.35)};transition:left .25s cubic-bezier(.3,1.4,.5,1)}.trk.on i{left:21px}
     .tsc{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:var(--ki-surface, #3a3a3a);text-align:left;transition:background .2s,box-shadow .2s;width:100%}
     .tsc.on{background:var(--ki-surface-2, #404040);box-shadow:inset 0 0 0 1.5px rgb(242 133 201)}
     .tsc .tsh{display:flex;align-items:center;gap:8px;width:100%}.tsc .tsh b{flex:1;font-size:15px;font-weight:500}.tsc .tsh span{font-size:12px;color:var(--ki-text-mid, #979797)}
@@ -1057,7 +1057,7 @@
       if (!this._cfg) return;
       const host = this._host();
       const ctx = { host, hass: this.hass, cfg: this._cfg, st: this._st, set: (p) => this._set(p), rerender: () => this._r(), close: null };
-      const html = `<style>${M.BASE_CSS}${TP_CSS}:host{display:block}.tp{padding:4px 0}</style>${TP.html(ctx, false)}`;
+      const html = `<style>${M.BASE_CSS}${TP_CSS}${(M.stromKurser && M.stromKurser.css) || ''}:host{display:block}.tp{padding:4px 0}</style>${TP.html(ctx, false)}`;
       if (!this._done) { this.shadowRoot.innerHTML = html; this._done = true; } else M.morph(this.shadowRoot, html);
       TP.bind(this.shadowRoot, ctx, false);
     }

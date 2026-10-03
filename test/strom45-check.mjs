@@ -89,7 +89,7 @@ ok('Kurser: modul B tegnes i fanen' + (G.mods.B ? '' : ' (plassholder – B mang
 await tabClick('Priser'); await wait(400);
 
 // ---- hold 400 ms + dra: faner (mus)
-const rectOf = (sel) => p.evaluate((sel) => { const r = window.__card.shadowRoot.querySelector(sel).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, sel);
+const rectOf = (sel) => p.evaluate((sel) => { window.__card.shadowRoot.querySelector(sel).scrollIntoView({ block: 'center' }); const r = window.__card.shadowRoot.querySelector(sel).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, sel);
 let a = await rectOf('[data-tabbar] button[data-v="Priser"]'), z = await rectOf('[data-tabbar] button[data-v="Kurser"]');
 await p.mouse.move(a.x, a.y); await p.mouse.down(); await wait(520);
 for (let i = 1; i <= 10; i++) { await p.mouse.move(a.x + ((z.x + 10 - a.x) * i) / 10, a.y); await wait(30); }
@@ -98,13 +98,25 @@ const O = await p.evaluate(() => ({ order: window.__card.config.order, tab: wind
 ok('hold + dra på fanene endrer rekkefølgen (config.order), popupen står åpen', Array.isArray(O.order) && O.order[O.order.length - 1] === 'Priser' && O.open, O);
 
 // ---- hold + dra: seksjon «Hva koster det nå» over «Regning og kostnad»
-a = await rectOf('[data-rid="p_eks"]'); z = await rectOf('[data-rid="p_kort"]');
+await rectOf('[data-rid="p_kort"]'); [a, z] = await p.evaluate(() => ['p_eks', 'p_kort'].map((k) => { const r = window.__card.shadowRoot.querySelector(`[data-rid="${k}"]`).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(26, r.height / 2) }; }));
 await p.mouse.move(a.x, a.y); await p.mouse.down(); await wait(520);
 for (let i = 1; i <= 10; i++) { await p.mouse.move(a.x, a.y + ((z.y - 40 - a.y) * i) / 10); await wait(30); }
 await p.mouse.up(); await wait(900);
 const SO = await p.evaluate(() => ({ ord: (window.__card.config.ord || {})['sec-Priser'], ex: !!window.__card.ui.ex }));
 ok('hold + dra på seksjonene lagrer ord.sec-Priser (klikket etter dra svelges)', Array.isArray(SO.ord) && SO.ord[0] === 'p_eks' && !SO.ex, SO);
 
+await tabClick('Kurser'); await wait(500);
+// B: seksjonene i Kurser-fanen (hold + dra) lagres i ord.sec-Kurser
+await rectOf('[data-skhost] [data-rid="k_kat"]');
+{ const [ka, kz] = await p.evaluate(() => ['k_kurs', 'k_kat'].map((k) => { const r = window.__card.shadowRoot.querySelector(`[data-skhost] [data-rid="${k}"]`).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(20, r.height / 2) }; }));
+  if (ka.y > 830) await p.evaluate(() => window.__card.shadowRoot.querySelector('[data-skhost] [data-rid="k_kurs"]').scrollIntoView({ block: 'end' }));
+  const [a2, z2] = await p.evaluate(() => ['k_kurs', 'k_kat'].map((k) => { const r = window.__card.shadowRoot.querySelector(`[data-skhost] [data-rid="${k}"]`).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(20, r.height / 2) }; }));
+  await p.mouse.move(a2.x, a2.y); await p.mouse.down(); await wait(520);
+  for (let i = 1; i <= 12; i++) { await p.mouse.move(a2.x, a2.y + ((z2.y - 10 - a2.y) * i) / 12); await wait(30); }
+  await p.mouse.up(); await wait(900);
+  const KO = await p.evaluate(() => (window.__card.config.ord || {})['sec-Kurser']);
+  ok('Kurser: hold + dra på seksjonene (modul B) lagrer ord.sec-Kurser én gang', Array.isArray(KO) && KO.indexOf('k_kurs') < KO.indexOf('k_kat'), { KO, a2, z2 }); }
+await tabClick('Priser'); await wait(500);
 // ---- scrub i prisgrafen
 const sc = await rectOf('[data-scrub]');
 await p.mouse.move(sc.x - 60, sc.y); await p.mouse.down(); await p.mouse.move(sc.x + 20, sc.y, { steps: 4 }); await p.mouse.up(); await wait(300);
@@ -116,6 +128,7 @@ await p.evaluate(() => window.__card.shadowRoot.querySelector('[data-act="tilpas
 const T1 = await p.evaluate(() => {
   const P = window.MSH.portals().find((x) => x.shadowRoot && x.shadowRoot.querySelector('.tp'));
   window.__tp = P;
+  if (!P) return { open: false, n: window.MSH.portals().length, hash: location.hash };
   const r = P.shadowRoot, sh = r.querySelector('.sh');
   return { open: !!P, title: r.querySelector('.tt').textContent, btns: [...r.querySelectorAll('.tph button')].map((x) => x.textContent.trim()), tabs: [...r.querySelectorAll('.tpt button')].map((x) => x.title), h: Math.round(sh.getBoundingClientRect().height), vh: innerHeight, rows: r.querySelectorAll('.trw').length };
 });
