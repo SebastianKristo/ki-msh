@@ -7,8 +7,8 @@
  * device_class. Overstyring: overrides.<rolle> (bytt), exclude: [rolle|entitet], include: [{ entity, navn, ikon }] /
  * include.hurtig (ekstra hurtigknapper), include.flagg / include.personer. Gammel config (`hurtig:`, ki-basseng-nøkler,
  * basseng-v3-cfg i localStorage) migreres én gang til config (M.poolNorm). Bunnluft: MSH.popupBottomPad (ingen gap-card).
- * Bassengpopupene (#badebasseng/#basseng) er slettet: strategien lager dem ikke lenger – kortet legges manuelt i en egen
- * Bubble-popup (README → Manuelt). Se «bassengpopupene er slettet» nederst (engangsmigrering av ki-store).
+ * Fiks 42 Del C: strategien lager #basseng igjen (mal A) – autodeteksjon M.poolDetect (område/alias, navn på entitet/
+ * enhet, kjente bassengintegrasjoner, pH-/ORP-sensor) eller manuelt i Tilpass Hjem → Popups (popups.basseng.enabled).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -104,8 +104,59 @@
   // Hver rolle søkes i rekkefølge: 1) entiteter i området «Basseng»/«Pool»/«Badebasseng», 2) entiteter der navn eller id
   // inneholder basseng|baseng|pool (typoen «baseng» tas med), 3) domene + device_class innenfor de to settene.
   const DOMS = ['sensor', 'switch', 'input_boolean', 'fan', 'climate', 'water_heater', 'cover', 'binary_sensor', 'light', 'valve', 'select', 'input_select', 'number', 'input_number', 'input_datetime', 'counter'];
-  const POOL_RX = /basseng|baseng|pool|svommebasseng|svømmebasseng/;
-  M.poolArea = (hass, cfg) => (cfg && cfg.area) || M.findArea(hass, 'basseng', 'pool', 'badebasseng', 'svommebasseng');
+  const POOL_RX = /basseng|baseng|(^|[^a-zæøå])pool|sv[øo]mmebasseng|boblebad|jacuzzi|(^|[^a-zæøå])spa($|[^a-zæøå])/; // 42 C.2: ikke «nordpool»/«spisestue»
+  /* ------------------------------------------------------------ autodeteksjon (Fiks 42 Del C.2 · entiteter.md, Basseng-raden) */
+  // Popupen #basseng lages når minst én av disse finnes (første treff = «via», resten kombineres):
+  //   1) område med navn/id/alias basseng|pool|svømmebasseng|boblebad|spa|jacuzzi (case-insensitive; «spa» og «pool» bare
+  //      som eget ord/ordstart, så «spisestue» og «nordpool» ikke treffer)
+  //   2) entitet eller enhet med samme mønster i navn/entity_id (sensor.*pool*, switch.*basseng*, climate.*pool* …)
+  //   3) kjente bassengintegrasjoner (hass.entities[id].platform, POOL_PLATFORMS)
+  //   4) sensor med device_class ph, eller enhet mV (ORP/klor; ikke spenningssensorer – batterispenning i mV)
+  // Rollene (vanntemp, pumpe, varme, pH, klor/ORP, lys, tak) finnes deretter av M.poolAuto i treffene.
+  const POOL_WORD = /basseng|baseng|sv[øo]mmebasseng|boblebad|jacuzzi|hot[\s_-]?tub|(^|[^a-zæøå])pool|(^|[^a-zæøå])spa($|[^a-zæøå])/i;
+  M.POOL_WORD = POOL_WORD;
+  M.POOL_PLATFORMS = ['pentair', 'intellicenter', 'screenlogic', 'omnilogic', 'iaqualink', 'hayward', 'fluidra', 'astralpool', 'poolsense', 'ondilo_ico', 'flipr', 'blueriiot', 'zodiac'];
+  const isOrp = (s) => !!s && String(s.attributes.unit_of_measurement || '') === 'mV' && s.attributes.device_class !== 'voltage' && !/volt|spenning|batter/i.test(s.entity_id + ' ' + (s.attributes.friendly_name || ''));
+  M.poolIsOrp = isOrp;
+  const DET = new WeakMap();
+  M.poolDetect = function (hass) {
+    if (!hass || !hass.states) return { found: false, via: null, area: null, ids: [], reason: 'ingen hass' };
+    if (DET.has(hass)) return DET.get(hass);
+    const S = hass.states, E = hass.entities || {}, D = hass.devices || {};
+    const areaHit = (a) => { const x = (hass.areas && hass.areas[a.id]) || {}; return [a.id, a.name, ...(Array.isArray(x.aliases) ? x.aliases : [])].some((t) => POOL_WORD.test(String(t || ''))); };
+    const areas = (M.areas ? M.areas(hass) : Object.values(hass.areas || {}).map((a) => ({ id: a.area_id, name: a.name }))).filter(areaHit).map((a) => a.id);
+    const vis = (id) => { const e = E[id]; return !e || !(e.hidden_by || e.hidden || e.disabled_by); };
+    const devName = (id) => { const e = E[id], d = e && e.device_id && D[e.device_id]; return d ? `${d.name_by_user || ''} ${d.name || ''}` : ''; };
+    const by = { area: [], name: [], platform: [], sensor: [] };
+    Object.keys(S).forEach((id) => {
+      if (!DOMS.includes(id.split('.')[0]) || !vis(id)) return;
+      const s = S[id], e = E[id];
+      if (areas.length && areas.includes(M.areaOf(hass, id))) by.area.push(id);
+      else if (POOL_WORD.test(id) || POOL_WORD.test(String(s.attributes.friendly_name || '')) || POOL_WORD.test(devName(id))) by.name.push(id);
+      else if (e && M.POOL_PLATFORMS.includes(e.platform)) by.platform.push(id);
+      else if (id.startsWith('sensor.') && (s.attributes.device_class === 'ph' || isOrp(s))) by.sensor.push(id);
+    });
+    const via = areas.length ? 'area' : by.name.length ? 'name' : by.platform.length ? 'platform' : by.sensor.length ? 'sensor' : null;
+    const ids = [...by.area, ...by.name, ...by.platform, ...by.sensor];
+    const VIA = { area: `område «${areas.map((a) => M.areaName ? M.areaName(hass, a) : a).join('», «')}»`, name: `${by.name.length} entitet(er) med basseng/pool i navnet`, platform: `bassengintegrasjon (${[...new Set(by.platform.map((id) => E[id].platform))].join(', ')})`, sensor: `pH-/ORP-sensor (${by.sensor.slice(0, 2).join(', ')})` };
+    const r = { found: !!via, via, area: areas[0] || null, areas, ids, by,
+      reason: via ? 'funnet via ' + VIA[via] : 'fant ikke område/enhet/entitet med basseng|pool|svømmebasseng|boblebad|spa|jacuzzi, ingen bassengintegrasjon og ingen pH-/ORP-sensor' };
+    DET.set(hass, r);
+    return r;
+  };
+  // Tilpass Hjem → Popups (ki-store popups.basseng.enabled): true = alltid (også uten treff), false = aldri, ellers autodeteksjon
+  M.poolEnabled = () => { let p = null; try { p = M.store && M.store.get ? M.store.get('popups.basseng') : null; } catch (x) { p = null; } return p && typeof p === 'object' && typeof p.enabled === 'boolean' ? p.enabled : null; };
+  M.poolWanted = function (hass, en) {
+    const e = en === undefined ? M.poolEnabled() : en;
+    if (e === false) return { on: false, reason: 'slått av i Tilpass Hjem → Popups (popups.basseng.enabled: false)' };
+    const d = M.poolDetect(hass);
+    if (d.found) return { on: true, reason: d.reason, detect: d };
+    if (e === true) return { on: true, reason: 'slått på manuelt (popups.basseng.enabled) – ingen entiteter funnet, popupen viser «–» og «Velg entiteter»', detect: d };
+    return { on: false, reason: d.reason, detect: d };
+  };
+  M.popupNeeds = M.popupNeeds || {};
+  M.popupNeeds['#basseng'] = (hass) => M.poolWanted(hass).on;
+  M.poolArea = (hass, cfg) => (cfg && cfg.area) || M.poolDetect(hass).area || M.findArea(hass, 'basseng', 'badebasseng', 'svommebasseng');
   // Rolle ut fra én entitet (brukes av migreringen av gamle `hurtig:`)
   const QUIET_RX = /stille|silent|quiet|lyd_av|mute/, PUMP_RX = /pump|filter|sirkul/, HEAT_RX = /varme|heat/, SOCK_RX = /stikkontakt|outlet|socket|(^|[_ .])plug/;
   M.poolRoleOf = function (hass, id) {
@@ -128,7 +179,8 @@
     const T = (id) => M.txt(hass, id), dc = (id) => hass.states[id].attributes.device_class;
     const A1 = area ? M.all(hass, DOMS, (s, id) => M.areaOf(hass, id) === area) : [];
     // 2) navn/id – bare når området ikke er valgt eksplisitt (et valgt område er fasit)
-    const A2 = cfg && cfg.area ? [] : M.all(hass, DOMS, (s, id) => !A1.includes(id) && POOL_RX.test(T(id)));
+    // 42 C.2: + enheter med bassengnavn, kjente bassengintegrasjoner og pH-/ORP-sensorer (M.poolDetect)
+    const A2 = cfg && cfg.area ? [] : [...new Set([...M.all(hass, DOMS, (s, id) => !A1.includes(id) && POOL_RX.test(T(id))), ...M.poolDetect(hass).ids.filter((id) => !A1.includes(id))])];
     const ids = A1.concat(A2);
     const used = new Set();
     // første treff i område-settet, deretter i navne-settet
@@ -161,7 +213,7 @@
     o.power = onDev(devOf(o.pump)) || pw.find((id) => PUMP_RX.test(T(id)) && !HEAT_RX.test(T(id))) || pw.find((id) => !HEAT_RX.test(T(id))) || null;
     o.heat_power = (onDev(devOf(o.heat)) !== o.power && onDev(devOf(o.heat))) || pw.find((id) => HEAT_RX.test(T(id)) && id !== o.power) || null;
     o.ph = sens.find((id) => dc(id) === 'ph' || /(^|[_ .])ph($|[_ .])/.test(T(id))) || null;
-    o.klor = sens.find((id) => /klor|chlor|orp|redox/.test(T(id))) || null;
+    o.klor = sens.find((id) => /klor|chlor|orp|redox/.test(T(id))) || sens.find((id) => M.poolIsOrp(hass.states[id])) || null; // 42 C.2: ORP i mV
     o.savings = sens.find((id) => /spart|saving/.test(T(id))) || null;
     o.cost = sens.find((id) => (dc(id) === 'monetary' || /kost|cost|kroner/.test(T(id))) && !/spart|saving/.test(T(id))) || null;
     o.turnover = sens.find((id) => /omsetning|turnover/.test(T(id))) || null;
@@ -961,122 +1013,32 @@
       `;
     }
   }
-  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng (ÉTT kort, legges manuelt i en egen popup): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
+  M.define('msh-basseng-card', Basseng, 'MSH Basseng', 'Basseng (ÉTT kort i popupen #basseng): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.');
 
-  /* ------------------------------------------------------------ bassengpopupene er slettet (brukerens beslutning) */
-  // Strategien lager ingen bassengpopup lenger – verken #badebasseng eller #basseng – og ingen rom-popup for et område
-  // som heter «Basseng»/«Pool» (MSH.ROOM_BLOCK). Navbaren har ingen innebygd basseng-knapp, og onboarding foreslår den
-  // ikke. msh-basseng-card finnes fortsatt og kan legges manuelt i en egen popup (README → Manuelt); alias-elementene
-  // ki-basseng-card/ki-basseng-hero-card rendrer det for manuelle dashbord. Omdirigeringen #basseng → #badebasseng er
-  // fjernet (det finnes ikke noe mål).
-  //   · MSH.POPUP_DROP.basseng: gamle/importerte bassengpopups i dashbord-config (strategi-YAML custom_popups, ki-store
-  //     custom_popups) droppes av strategien (MSH.mergePopups → report.dropped) i stedet for å tas over.
-  //   · M.bassengMigrateStore: engangsmigrering av ki-store (migrations.basseng_fjernet), se under.
+  /* ------------------------------------------------------------ #basseng genereres igjen (Fiks 42 Del C) */
+  // Strategien lager funksjons-popupen #basseng (mal A, ÉTT msh-basseng-card) når M.poolWanted sier ja: autodeteksjon
+  // (M.poolDetect) eller Tilpass Hjem → Popups (ki-store popups.basseng.enabled: true = alltid, false = aldri).
+  // Den gamle engangsmigreringen som slettet bassengpopups/-valg/-lenker fra ki-store (migrations.basseng_fjernet) er
+  // fjernet – den kjøres ikke lenger, så #basseng og popups.basseng blir ikke slettet igjen.
+  //   · MSH.POPUP_DROP.basseng: GAMLE importerte bassengpopups (ki-basseng-card/-hero-card, decluttering-maler o.l. på
+  //     #basseng/#badebasseng/#pool/#svommebasseng uten msh-basseng-card) droppes – den genererte #basseng tar over.
+  //     En egen popup med msh-basseng-card beholdes (og erstatter den genererte på samme hash).
+  //   · MSH.ROOM_BLOCK: et område som heter basseng/pool/spa … får ingen rom-popup så lenge #basseng er på
+  //     (bassengpopupen viser området); slås Basseng av, kommer rom-popupen tilbake.
   const ALL_HASH = ['#badebasseng', '#basseng', '#pool', '#svommebasseng'];
   M.BASSENG_HASHES = ALL_HASH;
-  const cfgOf = (e) => { try { return M.customPopupConfig ? M.customPopupConfig(e).cfg : e; } catch (x) { return null; } };
   const hashN = (cfg) => { const s = String((cfg && cfg.hash) || '').trim(); return s ? s.replace(/^#?/, '#') : ''; };
-  const isPoolHash = (v) => { const s = String(v == null ? '' : v).trim(); return !!s && ALL_HASH.includes(s.replace(/^#?/, '#')); };
   const hasMainC = (cfg) => cardsDeep(cfg && cfg.cards).some((c) => tagOfC(c) === 'msh-basseng-card');
   // Ser ut som en bassengpopup: gamle/nye bassengkort, eller navn/ikon/innhold om basseng (f.eks. decluttering-maler)
   const POOLISH_RX = /basseng|baseng|pool|sv[øo]mme/i;
   const poolish = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengLegacyTest(cfg) || hasMainC(cfg) || POOLISH_RX.test(`${cfg.name || ''} ${cfg.icon || ''}`) || (() => { try { return POOLISH_RX.test(JSON.stringify(cfg.cards || [])); } catch (e) { return false; } })());
-  // Gammel/importert bassengpopup (droppes av strategien): de gamle kortene (ki-basseng-*, msh-basseng-hero-card), eller
-  // basseng-aktig på en av bassenghashene uten msh-basseng-card. En egen popup med msh-basseng-card (manuelt) beholdes.
   M.bassengIsOldPopup = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengLegacyTest(cfg) || (ALL_HASH.includes(hashN(cfg)) && !hasMainC(cfg) && poolish(cfg)));
-  // Alle bassengpopups (engangsmigreringen av ki-store): også de med msh-basseng-card, på hvilken som helst hash
-  M.bassengIsPoolPopup = (cfg) => !!cfg && typeof cfg === 'object' && (M.bassengIsOldPopup(cfg) || hasMainC(cfg) || (ALL_HASH.includes(hashN(cfg)) && poolish(cfg)));
   M.POPUP_DROP = M.POPUP_DROP || {};
-  M.POPUP_DROP.basseng = { name: 'Basseng (slettet)', test: (cfg) => M.bassengIsOldPopup(cfg) };
-  // Ingen rom-popup for et område som heter basseng/pool (id eller navn)
-  const POOL_AREA_RX = /basseng|baseng|(^|[\s_-])pool([\s_-]|$)|sv[øo]mmebasseng/i;
+  M.POPUP_DROP.basseng = { name: 'Basseng (gammel popup – erstattet av #basseng)', test: (cfg) => M.bassengIsOldPopup(cfg) };
   M.ROOM_BLOCK = M.ROOM_BLOCK || [];
-  M.ROOM_BLOCK.push((hass, id) => { const a = (hass && hass.areas && hass.areas[id]) || {}; return POOL_AREA_RX.test(String(id || '')) || POOL_AREA_RX.test(String(a.name || '')); });
+  M.ROOM_BLOCK.push((hass, id) => { const a = (hass && hass.areas && hass.areas[id]) || {}; return [id, a.name, ...(Array.isArray(a.aliases) ? a.aliases : [])].some((t) => POOL_WORD.test(String(t || ''))) && M.poolEnabled() !== false; });
 
-  /* Engangsmigrering av ki-store (frontend/set_user_data, per HA-bruker). Kjøres av strategien ved generering; merket i
-   * ki-store `migrations.basseng_fjernet` (kjører aldri igjen) og logget i konsollen:
-   *   1. custom_popups: ALLE bassengpopups fjernes (gamle kort, msh-basseng-card, eller basseng-aktig på #basseng/
-   *      #badebasseng/#pool/#svommebasseng). Andre popups (også en helt annen popup på #basseng) beholdes.
-   *   2. popup_overrides.basseng/badebasseng/pool/svommebasseng (med og uten #) fjernes.
-   *   3. popups.<samme nøkler> (Tilpass Hjem → Popups: navn/ikon/farge/skjult) fjernes.
-   *   4. Navbar: knappen «basseng» (bar/more/hidden/buttons.basseng) og egne knapper som peker på en bassenghash fjernes.
-   *   5. Lenker til bassenghashene i alle kortconfiger (Hjem-kort, prosa-piller, popup_hash, tap_action …) fjernes;
-   *      selve kortet/pillen beholdes.
-   *   6. Admin: Lovelace-ressursene ki-basseng-card.js/ki-basseng-hero-card.js slettes (lovelace/resources/delete).
-   * Service worker-/nettleser-cachen for de gamle filene tømmes ved hver oppstart (M.bassengClearCache). */
-  const MIG_KEY = 'migrations.basseng_fjernet';
   const OLD_FILE_RX = /(^|\/)ki-basseng(-hero)?-card\.js(\?|$)/;
-  const LINK_KEYS = ['navigation_path', 'popup_hash', 'hash', 'link', 'path', 'card_hash', 'icon_hash', 'alarm_hash', 'trash_hash'];
-  // en lenke til en bassenghash: '#basseng' (alle nøkler), 'basseng' uten # (bare lenkenøkler), eller { action: navigate, navigation_path }
-  const isPoolLink = (v, key) => {
-    if (typeof v === 'string') { const t = v.trim(); return t[0] === '#' ? isPoolHash(t) : !!key && LINK_KEYS.includes(key) && isPoolHash(t); }
-    return !!v && typeof v === 'object' && !Array.isArray(v) && v.action === 'navigate' && typeof v.navigation_path === 'string' && isPoolHash(v.navigation_path);
-  };
-  const stripLinks = (o, d = 0, key = null) => {
-    if (d > 14 || o == null || typeof o !== 'object') return { v: o, n: 0 };
-    if (Array.isArray(o)) {
-      let n = 0;
-      const v = [];
-      o.forEach((x) => { if (isPoolLink(x, null)) { n++; return; } const r = stripLinks(x, d + 1); n += r.n; v.push(r.v); });
-      return n ? { v, n } : { v: o, n: 0 };
-    }
-    let n = 0;
-    const v = {};
-    Object.keys(o).forEach((k) => { if (isPoolLink(o[k], k)) { n++; return; } const r = stripLinks(o[k], d + 1, k); n += r.n; v[k] = r.v; });
-    return n ? { v, n } : { v: o, n: 0 };
-  };
-  // knappens mål (navbar): tap_action/tap (HA-format eller streng) eller den gamle hash-nøkkelen
-  const btnPool = (b) => { if (!b || typeof b !== 'object') return false; const t = b.tap_action || b.tap; if (t && typeof t === 'object') return isPoolLink(t); if (typeof t === 'string' && t.trim()) return isPoolHash(t); return b.hash != null && b.hash !== '' && isPoolHash(b.hash); };
-  const navStrip = (c, log, id) => {
-    if (!c || typeof c !== 'object' || Array.isArray(c) || !(c.buttons || Array.isArray(c.bar) || Array.isArray(c.more))) return c;
-    const out = { ...c }, gone = new Set(['basseng']);
-    if (out.buttons && typeof out.buttons === 'object') {
-      const B = { ...out.buttons };
-      Object.keys(B).forEach((k) => { if (k === 'basseng' || (B[k] && B[k].custom && btnPool(B[k]))) { delete B[k]; gone.add(k); log.push(`navbar-knappen «${k}» fjernet (${id})`); } });
-      out.buttons = B;
-    }
-    ['bar', 'more', 'hidden'].forEach((k) => { if (Array.isArray(out[k]) && out[k].some((x) => gone.has(x))) { out[k] = out[k].filter((x) => !gone.has(x)); log.push(`navbar ${k}: basseng fjernet (${id})`); } });
-    return out;
-  };
-  M.bassengMigrateStore = function (hass) {
-    if (M._poolStoreMig || !M.store || !M.store.loaded || typeof M.store.get !== 'function') return false;
-    M._poolStoreMig = true;
-    if (M.store.get(MIG_KEY)) return false;
-    const log = [];
-    // 1 · custom_popups
-    const CP = M.store.get('custom_popups');
-    if (Array.isArray(CP)) {
-      const keep = CP.filter((e) => { const cfg = cfgOf(e); if (!M.bassengIsPoolPopup(cfg)) return true; log.push('custom_popups ' + (hashN(cfg) || '?') + ' fjernet'); return false; });
-      if (keep.length !== CP.length) M.store.set('custom_popups', keep);
-    }
-    // 2 · popup_overrides · 3 · popups.<key>
-    [['popup_overrides', 'popup_overrides'], ['popups', 'popups']].forEach(([key, lbl]) => {
-      const O = M.store.get(key);
-      if (!O || typeof O !== 'object') return;
-      const n = { ...O };
-      let ch = false;
-      Object.keys(O).forEach((k) => { if (isPoolHash(k)) { delete n[k]; ch = true; log.push(lbl + '.' + k + ' fjernet'); } });
-      if (ch) M.store.set(key, n);
-    });
-    // 4 · navbar-knapper · 5 · lenker i kortconfigene
-    const CD = M.store.get('cards');
-    if (CD && typeof CD === 'object') {
-      let ch = false;
-      const n = {};
-      Object.keys(CD).forEach((id) => { const v = navStrip(CD[id], log, id); if (v !== CD[id]) ch = true; n[id] = v; });
-      const r = stripLinks(n);
-      if (r.n) log.push(r.n + ' lenke(r) til #basseng/#badebasseng fjernet i kortconfigene');
-      if (ch || r.n) M.store.set('cards', r.v);
-    }
-    M.store.set(MIG_KEY, { at: new Date().toISOString(), log }, { immediate: true });
-    console.info('[ki-msh] Basseng-popupene er slettet – migrering kjørt én gang:', log.length ? log.join(' · ') : 'ingenting å endre');
-    // 6 · gamle Lovelace-ressurser (bare admin)
-    if (hass && hass.user && hass.user.is_admin && hass.callWS) {
-      hass.callWS({ type: 'lovelace/resources' }).then((list) => Promise.all((Array.isArray(list) ? list : []).filter((r) => r && OLD_FILE_RX.test(String(r.url || '').split('#')[0])).map((r) => hass.callWS({ type: 'lovelace/resources/delete', resource_id: r.id }).then(() => console.info('[ki-msh] Basseng: Lovelace-ressursen', r.url, 'er slettet (gammelt kort)')))))
-        .catch((e) => console.warn('[ki-msh] Basseng: kunne ikke rydde Lovelace-ressursene (YAML-modus?)', e && (e.message || e.code)));
-    }
-    return true;
-  };
   // Service worker-/Cache Storage: fjern de gamle filene (ki-basseng-card.js, ki-basseng-hero-card.js) fra alle cacher.
   M.bassengClearCache = function () {
     try {

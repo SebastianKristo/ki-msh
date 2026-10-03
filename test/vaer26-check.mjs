@@ -171,8 +171,8 @@ const P = await p.evaluate(async () => {
   ctl.querySelectorAll('.mi')[1].click(); await w(150);
   return { up: mr && mr.bottom <= br.top, items, lab: ctl.querySelector('.pl .pn').textContent.trim(), ent: window.MSH.vaerAuto(c.hass, c.config).weather, ui: c.ui.place };
 });
-ok('26.25 stedsvelger: meny oppover, velg «Hytta» → weather.hytta', P.up && P.items.join('|') === 'Hjem|Hytta' && /Hytta/.test(P.lab) && P.ent === 'weather.hytta' && P.ui === 1, P);
-await p.evaluate(async () => { const c = window.__c; c.setUI({ place: 0 }); c.setConfig({ ...c._rawConfig, places: undefined }); await new Promise((q) => setTimeout(q, 120)); });
+ok('26.25 stedsvelger: meny oppover, velg «Hytta» → weather.hytta', P.up && P.items.join('|') === 'Hjem|Hytta|Jobb Oslo' && /Hytta/.test(P.lab) && P.ent === 'weather.hytta' && P.ui === 'weather.hytta', P); // Fiks 42: alle weather.* + valgt sted som ID
+await p.evaluate(async () => { const c = window.__c; c.setUI({ place: 0 }); c.setConfig({ ...c._rawConfig, places: undefined, order: undefined }); await new Promise((q) => setTimeout(q, 120)); });
 
 // Tilpass Vær (tune-knappen): Ferdig rosa pille øverst, Stil/Steder/Seksjoner/Fliser, rosa brytere
 const Sh = await p.evaluate(async () => {
@@ -188,6 +188,9 @@ const Sh = await p.evaluate(async () => {
   box.querySelector('[data-a="stil"][data-k="klassisk"]').click(); await w(150);
   const liveK = window.__c.shadowRoot.querySelector('.wrap').className;
   box.querySelector('[data-a="sec"][data-k="days"]').click(); await w(60);
+  // Fiks 42: Hytta er med automatisk → fjern (exclude) og legg til igjen via «Legg til sted» (→ places, ut av exclude)
+  const rmH = [...box.querySelectorAll('[data-prow]')].findIndex((r) => /weather\.hytta/.test(r.textContent)); box.querySelector(`[data-a="rm"][data-k="${rmH}"]`).click(); await w(60);
+  const afterRm = [...R.querySelectorAll('.vaer-sheet .plist .pr .rl')].map((e) => e.textContent).join('|'), exRm = (window.__c._sheet.box._config.exclude || []).join();
   box.querySelector('[data-a="openadd"]').click(); await w(60);
   const q = box.querySelector('[data-in="q"]'); q.value = 'hyt'; q.dispatchEvent(new Event('input', { bubbles: true })); await w(30);
   box.querySelector('[data-a="cand"][data-k="weather.hytta"]').click(); await w(30);
@@ -196,13 +199,13 @@ const Sh = await p.evaluate(async () => {
   R.querySelector('.vaer-sheet [data-a="done"]').click();
   await w(900);
   const c = window.__c;
-  return { caps, tt: tt.textContent, okTop: Math.abs(okR.top - ttR.top) < 20 && okR.right > ttR.right && okR.top - hdR.top < 30, okBg, swBg, liveK, places,
-    cfg: { style: c._rawConfig.style, stil: c._rawConfig.stil, sections: c._rawConfig.sections, places: c._rawConfig.places }, attr: window.__pop.getAttribute('data-ki-vaer'), layer: !!window.__pop.querySelector(':scope > .msh-vaer-scene'), closed: !c._sheet };
+  return { caps, tt: tt.textContent, okTop: Math.abs(okR.top - ttR.top) < 20 && okR.right > ttR.right && okR.top - hdR.top < 30, okBg, swBg, liveK, places, afterRm, exRm,
+    cfg: { style: c._rawConfig.style, stil: c._rawConfig.stil, sections: c._rawConfig.sections, places: c._rawConfig.places, exclude: c._rawConfig.exclude }, attr: window.__pop.getAttribute('data-ki-vaer'), layer: !!window.__pop.querySelector(':scope > .msh-vaer-scene'), closed: !c._sheet };
 });
-ok('26.25 Tilpass Vær: Stil · Steder · Seksjoner · Fliser', Sh.tt === 'Tilpass Vær' && ['Stil', 'Steder', 'Seksjoner', 'Fliser'].every((x) => Sh.caps.some((c) => c.startsWith(x))) && Sh.places.join('|') === 'Hjem|Hytta', Sh);
+ok('26.25 Tilpass Vær: Stil · Steder · Seksjoner · Fliser', Sh.tt === 'Tilpass Vær' && ['Stil', 'Steder', 'Seksjoner', 'Fliser'].every((x) => Sh.caps.some((c) => c.startsWith(x))) && Sh.places.join('|') === 'Hjem|Hytta|Jobb Oslo' && Sh.afterRm === 'Hjem|Jobb Oslo' && Sh.exRm === 'weather.hytta', Sh);
 ok('Ferdig = rosa pille øverst til høyre, rosa brytere', Sh.okTop && /gradient/.test(Sh.okBg) && /gradient/.test(Sh.swBg || ''), Sh);
 ok('26.24 stilbytte live (utkast) → Klassisk', /klassisk/.test(Sh.liveK), Sh.liveK);
-ok('28.1 Ferdig lagrer style/sections/places i kortets config', Sh.closed && Sh.cfg.style === 'klassisk' && Sh.cfg.stil === undefined && Sh.cfg.sections && Sh.cfg.sections.days === false && Sh.cfg.places && Sh.cfg.places.some((x) => x.entity === 'weather.hytta'), Sh);
+ok('28.1 Ferdig lagrer style/sections/places i kortets config', Sh.closed && Sh.cfg.style === 'klassisk' && Sh.cfg.stil === undefined && Sh.cfg.sections && Sh.cfg.sections.days === false && Sh.cfg.places && Sh.cfg.places.some((x) => x.id === 'weather.hytta') && !Sh.cfg.exclude, Sh);
 ok('26.24 Klassisk: popupen uten scene (data-ki-vaer=klassisk, ingen scenelag)', Sh.attr === 'klassisk' && !Sh.layer, Sh);
 if (shots) await p.screenshot({ path: shots + '/vaer26-klassisk.png' });
 
@@ -224,7 +227,7 @@ const G = await p.evaluate(async () => {
   ed.remove();
   return { chips: chip.map((x) => x.textContent), st1, pl, has: ['Steder', 'Farevarsel', 'Neste timer', 'Døgnvarsel', 'Fliser', 'Tilbakestill rekkefølge'].filter((x) => !txt.includes(x)) };
 });
-ok('26.25 getConfigElement: Stil + Steder + Seksjoner + Fliser', G.chips.join('|') === 'Klassisk|Scene' && G.st1 === 'klassisk' && Array.isArray(G.pl) && G.pl[0].entity === 'weather.hytta' && !G.has.length, G);
+ok('26.25 getConfigElement: Stil + Steder + Seksjoner + Fliser', G.chips.join('|') === 'Klassisk|Scene' && G.st1 === 'klassisk' && Array.isArray(G.pl) && G.pl[0].id === 'weather.hytta' && !G.has.length, G);
 
 // Tilpass Hjem → Popups → Vær: segment + samme verdi
 const H = await p.evaluate(async () => {

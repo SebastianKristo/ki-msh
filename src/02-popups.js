@@ -82,6 +82,7 @@
     ['#klima', 'Klima', 'mdi:thermostat', 'msh-klima-card'],
     ['#ruter', 'Ruter', 'mdi:bus', 'msh-ruter-card'],
     ['#vanning', 'Vanning', 'mdi:sprinkler', 'msh-vanning-card'],
+    ['#basseng', 'Basseng', 'mdi:pool', 'msh-basseng-card'], // fiks 42 C – autodeteksjon (M.poolDetect) eller Tilpass Hjem → Popups (popups.basseng.enabled), M.popupNeeds (40-basseng.js)
     ['#sikkerhet', 'Sikkerhet', 'mdi:shield-home', 'msh-sikkerhet-card'],
     ['#vaer', 'Vær', 'mdi:weather-partly-cloudy', 'msh-vaer-card'],
     ['#lys', 'Lys', 'mdi:lightbulb-group', 'msh-lys-card'],
@@ -101,14 +102,13 @@
   ];
   // Fiks 30.1 · gamle hasher som alias for ÉN popup (f.eks. { '#nibe': '#varmepumpe' }, satt i 61-varmepumpe.js). Lenker,
   // navbar-config og varsler med den gamle hashen virker (hashchange → history.replaceState), men ingen popup lages der.
-  // (Bassengpopupene er slettet – #basseng/#badebasseng er ikke lenger alias, se 40-basseng.js.)
   M.HASH_ALIAS = M.HASH_ALIAS || {};
   M.canonHash = (h) => { const s = String(h == null ? '' : h).trim(); return M.HASH_ALIAS[s] || s; };
   M.hashAliasesOf = (h) => Object.keys(M.HASH_ALIAS).filter((a) => M.HASH_ALIAS[a] === h);
   // card_id for en funksjons-popup når den ikke er 'pop-' + hash
   M.POPUP_CARD_ID = M.POPUP_CARD_ID || {};
   M.popupCardId = (hash) => M.POPUP_CARD_ID[hash] || 'pop-' + String(hash).replace(/^#/, '');
-  // Basseng slettet · områder som aldri får en rom-popup (f.eks. et område «Basseng»/«Pool» – bassengpopupen er slettet, 40-basseng.js):
+  // Områder som ikke får en rom-popup (f.eks. et område «Basseng»/«Pool» mens #basseng er på – den viser området, 40-basseng.js):
   // liste med (hass, area_id) → true. Gjelder strategien, «Lag popups» (manuelt dashbord) og popup-velgeren.
   M.ROOM_BLOCK = M.ROOM_BLOCK || [];
   M.roomBlocked = (hass, id) => M.ROOM_BLOCK.some((f) => { try { return !!f(hass, id); } catch (e) { return false; } });
@@ -124,7 +124,7 @@
     if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.filter(inc).map((e) => ({ hash: e.hash, name: e.name, icon: e.icon, group: e.group, source: e.source, hidden: !!e.hidden, color: e.color || null })); // 30.2: romfarge til popup-velgeren
     const out = [], seen = new Set();
     const add = (hash, name, icon, group, source) => { if (!hash || seen.has(hash)) return; seen.add(hash); out.push({ hash, name: name || hash, icon: icon || 'mdi:card-outline', group, source }); };
-    if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id] && !M.roomBlocked(hass, a.id)) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // basseng slettet: ingen rom-popup for området «Basseng»
+    if (hass) M.areas(hass).forEach((a) => { if (!M.HASH_ALIAS['#' + a.id] && !M.roomBlocked(hass, a.id)) add('#' + a.id, a.name, a.icon || 'mdi:texture-box', 'rom', 'auto'); }); // ingen rom-popup for området «Basseng» (#basseng viser det)
     M.FUNCTION_POPUPS.forEach(([h, n, i]) => { if (needOk(h, hass)) add(h, n, i, 'fn', 'auto'); });
     if (hass) M.all(hass, 'person').forEach((p) => add('#person-' + p.split('.')[1], M.name(hass, p), 'mdi:account', 'fn', 'auto'));
     const cp = (M.store && M.store.get('custom_popups')) || [];
@@ -243,7 +243,7 @@
       }
     };
     // Rom (mal B)
-    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.roomBlocked(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === M.canonHash('#' + a.id) && needOk(h, hass))).forEach((a) => { // basseng slettet: ingen rom-popup for området «Basseng»
+    M.areas(hass).filter((a) => areaHasEntities(hass, a.id) && !M.roomBlocked(hass, a.id) && !M.FUNCTION_POPUPS.some(([h]) => h === M.canonHash('#' + a.id) && needOk(h, hass))).forEach((a) => { // ingen rom-popup for området «Basseng» (#basseng viser det)
       const look = roomLookFrom(lc, a.id, hass);
       put('#' + a.id, (card) => M.popupTemplateB({ name: a.name, icon: look.icon, hash: '#' + a.id, color: plainVar(look.col), card }), 'msh-rom-card', (m) => (m.area ? {} : { area: a.id }));
     });

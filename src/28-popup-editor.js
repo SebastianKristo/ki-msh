@@ -389,7 +389,7 @@
         ${e.source === 'custom' ? `<span class="pph" title="Dra for rekkefølge">${ic('mdi:drag', 20)}</span>` : ''}
         <button class="ppm" data-a="ppopen" data-v="${esc(e.hash)}"><span class="pi" style="background:${col}">${ic(e.icon, 22)}</span><span class="pn"><b>${esc(e.name)}</b><i>${esc(e.hash)}${e.source === 'custom' ? ' · ' + kortN(nCards(e.base)) : ''}${e.hidden ? ' · skjult' : ''}${e.replacesAuto ? ' · erstatter generert' : ''}${miss(e)}</i></span></button>
         ${chip(chipOf(e))}
-        <button class="sq ${lockHide ? 'no' : ''}" data-a="ppeye" data-v="${esc(e.hash)}" data-h="selection" title="${e.hidden ? 'Skjult' : 'Vises'}">${ic(e.hidden || hidUser ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18, `color:${e.hidden ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>
+        <button class="sq ${lockHide ? 'no' : ''}" data-a="${e.hash === '#basseng' && e.source === 'auto' && !lockHide ? 'pppool' : 'ppeye'}" data-v="${esc(e.hash)}" data-on="${e.hidden ? 1 : 0}" data-h="selection" title="${e.hidden ? 'Skjult' : 'Vises'}">${ic(e.hidden || hidUser ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18, `color:${e.hidden ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>
         <button class="sq" data-a="ppopen" data-v="${esc(e.hash)}" title="Åpne">${ic('mdi:chevron-right', 20)}</button>
       </div>`;
     };
@@ -416,7 +416,15 @@
     const G = globalsObj(), gn = (k) => Object.keys(isObj(G[k]) ? G[k] : {}).length;
     const gSum = globalsText() ? [gn('button_card_templates') && `${gn('button_card_templates')} button-card`, gn('decluttering_templates') && `${gn('decluttering_templates')} decluttering`, isObj(G.paper_buttons_row) && 'paper-buttons-row', ...Object.keys(G).filter((k) => !GLOBAL_KEYS.includes(k))].filter(Boolean).join(' · ') || 'tom' : 'Ikke importert';
     const gRow = `<div class="pr ppr" data-key="ppglob"><button class="ppm" data-a="ppglobals"><span class="pi" style="background:var(--ki-surface-2, var(--gray300,#404040))">${ic('mdi:file-code-outline', 22)}</span><span class="pn"><b>Maler og globale innstillinger</b><i>${esc(gSum)}</i></span></button><button class="sq" data-a="ppglobals" title="Åpne">${ic('mdi:chevron-right', 20)}</button></div>`;
+    // Fiks 42 C.3 · Basseng står alltid i lista (også uten treff): av/på = ki-store popups.basseng.enabled (ingen rebuild)
+    const poolSk = (R.skipped || []).find((x) => x.hash === '#basseng');
+    const poolRow = !R.loading && poolSk && !R.entries.some((e) => e.hash === '#basseng') ? `<div class="pr ppr hid" data-key="ppr-#basseng">
+        <button class="ppm" data-a="pppool" data-v="#basseng" data-on="1"><span class="pi" style="background:var(--ki-ctrl, var(--gray400,#545454))">${ic((P.basseng && P.basseng.icon) || 'mdi:pool', 22)}</span><span class="pn"><b>${esc((P.basseng && P.basseng.name) || 'Basseng')}</b><i>#basseng · ${esc(P.basseng && P.basseng.enabled === false ? 'Slått av' : 'Ikke funnet – slå på for å velge entiteter selv')}</i></span></button>
+        ${chip('Auto')}
+        <button class="sq" data-a="pppool" data-v="#basseng" data-on="1" data-h="selection" title="Slått av">${ic('mdi:eye-off-outline', 18, 'color:var(--ki-text-lo, #696969)')}</button>
+      </div>` : '';
     const extra = (id) => [
+      ...(id === 'fn' && poolRow ? [poolRow] : []),
       ...(R.replaced || []).filter((x) => x.group === id).map(repRow),
       ...(id === 'egne' ? [...(R.inactive || []).map(inaRow), ...(R.invalid || []).filter((x) => x.source === 'custom').map(badRow)] : []),
     ].join('');
@@ -967,6 +975,15 @@
           save(ed, 'custom_popups', L.length ? L : undefined);
           M.toast('Popup slettet');
           back(ed); return true;
+        }
+        case 'pppool': { // 42 C.3: Basseng av/på (popups.basseng.enabled), skjult-flagget ryddes
+          const cur = { ...(userPops(ed).basseng || {}) };
+          delete cur.hidden;
+          cur.enabled = d.on === '1';
+          save(ed, 'popups.basseng', cur);
+          M.toast(cur.enabled ? 'Basseng er slått på' : 'Basseng er slått av');
+          if (ed._schedule) ed._schedule();
+          return true;
         }
         case 'ppeye': {
           const e = entryOf(ed, d.v); if (!e) return true;
