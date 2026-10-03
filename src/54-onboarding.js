@@ -4,7 +4,7 @@
  *
  * ki-store (per HA-bruker, frontend/set_user_data «ki_dashboard»):
  *   onboarded: true            – satt ved «Hopp over», «Fullfør» og «Åpne dashbordet»
- *   onboard_known: [id …]      – rom/funksjoner som fantes da oppsettet ble fullført (nye senere → prikk i «Mer»)
+ *   onboard_known: [id …]      – rom/funksjoner som fantes da oppsettet ble fullført (nye senere → usjekket)
  *   reviewed: { <id>: true }   – «Tilpass alt» → sjekket (grønn hake / «Ser bra ut · neste»)
  *   review_at: <id>            – hvor gjennomgangen sist var (fortsetter der etter omlasting)
  * Alt annet skrives til SAMME config som de fulle arkene:
@@ -596,7 +596,7 @@
   };
   const reviewable = (L) => L.filter((x) => x.g !== 'adv');
   const reviewed = () => sget('reviewed') || {};
-  // Nye rom/funksjoner (ikke med da oppsettet ble fullført) som ikke er sjekket → prikk på «Tilpass alt» i «Mer»
+  // Nye rom/funksjoner (ikke med da oppsettet ble fullført) som ikke er sjekket. Del 44: vises ikke lenger som prikk på «Tilpass» i «Mer»
   M.tilpassAltDot = function () {
     const h = hassNow();
     if (!h || !M.store || !sget('onboarded')) return false;
