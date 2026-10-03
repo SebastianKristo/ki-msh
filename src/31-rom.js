@@ -13,10 +13,10 @@
  * klimakortene med −/+; klima_order ['cards','fans'] + klima_hidden. Topplinjen = sum W.
  * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
  * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
- * Lys: felles lysslider msh-light-slider (08-light-row.js, Fiks 39 – samme som Lys-popupen) per lys, gjenbrukt per
- * entity, 14 px mellom radene. slider_height (40–72, std 52) gjelder alle rader. lights.<object_id> {brightness_min/max, color_control, hide_temperature_slider,
- * hide_color_controls, hide_color_presets, color_presets ("a, b" eller [..])}. Eldre utseende-nøkler (size, label_layout,
- * show_…, slider_color_mode, bar-, håndtak-, ikon- og pilfarger) ignoreres. Objekt-id som nøkkel fordi entity_id har punktum.
+ * Lys (Fiks 41): felles lys-rad M.renderLightRow (08-light-row.js – Rom v4 «lights» 1:1, samme som Lys-popupen), 10 px
+ * mellom radene. lights.<object_id> {brightness_min/max, hide_temperature_slider, hide_color_controls}. Eldre nøkler
+ * (slider_height, color_control, hide_color_presets, color_presets, size, label_layout, show_…, slider_color_mode, bar-,
+ * håndtak-, ikon- og pilfarger) godtas og ignoreres. Objekt-id som nøkkel fordi entity_id har punktum.
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -244,14 +244,8 @@
     btn.forEach((id) => { out.ids.push(id); out.meta[id] = { navn: strip(S[id].attributes.friendly_name) || S[id].attributes.scene || id, ikon: S[id].attributes.icon || null, ki: true }; });
     return out;
   };
-  const autoLightType = (s) => {
-    const m = (s && s.attributes.supported_color_modes) || [];
-    if (m.some((x) => ['hs', 'rgb', 'rgbw', 'rgbww', 'xy'].includes(x))) return 'color';
-    if (m.includes('color_temp')) return 'ct';
-    if (m.includes('brightness') || m.includes('white')) return 'dim';
-    if (m.includes('onoff')) return 'onoff';
-    return 'dim';
-  };
+  // Lystype fra supported_color_modes – samme som den felles lys-raden (08-light-row.js)
+  const autoLightType = (s) => M.lightType(s);
   // Tekst-mal: {state} {w} {name} eller [[[ return … ]]] (som i designets «Utseende på kort»)
   const tpl = (v, ctx) => {
     if (v == null || String(v).trim() === '') return null;
@@ -387,22 +381,17 @@
         ] });
       }
       if (L && L.lists.lys.length) {
-        // Felles lys-rad (08-light-row.js): samme utseende for alle lys – bare høyden (slider_height) og funksjon per lys
-        const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
-        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: (hh, cc) => `${L.lists.lys.length} lys · ${M.lightRowHeight ? M.lightRowHeight(cc) : 52} px`, fields: [
-          { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 40, max: 72, default: 52, presets: [[44, 'Kompakt 44'], [52, 'Standard 52'], [60, 'Stor 60'], [68, 'Ekstra stor 68']] },
-          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter. Farge/temperatur vises bare for lys som støtter det.' },
+        // Felles lys-rad (08-light-row.js, Fiks 41): samme utseende for alle lys (Rom v4) – bare type og funksjon per lys
+        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: () => `${L.lists.lys.length} lys`, fields: [
+          { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter. Temperatur/farge (pil til høyre) vises bare for lys som støtter det.' },
           ...L.lists.lys.map((id) => {
             const p = 'lights.' + obj(id), st = h.states[id];
             return { type: 'section', label: cap(M.name(h, id, M.areaName(h, area))), icon: 'mdi:lightbulb', meta: () => (LT_NAMES.find((x) => x[0] === (((c.light_types || {})[obj(id)]) || autoLightType(st))) || [])[1] || '', fields: [
               { type: 'select', name: 'light_types.' + obj(id), label: 'Type', help: 'Auto: ' + (LT_NAMES.find((x) => x[0] === autoLightType(st)) || [])[1], options: LT_NAMES },
               { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
               { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
-              { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
-              { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
-              { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
-              { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
-              { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
+              { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperatur (pil)', default: false },
+              { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul farge (pil)', default: false },
             ] };
           }),
         ] });
@@ -659,15 +648,14 @@
       }).join('')}</section>`;
     }
 
-    /* ------------ lys: felles lys-rad (08-light-row.js, samme som Lys-popupen), gjenbrukt per entity */
+    /* ------------ lys: felles lys-rad (08-light-row.js, Fiks 41 – Rom v4 «lights», samme som Lys-popupen) */
     // Innstillinger per lys: config.lights.<object_id> (objekt-id-en – entity_id har punktum som ellers
     // ville blitt en ekstra nivå i editorens dotted names). lights.<entity_id> godtas også (YAML).
-    // Utseendet er felles for alle rader (ingen romfarge/egne farger); høyden fra slider_height (40–72, std 52).
-    _lightCfg(id) {
-      const c = this.config, L = c.lights || {}, s = this.hass.states[id];
+    _lightRow(id) {
+      const c = this.config, L = c.lights || {};
       const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
-      const T = ((c.light_types || {})[obj(id)]) || autoLightType(s);
-      return M.lightRowCfg(id, { name: this._nm(id), type: T, user: u, height: M.lightRowHeight(c) });
+      const T = ((c.light_types || {})[obj(id)]) || undefined;
+      return M.renderLightRow(this, { id, name: this._nm(id), type: T, user: u });
     }
     _lights() {
       const ids = this._L.lists.lys;
@@ -679,23 +667,16 @@
         const s = this.s(id), isOn = !!s && s.state === 'on';
         if (isOn) on++;
         if (!open) return;
-        const row = `<div class="lsl" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-name="${esc(this._nm(id))}" data-nomorph></div>`, tg = this._tag(id);
+        const row = this._lightRow(id), tg = this._tag(id);
         H[id] = tg ? `<div class="lw" data-key="lw-${esc(id)}"><div class="ltg">${tg}</div>${row}</div>` : row; // 36.3: romtagg over raden
       });
       const rows = open ? this._grp(ids, (id) => H[id]) : '';
-      const sum = this._tekst('lys', this._listChanged('lys')) || `${on} på - ${ids.length - on} av`;
+      const sum = this._tekst('lys', this._listChanged('lys')) || `${on} på · ${ids.length - on} av`;
       // 36.3 · «Alle lys» (kombinert rom): rosa bryter ved siden av akkordeon-hodet, styrer lysene i alle rommene
       const head = this._head('lys', 'floor_lamp', 'Lys', sum);
       const hd = this._cb ? `<div class="acw">${head}<button class="alls" data-act="alllights" data-haptic="medium" role="switch" aria-checked="${on > 0}" aria-label="Alle lys" title="Alle lys"><span class="alt">Alle</span><span class="asw${on > 0 ? ' on' : ''}"></span></button></div>` : head;
-      return `<section class="box" data-key="sec-lys">${hd}${open ? `<div class="bd"><div class="lts" style="--lr-h:${M.lightRowHeight(this.config)}px">${rows}</div></div>` : ''}</section>`;
+      return `<section class="box" data-key="sec-lys">${hd}${open ? `<div class="bd"><div class="lts">${rows}</div></div>` : ''}</section>`;
     }
-    // Monter/oppdater lys-radene i plassholderne (data-nomorph → morph rører dem ikke).
-    _mountLights() { M.mountLightRows(this, (id) => this._lightCfg(id)); }
-    set hass(h) {
-      super.hass = h;
-      M.lightRowsHass(this, h);
-    }
-    get hass() { return super.hass; }
 
     /* ------------ enheter (brytere/vifter med effekt) – aktiv enhet har ingen glød */
     _w(id) {
@@ -1127,7 +1108,6 @@
       R.querySelectorAll('[data-tvvol]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindTvVol(el); });
       // Vifte −/+ (16.8): egen handling – ikke radens toggle/hold, og ikke Bubble Cards sveip
       R.querySelectorAll('.fbtn').forEach((el) => { if (el.__b) return; el.__b = true; el.addEventListener('pointerdown', (e) => { e.stopPropagation(); this._cancelHold(); }); el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true }); });
-      this._mountLights();
       // Felles karusell (17.12/17.17): prikkene oppdateres i DOM-en, siden lagres stille – ingen tegning under sveip.
       R.querySelectorAll('[data-car]').forEach((el) => {
         const k = el.dataset.car, d = el.nextElementSibling;
@@ -1195,12 +1175,8 @@
         .box>.bd,.box>.cw,.cvo{animation:accin .22s cubic-bezier(.3,.9,.3,1)}
         @keyframes accin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
         @media (prefers-reduced-motion:reduce){.box>.bd,.box>.cw,.cvo{animation:none}}
-        /* lys (Fiks 39: msh-light-slider inni radens --ki-surface-flate – 14 px mellom radene, håndtaket stikker 11 px ut) */
-        .lts{display:flex;flex-direction:column;gap:14px;padding:4px 8px 14px}
-        .lt{display:flex;flex-direction:column;gap:8px}
-        .lth{display:flex;align-items:center;gap:12px}
-        .ltn{flex:1;min-width:0;font-size:14px;font-weight:500}
-        .ltp{font-size:12px;color:${G.g700}}
+        /* lys (Fiks 41 · Rom v4 lights): kolonne med 10 px mellom radene, padding 0 8 6 inni .bd (0 8 8) */
+        .lts{display:flex;flex-direction:column;gap:10px;padding:0 8px 6px}
         ${M.LIGHT_ROW_CSS || ''}
         /* enheter / sensorer */
         .lst{display:flex;flex-direction:column;gap:8px}

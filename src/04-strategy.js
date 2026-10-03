@@ -129,7 +129,7 @@
       '#ringeklokke': () => plat('unifiprotect') && !!(M.ringFind && M.ringFind(hass)), // fiks 19.17: binary_sensor.*_doorbell (unifiprotect)
       '#energi': () => has('sensor', (s) => ['energy', 'power', 'water'].includes(s.attributes.device_class)), // fiks 21.1: energi-/effekt-/vannmålere (Energi-oppsettet)
       '#kart': () => ['person', 'device_tracker'].some((d) => M.all(hass, d).some((id) => hass.states[id].attributes.latitude != null)), // fiks 20.22: personer/sporere med posisjon
-      '#kalender': () => has('calendar') || rx(/nar_kommer_posten/, ['sensor']) || plat('norwegian_parcel_tracker', 'ki_hyttebesok') || !!(M.kalenderLegacy && M.kalenderLegacy(config)), // fiks 23.8: kalendere/Posten/pakker/hytta, eller den gamle importerte #kalender
+      '#kalender': () => has('calendar') || rx(/nar_kommer_posten/, ['sensor']) || plat('norwegian_parcel_tracker', 'postnord', 'ki_hyttebesok') || !!(M.kalenderLegacy && M.kalenderLegacy(config)), // fiks 23.8: kalendere/Posten/pakker/hytta, eller den gamle importerte #kalender
       '#tesla': () => !!(M.teslaHas && M.teslaHas(hass)), // fiks 24.8: Tesla-entiteter (prefiks/plattform, 56-tesla.js)
       '#rolf': () => has('vacuum'), // fiks 24.9: Sir Sweeps – bare med vacuum.*
       '#soppel': () => (M.avfallIds ? M.avfallIds(hass, {}).length > 0 : false) || !!(M.avfallLegacy && M.avfallLegacy(config)), // fiks 25.4: sensorer med days_to_pickup, eller den gamle importerte #soppel

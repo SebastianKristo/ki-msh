@@ -16,7 +16,8 @@
  *   kalender: main · hytta: sok, steder, seg · framover: filter, hero, kommende, plex · bursdager: hero, kommende ·
  *   posten: posten, pakker
  * Config:
- *   src: { hytta, bday, post, parcel, sonarr, radarr, plex }   # overstyring (tom = automatisk)
+ *   src: { hytta, bday, post, parcel, postnord, sonarr, radarr, plex }   # overstyring (tom = automatisk, 'none' = av;
+ *     `sources: { postnord }` leses også) · postnord_outgoing: true = «Vis pakker jeg sender» (standard skjult)
  *   calendars: [{ entity, name?, color? }]  # tom = alle calendar.* som ikke er kilder
  *   calendars_hidden: [id …] · calendar_colors: { id: farge }
  *   startTab · defaultView (liste|maned; `default_view: list|month` leses også) · valgt visning huskes per bruker
@@ -25,6 +26,13 @@
  * Data (fallgruve 8): hentes når #kalender er åpen, mellomlagres 5 min. Kalendere via
  *   hass.callApi('GET', 'calendars/<id>?start&end') (samme som calendar.get_events), ±40 dager.
  * Ingen mock-data: mangler en kilde → «– · Velg entitet».
+ * Fiks 40 · PostNord (ha-postnord) i Posten → Pakker, side om side med Norwegian Parcel Tracker:
+ *   kilde = entitetsregisteret (platform postnord), alle `*_incoming_parcels` (sporingskode-hub + kontoer) slås sammen
+ *   med `*_awaiting_pickup`/`*_delivered_parcels` (og `*_outgoing_parcels` når postnord_outgoing). Statusmapping PNS,
+ *   bærer-chip «PostNord», meta-linje, fakta, «Åpne i PostNord», «+» → postnord.track_parcel for PostNord-koder,
+ *   «Slutt å spore» → postnord.untrack_parcel (ikke konto-pakker), «Oppdater» → button.press på PostNord-knappen,
+ *   hendelsene postnord_parcel_* mens popupen er åpen (raden oppdateres alene), blå prikk i «Når kommer Posten» fra
+ *   PostNord-kalenderen. Uten PostNord er alt som før.
  */
 (function () {
   const M = window.MSH;
@@ -47,6 +55,7 @@
     ['bday', 'Bursdager', 'mdi:cake-variant', C.purple],
     ['post', 'Når kommer Posten', 'mdi:email', C.red],
     ['parcel', 'Pakkesporing', 'mdi:package-variant', C.orange],
+    ['postnord', 'PostNord', 'mdi:package-variant', C.blue], // Fiks 40 (package_2)
     ['sonarr', 'Sonarr', 'mdi:television-classic', C.blue],
     ['radarr', 'Radarr', 'mdi:filmstrip', C.yellow],
     ['plex', 'Plex', 'mdi:plex', C.orange],
@@ -118,6 +127,11 @@
   /* ------------------------------------------------------------ kilder (autokonfig) */
   const low = (h, id) => (id + ' ' + String(((h.states[id] || {}).attributes || {}).friendly_name || '')).toLowerCase();
   const plat = (h, id) => ((h.entities || {})[id] || {}).platform || '';
+  // Fiks 40 · PostNord-sensorene: <prefiks>_incoming_parcels|_awaiting_pickup|_delivered_parcels|_outgoing_parcels.
+  // Prefiks sensor.postnord (ev. _2) = sporingskode-hub; sensor.postnord_<konto> = konto-oppføring.
+  const PN_SUF = /_(incoming_parcels|awaiting_pickup|delivered_parcels|outgoing_parcels)(_\d+)?$/;
+  const pnPfx = (id) => String(id || '').replace(PN_SUF, '');
+  const pnHub = (id) => /^sensor\.postnord$/.test(pnPfx(id));
   function cands(h, k) {
     if (!h) return [];
     const ids = Object.keys(h.states).sort();
@@ -126,14 +140,16 @@
     if (k === 'hytta') return uniq([...dom('sensor').filter((id) => A(id).integrasjon === 'ki_hyttebesok' && A(id).ki_type === 'oversikt'), ...dom('calendar').filter((id) => /hytt/.test(low(h, id))), ...dom('sensor').filter((id) => /_oversikt$/.test(id) && A(id).sted)]);
     if (k === 'bday') return dom('calendar').filter((id) => /birthday|bursdag|fodsel|fødsel/.test(low(h, id)));
     if (k === 'post') return dom('sensor').filter((id) => /nar_kommer_posten|posten|postal|mail_delivery/.test(id) && !/relati/.test(id)).sort((a, b) => (pDate((h.states[b] || {}).state) ? 1 : 0) - (pDate((h.states[a] || {}).state) ? 1 : 0) || (/_next$/.test(b) ? 1 : 0) - (/_next$/.test(a) ? 1 : 0));
-    if (k === 'parcel') return uniq([...dom('sensor').filter((id) => plat(h, id) === 'norwegian_parcel_tracker'), ...dom('sensor').filter((id) => /parcel|pakke|sporing/.test(id))]);
+    if (k === 'parcel') return uniq([...dom('sensor').filter((id) => plat(h, id) === 'norwegian_parcel_tracker'), ...dom('sensor').filter((id) => /parcel|pakke|sporing/.test(id) && plat(h, id) !== 'postnord' && !PN_SUF.test(id))]);
+    // Fiks 40: PostNord – registeret (platform postnord) først, sporingskode-hub før kontoene
+    if (k === 'postnord') return uniq([...dom('sensor').filter((id) => plat(h, id) === 'postnord' && /_incoming_parcels(_\d+)?$/.test(id)), ...dom('sensor').filter((id) => /^sensor\.postnord_.*incoming_parcels(_\d+)?$/.test(id) && Array.isArray(A(id).parcels))]).sort((a, b) => (pnHub(b) ? 1 : 0) - (pnHub(a) ? 1 : 0) || (a < b ? -1 : 1));
     if (k === 'sonarr') return [...dom('calendar').filter((id) => /sonarr/.test(low(h, id))), ...dom('sensor').filter((id) => /sonarr/.test(id) && /upcoming|kommende|calendar/.test(id))];
     if (k === 'radarr') return [...dom('calendar').filter((id) => /radarr/.test(low(h, id))), ...dom('sensor').filter((id) => /radarr/.test(id) && /upcoming|kommende|calendar/.test(id))];
     if (k === 'plex') return dom('sensor').filter((id) => /plex/.test(id) && /recent|nylig|added/.test(id));
     return [];
   }
   const autoSrc = (h, k) => cands(h, k)[0] || null;
-  const srcOf = (h, c, k) => { const v = (c.src || {})[k]; if (v === 'none') return null; return v || autoSrc(h, k); };
+  const srcOf = (h, c, k) => { const v = (c.src || {})[k] || (k === 'postnord' ? (c.sources || {}).postnord : null); if (v === 'none') return null; return v || autoSrc(h, k); };
   M.kalenderSources = (h, c) => Object.fromEntries(SRC.map(([k]) => [k, srcOf(h, c || {}, k)]));
 
   function calsOf(h, c) {
@@ -289,7 +305,7 @@
   }
   function parcelsOf(h, c) {
     const pid = srcOf(h, c, 'parcel');
-    const ids = Object.keys(h.states).filter((id) => id.startsWith('sensor.') && (plat(h, id) === 'norwegian_parcel_tracker' || (h.states[id].attributes || {}).tracking_number) && (/_status$/.test(id) || (h.states[id].attributes || {}).tracking_number));
+    const ids = Object.keys(h.states).filter((id) => id.startsWith('sensor.') && plat(h, id) !== 'postnord' && (plat(h, id) === 'norwegian_parcel_tracker' || (h.states[id].attributes || {}).tracking_number) && (/_status$/.test(id) || (h.states[id].attributes || {}).tracking_number));
     if (pid && h.states[pid] && !ids.includes(pid) && (h.states[pid].attributes || {}).tracking_number) ids.push(pid);
     return uniq(ids).map((id) => {
       const st = h.states[id], a = st.attributes || {};
@@ -307,6 +323,107 @@
     }).sort((a, b) => ['klar', 'stale', 'transport', 'levert'].indexOf(a.kind) - ['klar', 'stale', 'transport', 'levert'].indexOf(b.kind));
   }
   const PK = { klar: ['Klar til henting', C.green, 'mdi:package-variant-closed-check'], transport: ['På vei', C.blue, 'mdi:truck-delivery'], stale: ['Ingen oppdatering', C.orange, 'mdi:clock-alert-outline'], levert: ['Levert', 'var(--ki-text-3, var(--gray600, #7f7f7f))', 'mdi:package-check'] };
+
+  /* ------------------------------------------------------------ PostNord (Fiks 40) */
+  // Kanonisk status → [design-type, farge, ikon, tekst]. design-type: out (ute for levering) · klar · transport · stale (avvik) · levert
+  const PN_GRAY = 'var(--ki-text-3, var(--gray600, #7f7f7f))';
+  const PNS = {
+    registered: ['transport', C.blue, 'mdi:truck', 'Registrert'],
+    in_transit: ['transport', C.blue, 'mdi:truck', 'Under transport'],
+    out_for_delivery: ['out', C.yellow, 'mdi:truck', 'Ute for levering'],
+    at_pickup_point: ['klar', C.green, 'mdi:archive', 'Klar til henting'],
+    delivered: ['levert', PN_GRAY, 'mdi:check', 'Levert'],
+    returning: ['stale', C.orange, 'mdi:clock-outline', 'Returneres til avsender'],
+    problem: ['stale', C.red, 'mdi:alert-circle', 'Avvik'],
+    unknown: ['transport', PN_GRAY, 'mdi:truck', 'Ikke skannet ennå'],
+  };
+  const PN_EVENTS = ['postnord_parcel_status_changed', 'postnord_parcel_delivered', 'postnord_parcel_delivery_time_changed'];
+  const PN_SETUP = 'Sett opp PostNord (sporingskoder) i Innstillinger';
+  const PN_RANK = { out: 0, klar: 1, transport: 2, stale: 3, levert: 4 }; // 40.3: ute → klar → transport → avvik → levert
+  const PN_ORDER = ['incoming_parcels', 'awaiting_pickup', 'delivered_parcels', 'outgoing_parcels'];
+  const pnKindOf = (id) => { const m = PN_SUF.exec(id || ''); return m ? m[1] : 'incoming_parcels'; };
+  const str = (v) => (v == null ? '' : typeof v === 'object' ? String(v.name || v.display_name || v.title || '') : String(v)).trim();
+  const pnCode = (p) => str(p.barcode || p.tracking_code || p.tracking_number || p.shipment_id || p.shipmentId || p.code || p.id).toUpperCase();
+  // Ser ut som en PostNord-kode: slutter på SE/DK/FI, eller 11–17 sifre
+  const pnLooks = (code) => { const s = String(code || '').trim().replace(/\s+/g, '').toUpperCase(); return /^[A-Z0-9]{6,}(SE|DK|FI)$/.test(s) || /^\d{11,17}$/.test(s); };
+  const pnSrcCfg = (c) => (c.src || {}).postnord || (c.sources || {}).postnord || null;
+  // Alle PostNord-sensorene som skal leses (registeret først, ellers sensor.postnord_* med parcels-liste)
+  function pnSensors(h, c) {
+    if (!h) return [];
+    const v = pnSrcCfg(c || {});
+    if (v === 'none') return [];
+    const all = uniq([...Object.keys(h.entities || {}).filter((id) => id.startsWith('sensor.') && plat(h, id) === 'postnord'), ...Object.keys(h.states).filter((id) => /^sensor\.postnord_/.test(id) && Array.isArray(((h.states[id] || {}).attributes || {}).parcels))])
+      .filter((id) => h.states[id] && PN_SUF.test(id)).sort();
+    let L = all;
+    if (v) { const p = pnPfx(v); L = all.filter((id) => pnPfx(id) === p); if (h.states[v] && !L.includes(v)) L.unshift(v); }
+    return L.sort((a, b) => PN_ORDER.indexOf(pnKindOf(a)) - PN_ORDER.indexOf(pnKindOf(b)) || (a < b ? -1 : 1));
+  }
+  const pnFind = (h, dom, rx) => { if (!h) return null; const L = Object.keys(h.entities || {}).filter((id) => id.startsWith(dom + '.') && plat(h, id) === 'postnord' && h.states[id]).sort(); return L.find((id) => rx.test(id)) || L[0] || null; };
+  const pnPresent = (h) => !!h && (Object.keys(h.entities || {}).some((id) => plat(h, id) === 'postnord') || !!(h.services && h.services.postnord));
+  const dayWord = (d) => { const n = dayDiff(new Date(), d); if (n === 0) return 'I dag'; if (n === 1) return 'I morgen'; if (n === -1) return 'I går'; const b = `${DAG_L[d.getDay()]} ${dShort(d)}`; return b[0].toUpperCase() + b.slice(1); };
+  const tShort = (d) => (d.getMinutes() ? hm(d) : String(d.getHours()));
+  const hasT = (d) => !!(d && (d.getHours() || d.getMinutes()));
+  function pnWin(f, t) {
+    if (!f && !t) return '';
+    const a = f || t, day = dayWord(a);
+    if (f && t && hasT(f) && dk(f) === dk(t)) return `${day} ${tShort(f)}–${tShort(t)}`;
+    return hasT(a) ? `${day} ${tShort(a)}` : day;
+  }
+  const pnWeight = (w) => { if (w == null || w === '') return ''; if (typeof w === 'number' || /^\d+(\.\d+)?$/.test(String(w))) return String(Math.round(Number(w) * 100) / 100).replace('.', ',') + ' kg'; return str(w); };
+  function pnItem(key, e) {
+    const p = e.p || {}, code = pnCode(p);
+    let s = String(p.status || '').toLowerCase().replace(/[\s-]+/g, '_');
+    if (!PNS[s]) s = p.delivered === true ? 'delivered' : p.pickup === true ? 'at_pickup_point' : 'unknown';
+    const [kind, col, icon, label] = PNS[s];
+    const raw = str(p.raw_status || p.status_text || p.statusText || p.status_description);
+    const sender = str(p.sender || p.sender_name || p.consignor), receiver = str(p.receiver || p.recipient || p.consignee);
+    const method = str(p.delivery_method || p.service || p.service_name || p.product || p.delivery_type);
+    const pickup = str(p.pickup_point || p.pickup_location || p.service_point || p.pickup_point_name);
+    const win = p.delivery_window && typeof p.delivery_window === 'object' ? p.delivery_window : {};
+    const from = pDate(p.planned_from || p.estimated_delivery_from || p.expected_from || win.from || win.start || p.estimated_delivery || p.eta);
+    const to = pDate(p.planned_to || p.estimated_delivery_to || p.expected_to || win.to || win.end);
+    const dAt = pDate(p.delivered_at || p.delivery_time);
+    const hist = Array.isArray(p.history) ? p.history : Array.isArray(p.events) ? p.events : [];
+    let events = hist.filter((x) => x && typeof x === 'object').map((x) => ({ t: pDate(x.timestamp || x.time || x.event_time || x.eventTime || x.date), text: str(x.raw_status || x.description || x.eventDescription || x.text || (PNS[x.status] || [])[3]), where: str(x.location || x.place || x.city) })).filter((x) => x.text).sort((x, y) => (y.t || 0) - (x.t || 0));
+    if (!events.length && (raw || label)) events = [{ t: pDate(p.last_event_time || p.updated_at || p.last_update || p.status_time || p.timestamp) || dAt, text: raw || label, where: '' }];
+    const out = e.dir === 'out';
+    const name = str(p.name || p.title || p.description) || (out ? receiver : sender) || (out ? 'Sendt pakke' : 'PostNord-pakke');
+    const est = pnWin(from, to);
+    let meta = kind === 'klar' && pickup ? `Hentes på ${pickup}` : kind === 'levert' ? raw || label : (kind === 'out' || kind === 'transport') && est ? `Estimert: ${est}` : raw || label;
+    if (kind === 'levert' && dAt) meta = 'Levert ' + (dayDiff(new Date(), dAt) >= -1 ? dayWord(dAt).toLowerCase() : `${DAG_L[dAt.getDay()]} ${dShort(dAt)}`) + (hasT(dAt) ? ' ' + hm(dAt) : '');
+    if (out && receiver) meta = `Til ${receiver} · ${meta}`;
+    return { id: key, pn: true, code, status: s, kind, col, icon, label, raw, meta, name, url: str(p.url || p.tracking_url || p.link || p.deep_link), events, account: !!e.account, dir: e.dir, sensor: e.sensor,
+      facts: [['Leveringsmåte', method], ['Avsender', sender], ['Vekt', pnWeight(p.weight != null ? p.weight : p.weight_kg)], ['Sporingsnummer', code]].filter((f) => f[1]) };
+  }
+  // Alle PostNord-pakker (kontoer slått sammen, duplikater per sporingskode). live = Map(nøkkel → { p, t }) fra hendelsene.
+  function pnParcels(h, c, live) {
+    if (!h) return [];
+    c = c || {};
+    const by = new Map();
+    pnSensors(h, c).forEach((id) => {
+      const kind = pnKindOf(id);
+      if (kind === 'outgoing_parcels' && !c.postnord_outgoing) return; // 40.1: «Vis pakker jeg sender» (standard av)
+      const st = h.states[id], a = (st && st.attributes) || {};
+      let L = a.parcels;
+      if (typeof L === 'string') { try { L = JSON.parse(L); } catch (x) { L = null; } }
+      if (!Array.isArray(L)) return;
+      const acct = !pnHub(id), tU = Date.parse((st && st.last_updated) || '') || 0;
+      L.forEach((p) => {
+        if (!p || typeof p !== 'object') return;
+        const code = pnCode(p); if (!code) return;
+        const key = 'pn:' + code, cur = by.get(key);
+        const isAcct = acct || p.source === 'account' || p.account === true || p.is_account === true;
+        if (!cur) by.set(key, { p: { ...p }, sensor: id, dir: kind === 'outgoing_parcels' ? 'out' : 'in', account: isAcct, tU });
+        else { Object.keys(p).forEach((f) => { if (cur.p[f] == null || cur.p[f] === '') cur.p[f] = p[f]; }); cur.account = cur.account || isAcct; cur.tU = Math.max(cur.tU, tU); }
+      });
+    });
+    if (live) live.forEach((v, key) => {
+      const cur = by.get(key);
+      if (cur) { if (cur.tU > v.t) return; cur.p = { ...cur.p, ...v.p }; }
+      else if (v.p) by.set(key, { p: { ...v.p }, sensor: null, dir: 'in', account: v.p.source === 'account' || v.p.account === true, tU: 0 });
+    });
+    return [...by.entries()].map(([k, e]) => pnItem(k, e)).sort((a, b) => PN_RANK[a.kind] - PN_RANK[b.kind]);
+  }
 
   /* ------------------------------------------------------------ Bursdager */
   const BD_STRIP = /\s*(\(\d{4}\)|'s birthday|s bursdag|bursdag|birthday|fødselsdag)\s*/gi;
@@ -460,7 +577,7 @@
       }
     } };
     // Kilder: blått info-kort + akkordeon per kilde (søk, forslag, «Bruk automatisk»). GUI-editoren: entitetsvelger.
-    const info = { type: 'html', html: () => `<div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:20px;background:${TONE(C.blue, 0.14)};color:${AT(C.blue)};font-size:13px;line-height:1.4">${M.icon('mdi:information-outline', 20)}<span>Kildene finnes automatisk i Home Assistant (KI Hyttebesøk, Når kommer Posten, Norwegian Parcel Tracker, Sonarr/Radarr, Plex og kalenderne). Velg en annen entitet her bare hvis det automatiske valget er feil.</span></div>` };
+    const info = { type: 'html', html: () => `<div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:20px;background:${TONE(C.blue, 0.14)};color:${AT(C.blue)};font-size:13px;line-height:1.4">${M.icon('mdi:information-outline', 20)}<span>Kildene finnes automatisk i Home Assistant (KI Hyttebesøk, Når kommer Posten, Norwegian Parcel Tracker, PostNord, Sonarr/Radarr, Plex og kalenderne). Velg en annen entitet her bare hvis det automatiske valget er feil.</span></div>` };
     const kilde = ([k, label, icon, col]) => ({ type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
       if (!hh) return '';
@@ -493,6 +610,8 @@
       if (dd.op === 'pick') { M.haptic('success'); const au = autoSrc(ed._hass, dd.v); return ed._set('src.' + dd.v, dd.id === au && !(ed._config.src || {})[dd.v] ? undefined : dd.id); }
       if (dd.op === 'auto') { M.haptic('selection'); Q.delete(id + '|' + dd.v); return ed._set('src.' + dd.v, undefined); }
     } });
+    // Fiks 40: PostNord-pakker jeg sender (konto: *_outgoing_parcels) – standard skjult
+    const pnOut = { type: 'boolean', name: 'postnord_outgoing', label: 'Vis pakker jeg sender', default: false, help: 'PostNord-konto: vis også pakker du har sendt i Pakker.' };
     const spacing = { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
       { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
       { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: -10, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [44, 'Luftig 44']] },
@@ -519,7 +638,7 @@
       { type: 'tabs', id: 'kalender', tabs: [
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [faner, ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })), mode: (cc) => (cc.tab_labels === 'name' ? 'tekst' : 'aktiv'), native: 40, gear: true })] : [])] }, // 33.4: fanehøyde
         { key: 'kalendere', label: 'Kalendere', icon: 'mdi:calendar-multiple', focus: ['kalendere'], fields: [kal] },
-        { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder'], fields: [info, ...SRC.map(kilde)] },
+        { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder'], fields: [info, ...SRC.map(kilde), pnOut] },
         { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing', 'visning'], fields: visning },
       ] },
       { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); resetCfg(hh, cc, ed); } }, // også i headeren (36.7); knappen er dekkende #3a3a3a
@@ -559,10 +678,40 @@
       const k = t === 'kalender' ? 'kview' : 'fview';
       return normView(this.ui[k]) || startView(this.config);
     }
-    onOpen() { this._ui = { ...this._ui, kview: null, fview: null, btn: 'view', pSel: null }; this.update(); }
+    onOpen() { this._ui = { ...this._ui, kview: null, fview: null, btn: 'view', pSel: null }; this._pnSub(); this.update(); }
     // 36.5: startfane ved åpning (MSH.startTab via basekortet) – start_tab, ellers gamle startTab
     static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (c) => c.startTab }; }
-    onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null }; }
+    onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null, pMsg: null }; this._pnUnsub(); }
+    // Fiks 40.5: PostNord-hendelsene kun mens popupen er åpen (ingen polling – integrasjonen poller selv).
+    // onClose kalles også fra disconnectedCallback (basekortet), så abonnementet avsluttes alltid.
+    _pnSub() {
+      this._pnUnsub();
+      const h = this.hass, con = h && h.connection;
+      if (!con || typeof con.subscribeEvents !== 'function' || !pnPresent(h)) return;
+      this._pnLive = this._pnLive || new Map();
+      this._pnOffs = PN_EVENTS.map((t) => { try { return Promise.resolve(con.subscribeEvents((ev) => this._pnEvent(ev), t)).catch(() => null); } catch (e) { return Promise.resolve(null); } });
+    }
+    _pnUnsub() {
+      const L = this._pnOffs || []; this._pnOffs = null;
+      L.forEach((p) => p.then((off) => { try { if (typeof off === 'function') off(); } catch (e) { /* */ } }));
+      if (this._pnLive) this._pnLive.clear();
+    }
+    _pnEvent(ev) {
+      if (!this.isOpen || !this._pnLive) return;
+      const d = (ev && ev.data) || {}, p = d.parcel && typeof d.parcel === 'object' ? d.parcel : d;
+      const code = pnCode(p); if (!code) return;
+      const key = 'pn:' + code, np = { ...p };
+      if (!np.status && d.new_status) np.status = d.new_status;
+      if (ev.event_type === 'postnord_parcel_delivered' && !np.status) np.status = 'delivered';
+      this._pnLive.set(key, { p: np, t: Date.now() });
+      if (this.tab !== 'posten') return; // tegnes med de nye dataene når Posten vises
+      // Bare raden: samme plass i lista (samme type) → bytt ut raden alene; ellers (ny/levert/ny rekkefølge) tegn lista
+      const row = this.shadowRoot.querySelector(`.pkr[data-key="pk-${key}"]`);
+      const x = pnParcels(this.hass, this.config, this._pnLive).find((y) => y.id === key);
+      if (!row || !x || row.dataset.kind !== x.kind || ev.event_type === 'postnord_parcel_delivered') return this.update();
+      const tpl = document.createElement('template'); tpl.innerHTML = this._pnRow(x).trim();
+      if (tpl.content.firstElementChild) row.replaceWith(tpl.content.firstElementChild);
+    }
     // 36.7: «Tilpass kalender» – tittel uten «·», «Nullstill» i headeren (ingen X), ark top 52, maks 440, radius 38 (felles, Fiks 40),
     // bakteppe rgba(0,0,0,.5) + blur(4px) over dashbordflaten. Arket er portalt (MSH.overlay i ki-overlay-root) og helt dekkende.
     static get editorTitle() { return 'Tilpass kalender'; }
@@ -1075,23 +1224,35 @@
           if (!P) { out.push(this._hdr('Når kommer Posten') + this._missing('Ingen Posten-sensor', 'kilder')); return; }
           const now = d0(new Date()), n = P.next ? dayDiff(now, P.next) : null, today = n === 0;
           const days = []; for (let d = now; days.length < 10; d = addD(d, 1)) if (d.getDay() !== 0 && d.getDay() !== 6) days.push(d);
+          // Fiks 40.5: dager med forventet PostNord-levering (PostNord-kalenderen) → liten blå prikk under datoen
+          const pnCal = pnPresent(h) ? pnFind(h, 'calendar', /deliver|lever/) : null;
+          let pnDays = null;
+          if (pnCal) {
+            this.s(pnCal); pnDays = new Set();
+            (this._ev(pnCal, now, addD(now, 16)) || []).forEach((e) => { for (let d = d0(e.start), i = 0; d <= d0(e.end) && i < 31; d = addD(d, 1), i++) pnDays.add(dk(d)); });
+          }
           let rel = P.next ? (n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n <= 6 ? `På ${DAG_L[P.next.getDay()]}` : dShort(P.next)) : '–';
           let sub = P.rel && P.rel.toLowerCase() !== rel.toLowerCase() ? P.rel : P.next ? `${DAG_L[P.next.getDay()]} ${dShort(P.next)}${n > 1 ? ' · ' + relDays(n) : ''}` : '';
           // 36.6: valgt dag (trykk i rutenettet) → «I morgen» / «Om 5 dager» + «tirsdag 29. sep · posten kommer|ingen utdeling»
           const sk = this.ui.pSel && days.some((d) => dk(d) === this.ui.pSel) ? this.ui.pSel : null;
           if (sk) { const sd = fromKey(sk), sn = dayDiff(now, sd); rel = sn === 0 ? 'I dag' : sn === 1 ? 'I morgen' : `Om ${sn} dager`; sub = `${DAG_L[sd.getDay()]} ${dShort(sd)} · ${P.dates.has(sk) ? 'posten kommer' : 'ingen utdeling'}`; }
           out.push(`<div class="card post" data-ent="${esc(id)}"><div class="pt"><span class="pic ${today ? 'on' : ''}">${M.icon('mdi:email', 26)}</span><div class="grow"><span class="pchip ${today ? 'on' : ''}">${today ? 'Posten kommer i dag' : 'Ikke i dag'}</span><b class="prel">${esc(rel)}</b><span class="dim psub">${esc(sub)}</span></div></div>
-            <div class="pg">${days.map((d) => { const k = dk(d), on = P.dates.has(k), sl = k === sk; return `<button class="pd ${on ? 'on' : ''} ${k === dk(now) ? 'today' : ''} ${sl ? 'sel' : ''}" data-act="psel" data-v="${k}" data-haptic="selection" aria-pressed="${sl}" aria-label="${esc(`${DAG_L[d.getDay()]} ${dShort(d)} · ${on ? 'posten kommer' : 'ingen utdeling'}`)}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b></button>`; }).join('')}</div></div>`);
+            <div class="pg">${days.map((d) => { const k = dk(d), on = P.dates.has(k), sl = k === sk; return `<button class="pd ${on ? 'on' : ''} ${k === dk(now) ? 'today' : ''} ${sl ? 'sel' : ''}" data-act="psel" data-v="${k}" data-haptic="selection" aria-pressed="${sl}" aria-label="${esc(`${DAG_L[d.getDay()]} ${dShort(d)} · ${on ? 'posten kommer' : 'ingen utdeling'}${pnDays && pnDays.has(k) ? ' · PostNord-levering' : ''}`)}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b>${pnDays && pnDays.has(k) ? '<i class="pnd" aria-hidden="true"></i>' : ''}</button>`; }).join('')}</div></div>`);
         }
         if (p === 'pakker') {
-          const all = parcelsOf(h, c); all.forEach((x) => this.s(x.id));
+          const nw = parcelsOf(h, c); nw.forEach((x) => this.s(x.id));
+          // Fiks 40: PostNord i samme liste (sortert ute → klar → transport → avvik → levert); uten PostNord som før
+          const pnS = pnSensors(h, c); pnS.forEach((id) => this.s(id));
+          const pn = pnParcels(h, c, this._pnLive);
+          const all = pn.length ? [...nw, ...pn].sort((a, b) => PN_RANK[a.kind] - PN_RANK[b.kind]) : nw;
           const show = this.ui.pDel ? all : all.filter((x) => x.kind !== 'levert');
           const nDel = all.filter((x) => x.kind === 'levert').length;
-          out.push(this._hdr('Pakker', `<span class="meta num">${all.filter((x) => x.kind !== 'levert').length || ''}</span><button class="add press" data-act="padd" aria-label="Legg til pakke">${M.icon(this.ui.pAdd ? 'mdi:close' : 'mdi:plus', 22)}</button>`));
-          if (this.ui.pAdd) out.push(`<div class="card bform"><input data-input="pnum" value="${esc(this.ui.pNum || '')}" placeholder="Sporingsnummer" autocapitalize="characters" autocorrect="off" spellcheck="false"><button class="pri press" data-act="psave">${M.icon('mdi:package-variant-plus', 20)}Spor pakken</button></div>`);
-          const hasSrc = !!srcOf(h, c, 'parcel') || all.length;
+          const pnBtn = pnS.length ? pnFind(h, 'button', /refresh|oppdater/) : null;
+          out.push(this._hdr('Pakker', `<span class="meta num">${all.filter((x) => x.kind !== 'levert').length || ''}</span>${pnBtn ? `<button class="add press" data-act="prefresh" data-id="${esc(pnBtn)}" aria-label="Oppdater pakker">${M.icon('mdi:refresh', 22)}</button>` : ''}<button class="add press" data-act="padd" aria-label="Legg til pakke">${M.icon(this.ui.pAdd ? 'mdi:close' : 'mdi:plus', 22)}</button>`));
+          if (this.ui.pAdd) out.push(`<div class="card bform"><input data-input="pnum" value="${esc(this.ui.pNum || '')}" placeholder="Sporingsnummer" autocapitalize="characters" autocorrect="off" spellcheck="false"><button class="pri press" data-act="psave" data-haptic="off">${M.icon('mdi:package-variant-plus', 20)}Spor pakken</button>${this.ui.pMsg ? `<div class="pmsg" role="status">${M.icon('mdi:alert-circle-outline', 18)}<span>${esc(this.ui.pMsg)}</span></div>` : ''}</div>`);
+          const hasSrc = !!srcOf(h, c, 'parcel') || all.length || pnS.length;
           if (!hasSrc) { out.push(this._missing('Ingen pakkesporing', 'kilder')); return; }
-          out.push(show.length ? `<div class="card evl pk">${show.map((x) => this._pRow(x)).join('')}</div>` : '<div class="card none">Ingen pakker på vei</div>');
+          out.push(show.length ? `<div class="card evl pk">${show.map((x) => (x.pn ? this._pnRow(x) : this._pRow(x))).join('')}</div>` : '<div class="card none">Ingen pakker på vei</div>');
           if (nDel) out.push(`<button class="more press" data-act="pdel">${this.ui.pDel ? 'Skjul leverte' : `Vis leverte (${nDel})`}</button>`);
         }
       });
@@ -1106,9 +1267,40 @@
           ${x.events.length ? `<div class="log">${x.events.slice(0, 8).map((e, i) => `<div class="lg ${i === 0 ? 'on' : ''}"><i></i><span class="grow"><b>${esc(e.text)}</b><span>${esc([e.t ? `${dShort(e.t)} ${hm(e.t)}` : '', e.where].filter(Boolean).join(' · '))}</span></span></div>`).join('')}</div>` : '<div class="none">Ingen hendelser ennå</div>'}
           <div class="pka">${x.home ? `<button class="pri press" data-act="phome" data-v="${esc(x.home)}">${M.icon('mdi:home-import-outline', 18)}Bestill hjemlevering</button>` : ''}<button class="press" data-act="more" data-id="${esc(x.id)}">${M.icon('mdi:information-outline', 18)}Detaljer</button></div></div>` : ''}</div>`;
     }
+    // Fiks 40.3: PostNord-rad – bærer-chip, status i farge, meta-linje; utvidet: hendelser, fakta (2 kolonner),
+    // «Åpne i PostNord», «Slutt å spore» (bare sporingskode-hubens egne pakker) og «Detaljer».
+    _pnRow(x) {
+      const open = this.ui.pOpen === x.id, col = x.col, S = (this.hass && this.hass.services && this.hass.services.postnord) || {};
+      const canUn = !x.account && x.dir !== 'out' && !!S.untrack_parcel;
+      return `<div class="pkr pn ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}" data-kind="${x.kind}" data-st="${esc(x.status)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(x.icon, 22)}</span><span class="grow evc"><span class="pkn"><b class="ell">${esc(x.name)}</b><span class="ctag">PostNord</span></span><span class="ell pmeta">${esc(x.meta)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(x.label)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
+        ${open ? `<div class="pkb">${x.kind === 'stale' ? `<div class="warn" style="background:${TONE(col, 0.16)};color:${AT(col)}">${M.icon(x.icon, 18)}${esc(x.raw || x.label)}</div>` : ''}
+          ${x.events.length ? `<div class="log">${x.events.slice(0, 8).map((e, i) => `<div class="lg ${i === 0 ? 'on' : ''}"><i></i><span class="grow"><b>${esc(e.text)}</b><span>${esc([e.t ? `${dShort(e.t)} ${hm(e.t)}` : '', e.where].filter(Boolean).join(' · '))}</span></span></div>`).join('')}</div>` : ''}
+          ${x.facts.length ? `<div class="facts">${x.facts.map(([k, v]) => `<span><i>${esc(k)}</i><b>${esc(v)}</b></span>`).join('')}</div>` : ''}
+          <div class="pka">${x.url ? `<a class="press lnk" data-act="plink" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${M.icon('mdi:open-in-new', 18)}Åpne i PostNord</a>` : ''}${canUn ? `<button class="press" data-act="pnun" data-v="${esc(x.code)}" data-haptic="off">${M.icon('mdi:package-variant-remove', 18)}Slutt å spore</button>` : ''}${x.sensor ? `<button class="press" data-act="more" data-id="${esc(x.sensor)}">${M.icon('mdi:information-outline', 18)}Detaljer</button>` : ''}</div></div>` : ''}</div>`;
+    }
+    async _pnUntrack(code) {
+      const h = this.hass, S = (h && h.services && h.services.postnord) || {};
+      if (!code || !S.untrack_parcel) { M.haptic('warning'); M.toast(PN_SETUP); return; }
+      try {
+        await h.callService('postnord', 'untrack_parcel', { tracking_code: code });
+        M.haptic('success'); M.toast('Sluttet å spore pakken');
+        if (this._pnLive) this._pnLive.delete('pn:' + code);
+        this.setUI({ pOpen: null });
+      } catch (e) { M.haptic('warning'); M.toast('Kunne ikke fjerne sporingen: ' + ((e && e.message) || e)); }
+    }
     async _pSave() {
       const num = String(this.ui.pNum || '').trim().replace(/\s+/g, '');
       if (num.length < 6) { M.haptic('warning'); M.toast('Skriv inn sporingsnummeret'); return; }
+      // Fiks 40.4: PostNord-kode (…SE/DK/FI eller 11–17 sifre) → postnord.track_parcel. Uten PostNord: som før.
+      const hs = (this.hass && this.hass.services) || {}, pnSvc = !!(hs.postnord && hs.postnord.track_parcel);
+      if (pnLooks(num) && (pnSvc || (pnPresent(this.hass) && (/(SE|DK|FI)$/i.test(num) || !hs.norwegian_parcel_tracker)))) {
+        if (!pnSvc) { M.haptic('warning'); this.setUI({ pMsg: PN_SETUP }); return; }
+        try {
+          await this.hass.callService('postnord', 'track_parcel', { tracking_code: num.toUpperCase() });
+          M.haptic('success'); M.toast('Pakken spores i PostNord'); this.setUI({ pAdd: false, pNum: '', pMsg: null });
+        } catch (e) { M.haptic('warning'); M.toast('Kunne ikke legge til: ' + ((e && e.message) || e)); }
+        return;
+      }
       const h = this.hass, S = (h.services && h.services.norwegian_parcel_tracker) || {};
       const svc = Object.keys(S).find((k) => /add|track|spor/.test(k)) || 'add_parcel';
       try { await h.callService('norwegian_parcel_tracker', svc, { tracking_number: num }); M.haptic('success'); M.toast('Pakken spores'); this.setUI({ pAdd: false, pNum: '' }); } catch (e) { M.haptic('failure'); M.toast('Kunne ikke legge til: ' + ((e && e.message) || e)); }
@@ -1119,7 +1311,7 @@
       if (name === 'hq') { this._ui = { ...this._ui, q: el.value }; clearTimeout(this._qT); this._qT = setTimeout(() => this.update(), kind === 'change' ? 0 : 180); return; }
       if (name === 'bname') this._ui.bName = el.value;
       if (name === 'bdate') this._ui.bDate = el.value;
-      if (name === 'pnum') this._ui.pNum = el.value;
+      if (name === 'pnum') { this._ui.pNum = el.value; if (this._ui.pMsg) this.setUI({ pMsg: null }); }
     }
     onAction(name, el, ev) {
       const d = el.dataset;
@@ -1141,7 +1333,10 @@
         case 'evd': { if (d.cal) M.moreInfo(this, d.cal); return; }
         case 'badd': return this.setUI({ bAdd: !this.ui.bAdd });
         case 'bsave': return this._bSave();
-        case 'padd': return this.setUI({ pAdd: !this.ui.pAdd });
+        case 'padd': return this.setUI({ pAdd: !this.ui.pAdd, pMsg: null });
+        case 'prefresh': if (d.id && this.hass) { Promise.resolve(this.hass.callService('button', 'press', { entity_id: d.id })).then(() => M.toast('Oppdaterer pakkene …')).catch((e) => { M.haptic('warning'); M.toast('Kunne ikke oppdatere: ' + ((e && e.message) || e)); }); } return;
+        case 'pnun': return this._pnUntrack(d.v);
+        case 'plink': return; // lenken åpner PostNord selv (haptic fra basekortet)
         case 'psave': return this._pSave();
         case 'pdel': return this.setUI({ pDel: !this.ui.pDel });
         case 'psel': return this.setUI({ pSel: this.ui.pSel === d.v ? null : d.v }); // 36.6: trykk samme dag igjen → neste utdeling
@@ -1360,6 +1555,13 @@
         .lg.on>i{background:${C.blue}}
         .lg .grow{display:flex;flex-direction:column}.lg b{font-size:13px;font-weight:500}.lg span span{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .pka{display:flex;gap:8px;flex-wrap:wrap}
+        .pka a.lnk{height:44px;padding:0 16px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:inline-flex;align-items:center;gap:6px;font-size:13px;color:${AT(C.blue)};text-decoration:none}
+        .evc>.pkn{display:flex;align-items:center;gap:8px;min-width:0;font-size:inherit;color:inherit}
+        .ctag{height:20px;padding:0 7px;border-radius:10px;flex:none;display:inline-flex;align-items:center;font-size:10px;font-weight:600;background:var(--ki-surface-2, var(--gray300,#404040));color:${AT(C.blue)}}
+        .pkr.open .ctag{background:var(--ki-surface, var(--gray200,#3a3a3a))}
+        .pmsg{flex:1 1 100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;background:${TONE(C.orange, 0.16)};color:${AT(C.orange)};font-size:13px}
+        .pd{position:relative}
+        .pnd{position:absolute;left:50%;bottom:3px;width:5px;height:5px;margin-left:-2.5px;border-radius:3px;background:${C.blue}}
         .pka button:not(.pri){height:44px;padding:0 16px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:inline-flex;align-items:center;gap:6px;font-size:13px}
       `;
     }
@@ -1368,6 +1570,6 @@
   if (!M.POPUP_CARDS.includes('msh-kalender-card')) M.POPUP_CARDS.push('msh-kalender-card'); // «Mellomrom» ligger i Visning-fanen
   M.REF_POPUPS = M.REF_POPUPS || {};
   if (!M.REF_POPUPS[HASH]) M.REF_POPUPS[HASH] = { nav: 'kalender' };
-  M.kalender = { parseQuery, hyttaData, parcelsOf, postData, bdays, cands, legacyOf, monthGrid, weekNo };
+  M.kalender = { parseQuery, hyttaData, parcelsOf, postData, bdays, cands, legacyOf, monthGrid, weekNo, pnParcels, pnSensors, pnLooks, PNS };
   M.define('msh-kalender-card', Kalender, 'MSH Kalender', 'Kalender-popup (#kalender): kalendere, hyttebesøk, Sonarr/Radarr/Plex, bursdager, Posten og pakker.');
 })();

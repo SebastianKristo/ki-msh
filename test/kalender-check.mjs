@@ -126,7 +126,7 @@ const K = await p.evaluate(async () => {
   const after = R.querySelector('.ksrc[data-key="ks-post"]').textContent.replace(/\s+/g, ' ');
   return { heads, sug, hits, noHit, src: ed._config.src, after, focusOk: true };
 });
-ok('Kilder: sju kilder med Auto-merke', K.heads.length === 7 && K.heads.filter((h) => /Auto/.test(h)).length >= 6, K.heads);
+ok('Kilder: åtte kilder (Fiks 40: + PostNord, «Velg entitet» uten integrasjonen) med Auto-merke', K.heads.length === 8 && K.heads.filter((h) => /Auto/.test(h)).length >= 6 && K.heads.some((h) => /^PostNord– · Velg entitet Mangler/.test(h)), K.heads);
 ok('Kilder: forslag (autokonfig) → søk (id+navn) → «Ingen treff»', K.sug[0] === 'sensor.nar_kommer_posten_posten_sensor_next' && K.hits.includes('sensor.pakke_zalando_status') && K.noHit, K);
 ok('Kilder: trykk velger → «Overstyrt»', K.src && K.src.post === 'sensor.pakke_zalando_status' && /Overstyrt/.test(K.after), K);
 if (shots) await p.screenshot({ path: `${shots}/kal-4-tilpass-kilder.png` });
