@@ -73,7 +73,7 @@ const measure = (p) => p.evaluate(() => {
   // linjer: samle unike topp-verdier for teksten (Range over hele <p>)
   const rg = document.createRange(); rg.selectNodeContents(s);
   const tops = [...new Set([...rg.getClientRects()].map((x) => Math.round(x.top / 4)))];
-  const firstOv = sr.querySelector('.wrap > .tabrow + *');
+  const firstOv = sr.querySelector('.wrap > .tabrow + .body > *'); // 42 C.4: fanens innhold ligger i .body
   return { n: P.length, text: s.textContent, disp: cs.display, fs: cs.fontSize, lh, pw: r.width, ph: r.height, lines: Math.round(r.height / lh), tops: tops.length, pills, nodes, emptyText, loose, color: cs.color, first: firstOv && firstOv.localName, pillBg: pills.length ? getComputedStyle(s.querySelector('.pill')).backgroundColor : null, pillFg: pills.length ? getComputedStyle(s.querySelector('.pill')).color : null };
 });
 
@@ -184,7 +184,8 @@ for (const [tag, name, owner] of [['msh-basseng-card', 'Basseng', 'G3'], ['msh-l
       ok('E · lys: «I dag»-kortet = --ki-surface (hvit), tekst ≥ 4,5:1', x.today === 'rgb(255, 255, 255)' && ratio(x.trl, x.today) >= 4.5 && ratio(x.dhd, bg) >= 4.5, x);
       ok('E · lys: toppkortet er en mørk øy (data-theme=dark) med lys tekst', x.heroIsland === 'dark' && x.heroText === 'rgb(250, 250, 250)', x);
     } else {
-      ok('E · mørk (uten tokens): uendret – setning #fafafa, piller #fafafa/#141414, «I dag» #3a3a3a, #afafaf/#979797', m.color === 'rgb(250, 250, 250)' && m.pillBg === 'rgb(250, 250, 250)' && m.pillFg === 'rgb(20, 20, 20)' && x.today === 'rgb(58, 58, 58)' && x.trl === 'rgb(175, 175, 175)' && /151, 151, 151|0\.592\d* 0\.592\d* 0\.592/.test(x.dhd), { m: [m.color, m.pillBg, m.pillFg], x });
+      // 42 C.4 (Basseng v4 popup): «I dag»-radene 15 px #fafafa, dato 13 px #a8a8a8
+      ok('E · mørk (uten tokens): uendret – setning #fafafa, piller #fafafa/#141414, «I dag» #3a3a3a, rader #fafafa, dato #a8a8a8', m.color === 'rgb(250, 250, 250)' && m.pillBg === 'rgb(250, 250, 250)' && m.pillFg === 'rgb(20, 20, 20)' && x.today === 'rgb(58, 58, 58)' && x.trl === 'rgb(250, 250, 250)' && /168, 168, 168/.test(x.dhd), { m: [m.color, m.pillBg, m.pillFg], x });
     }
     await p.close();
   }

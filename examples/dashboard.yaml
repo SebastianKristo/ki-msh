@@ -1120,9 +1120,9 @@ views:
               - type: custom:msh-person-card
 
 # ----------------------------------------------------------------------------------------------------------------------
-# Manuelt · Basseng (valgfritt). Strategien lager IKKE lenger noen bassengpopup (#badebasseng/#basseng er slettet), og
-# navbaren har ingen innebygd basseng-knapp. Vil du ha bassengkortet, legg det i en egen popup – f.eks. som
-# «Egen popup» i «Tilpass Hjem» → Popups, eller i dette dashbordet (lim inn under cards: over og fjern kommentartegnene):
+# Manuelt · Basseng (valgfritt). Strategi-dashbordet lager #basseng selv (Fiks 42 Del C: autodeteksjon eller Tilpass Hjem →
+# Popups → Basseng på). I et manuelt dashbord som dette legges bassengkortet i en egen popup (lim inn under cards: over og
+# fjern kommentartegnene):
 #
 #          - type: custom:bubble-card
 #            card_type: pop-up
@@ -1141,5 +1141,5 @@ views:
 #              - type: custom:msh-basseng-card
 #                card_id: pop-basseng
 #
-# Bruk ikke #basseng/#badebasseng/#pool/#svommebasseng som hash i strategi-dashbordet: gamle bassengpopups der uten
-# msh-basseng-card droppes av strategien. En navbar-knapp lages som egen knapp (Tilpass navbar → Ny knapp → popupen).
+# I strategi-dashbordet droppes gamle bassengpopups uten msh-basseng-card på #basseng/#badebasseng/#pool/#svommebasseng
+# (den genererte #basseng tar over). En navbar-knapp lages som egen knapp (Tilpass navbar → Ny knapp → popupen).

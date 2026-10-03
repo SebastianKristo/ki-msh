@@ -15,7 +15,7 @@
     :host{--sk-surface:var(--ki-surface, #3a3a3a);--sk-surface-2:var(--ki-surface-2, #404040);--sk-surface-3:var(--ki-surface-3, #2f2f2f);--sk-popup:var(--ki-popup, #282828);
       --sk-text:var(--ki-text, #fafafa);--sk-text-2:var(--ki-text-2, #afafaf);--sk-mute:var(--ki-text-3, #7f7f7f);--sk-mid:var(--ki-text-mid, #979797);--sk-dim:var(--gray500, #696969);
       --sk-g9:var(--ki-text-1, #c7c7c7);--sk-g4:var(--ki-ctrl, #545454);--sk-ring-off:var(--ki-surface-2, #404040);--sk-line:var(--ki-line, rgba(255,255,255,0.06));--sk-line-2:var(--ki-line, rgba(255,255,255,0.1));
-      --sk-on-acc:var(--ki-on-accent, #282828);--sk-tk:var(--ki-tone-k, 1);--sk-tone-tx:100%;--sk-shadow:var(--ki-card-sh, none);
+      --sk-on-acc:var(--ki-on-accent, #282828);--sk-on-sens:var(--ki-on-accent, #1c2a22);--sk-tk:var(--ki-tone-k, 1);--sk-tone-tx:100%;--sk-shadow:var(--ki-card-sh, none);
       --sk-amber:var(--ki-amber-text, var(--orange, #f2b573));--sk-blue:var(--ki-blue-text, var(--blue, #73b9f2));--sk-green:var(--ki-green-text, var(--green, #66d19e));
       --sk-red:var(--ki-red-text, var(--red, #f28073));--sk-purple:var(--ki-purple-text, var(--purple, #ad99e6));--sk-pink:var(--ki-pink-text, var(--pink, #f285c9));color:var(--sk-text)}
     :host([data-ki-theme=light]){--sk-surface:var(--ki-surface, #ffffff);--sk-surface-2:var(--ki-surface-2, #ebebeb);--sk-surface-3:var(--ki-surface-3, #dedede);--sk-popup:var(--ki-popup, #f0f0f0);
@@ -524,7 +524,7 @@
       const totAl = rooms.reduce((n, r) => n + r.nAl, 0), totMv = rooms.reduce((n, r) => n + r.nMv, 0), calm = rooms.filter((r) => !r.hot);
       const seg = [['rom', 'Rom'], ['type', 'Type']].map(([k, l]) => `<button class="rsg ${view === k ? 'on' : ''}" data-act="rview" data-v="${k}" data-haptic="selection" aria-pressed="${view === k}">${l}</button>`).join('');
       const stat = (n, label, col) => `<div class="rst" style="${n && col ? `background:${tone(col, 12)}` : ''}"><span class="rsn" style="${n && col ? `color:${toneTx(col)}` : ''}">${n}</span><span class="rsl">${label}</span></div>`;
-      const mid = (x) => { const col = colorOf(x); return `<span class="smid" style="${col ? `background:${col};color:var(--sk-on-acc)` : ''}">${M.icon(iconOf(x), 17)}</span>`; };
+      const mid = (x) => { const col = colorOf(x); return `<span class="smid${col ? ' on' : ''}" style="${col ? `background:${col}` : ''}">${M.icon(iconOf(x), 17)}</span>`; };
       let body = '';
       if (view === 'type') {
         const groups = ['door', 'window', 'lock', 'motion', 'presence'].map((t) => {
@@ -760,12 +760,13 @@
         .rsl{font-size:12px;color:var(--sk-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rac{width:100%;text-align:left;display:flex;align-items:center;gap:12px;min-height:72px;padding:0 14px 0 12px;border-radius:24px;transition:transform .12s}
         .rac:active{transform:scale(.98)}
-        .raic{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;color:var(--sk-on-acc)}
+        .raic{width:48px;height:48px;border-radius:24px;flex:none;display:grid;place-items:center;color:var(--sk-on-sens)}
         .rat{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
         .ran{font-size:15px;font-weight:600;overflow-wrap:anywhere}
         .rsub{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sk-mid)}
         .ram{display:flex;gap:4px;flex:none}
         .smid{width:30px;height:30px;border-radius:15px;flex:none;display:grid;place-items:center;background:var(--sk-surface-3);color:var(--sk-mid)}
+        .smid.on{color:var(--sk-on-sens)} /* Del 44: aktiv sensor på aksentflate – mørkt ikon (Rom v4 sensors) */
         .rcalm{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
         .rpl{min-height:56px;box-sizing:border-box;padding:8px 12px 8px 8px;border-radius:28px;display:flex;align-items:center;gap:10px;min-width:0;background:var(--sk-surface);box-shadow:inset 0 0 0 1px var(--sk-line),var(--sk-shadow);transition:background .2s,transform .12s}
         .rpl:active{transform:scale(.97)}

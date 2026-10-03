@@ -610,6 +610,7 @@
       return M.isFold(w); // fiks 18.7: Fold-oppsettet – ≥ 1000 px, berøring ≥ 600 px (Fold åpen, iPad, PC)
     }
     _badge(N, id) {
+      if (String(id).startsWith('__')) return null; // Del 44: interne knapper (Mer, verktøy) har aldri varselprikk
       const R = N.badges[id];
       if (!Array.isArray(R) || !R.length) return null;
       const hit = R.find((x) => ruleHit(x, this.s(x.entity)));
@@ -748,8 +749,9 @@
       const tools = [];
       if (c.admin_tools !== false) {
         // Fiks 17.27: verktøyene har samme farge som menypunktene over (glass: #fafafa via .mbox.glass .mi) – bare streken skiller
-        // 24.5: én «Tilpass»-knapp (arket med Tilpass alt · Hjem · navbar · header · Kiosk-modus). Prikk = nye rom/funksjoner usjekket (23.7)
-        tools.push(item('__tilpass', 'tune', 'Tilpass', 'var(--ki-text, var(--gray000,#232323))', 'mtool', M.tilpassAltDot && M.tilpassAltDot()));
+        // 24.5: én «Tilpass»-knapp (arket med Tilpass alt · Hjem · navbar · header · Kiosk-modus).
+        // Del 44: verktøy-raden under streken er bare snarveier – aldri prikk/badge/teller (Hjem v3 menuTools).
+        tools.push(item('__tilpass', 'tune', 'Tilpass', 'var(--ki-text, var(--gray000,#232323))', 'mtool'));
       }
       const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--ki-text, var(--gray000,#232323))', 'go', this._badge(N, id)); }).join('');
       // Fiks 19.9: bunn-navbar med mini-spiller → menyen løftes over mini-spilleren (målt høyde + 10) og max-height minskes like mye

@@ -158,7 +158,8 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
 /* ---------------------------------------------------------------- 27.4 + 27.8 · Tilpass Vær: søk, steder, dra og slipp */
 {
   const p = await page({ width: 390, height: 900 });
-  await mk(p, { places: [{ name: 'Hjem', entity: 'weather.home' }, { name: 'Hytta', entity: 'weather.hytta' }] }, 'partlycloudy');
+  // Fiks 42: alle weather.* er med automatisk – Jobb Oslo er fjernet (exclude), så den kan legges til igjen som «Jobb»
+  await mk(p, { places: [{ name: 'Hjem', entity: 'weather.home' }, { name: 'Hytta', entity: 'weather.hytta' }], exclude: ['weather.oslo_sentrum'] }, 'partlycloudy');
   const S = await p.evaluate(async () => {
     const w = (ms) => new Promise((q) => setTimeout(q, ms));
     const c = window.__c; c.setUI({ place: 1 }); await w(50); // Hytta valgt
@@ -201,16 +202,16 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
     const live = rows().map((e) => e.querySelector('.rl').textContent);
     window.dispatchEvent(new PointerEvent('pointerup', o(r0.top + 5))); await w(120);
     window.__pop.removeEventListener('pointerdown', spy);
-    const draft = c._sheet.box._config.places.map((x) => x.name), sel = c.ui.place;
+    const draft = (c._sheet.box._config.order || []).map((id) => window.MSH.vaerPlaces(c.hass, c._sheet.box._config).find((x) => x.id === id).name), sel = c.ui.place;
     R.querySelector('[data-a="done"]').click(); await w(900);
     const ctl = window.__c.shadowRoot.querySelector('.ctl-slot > .msh-vaer-ctl').shadowRoot;
     ctl.querySelector('.pl').click(); await w(60);
     const menu = [...ctl.querySelectorAll('.mi .mnm')].map((e) => e.textContent), on = ctl.querySelector('.mi.on .mnm').textContent, lab = ctl.querySelector('.pl .pn').textContent;
     ctl.querySelector('[data-a="close"]').click();
-    return { ta, lifted, live, draft, sel, saved: (c._rawConfig.places || []).map((x) => x.name), menu, on, lab, bubbled };
+    return { ta, lifted, live, draft, sel, saved: (c._rawConfig.order || []).map((id) => window.MSH.vaerPlaces(c.hass, c._rawConfig).find((x) => x.id === id).name), menu, on, lab, bubbled };
   });
   ok('27.8 håndtak: touch-action none, stopPropagation, løft + live omorganisering', Dg.ta === 'none' && !Dg.bubbled && Dg.lifted && Dg.live.join('|') === 'Hytta|Hjem|Jobb', Dg);
-  ok('27.8 rekkefølgen lagres i places; stedsvelgeren følger rekkefølgen og valgt sted beholdes', Dg.draft.join('|') === 'Hytta|Hjem|Jobb' && Dg.saved.join('|') === 'Hytta|Hjem|Jobb' && Dg.sel === 0 && Dg.menu.join('|') === 'Hytta|Hjem|Jobb' && Dg.on === 'Hytta' && Dg.lab === 'Hytta', Dg);
+  ok('27.8 rekkefølgen lagres i order (Fiks 42); stedsvelgeren følger rekkefølgen og valgt sted beholdes', Dg.draft.join('|') === 'Hytta|Hjem|Jobb' && Dg.saved.join('|') === 'Hytta|Hjem|Jobb' && Dg.sel === 'weather.hytta' && Dg.menu.join('|') === 'Hytta|Hjem|Jobb' && Dg.on === 'Hytta' && Dg.lab === 'Hytta', Dg);
   if (shots) await p.screenshot({ path: `${shots}/vaer27-tilpass.png` });
 
   // 27.4 · GUI-editoren: ha-selector {entity: {domain: 'weather'}} per sted + «Legg til sted» (stub av ha-selector)
@@ -222,19 +223,20 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
     ed.hass = window.__h; ed.setConfig({ type: 'custom:msh-vaer-card', card_id: 'gui-vaer27', places: [{ name: 'Hjem', entity: 'weather.home' }] });
     let last = null; ed.addEventListener('config-changed', (e) => { last = e.detail.config; });
     await w(200);
-    const R = ed.shadowRoot, s0 = R.querySelector('ha-selector[data-name="places.0.entity"]'), add = R.querySelector('ha-selector[data-vpadd]');
+    // Fiks 42: én rad per sted (alle weather.* automatisk), ha-selector[data-vpe] = bytt entitet, ↑/↓ → order
+    const R = ed.shadowRoot, s0 = R.querySelector('ha-selector[data-vpe]'), add = R.querySelector('ha-selector[data-vpadd]');
     const sel0 = s0 && s0.selector, val0 = s0 && s0.value;
     add.dispatchEvent(new CustomEvent('value-changed', { detail: { value: 'weather.hytta' }, bubbles: true, composed: true })); await w(80);
     const p1 = last && last.places;
-    const s1 = R.querySelector('ha-selector[data-name="places.1.entity"]');
+    const s1 = R.querySelector('ha-selector[data-vpe="weather.hytta"]');
     s1.dispatchEvent(new CustomEvent('value-changed', { detail: { value: 'weather.oslo_sentrum' }, bubbles: true, composed: true })); await w(80);
-    const p2 = last && last.places;
+    const p2 = last && { places: last.places, exclude: last.exclude };
     R.querySelector('[data-op="up"][data-i="1"]').click(); await w(80);
-    const p3 = last && last.places;
+    const p3 = last && last.order;
     ed.remove();
     return { sel0, val0, p1, p2, p3 };
   });
-  ok('27.4 GUI: ha-selector {entity:{domain:weather}} per sted, «Legg til sted», bytte entitet, ↑/↓ – lagres i places [{name, entity}]', G.sel0 && G.sel0.entity && G.sel0.entity.domain === 'weather' && G.val0 === 'weather.home' && G.p1 && G.p1.map((x) => x.entity).join() === 'weather.home,weather.hytta' && G.p1[1].name === 'Hytta' && G.p2[1].entity === 'weather.oslo_sentrum' && G.p3.map((x) => x.entity).join() === 'weather.oslo_sentrum,weather.home', G);
+  ok('27.4/42 GUI: ha-selector {entity:{domain:weather}} per sted, «Legg til sted», bytte entitet, ↑/↓ – places [{id, name}] · exclude · order', G.sel0 && G.sel0.entity && G.sel0.entity.domain === 'weather' && G.val0 === 'weather.home' && G.p1 && G.p1.map((x) => x.id).join() === 'weather.home,weather.hytta' && G.p1[0].name === 'Hjem' && G.p2.places.map((x) => x.id).join() === 'weather.home,weather.oslo_sentrum' && (G.p2.exclude || []).join() === 'weather.hytta' && (G.p3 || []).join() === 'weather.oslo_sentrum,weather.home', G);
   await p.close();
 }
 

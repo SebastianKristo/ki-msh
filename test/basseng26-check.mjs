@@ -1,5 +1,5 @@
-// Fiks 26.14 · Basseng: ÉTT kort msh-basseng-card (manuell popup – bassengpopupene er slettet) – toppkort → prosalinje → faner
-// → innhold; hurtigknapper Lys · Pumpe · Varme · Stille (lyd av) · Stikkontakt autokonfigurert etter rolle-tabellen,
+// Fiks 26.14 · Basseng: ÉTT kort msh-basseng-card – (Fiks 42 C.4: «Basseng v4 popup») toppkort → hurtigknapper → faner
+// → innhold (setningen først i Oversikt); hurtigknapper Lys · Pumpe · Varme · Stille (lyd av) · Stikkontakt autokonfigurert etter rolle-tabellen,
 // overrides/exclude/include, migrering av `hurtig:`/navn/hero-kort og basseng-v3-cfg, strategien (importerte droppes),
 // bunnluft uten gap-card og «Tilpass basseng» ↔ getConfigElement.   node test/basseng26-check.mjs  (SHOTS=<mappe>)
 import { createRequire } from 'node:module';
@@ -71,17 +71,17 @@ let L = await p.evaluate(() => {
   const sr = window.__c.shadowRoot, card = sr.querySelector('ha-card'), kids = [...card.children].map((e) => e.className || e.localName);
   const wrap = sr.querySelector('.wrap'), W = [...wrap.children].map((e) => e.className.split(' ').filter((x) => x !== 'press').join('.'));
   const hero = sr.querySelector('.msh-hero-slot msh-basseng-hero-card');
-  return { kids, W, hero: !!hero, heroT: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.t') ? hero.shadowRoot.querySelector('.t').textContent : null, heroN: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.lbl') ? hero.shadowRoot.querySelector('.lbl').textContent : null, prose: sr.querySelector('p.sent').textContent.replace(/\s+/g, ' ').trim(), first: sr.querySelector('.wrap > .tabrow + *') && sr.querySelector('.wrap > .tabrow + *').localName, tabs: [...sr.querySelectorAll('.gti')].map((e) => e.textContent), inner: [...document.querySelector('.inner').children].map((e) => e.localName), w: Math.round(window.__c.getBoundingClientRect().width), iw: Math.round(document.querySelector('.inner').getBoundingClientRect().width) - 36 };
+  return { kids, W, hero: !!hero, heroT: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.t') ? hero.shadowRoot.querySelector('.t').textContent : null, heroN: hero && hero.shadowRoot && hero.shadowRoot.querySelector('.lbl') ? hero.shadowRoot.querySelector('.lbl').textContent : null, prose: sr.querySelector('p.sent').textContent.replace(/\s+/g, ' ').trim(), first: (sr.querySelector('.wrap > .tabrow + .body > *') || {}).localName, tabs: [...sr.querySelectorAll('.gti')].map((e) => e.textContent), inner: [...document.querySelector('.inner').children].map((e) => e.localName), w: Math.round(window.__c.getBoundingClientRect().width), iw: Math.round(document.querySelector('.inner').getBoundingClientRect().width) - 36 };
 });
 ok('A · ett kort i popupen', L.inner.join() === 'msh-basseng-card', L.inner);
-ok('A · rekkefølge: toppkort → faner → Oversikt med setningen først (fiks 33.1)', L.kids[0] === 'msh-hero-slot' && L.hero && L.W[0] === 'tabrow' && L.first === 'p', L);
+ok('A · rekkefølge (Basseng v4 popup): toppkort → hurtigknapper → faner → Oversikt med setningen først (fiks 33.1)', L.kids[0] === 'msh-hero-slot' && L.hero && L.W.join() === 'ctl,tabrow,body' && L.first === 'p', L);
 ok('A · toppkortet viser vanntemperatur 26,4', /26,4/.test(L.heroT || ''), L.heroT);
 ok('A · setningen «Vannet når 28° om ca X t Y min. Pumpa går nå.» (fiks 33.1)', /^Vannet når 28° om ca \d+ t \d+ min\. Pumpa går nå\.$/.test(L.prose), L.prose);
 ok('A · faner Oversikt · Varme · Klor skjules uten data (Klor/Spreder uten entiteter)', L.tabs.join('|') === 'Oversikt|Varme', L.tabs);
 ok('A · fyller bredden (390 px)', Math.abs(L.w - L.iw) <= 2, [L.w, L.iw]);
 let Q = await quick(p);
-ok('A · fem hurtigknapper funnet automatisk: Lys, Pumpe, Varme, Stille, Stikkontakt',
-  Q.join(',') === 'light=light.bassenglys|Lys,pump=switch.bassengpumpe|Pumpe,heat=climate.basseng_bassengvarmepumpe|Varme,quiet=switch.baseng_basengvarmepumpe_stillemodus|Stille,sock=switch.baseng_stikkontakt|Stikkontakt', Q);
+ok('A · fem hurtigknapper funnet automatisk: Lys, Pumpe, Varme, Stille, Kontakt (designets navn)',
+  Q.join(',') === 'light=light.bassenglys|Lys,pump=switch.bassengpumpe|Pumpe,heat=climate.basseng_bassengvarmepumpe|Varme,quiet=switch.baseng_basengvarmepumpe_stillemodus|Stille,sock=switch.baseng_stikkontakt|Kontakt', Q);
 await shot(p, 'a-oversikt');
 await clearCalls(p);
 await click(p, '.tile[data-k="quiet"]');
@@ -91,8 +91,9 @@ await clearCalls(p);
 await click(p, '.tile[data-k="heat"]');
 CA = await calls(p);
 ok('A · «Varme» slår av climate', CA.some((c) => c[0] === 'climate' && c[1] === 'turn_off' && c[2].entity_id === 'climate.basseng_bassengvarmepumpe'), CA);
-L = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { graf: !!sr.querySelector('[data-key="ovgraf"] svg.chart'), mx: (sr.querySelector('[data-key="ovgraf"] .hch') || {}).textContent }; });
-ok('A · Oversikt har temperaturgraf med maks og min', L.graf && /maks .*min /s.test(L.mx || ''), L);
+// 42 C.4: grafen ligger i toppkortet når Varme er valgt (24 t · 3 d · 7 d, stiplet mållinje), som i designet
+L = await p.evaluate(async () => { window.__c.setUI({ tab: 'heat' }); await new Promise((q) => setTimeout(q, 400)); const hs = window.__c.shadowRoot.querySelector('msh-basseng-hero-card').shadowRoot; return { graf: !!hs.querySelector('[data-scene="heat"] svg.hg path'), ranges: [...hs.querySelectorAll('.rg')].map((x) => x.textContent).join('|'), kicker: hs.querySelector('.lbl').textContent, target: !!hs.querySelector('svg.hg line') }; });
+ok('A · Varme: toppkortet viser vanntemperatur-graf med 24 t · 3 d · 7 d og mållinje', L.graf && L.ranges === '24 t|3 d|7 d' && L.kicker === 'Vanntemperatur' && L.target, L);
 await p.close();
 
 // ---------------- overrides / exclude / include (YAML-form)
@@ -130,7 +131,7 @@ ok('E · basseng-v3-cfg → overrides/controls/hidden_controls/tabs/vals/anim i 
   N.overrides.spr === 'switch.hage_spreder' && N.overrides.klor_calendar === 'calendar.klor' && N.controls.join() === 'pump,light,quiet' && N.hidden_controls.join() === 'light' && N.tabs[0] === 'klor' && N.vals.turnovers === '4' && N.vals.price_ctrl === false && N.anim === false, N);
 await p.close();
 
-// ================================================================ F · strategien: bassengpopupene er slettet – importerte droppes
+// ================================================================ F · strategien: gamle importerte bassengpopups droppes (#basseng genereres, 42 C)
 p = await page({}, {});
 let S = await p.evaluate(() => {
   const M = window.MSH;
@@ -143,7 +144,7 @@ let S = await p.evaluate(() => {
   return { pops: r.popups.map((x) => x.hash), dropped: r.report.dropped.map((x) => x.hash), r2: r2.popups.map((x) => x.hash + ':' + x.cards[0].type), d2: r2.report.dropped.length, fn: M.FUNCTION_POPUPS.some((f) => f[3] === 'msh-basseng-card'), alias: M.canonHash('#basseng') };
 });
 ok('F · importert gammel #basseng droppes (også med «Bruk egen») – ingen popup tas over', !S.pops.length && S.dropped.join() === '#basseng', S);
-ok('F · en helt annen #basseng og en manuell popup med msh-basseng-card beholdes; ingen funksjons-popup/alias for basseng', S.r2.join() === '#mitt-basseng:custom:msh-basseng-card,#basseng:markdown' && S.d2 === 0 && !S.fn && S.alias === '#basseng', S);
+ok('F · en helt annen #basseng og en manuell popup med msh-basseng-card beholdes; #basseng er funksjons-popup (42 C), ingen alias', S.r2.join() === '#mitt-basseng:custom:msh-basseng-card,#basseng:markdown' && S.d2 === 0 && S.fn && S.alias === '#basseng', S);
 // manuelt dashbord (M.buildPopups): ingen bassengpopup og ingen rom-popup for området «Basseng» lages
 S = await p.evaluate(async () => {
   const M = window.MSH, h = window.__h;
@@ -154,7 +155,7 @@ S = await p.evaluate(async () => {
   h.callWS = old;
   return { created: r.created, area: !!(h.areas && h.areas.basseng) };
 });
-ok('F · manuelt dashbord («Opprett popups»): ingen #badebasseng/#basseng (heller ikke rom-popup for området)', S.area && S.created.length > 3 && !S.created.some((x) => /basseng|pool/.test(x)), S);
+ok('F · manuelt dashbord («Opprett popups»): #basseng (42 C), ingen #badebasseng og ingen rom-popup for området', S.area && S.created.length > 3 && S.created.filter((x) => /basseng|pool/.test(x)).join() === '#basseng', S);
 await p.close();
 
 // ================================================================ G · editorene og bunnluft

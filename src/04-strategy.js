@@ -111,6 +111,8 @@
   M.popupRefs = popupRefs;
   // Funksjons-popups: når det finnes entiteter for dem (entiteter.md), eller noe peker på dem (M.REF_POPUPS)
   function buildFunctionPopups(R, hass, config, user) {
+    const out = [];
+    const pu = (user && user.popups && user.popups.basseng) || {}, poolEn = typeof pu.enabled === 'boolean' ? pu.enabled : null; // 42 C.3: Tilpass Hjem → Popups
     const has = (dom, f) => M.all(hass, dom, f).length > 0;
     const plat = (...p) => R.entities.some((e) => p.includes(e.platform) && hass.states[e.entity_id]);
     const rx = (re, doms) => Object.keys(hass.states).some((id) => (!doms || doms.includes(id.split('.')[0])) && (re.test(id) || re.test(String(hass.states[id].attributes.friendly_name || '').toLowerCase())));
@@ -136,15 +138,26 @@
       '#innstillinger': () => false, // fiks 26.15: innholdet er nå #settings (msh-innstillinger-card) – #innstillinger bare når noe peker dit
       '#server': () => plat('unifi', 'proxmoxve', 'proxmox_sensors', 'unraid', 'hassio'), // fiks 24.10 / 35: minst én av UniFi Network, Proxmox VE, Unraid eller Home Assistant Supervisor (hassio); UniFi Protect alene gir ikke #server
       '#varmepumpe': () => !!(M.varmepumpeHas && M.varmepumpeHas(hass)), // fiks 26.20: en NIBE-enhet (produsent NIBE, nibe_heatpump/myuplink)
+      '#basseng': () => !!(M.poolWanted && M.poolWanted(hass, poolEn).on), // fiks 42 C: autodeteksjon (område/navn/integrasjon/pH-ORP) eller popups.basseng.enabled
     };
+    // Fiks 42 C.1 · hvorfor en funksjons-popup ikke ble laget (logges i konsollen: console.info('[ki] popups', …))
+    const why = {
+      '#basseng': () => (M.poolWanted ? M.poolWanted(hass, poolEn).reason : 'msh-basseng-card er ikke lastet'),
+      '#dorlas': () => 'ingen lock.*', '#garasje': () => 'ingen cover.* med device_class garage', '#ringeklokke': () => 'ingen UniFi Protect-ringeklokke',
+      '#tesla': () => 'ingen Tesla-entiteter', '#rolf': () => 'ingen vacuum.*', '#varmepumpe': () => 'ingen NIBE-enhet', '#innstillinger': () => 'innholdet er #settings – lages bare når noe peker dit',
+      '#server': () => 'ingen UniFi/Proxmox/Unraid/Supervisor', '#ruter': () => 'ingen Entur-sensor', '#soppel': () => 'ingen avfallssensor (days_to_pickup)',
+    };
+    const skipped = (out.skipped = {});
+    const skip = (hash, r) => { skipped[hash] = r; };
     const hide = (config.popups || {});
-    const out = [];
     M.FUNCTION_POPUPS.forEach(([hash, name, icon, tag]) => {
       const key = hash.slice(1);
-      if (hide[key] === false || (M.hashAliasesOf || (() => []))(hash).some((a) => hide[a.slice(1)] === false)) return; // 30.1: alias-nøkkelen (popups.nibe: false) skjuler fortsatt
-      if (cond[hash] && !cond[hash]() && !popupRefs(hash, config, user)) return;
-      if (M.popupNeeds && M.popupNeeds[hash] && !M.popupNeeds[hash](hass)) return; // Dørlås: aldri uten lock.*
+      if (hide[key] === false || (M.hashAliasesOf || (() => []))(hash).some((a) => hide[a.slice(1)] === false)) return skip(hash, `skjult i strategi-configen (popups.${key}: false)`); // 30.1: alias-nøkkelen (popups.nibe: false) skjuler fortsatt
+      if (cond[hash] && !cond[hash]() && !popupRefs(hash, config, user)) return skip(hash, why[hash] ? why[hash]() : 'ingen entiteter funnet');
+      if (hash === '#basseng') { if (!cond[hash]()) return skip(hash, why[hash]()); } // 42 C.3: slått av = av, også når noe peker dit
+      else if (M.popupNeeds && M.popupNeeds[hash] && !M.popupNeeds[hash](hass)) return skip(hash, why[hash] ? why[hash]() : 'mangler påkrevde entiteter'); // Dørlås: aldri uten lock.*
       const ex = M.POPUP_EXTRA && typeof M.POPUP_EXTRA[hash] === 'function' ? M.POPUP_EXTRA[hash](config) : undefined; // 25.4: oppsett fra en importert popup (#soppel)
+      if (typeof customElements !== 'undefined' && !customElements.get(tag)) (out.unregistered = out.unregistered || []).push(tag); // 42 C.1: logges (kortet er ikke registrert ennå)
       out.push({ hash, name, icon, tag, ...(hash === '#kalender' && M.kalenderExtra ? { extra: M.kalenderExtra(config) } : ex ? { extra: ex } : {}) }); // 23.8: kildene fra de gamle kortene → src
     });
     M.all(hass, 'person').forEach((pid) => {
@@ -247,7 +260,7 @@
     const cand = new Map(); // hash → [{ source, index, config, meta }]
     const order = [];
     const push = (source, cfg, index, meta) => {
-      // Basseng slettet · importerte/egne gamle bassengpopups (MSH.POPUP_DROP, 40-basseng.js) droppes – de tas ikke over
+      // Gamle importerte bassengpopups (MSH.POPUP_DROP, 40-basseng.js) droppes – den genererte #basseng tar over
       const DROP = source !== 'auto' && isObj(cfg) && Object.keys(M.POPUP_DROP || {}).find((k) => { try { return !!M.POPUP_DROP[k].test(cfg); } catch (e) { return false; } });
       if (DROP) { report.dropped.push({ source, index, hash: normHash(cfg.hash), name: cfg.name || normHash(cfg.hash), by: M.POPUP_DROP[DROP].name || DROP }); return; }
       // Fiks 26.14 · gammel hash for en generert popup (M.POPUP_ALIAS, f.eks. importert #nibe → #varmepumpe)
@@ -483,15 +496,11 @@
     config = config || {};
     M.FALLBACK = { temperature: config.fallback_temperature || 'sensor.hus_temperature', humidity: config.fallback_humidity || 'sensor.hus_fuktighet' };
     if (M.store) await M.store.load(hass);
-    // Basseng slettet · engangsmigrering av ki-store (40-basseng.js) før alt annet leses: alle bassengpopups,
-    // -overstyringer, -valg, navbar-knapper og lenker til #basseng/#badebasseng/#pool/#svommebasseng fjernes
-    // (logget, migrations.basseng_fjernet)
-    if (M.bassengMigrateStore) M.bassengMigrateStore(hass);
     const user = (M.store && (M.store.view ? M.store.view() : M.store.get())) || {};
     const R = await registries(hass);
     const funcs = buildFunctionPopups(R, hass, config, user);
     const fHash = new Set(funcs.map((f) => f.hash));
-    const rooms = buildRooms(R, hass, config, user).filter((r) => !fHash.has('#' + r.id) && !(M.HASH_ALIAS && M.HASH_ALIAS['#' + r.id]) && !(M.roomBlocked && M.roomBlocked(hass, r.id))); // samme hash som en funksjon → funksjons-popupen vinner; basseng slettet: aldri rom-popup for området «Basseng»/«Pool»
+    const rooms = buildRooms(R, hass, config, user).filter((r) => !fHash.has('#' + r.id) && !(M.HASH_ALIAS && M.HASH_ALIAS['#' + r.id]) && !(M.roomBlocked && M.roomBlocked(hass, r.id))); // samme hash som en funksjon → funksjons-popupen vinner; ingen rom-popup for området «Basseng»/«Pool» mens #basseng er på (M.ROOM_BLOCK)
     const uo = (hash) => popOf(user, hash) || {}; // «Tilpass Hjem» → Popups: navn/ikon/ikonfarge på genererte
     const I = M.CARD_IDS;
     const home = { type: 'custom:msh-hjem-card', card_id: I.home, ...(config.home || {}), cards: {
@@ -528,6 +537,14 @@
     const S = M.store ? M.store.get() || {} : {};
     const res = M.mergePopups({ auto, yaml: config.custom_popups, custom: S.custom_popups, yamlOverrides: config.popup_overrides, storeOverrides: S.popup_overrides, userPopups: (user && user.popups) || {} });
     M.popupReport = res.report;
+    // Fiks 42 C.1 · diagnose: hvilke popups som ble laget og hvilke som ble hoppet over (og hvorfor) – én linje per generering
+    res.report.skipped = Object.keys(funcs.skipped || {}).map((hash) => ({ hash, key: hash.slice(1), reason: funcs.skipped[hash] }));
+    try {
+      const hid = res.report.entries.filter((e) => e.hidden).map((e) => [e.hash, `skjult (${e.hiddenBy === 'yaml' ? 'popup_overrides i strategi-YAML' : e.hiddenBy === 'store' ? 'popup_overrides i ki-store' : 'Tilpass Hjem → Popups'})`]);
+      const sk = { ...Object.fromEntries(hid), ...(funcs.skipped || {}) };
+      (res.report.dropped || []).forEach((d) => { sk[d.hash || '?'] = `droppet: ${d.by}`; });
+      console.info('[ki] popups', { generert: res.popups.map((p) => p.hash).join(' '), hoppet_over: sk, ...(funcs.unregistered ? { ikke_registrert: funcs.unregistered } : {}) });
+    } catch (e) { /* */ }
     // Fiks 16.12 · maler løses her (button-card/decluttering-card/paper-buttons-row), så kortene ikke er avhengige av at
     // lovelace.config har rotnøklene når de lages. Rotnøklene returneres i tillegg (for kort lagt til manuelt).
     if (M.resolveTemplates) {

@@ -166,7 +166,8 @@ ok('40.2 delivered → grå «Levert», «Levert i går 12:04», sist i lista', 
 const O = await p.evaluate(async () => { await setCfg({ postnord_outgoing: true }); const r = rows().find((x) => x.key === 'pk-pn:UF823456789SE'); await setCfg({ postnord_outgoing: undefined }); return r; });
 ok('40.1 postnord_outgoing: true → utgående pakke vises («Til Mormor …»)', O && /^Til Mormor · /.test(O.meta), O);
 // 40.5 Oppdater
-const U = await p.evaluate(async () => { window.__calls.length = 0; const b = sr().querySelector('.sh [data-act="prefresh"]'); const next = b && b.nextElementSibling && b.nextElementSibling.dataset.act; b.click(); await sleep(150); return { next, calls: window.__calls.filter((c) => c[0] === 'button') }; });
+// Fiks 42: «Oppdater» i Pakker-headeren bare når PostNord-seksjonen (med egen oppdater-knapp) er skjult
+const U = await p.evaluate(async () => { await setCfg({ section_hidden: { posten: ['postnord'] } }); window.__calls.length = 0; const b = sr().querySelector('.sh [data-act="prefresh"]'); const next = b && b.nextElementSibling && b.nextElementSibling.dataset.act; b.click(); await sleep(150); const r = { next, calls: window.__calls.filter((c) => c[0] === 'button') }; await setCfg({ section_hidden: undefined }); return r; });
 ok('40.5 «Oppdater» ved siden av «+» trykker button.postnord_refresh', U.next === 'padd' && U.calls.length === 1 && U.calls[0][1] === 'press' && U.calls[0][2].entity_id === 'button.postnord_refresh', U);
 // 40.4 «+»
 const add = (code) => p.evaluate(async (code) => {
@@ -215,7 +216,7 @@ const EV = await p.evaluate(async () => {
   c._render = orig;
   return { types, r1, renders2: renders, gone: !sr().querySelector('.pkr[data-key="pk-pn:UB223456789SE"]') };
 });
-ok('40.5 Abonnerer på nøyaktig de tre hendelsene mens popupen er åpen', EV.types.join() === 'postnord_parcel_delivered,postnord_parcel_delivery_time_changed,postnord_parcel_status_changed', EV.types);
+ok('40.5 Abonnerer på nøyaktig de tre hendelsene (+ entity_registry_updated, Fiks 42) mens popupen er åpen', EV.types.join() === 'entity_registry_updated,postnord_parcel_delivered,postnord_parcel_delivery_time_changed,postnord_parcel_status_changed', EV.types);
 ok('40.5 status_changed (samme plass) → bare raden byttes, ingen ny tegning', EV.r1.renders === 0 && EV.r1.replaced && /Under transport/.test(EV.r1.text) && EV.r1.otherKept, EV.r1);
 ok('40.5 delivered → lista tegnes, pakken forsvinner fra aktive', EV.renders2 >= 1 && EV.gone, EV);
 // 40.5 blå prikk
@@ -228,7 +229,7 @@ const CL = await p.evaluate(async () => {
   location.hash = '#kalender'; await sleep(500);
   return { off, un: un.length, on: window.SUBS.filter((s) => s.on).length };
 });
-ok('40.5 Lukk → avmeldt (3), åpne igjen → abonnert på nytt (3)', CL.off === 0 && CL.un === 3 && CL.on === 3, CL);
+ok('40.5 Lukk → avmeldt (4), åpne igjen → abonnert på nytt (4)', CL.off === 0 && CL.un === 4 && CL.on === 4, CL);
 const DC = await p.evaluate(async () => { window.__c.remove(); await sleep(100); return window.SUBS.filter((s) => s.on).length; });
 ok('40.5 disconnectedCallback → avmeldt', DC === 0, DC);
 // editorene

@@ -4,7 +4,7 @@
  * Rekkefølge (standard, endres i «Tilpass været»): Toppkort (karusell: Været nå med heroFx · Andre varsler · Pollen, prikker)
  * · Farevarsler (utvidbare, skjult uten varsler) · Time for time · Dagskort (utvidbare, én åpen) · Detaljkort (2×N) · Månefase
  * · stedsvelger + «Tilpass Vær» (sticky nederst etter siste seksjon, 28.1).
- * Config (28.1): style (scene | klassisk) · places [{ name, entity }] · sections { alerts, hours, days, tiles: true/false }
+ * Config (28.1): style (scene | klassisk) · places [{ id, name }] · exclude [id] · order [id] (Fiks 42: alle weather.* er steder automatisk) · sections { alerts, hours, days, tiles: true/false }
  *   · tile_order [...] · section_order [hero, alerts, hours, days, tiles, moon] (Klassisk) · hidden_sections [] · hidden_tiles []
  *   · hours (24) · days (7) · show_extras · show_pollen · show_graph (valgfri temperaturgraf etter timene)
  *   Gamle nøkler (stil, hide, sections som liste, tiles) leses som alias og migreres (normCfg).
@@ -551,14 +551,85 @@
     return d;
   };
   M.vaerSmooth = smooth;
-  // Steder (26.25): places: [{ name, entity }] – tom → Hjem (værentiteten fra autokonfig/overrides)
-  const placesOf = (h, c) => {
-    const L = (Array.isArray(c.places) ? c.places : []).filter((p) => p && p.entity).map((p) => ({ name: p.name || (h && h.states[p.entity] ? M.name(h, p.entity) : p.entity), entity: p.entity }));
-    if (L.length) return L;
-    const ent = M.vaerAuto(h, c).weather;
-    return [{ name: (h && h.config && h.config.location_name) || 'Hjem', entity: ent, auto: true }];
+  /* ------------------------------------------------------------ Steder (Fiks 42 · Del B) */
+  // Alle weather.*-entiteter er steder automatisk – ingen oppsett, ingen hardkodede ID-er. Config overstyrer:
+  //   exclude: [id]            «Fjern» (søppelbøtte) – legges ikke til igjen automatisk (felles med pollen-/varsellistene)
+  //   places:  [{ id, name }]  «Legg til sted» / omdøping – vises alltid (også om det er et duplikat eller står i exclude)
+  //   order:   [id]            rekkefølge (hold + dra / ↑↓) – steder som ikke står der (nye auto-steder) legges sist
+  // Navn: områdenavnet hvis entiteten (eller enheten) har et område, ellers friendly_name uten «Forecast »-prefiks.
+  // Duplikater: *_hourly / *_timer når grunn-ID-en finnes, og entiteter fra samme config entry (eller enhet) med samme
+  // latitude/longitude → én (den daglige) beholdes. Utilgjengelige (unavailable / borte) skjules og kommer tilbake av seg selv.
+  // Standardsted (uten valgt fane) = overrides.weather («Bytt entiteter») → weather.home / weather.forecast_home → første.
+  // Gamle configer (places: [{ name, entity }] = hele listen i rekkefølge) migreres i normCfg → places [{ id, name }] + order.
+  const HOURLY = /_(hourly|timer)$/;
+  const HOME_RE = /(^weather\.|_)(home|hjem|forecast_home)$/;
+  const placeId = (p) => (typeof p === 'string' ? p : p && typeof p === 'object' ? p.id || p.entity || p.entity_id || null : null);
+  const cfgPlaces = (c) => (Array.isArray(c && c.places) ? c.places : []).map((p) => ({ id: placeId(p), name: p && typeof p === 'object' && p.name ? String(p.name) : '' })).filter((p, i, a) => p.id && a.findIndex((q) => q.id === p.id) === i);
+  const idList = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x) : []);
+  const wxName = (h, id) => {
+    const ar = h && M.areaOf(h, id), A = ar && h.areas && h.areas[ar];
+    if (A && A.name) return A.name;
+    const s = h && h.states[id], fn = s && s.attributes && s.attributes.friendly_name;
+    return fn ? String(fn).replace(/^forecast\s+/i, '') || String(fn) : id ? id.split('.')[1].replace(/_/g, ' ') : '–';
+  };
+  M.vaerPlaceName = wxName;
+  // Auto-stedene (dedupet, inkl. utilgjengelige) i ID-rekkefølge: [{ id, ...gruppenøkler }]
+  const wxAutoIds = (h) => {
+    if (!h) return [];
+    const ids = M.all(h, 'weather').sort((a, b) => (HOURLY.test(a) - HOURLY.test(b)) || a.localeCompare(b)); // daglig først
+    const ceOf = (id) => { const e = M.regEntry(h, id) || {}, d = e.device_id && h.devices && h.devices[e.device_id]; return e.config_entry_id || (d && Array.isArray(d.config_entries) && d.config_entries[0]) || e.device_id || null; };
+    const locOf = (id) => { const a = h.states[id].attributes || {}; return M.isNum(a.latitude) && M.isNum(a.longitude) ? `${Number(a.latitude).toFixed(4)},${Number(a.longitude).toFixed(4)}` : null; };
+    const kept = [];
+    ids.forEach((id) => {
+      const base = id.replace(HOURLY, ''), ce = ceOf(id), loc = locOf(id);
+      if (kept.some((k) => k.base === base || (ce && loc && k.ce === ce && k.loc === loc))) return;
+      kept.push({ id, base, ce, loc });
+    });
+    return kept.map((k) => k.id).sort();
+  };
+  const wxDown = (h, id) => { const s = h && h.states[id]; return !s || s.state === 'unavailable'; };
+  // Stedslisten: [{ id, entity, name, src: 'auto'|'cfg', renamed, down }]. opts.all = også utilgjengelige (editorene).
+  const placesOf = (h, c, opts) => {
+    c = c || {};
+    const all = !!(opts && opts.all), ex = new Set(idList(c.exclude)), P = cfgPlaces(c), pids = new Set(P.map((p) => p.id));
+    const nm = new Map(P.map((p) => [p.id, p.name]));
+    const mk = (id, src) => ({ id, entity: id, name: nm.get(id) || wxName(h, id), src, renamed: !!nm.get(id), down: wxDown(h, id), auto: false });
+    // grunnrekkefølge (uten order): auto-stedene etter entitetens/områdets navn (omdøping flytter ikke stedet), så steder
+    // som bare finnes i places (f.eks. et timesduplikat lagt til med vilje) i places-rekkefølge
+    const aIds = wxAutoIds(h), aSet = new Set(aIds);
+    const autoL = aIds.filter((id) => pids.has(id) || !ex.has(id)).map((id) => mk(id, pids.has(id) ? 'cfg' : 'auto')).sort((a, b) => wxName(h, a.id).localeCompare(wxName(h, b.id), 'nb'));
+    let seq = [...autoL, ...P.filter((p) => !aSet.has(p.id)).map((p) => mk(p.id, 'cfg'))];
+    const hm = seq.find((p) => HOME_RE.test(p.id));
+    if (hm) seq = [hm, ...seq.filter((p) => p !== hm)];
+    const ord = idList(c.order), L = [...ord.map((id) => seq.find((p) => p.id === id)).filter(Boolean), ...seq.filter((p) => !ord.includes(p.id))];
+    return all ? L : L.filter((p) => !p.down);
   };
   M.vaerPlaces = placesOf;
+  M.vaerAutoPlaces = wxAutoIds;
+  // Standardstedet (første fane når ingen er valgt)
+  const defPlace = (L, c) => { const ov = c && c.overrides && c.overrides.weather; return (ov && L.find((p) => p.id === ov)) || L.find((p) => HOME_RE.test(p.id)) || L[0] || null; };
+  // Valgt sted: ui.place = entitets-ID (nytt) eller indeks (gammelt) → sted; finnes det ikke (lenger) → standardstedet
+  const pickPlace = (L, c, sel) => (typeof sel === 'string' ? L.find((p) => p.id === sel) : typeof sel === 'number' && isFinite(sel) && L.length ? L[M.clamp(sel, 0, L.length - 1)] : null) || defPlace(L, c);
+  M.vaerPlace = (h, c, sel) => pickPlace(placesOf(h, c), c, sel);
+  // Endringer (felles for «Tilpass Vær» og GUI-editoren) → patch med nøklene places / exclude / order (undefined = slett)
+  const nz = (a) => (a && a.length ? a : undefined);
+  const placeOps = {
+    remove: (c, id) => ({ exclude: [...new Set([...idList(c.exclude), id])], places: nz(cfgPlaces(c).filter((p) => p.id !== id).map((p) => (p.name ? { id: p.id, name: p.name } : { id: p.id }))), order: nz(idList(c.order).filter((x) => x !== id)) }),
+    add: (c, id, name) => {
+      const P = cfgPlaces(c), i = P.findIndex((p) => p.id === id), it = name && String(name).trim() ? { id, name: String(name).trim() } : { id };
+      const N = P.map((p) => (p.name ? { id: p.id, name: p.name } : { id: p.id }));
+      if (i >= 0) N[i] = it; else N.push(it);
+      return { places: N, exclude: nz(idList(c.exclude).filter((x) => x !== id)) };
+    },
+    replace: (c, old, id, name) => {
+      if (!old || old === id) return placeOps.add(c, id, name);
+      const r = placeOps.remove(c, old), c2 = { ...c, ...r }, a = placeOps.add(c2, id, name);
+      const ord = idList(c.order);
+      return { ...r, ...a, order: ord.length ? nz([...new Set(ord.map((x) => (x === old ? id : x)))]) : undefined };
+    },
+    reorder: (c, ids) => ({ order: nz([...new Set(ids)]) }),
+  };
+  M.vaerPlaceOps = placeOps;
   const STIL = [['klassisk', 'Klassisk'], ['scene', 'Scene']];
   const HIDE = [['alerts', 'Farevarsel', 'warning'], ['hours', 'Neste timer', 'schedule'], ['days', 'Døgnvarsel', 'mdi:view-week'], ['tiles', 'Fliser', 'grid_view']];
   // 28.1 · config: style ('scene' | 'klassisk') · places · sections { alerts, hours, days, tiles: true/false } · tile_order.
@@ -576,8 +647,15 @@
   const normCfg = (c) => {
     if (!c || typeof c !== 'object') return c;
     const hs0 = Array.isArray(c.hidden_sections) ? c.hidden_sections : [];
-    if (c.stil === undefined && c.hide === undefined && !Array.isArray(c.sections) && c.tiles === undefined && !hs0.some((k) => SW.includes(k))) return c;
+    const oldPl = Array.isArray(c.places) && c.places.some((p) => typeof p === 'string' || (p && typeof p === 'object' && !p.id && (p.entity || p.entity_id)));
+    if (!oldPl && c.stil === undefined && c.hide === undefined && !Array.isArray(c.sections) && c.tiles === undefined && !hs0.some((k) => SW.includes(k))) return c;
     const n = { ...c }, old = hiddenOf({ hide: c.hide, hidden_sections: hs0 }), S = { ...secMap(c) };
+    // Fiks 42: places [{ name, entity }] (hele listen, i rekkefølge) → places [{ id, name }] + order (hvis order mangler)
+    if (oldPl) {
+      const P = cfgPlaces(c);
+      if (P.length) n.places = P.map((p) => (p.name ? { id: p.id, name: p.name } : { id: p.id })); else delete n.places;
+      if (!Array.isArray(n.order) && P.length) n.order = P.map((p) => p.id);
+    }
     if (n.style === undefined && n.stil !== undefined) n.style = stilOf({ stil: n.stil });
     delete n.stil;
     if (Array.isArray(n.sections)) { if (!Array.isArray(n.section_order)) n.section_order = n.sections; delete n.sections; }
@@ -600,48 +678,76 @@
   };
   M.vaerStilOf = stilOf;
 
-  // GUI-editoren (getConfigElement): Steder – én rad per sted (navn + ha-selector {entity: {domain: 'weather'}} med HAs
-  // innebygde søk, ↑/↓, Fjern) + «Legg til sted» (ha-selector). Lagres i places: [{ name, entity }] (27.4/27.8).
+  // GUI-editoren (getConfigElement): Steder – samme liste og valg som «Tilpass Vær» (Fiks 42): alle weather.* automatisk,
+  // én rad per sted (navn = omdøping → places, ↑/↓ → order, Fjern → exclude, ha-selector {entity: {domain: 'weather'}} =
+  // bytt entitet) + «Legg til sted» (ha-selector → places, fjernes fra exclude) + fjernede steder kan vises igjen.
   // Uten ha-selector (test/eldre HA): navn + <select> over alle weather.* + «Legg til sted».
+  const edPatch = (ed, patch) => {
+    const ks = Object.keys(patch), last = ks.pop(), c = { ...(ed._config || {}) };
+    ks.forEach((k) => { if (patch[k] === undefined) delete c[k]; else c[k] = patch[k]; });
+    ed._config = c;
+    return ed._set(last, patch[last]);
+  };
   const placesGui = (h, c, key, ed) => {
-    const L = Array.isArray(c.places) ? c.places.filter((p) => p && p.entity) : [], all = M.all(h, 'weather'), hasSel = !!customElements.get('ha-selector');
+    const L = placesOf(h, c, { all: true }), all = M.all(h, 'weather'), hasSel = !!customElements.get('ha-selector');
     const sel = esc(JSON.stringify({ entity: { domain: 'weather' } }));
-    if (ed && ed.shadowRoot && !ed.__vpAdd) { // «Legg til sted»-velgeren (uten data-name): ny rad i places
+    if (ed && ed.shadowRoot && !ed.__vpAdd) {
       ed.__vpAdd = true;
+      // «Legg til sted» (data-vpadd) og bytt entitet per rad (data-vpe = gammel ID)
       ed.shadowRoot.addEventListener('value-changed', (e) => {
         const t = e.target;
-        if (!t || !t.dataset || t.dataset.vpadd == null) return;
+        if (!t || !t.dataset || (t.dataset.vpadd == null && t.dataset.vpe == null)) return;
         e.stopPropagation();
-        const v = e.detail && e.detail.value, cc = ed._config || {}, L0 = (Array.isArray(cc.places) ? cc.places : []).filter((p) => p && p.entity);
-        if (!v || L0.some((p) => p.entity === v)) return;
-        const hh = ed._hass || ed.hass, auto = L0.length ? null : M.vaerAuto(hh, cc).weather;
-        const base = auto && auto !== v ? [{ name: (hh && hh.config && hh.config.location_name) || 'Hjem', entity: auto }] : [];
-        M.haptic('success');
-        ed._set('places', [...L0, ...base, { name: M.name(hh, v), entity: v }].filter((p, i, arr) => arr.findIndex((q) => q.entity === p.entity) === i));
+        const v = e.detail && e.detail.value, cc = ed._config || {};
+        if (!v || typeof v !== 'string') return;
+        if (t.dataset.vpadd != null) { M.haptic('success'); edPatch(ed, placeOps.add(cc, v, '')); return; }
+        const old = t.dataset.vpe, P = cfgPlaces(cc).find((p) => p.id === old);
+        if (v === old) return;
+        M.haptic('selection');
+        edPatch(ed, placeOps.replace(cc, old, v, P && P.name));
+      });
+      // Omdøping (data-vpn = ID): tomt navn = entitetens/områdets navn
+      ed.shadowRoot.addEventListener('change', (e) => {
+        const t = e.target;
+        if (!t || !t.dataset || t.dataset.vpn == null) return;
+        e.stopPropagation();
+        const cc = ed._config || {}, id = t.dataset.vpn, nm = String(t.value || '').trim(), P = cfgPlaces(cc).find((p) => p.id === id);
+        if ((P ? P.name : '') === nm) return;
+        edPatch(ed, placeOps.add(cc, id, nm));
       });
     }
-    const btn = (op, i, label, ic, dis) => `<button class="chip" data-a="fn" data-k="${key}" data-op="${op}" data-i="${i}" aria-label="${esc(label)}" ${dis ? 'disabled' : ''}>${ic ? M.icon(ic, 18) : esc(label)}</button>`;
-    const rows = L.length ? L.map((p, i) => `<div class="col" data-key="vp-${i}" style="gap:6px;padding:8px 0;border-top:${i ? '1px solid ' + WA(0.06) : '0'}">
-        <div class="line" style="gap:6px"><input class="inp" data-name="places.${i}.name" value="${esc(p.name || '')}" placeholder="${esc(M.name(h, p.entity))}" style="flex:1;min-width:0">
-          ${btn('up', i, 'Flytt opp', 'mdi:arrow-up', i === 0)}${btn('down', i, 'Flytt ned', 'mdi:arrow-down', i === L.length - 1)}${btn('rm', i, `Fjern ${p.name || p.entity}`, 'mdi:delete-outline')}</div>
-        ${hasSel ? `<ha-selector data-name="places.${i}.entity" data-nomorph data-selector="${sel}" data-label="Værmelding (weather.*)" data-helper=""></ha-selector>` : `<span class="small">${esc(p.entity)}</span>`}</div>`).join('')
-      : '<div class="small">Bare Hjem (værmeldingen fra autokonfig) – legg til flere steder under.</div>';
+    if (ed && ed.shadowRoot) queueMicrotask(() => ed.shadowRoot.querySelectorAll('ha-selector[data-vpe],ha-selector[data-vpadd]').forEach((s0) => { const v = s0.dataset.vpe || ''; if (s0.value !== v) s0.value = v; }));
+    const btn = (op, i, label, ic, dis, extra) => `<button class="chip" data-a="fn" data-k="${key}" data-op="${op}" data-i="${i}" ${extra || ''} aria-label="${esc(label)}" ${dis ? 'disabled' : ''}>${ic ? M.icon(ic, 18) : esc(label)}</button>`;
+    const rows = L.length ? L.map((p, i) => `<div class="col" data-key="vp-${esc(p.id)}" style="gap:6px;padding:8px 0;border-top:${i ? '1px solid ' + WA(0.06) : '0'}">
+        <div class="line" style="gap:6px"><input class="inp" data-vpn="${esc(p.id)}" value="${esc(p.renamed ? p.name : '')}" placeholder="${esc(wxName(h, p.id))}" aria-label="Navn på ${esc(p.name)}" style="flex:1;min-width:0">
+          ${btn('up', i, 'Flytt opp', 'mdi:arrow-up', i === 0)}${btn('down', i, 'Flytt ned', 'mdi:arrow-down', i === L.length - 1)}${btn('rm', i, `Fjern ${p.name}`, 'mdi:delete-outline', false, `data-id="${esc(p.id)}"`)}</div>
+        ${hasSel ? `<ha-selector data-vpe="${esc(p.id)}" data-nomorph data-selector="${sel}" data-label="Værmelding (weather.*)" data-helper="${p.down ? 'Utilgjengelig nå – vises igjen når den er tilgjengelig' : p.src === 'auto' ? 'Automatisk' : ''}"></ha-selector>` : `<span class="small">${esc(p.id)}${p.src === 'auto' ? ' · automatisk' : ''}${p.down ? ' · utilgjengelig' : ''}</span>`}</div>`).join('')
+      : '<div class="small">Fant ingen weather.*-entiteter – legg til et sted under.</div>';
+    const exL = idList(c.exclude).filter((id) => /^weather\./.test(id) && h && h.states[id] && !L.some((p) => p.id === id));
+    const exH = exL.length ? `<div class="line" style="gap:6px;flex-wrap:wrap;padding:6px 0"><span class="small">Fjernet:</span>${exL.map((id) => `<button class="chip" data-a="fn" data-k="${key}" data-op="restore" data-id="${esc(id)}" aria-label="Vis ${esc(wxName(h, id))} igjen">${M.icon('mdi:restore', 16)} ${esc(wxName(h, id))}</button>`).join('')}</div>` : '';
     const add = hasSel
-      ? `<ha-selector data-vpadd data-nomorph data-selector="${sel}" data-label="Legg til sted (søk etter weather.*)" data-helper="Navnet fylles med entitetens navn og kan endres over"></ha-selector>`
+      ? `<ha-selector data-vpadd data-nomorph data-selector="${sel}" data-label="Legg til sted (søk etter weather.*)" data-helper="Alle weather.* vises automatisk – her legger du til igjen et fjernet sted eller gir det navn"></ha-selector>`
       : `<div class="line" style="gap:8px;flex-wrap:wrap"><input class="in" data-vp="name" placeholder="Navn (f.eks. Hytta)" style="flex:1 1 120px;min-width:0;height:40px;padding:0 12px;border-radius:12px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">
-        <select data-vp="ent" style="flex:1 1 140px;min-width:0;height:40px;padding:0 10px;border-radius:12px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${all.map((id) => `<option value="${esc(id)}">${esc(M.name(h, id))} · ${esc(id)}</option>`).join('')}</select>
+        <select data-vp="ent" style="flex:1 1 140px;min-width:0;height:40px;padding:0 10px;border-radius:12px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${all.map((id) => `<option value="${esc(id)}">${esc(wxName(h, id))} · ${esc(id)}</option>`).join('')}</select>
         <button class="chip on" data-a="fn" data-k="${key}" data-op="add" ${all.length ? '' : 'disabled'}>Legg til sted</button></div>`;
-    return `<div class="f" data-key="vp-${key}"><label>Steder</label>${rows}${add}</div>`;
+    return `<div class="f" data-key="vp-${key}"><label>Steder · alle weather.* automatisk</label>${rows}${exH}${add}</div>`;
   };
   const placesClick = (d, ed) => {
-    const c = ed._config || {}, L = (Array.isArray(c.places) ? c.places : []).filter((p) => p && p.entity), i = Number(d.i);
-    if (d.op === 'rm') { L.splice(i, 1); M.haptic('selection'); return ed._set('places', L.length ? L : undefined); }
-    if (d.op === 'up' || d.op === 'down') { const j = d.op === 'up' ? i - 1 : i + 1; if (j < 0 || j >= L.length) return undefined; [L[i], L[j]] = [L[j], L[i]]; M.haptic('selection'); return ed._set('places', L); }
+    const c = ed._config || {}, h = ed._hass || ed.hass, L = placesOf(h, c, { all: true }), i = Number(d.i);
+    if (d.op === 'rm') { const id = d.id || (L[i] && L[i].id); if (!id) return undefined; M.haptic('selection'); return edPatch(ed, placeOps.remove(c, id)); }
+    if (d.op === 'restore') { if (!d.id) return undefined; M.haptic('success'); return edPatch(ed, { exclude: nz(idList(c.exclude).filter((x) => x !== d.id)) }); }
+    if (d.op === 'up' || d.op === 'down') {
+      const j = d.op === 'up' ? i - 1 : i + 1;
+      if (j < 0 || j >= L.length) return undefined;
+      const ids = L.map((p) => p.id); [ids[i], ids[j]] = [ids[j], ids[i]];
+      M.haptic('selection');
+      return edPatch(ed, placeOps.reorder(c, ids));
+    }
     if (d.op === 'add') {
       const R = ed.shadowRoot || ed, ent = (R.querySelector('[data-vp="ent"]') || {}).value, nm = ((R.querySelector('[data-vp="name"]') || {}).value || '').trim();
       if (!ent) return undefined;
       M.haptic('success');
-      return ed._set('places', [...L, { name: nm || M.name(ed._hass || ed.hass, ent), entity: ent }]);
+      return edPatch(ed, placeOps.add(c, ent, nm));
     }
     return undefined;
   };
@@ -686,11 +792,12 @@
     // Valgt sted (stedsvelgeren) overstyrer værentiteten – config er uendret (bare UI-tilstand i localStorage)
     get config() {
       const c = super.config, p = this._place(c);
-      return p && !p.auto && p.entity ? { ...c, overrides: { ...(c.overrides || {}), weather: p.entity } } : c;
+      return p && p.entity ? { ...c, overrides: { ...(c.overrides || {}), weather: p.entity } } : c;
     }
+    // Fiks 42: ui.place = entitets-ID (indeks fra eldre versjoner leses fortsatt); borte/utilgjengelig → standardstedet
     _place(c) {
-      const L = placesOf(this._hass, c || super.config);
-      return L[M.clamp(Number(this.ui.place) || 0, 0, L.length - 1)] || null;
+      c = c || super.config;
+      return pickPlace(placesOf(this._hass, c), c, this.ui.place);
     }
     // Bubble-popupen kortet ligger i (på tvers av shadow roots)
     _popEl() {
@@ -700,13 +807,34 @@
     }
     onOpen() {
       super.onOpen();
+      this._regSub();
       if (!this._config.embedded && M.isPopupOpen(this) && M.popupHash(this)) M.haptic('light'); // én haptic ved åpning (26.24)
       this._pause(false);
     }
-    onClose() { super.onClose(); this._pause(true); this._ctlMenu = false; this._drawCtl(); this._tileMode(false); }
+    // Fiks 42: nye/fjernede weather.* dukker opp mens popupen er åpen (entity_registry_updated); ellers ved neste åpning
+    _regSub() {
+      const con = this.hass && this.hass.connection;
+      if (this._regOff || !con || typeof con.subscribeEvents !== 'function') return;
+      const tok = {};
+      this._regOff = tok;
+      const p = Promise.resolve().then(() => con.subscribeEvents((ev) => this._regEvent(ev), 'entity_registry_updated')).catch(() => null);
+      tok.off = () => p.then((u) => { if (typeof u === 'function') try { u(); } catch (e) { /* */ } });
+    }
+    _regUnsub() { if (this._regOff) { this._regOff.off(); this._regOff = null; } clearTimeout(this._regT); }
+    _regEvent(ev) {
+      const id = ev && ev.data && ev.data.entity_id;
+      if (id && !String(id).startsWith('weather.')) return;
+      clearTimeout(this._regT);
+      // registeret/hass.states oppdateres like etter hendelsen → tegn stedslisten på nytt litt senere (og én gang straks)
+      const go = () => { this.update(); this._drawCtl(); if (this._sheet && this._sheet.draw) this._sheet.draw(); };
+      go();
+      this._regT = setTimeout(go, 400);
+    }
+    onClose() { super.onClose(); this._regUnsub(); this._pause(true); this._ctlMenu = false; this._drawCtl(); this._tileMode(false); }
     _pause(p) { const sc = this._layer && this._layer.shadowRoot.querySelector('.sc'); if (sc) sc.classList.toggle('paused', !!p); }
     disconnectedCallback() {
       super.disconnectedCallback();
+      this._regUnsub();
       this._pause(true);
       this._tileMode(false);
       // Kortet er tatt ut (popup lukket / ombygd): ta lagene ut av popupen hvis ingen ny instans bruker dem
@@ -764,7 +892,7 @@
     _drawCtl() {
       const el = this._ctl;
       if (!el) return;
-      const L = placesOf(this._hass, super.config), i0 = M.clamp(Number(this.ui.place) || 0, 0, Math.max(0, L.length - 1)), cur = L[i0] || null;
+      const L = placesOf(this._hass, super.config), cur = this._place(), i0 = cur ? L.findIndex((p) => p.id === cur.id) : -1;
       const h = this._hass, night = (() => { const ss = h && M.vaerAuto(h, super.config).sun; const so = ss && h.states[ss]; return so ? so.state === 'below_horizon' : isNight(Date.now(), null); })();
       // 27.0: designets stedsmeny (Vær v5 ents): værikon, navn 15/500 + entitets-ID (mono 10 px), temperatur nå; valgt = rosa
       const item = (p, i) => {
@@ -789,7 +917,8 @@
         M.haptic('selection');
         this._ctlMenu = false;
         this._fc = null;
-        this.setUI({ place: Number(b.dataset.i) || 0 });
+        const L = placesOf(this._hass, super.config), p = L[Number(b.dataset.i) || 0];
+        this.setUI({ place: p ? p.id : undefined });
         this._drawCtl();
         if (this.isOpen) setTimeout(() => this._subscribe(), 0);
       }
@@ -945,10 +1074,10 @@
       if (!customElements.get(tag)) return;
       if (!this._heroEl) { this._heroEl = document.createElement(tag); this._heroEl._host = this; }
       if (!slot) { if (this._heroEl.parentNode) this._heroEl.remove(); return; }
-      const raw = this._rawConfig || {}, pl = this._place(), pe = pl && !pl.auto ? pl.entity : null;
+      const raw = this._rawConfig || {}, pl = this._place(), pe = pl ? pl.entity : null;
       if (this._heroSrc !== raw || this._heroPl !== pe) {
         this._heroSrc = raw; this._heroPl = pe;
-        const { type, card_id, hero, sections, section_order, hidden_sections, tiles, hidden_tiles, tile_order, hide, places, stil, style, ...rest } = raw;
+        const { type, card_id, hero, sections, section_order, hidden_sections, tiles, hidden_tiles, tile_order, hide, places, order, stil, style, ...rest } = raw;
         if (pe) rest.overrides = { ...(rest.overrides || {}), weather: pe }; // valgt sted (stedsvelgeren)
         this._heroEl.setConfig({ type: 'custom:' + tag, ...rest, ...(hero || {}), embedded: true, card_id: card_id ? card_id + '_hero' : undefined });
       }
@@ -962,6 +1091,7 @@
     }
     render() {
       const c = this.config, h = this.hass, a = M.vaerAuto(h, c), ui = this.ui;
+      M.all(h, 'weather').forEach((id) => this._deps.add(id)); // Fiks 42: utilgjengelig ↔ tilgjengelig endrer stedslisten
       this._checkEnt(a.weather);
       const st = this.s(a.weather), A = (st && st.attributes) || {};
       const sunSt = this.s(a.sun), sun = sunTimes(sunSt), moon = moonOf(this.s(a.moon)), uvSt = this.s(a.uv);
@@ -1109,7 +1239,9 @@
       const sc = sceneOf(st ? st.state : null, night);
       this._sc = sc;
       const pl = this._place();
-      const placeName = (pl && !pl.auto && pl.name) || c.name || (h.config && h.config.location_name) || (st ? M.name(h, a.weather) : '–');
+      // Fiks 42: stedets navn; «Stedsnavn» (name) i Toppkort gjelder standardstedet når det ikke er omdøpt i Steder
+      const dp = defPlace(placesOf(h, super.config), super.config), isDef = !!(pl && dp && pl.id === dp.id);
+      const placeName = (pl && (pl.renamed || !isDef || !c.name) && pl.name) || c.name || (h.config && h.config.location_name) || (st ? M.name(h, a.weather) : '–');
       const today = todayOf(Dl) || Dl[0] || null, temp = st ? num(A.temperature) : null;
       const hi = today ? num(today.temperature) : null, lo = today ? num(today.templow) : null;
       const ph = (what) => esc(!st ? 'Ingen værmelding' : loaded || !this.isOpen ? `Ingen ${what}` : 'Henter prognose …');
@@ -1568,10 +1700,8 @@ ${VE}`;
     });
     const st = { busy: false, adding: false, edit: null, name: '', named: false, ent: '', q: '', drag: null };
     const hass = () => card.hass || card._hass;
-    const autoPlace = (D) => { const h = hass(), ent = M.vaerAuto(h, D).weather; return ent ? { name: (h && h.config && h.config.location_name) || 'Hjem', entity: ent, auto: true } : null; };
-    // Stedslisten slik den vises: tom config → automatisk «Hjem» (materialiseres når listen endres)
-    const listOf = (D) => { const L = (Array.isArray(D.places) ? D.places : []).filter((p) => p && p.entity).map((p) => ({ name: p.name, entity: p.entity })); if (L.length) return L; const a = autoPlace(D); return a ? [a] : []; };
-    const plain = (L) => L.map((p) => ({ name: p.name || M.name(hass(), p.entity), entity: p.entity }));
+    // Fiks 42: stedslisten = alle weather.* (auto) + places, uten exclude, i order-rekkefølge (også utilgjengelige, dimmet)
+    const listOf = (D) => placesOf(hass(), D, { all: true });
     const apply = (patch, hap) => {
       if (st.busy) return;
       const next = { ...ctl.draft, ...patch };
@@ -1580,18 +1710,20 @@ ${VE}`;
       if (hap) M.haptic(hap);
       draw();
     };
-    // Valgt sted (stedsvelgeren) følger med når listen endres (samme entitet, ny plass)
-    const keepSel = (oldL, newL) => {
-      const cur = oldL[M.clamp(Number(card.ui.place) || 0, 0, Math.max(0, oldL.length - 1))], i = cur ? newL.findIndex((p) => p.entity === cur.entity) : 0;
-      card.setUI({ place: Math.max(0, i) });
+    // Valgt sted (stedsvelgeren) følger med når listen endres: lagres som entitets-ID (fjernet → standardstedet)
+    const setPlaces = (patch, hap) => {
+      const cur = card._place && card._place();
+      apply(patch, hap);
+      const L = placesOf(hass(), ctl.draft);
+      card.setUI({ place: cur && L.some((p) => p.id === cur.id) ? cur.id : undefined });
       if (card._drawCtl) card._drawCtl();
     };
-    const setPlaces = (oldL, N, hap) => { apply({ places: plain(N) }, hap); keepSel(oldL, N); };
     const sw = (a, k, on, label) => `<button class="tsw${on ? ' on' : ''}" data-a="${a}" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${esc(label)}"><i></i></button>`;
-    const fname = (id) => { const s0 = hass() && hass().states[id]; return (s0 && s0.attributes.friendly_name) || id; };
+    const fname = (id) => wxName(hass(), id); // Fiks 42: områdenavn / friendly_name uten «Forecast »
+    const fraw = (id) => { const s0 = hass() && hass().states[id]; return (s0 && s0.attributes.friendly_name) || id; };
     const candsHTML = () => {
-      const h = hass(), L = listOf(ctl.draft), used = new Set(L.filter((p, i) => i !== st.edit).map((p) => p.entity)), q = st.q.toLowerCase().trim();
-      const all = M.all(h, 'weather').filter((id) => !q || id.toLowerCase().includes(q.replace(/ /g, '_')) || fname(id).toLowerCase().includes(q));
+      const h = hass(), L = listOf(ctl.draft), used = new Set(L.filter((p, i) => i !== st.edit).map((p) => p.entity)), q = st.q.toLowerCase().trim(); // fjernede (exclude) kan legges til igjen
+      const all = M.all(h, 'weather').filter((id) => !q || id.toLowerCase().includes(q.replace(/ /g, '_')) || fname(id).toLowerCase().includes(q) || fraw(id).toLowerCase().includes(q));
       if (!all.length) return '<span class="none">Ingen treff</span>';
       return all.map((id) => {
         const s0 = h.states[id], cd = sceneOf(s0 && s0.state, false), t = s0 ? num(s0.attributes.temperature) : null, u = used.has(id);
@@ -1611,9 +1743,9 @@ ${VE}`;
         <span class="cap">Stil</span>
         <div class="stl" role="radiogroup" data-glass-drag="x">${STIL.map(([k, l]) => `<button class="sto${stil === k ? ' on' : ''}" role="radio" aria-checked="${stil === k}" ${stil === k ? 'data-active="1"' : ''} data-a="stil" data-k="${k}">${M.icon(STIL_IC[k], 18)}${l}</button>`).join('')}</div>
         <span class="cap">Steder · hold og dra for rekkefølge</span>
-        <div class="plist" data-plist>${L.map((p, i) => `<div class="pr" data-prow data-i="${i}" data-key="pl-${esc(p.entity)}">
+        <div class="plist" data-plist>${L.map((p, i) => `<div class="pr${p.down ? ' down' : ''}" data-prow data-i="${i}" data-key="pl-${esc(p.entity)}">
             <span class="hdl" data-drag="${i}" aria-label="Dra for å endre rekkefølge">${M.icon('mdi:drag', 22)}</span>
-            <button class="pe" data-a="edit" data-k="${i}" aria-label="Bytt entitet for ${esc(p.name || p.entity)}">${M.icon('mdi:map-marker', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="col grow" style="min-width:0;line-height:1.25"><span class="rl ell">${esc(p.name || fname(p.entity))}</span><span class="rs ell">${esc(p.auto ? `${p.entity} · automatisk` : p.entity)}</span></span></button>
+            <button class="pe" data-a="edit" data-k="${i}" aria-label="Bytt entitet for ${esc(p.name || p.entity)}">${M.icon('mdi:map-marker', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="col grow" style="min-width:0;line-height:1.25"><span class="rl ell">${esc(p.name || fname(p.entity))}</span><span class="rs ell">${esc(p.entity + (p.down ? ' · utilgjengelig' : p.src === 'auto' ? ' · automatisk' : ''))}</span></span></button>
             ${L.length > 1 ? `<button class="x" data-a="rm" data-k="${i}" aria-label="Fjern ${esc(p.name || p.entity)}">${M.icon('mdi:delete', 20)}</button>` : ''}</div>`).join('')}
           <button class="padd" data-a="openadd" aria-expanded="${st.adding}">${M.icon('mdi:map-marker-plus', 20)}<span>${st.edit != null ? 'Bytt entitet' : 'Legg til sted'}</span></button>
           ${st.adding ? `<div class="add">
@@ -1668,7 +1800,7 @@ ${VE}`;
         row.classList.remove('drag'); list.classList.remove('dragging'); st.drag = null;
         const L = listOf(ctl.draft), ord = [...list.querySelectorAll('[data-prow]')].map((x) => Number(x.dataset.i));
         if (ord.every((v, i) => v === i)) { M.haptic('light'); return draw(); }
-        return setPlaces(L, ord.map((i) => L[i]), 'light');
+        return setPlaces(placeOps.reorder(ctl.draft, ord.map((i) => L[i].id)), 'light');
       };
       window.addEventListener('pointermove', mv, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
       window.addEventListener('touchmove', tm, { capture: true, passive: false });
@@ -1680,7 +1812,7 @@ ${VE}`;
       switch (a) {
         case 'done': return ctl.done();
         case 'stil': return stilOf(D) === k ? undefined : apply({ style: k, stil: undefined }, 'selection');
-        case 'rm': { if (L.length < 2) return undefined; const N = L.filter((_, i) => i !== Number(k)); st.adding = false; st.edit = null; return setPlaces(L, N, 'medium'); }
+        case 'rm': { const p = L[Number(k)]; if (L.length < 2 || !p) return undefined; st.adding = false; st.edit = null; return setPlaces(placeOps.remove(D, p.id), 'medium'); } // → exclude
         case 'openadd': { st.adding = !st.adding || st.edit != null; st.edit = null; st.name = ''; st.named = false; st.ent = ''; st.q = ''; M.haptic('light'); draw(); const i = st.adding && box.querySelector('[data-in="name"]'); if (i) i.focus({ preventScroll: true }); return undefined; }
         case 'edit': { const p = L[Number(k)]; if (!p) return undefined; st.adding = true; st.edit = Number(k); st.name = p.name || ''; st.named = true; st.ent = p.entity; st.q = ''; M.haptic('light'); return draw(); }
         case 'cand': {
@@ -1690,10 +1822,12 @@ ${VE}`;
         }
         case 'add': {
           if (!addOk()) return undefined;
-          const N = L.map((p) => ({ ...p })), item = { name: st.name.trim(), entity: st.ent };
-          if (st.edit != null && N[st.edit]) N[st.edit] = item; else if (!N.some((p) => p.entity === st.ent)) N.push(item);
+          const old = st.edit != null && L[st.edit] ? L[st.edit] : null, nm = st.name.trim();
+          // navnet lagres bare når det avviker fra entitetens/områdets navn (ellers følger det HA)
+          const name = nm && nm !== wxName(hass(), st.ent) ? nm : '';
+          const patch = old ? placeOps.replace(D, old.id, st.ent, name) : placeOps.add(D, st.ent, name);
           st.adding = false; st.edit = null; st.name = ''; st.named = false; st.ent = ''; st.q = '';
-          return setPlaces(L, N, 'success');
+          return setPlaces(patch, 'success');
         }
         case 'sec': {
           const was = hiddenOf(D).has(k); // 28.1: bryteren lagres i sections { k: true/false }
@@ -1705,7 +1839,7 @@ ${VE}`;
         default: return undefined;
       }
     });
-    card._sheet = { ov, st, box };
+    card._sheet = { ov, st, box, draw: () => { if (!st.drag) draw(); } };
     draw();
     return card._sheet;
   }
@@ -1728,6 +1862,7 @@ ${VE}`;
     .pr.drag{z-index:2;background:var(--ki-surface-2, #404040);border-radius:18px;box-shadow:0 8px 24px ${BA(0.4)};transform:scale(1.02)}
     .hdl{width:32px;height:48px;margin-left:-10px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:var(--ki-text-3, #7f7f7f);user-select:none;-webkit-user-select:none}
     .dragging .hdl{cursor:grabbing}
+    .pr.down .pe{opacity:.5}
     .pe{flex:1;min-width:0;display:flex;align-items:center;gap:12px;min-height:56px;text-align:left}
     .rl{font-size:15px}
     .rs{font-size:11px;color:var(--ki-text-mid, #979797);font-family:ui-monospace,monospace}

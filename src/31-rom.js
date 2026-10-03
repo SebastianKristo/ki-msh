@@ -32,6 +32,8 @@
   const ON_ACC = 'var(--ki-on-accent, var(--gray000, #232323))';
   // 38: tekst/ikon på aksentflater i Enheter (Rom v4 devices: #1f1f1f)
   const DEV_ON_ACC = 'var(--ki-on-accent, #1f1f1f)';
+  // Del 44 (Rom v4 sensors): tekst/ikon på aktiv sensor-pille (grønn eller annen aksent) – alltid mørk, aldri arvet/opacity
+  const SENS_FG = 'var(--ki-on-accent, #1c2a22)';
   // 38: første egne tilstandsregel (1..3) som treffer → { bg } (samme regel som M.universal), ellers null
   const ruleHit = (o, st) => {
     for (let i = 1; i <= 3; i++) {
@@ -957,14 +959,20 @@
         const dflt = num ? { main_text: M.nf(Number(s.state), Number(s.state) % 1 ? 1 : 0), symbol: u === '°C' || u === '°F' ? '°' : u === '%' ? '%' : u ? ' ' + u : '' } : { main_text: M.isLux && M.isLux(s) && M.unavailable(s) ? '–' : state }; // 17.5: utilgjengelig lux → «–»
         // 17.5: lux-sensor → oransje rad med sol-ikon og «6.3 lx» (egen farge/ikon i «Tilpass rom» vinner)
         const lux = !bin && M.luxOpts && (!lk.mode || lk.mode === 'sensor') && (lk.size || 'small') === 'small' ? M.luxOpts(s) || {} : {};
-        return M.universal({
-          state_rule_1_condition: ownRule ? undefined : hot, state_rule_1_background_color: 'var(--green)', state_rule_1_text_color: 'var(--ki-on-accent, var(--gray000))',
+        // Del 44: egen regel med bakgrunn men uten tekstfarge → mørk tekst (tekst på aksentflate er alltid mørk)
+        [1, 2, 3].forEach((i) => { const k = 'state_rule_' + i + '_'; if (lk[k + 'background_color'] && !lk[k + 'text_color']) lk[k + 'text_color'] = SENS_FG; });
+        const uo = {
+          state_rule_1_condition: ownRule ? undefined : hot, state_rule_1_background_color: 'var(--green, #66d19e)', state_rule_1_text_color: SENS_FG,
           text_color: lux.text_color, ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 's-' + id, icon: lk.icon || lux.icon || icon0,
           cls: 'msh-inner' + (lux.cls ? ' ' + lux.cls : ''), // 16.6: felles «indre rad-flate» (M.INNER_ROW)
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : lux.main_text || dflt.main_text), symbol: lk.symbol != null && lk.symbol !== '' ? lk.symbol : lk.main_text || lk.label || lk.mode === 'bar' ? null : lux.symbol || dflt.symbol,
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : '',
           background_color: lk.background_color || lk.bg || lux.background_color, circle_color: lk.cell || lux.circle_color, icon_color: lk.icon_color || lux.icon_color,
-          ...(this._tag(id) ? { sub_html: esc([lk.sub_text || lk.name || nm, lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : ''].filter(Boolean).join(' · ')) + this._tag(id), alt_text: '' } : {}) });
+          ...(this._tag(id) ? { sub_html: esc([lk.sub_text || lk.name || nm, lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : ''].filter(Boolean).join(' · ')) + this._tag(id), alt_text: '' } : {}) };
+        // Del 44: aksent-pille (regel med mørk tekst, eller lux-raden) → s-acc: ikon-sirkel hvit .35, undertekst/chip i mørk tone
+        const R = M.uRule ? M.uRule(uo, s) : null;
+        if ((R && R.bg && R.fg === SENS_FG) || (!R && lux.cls && !lk.background_color && !lk.bg && !lk.text_color)) uo.cls += ' s-acc';
+        return M.universal(uo);
       })(id); });
       const rows = open ? this._grp(ids, (id) => SH[id]) : '';
       const sum = this._tekst('sensorer', this._listChanged('sensorer')) || `${act} aktiv - ${ids.length - act} stille`;
@@ -1203,6 +1211,13 @@
         .u-small.u-m-sensor.d-row.d-acc .u-l{font-weight:600;color:var(--u-fg);opacity:.8}
         .u.d-acc.d-acc{box-shadow:none}
         .d-acc .u-i{border:none;box-shadow:none}
+        /* Del 44 (Rom v4 sensors → pill/iconWrap/subStyle/stateStyle): aktiv sensor på aksentflate – mørk tittel/ikon,
+           ikon-sirkel hvit .35 uten kant, undertekst mørk .78, status-chip mørk .14 – ingen opacity, ingen arvet farge */
+        .u.s-acc.s-acc{box-shadow:none}
+        .u.s-acc .u-i{background:rgb(255 255 255 / 0.35);border:none;box-shadow:none;color:${SENS_FG}}
+        .u.s-acc .u-l,.u.s-acc.u-lux .u-n{color:${SENS_FG};opacity:1}
+        .u.s-acc .u-n,.u.s-acc .u-alt,.u.s-acc .u-sym,.u-small.u-lux.s-acc .u-l{color:color-mix(in srgb, ${SENS_FG} 78%, transparent);opacity:1}
+        .u.s-acc .rtag{background:color-mix(in srgb, ${SENS_FG} 14%, transparent);color:${SENS_FG};font-weight:600;opacity:1}
         /* 17.6: flere enheter på – fargerekkefølge */
         .u.d-on.d-on{box-shadow:none;transition:background .3s,transform .2s}
         .d-unav .u-l,.d-unav .u-i{opacity:1}

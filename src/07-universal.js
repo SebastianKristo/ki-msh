@@ -56,6 +56,7 @@
     }
     return null;
   }
+  M.uRule = rule; // Del 44: kortene kan se hvilken tilstandsregel som treffer (f.eks. aksent-sensorrad i Rom)
   const attrs = (a) => Object.keys(a || {}).filter((k) => a[k] != null && a[k] !== false).map((k) => (a[k] === true ? k : `${k}="${esc(a[k])}"`)).join(' ');
   const sym = (s) => `<span class="u-sym">${esc(s)}</span>`;
   const cols = (s) => s.replace(/(^|\s)1fr/g, '$1minmax(0,1fr)');
