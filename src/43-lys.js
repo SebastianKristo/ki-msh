@@ -1336,7 +1336,7 @@
       if (card._applySpacing) card._applySpacing();
     };
 
-    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + (M.tabBar ? M.tabBar.CSS : '') + TS_CSS + SC_CSS + SHEET_CSS + FIND_CSS + V5_CSS, maxWidth: 440, tilpass: true, tpTop: 52, tpMaxW: 440 /* 38.2: som de andre Tilpass-arkene (Hjem v3 sheetPanel) */, onClose: () => { ctl.dispose(); card._sheet = null; if (card._applySpacing) card._applySpacing(); } });
+    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + (M.tabBar ? M.tabBar.CSS : '') + TS_CSS + SC_CSS + SHEET_CSS + FIND_CSS + V5_CSS, maxWidth: 440, tilpass: true /* 38.2/Fiks 40: top 52 / maks 440 / radius 38 = felles Tilpass-standard */, onClose: () => { ctl.dispose(); card._sheet = null; if (card._applySpacing) card._applySpacing(); } });
     // Ingen bakteppe: bare arket tar imot trykk – popupen bak er synlig, trykkbar og scrollbar (live forhåndsvisning)
     ov.host.style.pointerEvents = 'none';
     ov.host.setAttribute('data-lys-sheet', '');
@@ -1569,7 +1569,7 @@
   const V5_CSS = `
     :host{pointer-events:none}
     .bg{display:none!important}
-    .sh.tp.lys5{pointer-events:auto;top:auto;bottom:0;height:calc(100% - var(--ki-tp-top,52px));max-height:calc(100% - var(--ki-tp-top,52px));padding:0;overflow:hidden;display:flex;flex-direction:column;border-radius:38px 38px 0 0;
+    .sh.tp.lys5{pointer-events:auto;top:auto;bottom:0;height:calc(100% - var(--ki-tp-top,52px));max-height:calc(100% - var(--ki-tp-top,52px));padding:0;overflow:hidden;display:flex;flex-direction:column;
       background:var(--ki-popup, #282828)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
       box-shadow:inset 0 1px 0 ${WA(0.06)},0 -12px 40px ${KA(0.55)};transition:transform 280ms cubic-bezier(.2,.8,.2,1),height .3s cubic-bezier(.3,.9,.3,1)}
     .sh.tp.lys5.half{height:58%}

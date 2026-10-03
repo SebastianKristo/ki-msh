@@ -1056,17 +1056,18 @@
   // Glass-temaet live (glass: true/false tvinger). sheet = grep-håndtak (sticky, alltid synlig), tall = høyt ark
   // (max-height 100 % − 24 px − safe-area-top, «Tilpass …»-editorene), footer = arket har egen sticky bunnlinje
   // (ingen bunnpadding; bunnlinjen tar safe-area selv). Padding styres med --ki-sh-pt / --ki-sh-px / --ki-sh-pb.
-  // 28.8/28.11 · tilpass: true = «Tilpass …»-ark med popupens geometri: toppkant 50 px (= margin_top_mobile/desktop),
-  // forankret i bunnen av dashbordflaten (dekker navbaren og «Spilles nå»), FAST høyde calc(100% − 50px) i alle faner,
-  // bredde = den åpne Bubble-popupen (width_desktop, sentrert likt) på PC (≥ 768 px), ellers 540 px sentrert i innholdsflaten;
-  // full bredde på mobil. Radius 28 28 0 0, håndtak 40×5 (#545454) øverst, bunnpadding 16 px + safe-area.
+  // 28.8/28.11 → Fiks 40 · tilpass: true = «Tilpass …»-ark, ÉN felles størrelse for alle (som «Tilpass kalender», 36.7):
+  // toppkant 52 px målt mot dashbord-containeren, forankret i bunnen av dashbordflaten (dekker navbaren og «Spilles nå»),
+  // FAST høyde calc(100% − 52px) i alle faner, maks 440 px bred sentrert i innholdsflaten (full bredde når flaten er
+  // smalere). Radius 38 38 0 0, håndtak 40×5 (#545454) øverst, bunnpadding 16 px + safe-area.
   // Inn: translateY(100%) → 0 på 280 ms cubic-bezier(.2,.8,.2,1). Dra ned på håndtaket lukker (> 90 px eller raskt sveip).
-  MSH.TILPASS_TOP = 50;
+  MSH.TILPASS_TOP = 52;
+  MSH.TILPASS_MAXW = 440;
   // 36.7 · Tilpass-ark i popups er ALLTID helt dekkende (#282828 / --ki-popup, ingen blur/opasitet): rotårsaken til
   // gjennomsiktige ark i HA var at MSH.glassOn() også slår inn via navbar-stilen «glass» (bakoverkompatibelt), og da fikk
   // arket glassflaten rgba(34,34,37,.72) + blur og gruppene rgba(255,255,255,.06) – popupen bak skinte gjennom. tilpass: true
-  // ignorerer derfor Liquid Glass (menyer/andre overlegg følger det fortsatt). tpTop/tpMaxW: egen toppkant/maks bredde
-  // (sentrert i innholdsflaten), f.eks. «Tilpass kalender» (36.7: top 52 px, maks 440 px, radius 38 via css).
+  // ignorerer derfor Liquid Glass (menyer/andre overlegg følger det fortsatt). tpTop/tpMaxW: unntak fra standarden
+  // (MSH.TILPASS_TOP 52 / MSH.TILPASS_MAXW 440) – ingen kort bruker dem lenger (Fiks 40).
   MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false, tilpass = false, tpTop = null, tpMaxW = null } = {}) {
     const tp = !!tilpass && !center;
     if (tp) sheet = true;
@@ -1095,8 +1096,8 @@
         ${MSH.sheetStyle(false)}${center ? 'border-radius:32px;' : ''}opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;font-family:${MSH.FONT}}
       .sh.ft{--ki-sh-pb:0px}
       /* 28.8/28.11: Tilpass-ark – popupens toppkant og høyde, bunnforankret, glir inn nedenfra */
-      .sh.tp{top:var(--ki-tp-top,50px);bottom:0;left:var(--ki-tp-l,var(--ki-rail-x,0px));right:auto;width:var(--ki-tp-w,100%);max-width:none;height:calc(100% - var(--ki-tp-top,50px));max-height:none;margin:0;
-        border-radius:28px 28px 0 0;opacity:1;transform:translate3d(0,100%,0);transition:transform 280ms cubic-bezier(.2,.8,.2,1);--ki-sh-pb:calc(16px + env(safe-area-inset-bottom, 0px))}
+      .sh.tp{top:var(--ki-tp-top,52px);bottom:0;left:var(--ki-tp-l,var(--ki-rail-x,0px));right:auto;width:var(--ki-tp-w,100%);max-width:none;height:calc(100% - var(--ki-tp-top,52px));max-height:none;margin:0;
+        border-radius:38px 38px 0 0;opacity:1;transform:translate3d(0,100%,0);transition:transform 280ms cubic-bezier(.2,.8,.2,1);--ki-sh-pb:calc(16px + env(safe-area-inset-bottom, 0px))}
       :host(.on) .sh.tp{opacity:1;transform:translate3d(0,var(--ki-tp-dy,0px),0)}
       :host(.tpdrag) .sh.tp{transition:none}
       :host(.tpout) .sh.tp{transition:transform 240ms cubic-bezier(.4,0,.7,.2)}
@@ -1112,7 +1113,7 @@
 </style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}${MSH.sheetVars(true)}}
       .bg{${MSH.scrimStyle(true)}}
       .sh{${MSH.sheetStyle(true)}${center ? 'border-radius:32px;' : ''}}
-      .sh.tp{border-radius:28px 28px 0 0}
+      .sh.tp{border-radius:38px 38px 0 0}
       ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh${footer ? ' ft' : ''}${tp ? ' tp' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
@@ -1152,16 +1153,12 @@
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
     const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); if (tp) tpPlace(D, x); };
-    // 28.11: Tilpass-arkets bredde/venstrekant = popupens (åpen Bubble-popup) på PC, ellers 540 px sentrert; mobil = full bredde
+    // Fiks 40: alle Tilpass-ark – maks 440 px (MSH.TILPASS_MAXW) sentrert i innholdsflaten (til høyre for evt. rail)
     function tpPlace(D, x) {
       const cw = Math.max(0, D.width - x);
-      let l = x, w = cw;
-      if (tpMaxW) { w = Math.min(Number(tpMaxW), cw); l = x + (cw - w) / 2; } // 36.7: fast maks bredde, sentrert nederst
-      else if (window.innerWidth >= 768) {
-        const pop = openPopupEl(), pr = pop && pop.getBoundingClientRect();
-        if (pr && pr.width > 0 && pr.width <= D.width + 1) { l = Math.max(0, pr.left - D.left); w = Math.min(pr.width, D.width - l); } else { w = Math.min(MSH.TILPASS_W || 540, cw); l = x + (cw - w) / 2; }
-      }
-      host.style.setProperty('--ki-tp-top', (tpTop != null ? Number(tpTop) : MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 50) + 'px');
+      const mw = Number(tpMaxW || MSH.TILPASS_MAXW || 440);
+      const w = Math.min(mw, cw), l = x + (cw - w) / 2;
+      host.style.setProperty('--ki-tp-top', (tpTop != null ? Number(tpTop) : MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 52) + 'px');
       host.style.setProperty('--ki-tp-l', Math.round(l) + 'px');
       host.style.setProperty('--ki-tp-w', Math.round(w) + 'px');
       host.dataset.tpSheet = '1'; // data-tp-sheet (ikke data-tilpass – det er navbarens «Tilpass»-menyark, 24.5)

@@ -2692,17 +2692,18 @@ try {
   // Glass-temaet live (glass: true/false tvinger). sheet = grep-håndtak (sticky, alltid synlig), tall = høyt ark
   // (max-height 100 % − 24 px − safe-area-top, «Tilpass …»-editorene), footer = arket har egen sticky bunnlinje
   // (ingen bunnpadding; bunnlinjen tar safe-area selv). Padding styres med --ki-sh-pt / --ki-sh-px / --ki-sh-pb.
-  // 28.8/28.11 · tilpass: true = «Tilpass …»-ark med popupens geometri: toppkant 50 px (= margin_top_mobile/desktop),
-  // forankret i bunnen av dashbordflaten (dekker navbaren og «Spilles nå»), FAST høyde calc(100% − 50px) i alle faner,
-  // bredde = den åpne Bubble-popupen (width_desktop, sentrert likt) på PC (≥ 768 px), ellers 540 px sentrert i innholdsflaten;
-  // full bredde på mobil. Radius 28 28 0 0, håndtak 40×5 (#545454) øverst, bunnpadding 16 px + safe-area.
+  // 28.8/28.11 → Fiks 40 · tilpass: true = «Tilpass …»-ark, ÉN felles størrelse for alle (som «Tilpass kalender», 36.7):
+  // toppkant 52 px målt mot dashbord-containeren, forankret i bunnen av dashbordflaten (dekker navbaren og «Spilles nå»),
+  // FAST høyde calc(100% − 52px) i alle faner, maks 440 px bred sentrert i innholdsflaten (full bredde når flaten er
+  // smalere). Radius 38 38 0 0, håndtak 40×5 (#545454) øverst, bunnpadding 16 px + safe-area.
   // Inn: translateY(100%) → 0 på 280 ms cubic-bezier(.2,.8,.2,1). Dra ned på håndtaket lukker (> 90 px eller raskt sveip).
-  MSH.TILPASS_TOP = 50;
+  MSH.TILPASS_TOP = 52;
+  MSH.TILPASS_MAXW = 440;
   // 36.7 · Tilpass-ark i popups er ALLTID helt dekkende (#282828 / --ki-popup, ingen blur/opasitet): rotårsaken til
   // gjennomsiktige ark i HA var at MSH.glassOn() også slår inn via navbar-stilen «glass» (bakoverkompatibelt), og da fikk
   // arket glassflaten rgba(34,34,37,.72) + blur og gruppene rgba(255,255,255,.06) – popupen bak skinte gjennom. tilpass: true
-  // ignorerer derfor Liquid Glass (menyer/andre overlegg følger det fortsatt). tpTop/tpMaxW: egen toppkant/maks bredde
-  // (sentrert i innholdsflaten), f.eks. «Tilpass kalender» (36.7: top 52 px, maks 440 px, radius 38 via css).
+  // ignorerer derfor Liquid Glass (menyer/andre overlegg følger det fortsatt). tpTop/tpMaxW: unntak fra standarden
+  // (MSH.TILPASS_TOP 52 / MSH.TILPASS_MAXW 440) – ingen kort bruker dem lenger (Fiks 40).
   MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false, tilpass = false, tpTop = null, tpMaxW = null } = {}) {
     const tp = !!tilpass && !center;
     if (tp) sheet = true;
@@ -2731,8 +2732,8 @@ try {
         ${MSH.sheetStyle(false)}${center ? 'border-radius:32px;' : ''}opacity:0;transition:transform .3s cubic-bezier(.34,1.3,.64,1),opacity .2s;font-family:${MSH.FONT}}
       .sh.ft{--ki-sh-pb:0px}
       /* 28.8/28.11: Tilpass-ark – popupens toppkant og høyde, bunnforankret, glir inn nedenfra */
-      .sh.tp{top:var(--ki-tp-top,50px);bottom:0;left:var(--ki-tp-l,var(--ki-rail-x,0px));right:auto;width:var(--ki-tp-w,100%);max-width:none;height:calc(100% - var(--ki-tp-top,50px));max-height:none;margin:0;
-        border-radius:28px 28px 0 0;opacity:1;transform:translate3d(0,100%,0);transition:transform 280ms cubic-bezier(.2,.8,.2,1);--ki-sh-pb:calc(16px + env(safe-area-inset-bottom, 0px))}
+      .sh.tp{top:var(--ki-tp-top,52px);bottom:0;left:var(--ki-tp-l,var(--ki-rail-x,0px));right:auto;width:var(--ki-tp-w,100%);max-width:none;height:calc(100% - var(--ki-tp-top,52px));max-height:none;margin:0;
+        border-radius:38px 38px 0 0;opacity:1;transform:translate3d(0,100%,0);transition:transform 280ms cubic-bezier(.2,.8,.2,1);--ki-sh-pb:calc(16px + env(safe-area-inset-bottom, 0px))}
       :host(.on) .sh.tp{opacity:1;transform:translate3d(0,var(--ki-tp-dy,0px),0)}
       :host(.tpdrag) .sh.tp{transition:none}
       :host(.tpout) .sh.tp{transition:transform 240ms cubic-bezier(.4,0,.7,.2)}
@@ -2748,7 +2749,7 @@ try {
 </style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}${MSH.sheetVars(true)}}
       .bg{${MSH.scrimStyle(true)}}
       .sh{${MSH.sheetStyle(true)}${center ? 'border-radius:32px;' : ''}}
-      .sh.tp{border-radius:28px 28px 0 0}
+      .sh.tp{border-radius:38px 38px 0 0}
       ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh${footer ? ' ft' : ''}${tp ? ' tp' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
@@ -2788,16 +2789,12 @@ try {
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
     const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); if (tp) tpPlace(D, x); };
-    // 28.11: Tilpass-arkets bredde/venstrekant = popupens (åpen Bubble-popup) på PC, ellers 540 px sentrert; mobil = full bredde
+    // Fiks 40: alle Tilpass-ark – maks 440 px (MSH.TILPASS_MAXW) sentrert i innholdsflaten (til høyre for evt. rail)
     function tpPlace(D, x) {
       const cw = Math.max(0, D.width - x);
-      let l = x, w = cw;
-      if (tpMaxW) { w = Math.min(Number(tpMaxW), cw); l = x + (cw - w) / 2; } // 36.7: fast maks bredde, sentrert nederst
-      else if (window.innerWidth >= 768) {
-        const pop = openPopupEl(), pr = pop && pop.getBoundingClientRect();
-        if (pr && pr.width > 0 && pr.width <= D.width + 1) { l = Math.max(0, pr.left - D.left); w = Math.min(pr.width, D.width - l); } else { w = Math.min(MSH.TILPASS_W || 540, cw); l = x + (cw - w) / 2; }
-      }
-      host.style.setProperty('--ki-tp-top', (tpTop != null ? Number(tpTop) : MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 50) + 'px');
+      const mw = Number(tpMaxW || MSH.TILPASS_MAXW || 440);
+      const w = Math.min(mw, cw), l = x + (cw - w) / 2;
+      host.style.setProperty('--ki-tp-top', (tpTop != null ? Number(tpTop) : MSH.TILPASS_TOP != null ? MSH.TILPASS_TOP : 52) + 'px');
       host.style.setProperty('--ki-tp-l', Math.round(l) + 'px');
       host.style.setProperty('--ki-tp-w', Math.round(w) + 'px');
       host.dataset.tpSheet = '1'; // data-tp-sheet (ikke data-tilpass – det er navbarens «Tilpass»-menyark, 24.5)
@@ -8796,6 +8793,7 @@ try {
  * Config (kortets, f.eks. msh-hjem-header-card):
  *   servere: "Oslo, Strömstad=Strømstad, Toten"      # tekst: etter = er navnet serveren har i Companion-appen
  *   servere: [{ navn, server?, ikon?, farge?, sti? }]  # eller liste (strenger i listen → { navn, server })
+ *   (ikke satt → standardstedene Oslo, Toten, Strømstad – V.STD; servere: [] / '' = ingen steder, ingen meny)
  *   server_sti: lovelace     # siden som åpnes på den andre serveren (ellers samme dashbord som nå)
  *   server_navn: Oslo        # overstyrer gjenkjenningen (hass.config.location_name)
  *   server_plass: tittel     # tittel | under | navn
@@ -8906,7 +8904,13 @@ try {
     return true;
   };
 
-  V.list = (c) => V.parse(V.cfg(c).servere);
+  // Fiks 40: standardsteder (som Fiks 31.7 / Hjem v3 SERVERS) når servere IKKE er satt (null/undefined).
+  // Brukerens egen liste overstyrer helt; en eksplisitt tom liste (servere: [] eller '') = bevisst ingen steder →
+  // ingen meny og ingen pil. Ikon/farge kommer fra standardstilen (V.stil): Oslo/Toten/Strømstad.
+  V.STD = ['Oslo', 'Toten', 'Strømstad'];
+  V.raw = (c) => { const v = V.cfg(c).servere; return v == null ? V.STD : v; };
+  V.erStd = (c) => V.cfg(c).servere == null;
+  V.list = (c) => V.parse(V.raw(c));
 
   /* ------------------------------------------------------------ hvor er jeg (_serverNavn) */
   V.vask = (t) => String(t == null ? '' : t).toLowerCase().replace(/ö/g, 'ø').replace(/ä/g, 'æ').trim();
@@ -8914,7 +8918,7 @@ try {
     c = V.cfg(c);
     if (c.server_navn) return String(c.server_navn);
     const her = String((hass && hass.config && hass.config.location_name) || '');
-    const treff = V.parse(c.servere).find((s) => V.vask(s.navn) === V.vask(her) || V.vask(s.server) === V.vask(her));
+    const treff = V.list(c).find((s) => V.vask(s.navn) === V.vask(her) || V.vask(s.server) === V.vask(her));
     return treff ? treff.navn : her;
   };
 
@@ -8971,10 +8975,11 @@ try {
   };
 
   /* ------------------------------------------------------------ standardstil (_serverStil) */
+  // Fiks 40: ikonene fra Hjem v3 (SERVERS: apartment / agriculture / sailing → mdi, som Fiks 31.7)
   const KJENT = [
-    [/oslo/, 'mdi:home-city-outline', 'var(--green, #66d19e)'],
-    [/str[øo]mstad/, 'mdi:lighthouse', 'var(--blue, #73b9f2)'],
-    [/toten/, 'mdi:tractor-variant', 'var(--yellow, #f2d26f)'],
+    [/oslo/, 'mdi:office-building', 'var(--green, #66d19e)'],
+    [/str[øo]mstad/, 'mdi:sail-boat', 'var(--blue, #73b9f2)'],
+    [/toten/, 'mdi:tractor', 'var(--yellow, #f2d26f)'],
   ];
   const RESERVE = ['var(--active-big, #f285c9)', 'var(--purple, #ad99e6)', 'var(--teal, #40c8e0)'];
   V.stil = function (srv, i) {
@@ -9701,7 +9706,7 @@ try {
   const rowOn = (card, id, mOn) => (mOn ? isOn(card, id) : ((card.ui.amMem || {}).ids || []).includes(id));
 
   /* ------------------------------------------------------------ «Tilpass …»-arket */
-  // Ark 50 px fra toppen, til bunnen, samme høyde i alle faner (MSH.overlay tilpass: true). Utkast (MSH.draftEditor):
+  // Ark 52 px fra toppen, maks 440 px (Fiks 40), til bunnen, samme høyde i alle faner (MSH.overlay tilpass: true). Utkast (MSH.draftEditor):
   // endringer vises straks i popupen og lagres i kortets config ved Ferdig (rosa pille). Bakteppe/Esc = Avbryt.
   //   o.tabs: [[k, label]] | () => …   o.body(tab, draft, api) → HTML   o.click(a, el, api)   o.change(el, api)   o.pick(el, value, api)
   //   api: { st, D(), set(patch, haptic), path(p, v, haptic), draw() }   (undefined fjerner nøkkelen)
@@ -10466,7 +10471,7 @@ try {
       const chev = !grp && (type === 'ct' || type === 'color') && (hasCt || hasHue || hasPre);
       const K = onS.length ? Math.round(kOf((onS[0] || {}).attributes || {})) : 0;
       const name = c.name || (S[0] ? M.name(h, ids[0]) : ids[0]);
-      const val = missing ? 'Finnes ikke' : unav ? 'Utilgjengelig' : (onoff ? (p ? 'On' : 'Off') : `${p}%${c.kelvin && p && K > 0 ? ` · ${K} K` : ''}`) + (c.suffix || '');
+      const val = missing ? 'Finnes ikke' : unav ? 'Utilgjengelig' : (onoff ? (p ? 'På' : 'Av') : `${p}%${c.kelvin && p && K > 0 ? ` · ${K} K` : ''}`) + (c.suffix || '');
       return { ids, S, ref, grp, type, onoff, p, col, chev, hasCt, hasHue, hasPre, name, val, dis: missing || unav, on: onS.length > 0 };
     }
     _upd() {
@@ -12688,7 +12693,7 @@ try {
     }
 
     // 24.5 · «Tilpass»-arket (Hjem v3 · tilpOpen): bunnark i ki-overlay-root (M.overlay – dashbordflaten, aldri over
-    // HA-sidebaren; rail-utsparing). 28.8/28.11: toppkant 50 px, går til bunnen og dekker navbaren (tilpass: true). Ett kort #3a3a3a r24 med rader
+    // HA-sidebaren; rail-utsparing). 28.8/28.11: toppkant 52 px (Fiks 40), maks 440 px, går til bunnen og dekker navbaren (tilpass: true). Ett kort #3a3a3a r24 med rader
     // (64 px): Tilpass alt · Tilpass Hjem · Tilpass navbar · Tilpass header · Kiosk-modus (På/Av). Trykk lukker arket og
     // åpner editoren (ki-open-editor / M.kioskSheet). Haptic light (én per trykk).
     _tilpassSheet() {
@@ -12705,7 +12710,7 @@ try {
       ].filter((r) => r[4]);
       const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
         <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f);flex:none')}</button>`).join('')}</div>`;
-      // 28.8/28.11: geometrien (top 50 px, bunnforankret over navbaren, radius 28 28 0 0, bunnpadding) kommer fra M.overlay({ tilpass: true })
+      // 28.8/28.11: geometrien (Fiks 40: top 52 px, maks 440 px, bunnforankret over navbaren, radius 38 38 0 0, bunnpadding) kommer fra M.overlay({ tilpass: true })
       const css = `.sh{background:var(--ki-popup, var(--gray050,#282828))}
         .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
         .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
@@ -16625,7 +16630,7 @@ try {
           // Fiks 37: servere / server_navn / server_sti / server_plass / server_meny_med (MSH.servervelger, 06-server.js)
           { type: 'section', id: 'servers', label: 'Steder', icon: 'mdi:swap-horizontal', meta: (h, cc) => { const n = SV.list(cc).length; return n ? n + ' steder' : 'Ingen'; }, fields: [
             { type: 'rows', name: 'servere', label: 'Bytt sted – Home Assistant-servere', defaults: (h, cc) => SV.list(cc), addLabel: 'Legg til sted',
-              help: 'Trykk i Companion-appen bytter server med homeassistant://navigate/<dashbord>?server=<navn>. «Navn i appen» må være NØYAKTIG som i appens serverliste (ø/ö skrives som de er). Uten steder vises ingen meny og ingen pil.',
+              help: 'Trykk i Companion-appen bytter server med homeassistant://navigate/<dashbord>?server=<navn>. «Navn i appen» må være NØYAKTIG som i appens serverliste (ø/ö skrives som de er). Ikke satt = standardstedene Oslo, Toten og Strømstad. Slett alle steder for å fjerne menyen og pila.',
               norm: (list) => SV.parse(list).map((r) => { const o = { navn: r.navn }; if (r.server && r.server !== r.navn) o.server = r.server; ['ikon', 'farge', 'sti'].forEach((k) => { if (r[k]) o[k] = r[k]; }); return o; }),
               title: (r) => r.navn || 'Nytt sted', sub: (r) => (!r.navn ? 'Mangler navn' : [r.server && r.server !== r.navn ? 'I appen: ' + r.server : '', r.sti ? '/' + String(r.sti).replace(/^\/+/, '') : 'Samme dashbord'].filter(Boolean).join(' · ')),
               chip: (r, i) => { const st = SV.stil(r, i); return `<span class="xchip" style="border-radius:11px;background:${M.alpha(st.farge, 0.22)};color:${M.theme ? M.theme.accentText(st.farge) : st.farge}">${M.icon(st.ikon, 18)}</span>`; },
@@ -16664,7 +16669,7 @@ try {
     _sc() { return SV.cfg(this.config); }
     _plassStd() { return M.hjemServerPlassStd(modeOf(this.config)); }
     _server() {
-      const c = this._sc(), list = SV.parse(c.servere), name = SV.navn(c, this.hass);
+      const c = this._sc(), list = SV.list(c), name = SV.navn(c, this.hass);
       return { name: name || 'Hjem', list, cur: list.findIndex((x) => x.navn === name), plass: SV.plass(c, this._plassStd()), meny: SV.gest(c, this._plassStd()) };
     }
     _weather() {
@@ -16995,7 +17000,8 @@ try {
     }
     // Fiks 37: eldre steder/tittel-handlinger (servers, servers_init, this_server, place_name, title_actions) skrives om
     // til servere / server_navn / server_meny_med / greeting_*_action i ki-store ÉN gang (de gamle nøklene fjernes).
-    // Til det er gjort leses begge (SV.cfg). Ingen standardsteder lenger: uten servere – ingen meny og ingen pil.
+    // Til det er gjort leses begge (SV.cfg). Fiks 40: uten servere-nøkkel brukes standardstedene (SV.STD);
+    // eksplisitt tom liste (servere: [] / '') – ingen meny og ingen pil.
     _migrateServers() {
       const raw = this._rawConfig || {};
       if (this._srvMig || !SV.harGammel(raw)) return;
@@ -34861,7 +34867,7 @@ try {
       if (card._applySpacing) card._applySpacing();
     };
 
-    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + (M.tabBar ? M.tabBar.CSS : '') + TS_CSS + SC_CSS + SHEET_CSS + FIND_CSS + V5_CSS, maxWidth: 440, tilpass: true, tpTop: 52, tpMaxW: 440 /* 38.2: som de andre Tilpass-arkene (Hjem v3 sheetPanel) */, onClose: () => { ctl.dispose(); card._sheet = null; if (card._applySpacing) card._applySpacing(); } });
+    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + (M.tabBar ? M.tabBar.CSS : '') + TS_CSS + SC_CSS + SHEET_CSS + FIND_CSS + V5_CSS, maxWidth: 440, tilpass: true /* 38.2/Fiks 40: top 52 / maks 440 / radius 38 = felles Tilpass-standard */, onClose: () => { ctl.dispose(); card._sheet = null; if (card._applySpacing) card._applySpacing(); } });
     // Ingen bakteppe: bare arket tar imot trykk – popupen bak er synlig, trykkbar og scrollbar (live forhåndsvisning)
     ov.host.style.pointerEvents = 'none';
     ov.host.setAttribute('data-lys-sheet', '');
@@ -35094,7 +35100,7 @@ try {
   const V5_CSS = `
     :host{pointer-events:none}
     .bg{display:none!important}
-    .sh.tp.lys5{pointer-events:auto;top:auto;bottom:0;height:calc(100% - var(--ki-tp-top,52px));max-height:calc(100% - var(--ki-tp-top,52px));padding:0;overflow:hidden;display:flex;flex-direction:column;border-radius:38px 38px 0 0;
+    .sh.tp.lys5{pointer-events:auto;top:auto;bottom:0;height:calc(100% - var(--ki-tp-top,52px));max-height:calc(100% - var(--ki-tp-top,52px));padding:0;overflow:hidden;display:flex;flex-direction:column;
       background:var(--ki-popup, #282828)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
       box-shadow:inset 0 1px 0 ${WA(0.06)},0 -12px 40px ${KA(0.55)};transition:transform 280ms cubic-bezier(.2,.8,.2,1),height .3s cubic-bezier(.3,.9,.3,1)}
     .sh.tp.lys5.half{height:58%}
@@ -47245,12 +47251,13 @@ try {
     // 36.5: startfane ved åpning (MSH.startTab via basekortet) – start_tab, ellers gamle startTab
     static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (c) => c.startTab }; }
     onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null }; }
-    // 36.7: «Tilpass kalender» – tittel uten «·», «Nullstill» i headeren (ingen X), eget ark: top 52, maks 440, radius 38,
+    // 36.7: «Tilpass kalender» – tittel uten «·», «Nullstill» i headeren (ingen X), ark top 52, maks 440, radius 38 (felles, Fiks 40),
     // bakteppe rgba(0,0,0,.5) + blur(4px) over dashbordflaten. Arket er portalt (MSH.overlay i ki-overlay-root) og helt dekkende.
     static get editorTitle() { return 'Tilpass kalender'; }
     static get editorHead() { return { reset: resetCfg }; }
     customize(focus, opts) {
-      return super.customize(focus, { ...(opts || {}), sheet: { top: 52, maxWidth: 440, css: `.sh.tp{border-radius:38px 38px 0 0;background:var(--ki-popup, #282828);opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 -12px 40px ${BA(0.45)}}
+      // Fiks 40: top 52 / maks 440 / radius 38 er nå felles standard for alle Tilpass-ark (MSH.overlay tilpass: true)
+      return super.customize(focus, { ...(opts || {}), sheet: { css: `.sh.tp{box-shadow:0 -12px 40px ${BA(0.45)}}
         .bg{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}` } });
     }
     get tab() { const V = visTabs(this.config); const t = this.ui.tab || this.config.startTab; return V.includes(t) ? t : V[0]; }
@@ -54751,7 +54758,7 @@ try {
   }
 
   /* ============================================================ «Tilpass varmepumpe» (v3-arket) */
-  // MSH.overlay({ tilpass: true }) – 50 px fra toppen, til bunnen, dekker navbaren, samme høyde i alle faner (28.8/28.11).
+  // MSH.overlay({ tilpass: true }) – 52 px fra toppen, maks 440 px (Fiks 40), til bunnen, dekker navbaren, samme høyde i alle faner (28.8/28.11).
   // Fast øverst: tittel + Ferdig (rosa pille), Forhåndsvisning, fanene Knapper · Faner · Entiteter · Visning. Under: eget
   // scrollområde (vanlig blokk, flex:1, min-height:0, overflow-y:auto, overscroll-behavior:contain – 30.2-mønsteret).
   // Utkast (MSH.draftEditor): endringer vises straks i kortet, lagres i kortets config ved Ferdig; utenfor/Esc forkaster.

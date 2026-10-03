@@ -4,7 +4,8 @@
 //  · gjenkjenning (location_name mot navn/server, lowercase, ö→ø, ä→æ) og server_navn
 //  · URL homeassistant://navigate/<sti>?server=<navn>, navnet kodes KUN for & ? # % og mellomrom (ø/ö ukodet),
 //    sti = s.sti || server_sti || første segment av location.pathname || lovelace; åpnes med window.open (ALDRI location.href)
-//  · server_plass tittel / under / navn, plassholdere {server} {name} {temp} {vaer}, ingen servere → ingen meny/pil
+//  · server_plass tittel / under / navn, plassholdere {server} {name} {temp} {vaer}
+//  · Fiks 40: servere ikke satt → standardstedene Oslo, Toten, Strømstad (meny + pil); servere: [] / '' → ingen meny/pil
 //  · gester: trykk i click, hold 500 ms (uten handling → Tilpass), dobbelttrykk 320 ms (menyen åpnes med en gang, andre
 //    trykk på bakgrunnen lukker uten animasjon og kjører dobbelttrykket), server_meny_med hold/double_tap/ingen
 //  · menyen: portalt lag over dashbordflaten, 260 px ark, «Bytt sted», «Du er her», chevron, «Tilpass …», pila roterer,
@@ -75,7 +76,12 @@ const pure = await p.evaluate(() => {
   out.stil0 = V.stil({ navn: 'Bergen' }, 0); out.stilOv = V.stil({ navn: 'Oslo', ikon: 'mdi:x', farge: 'var(--red)' }, 0);
   out.fyll = V.fyll('{server} · {name} · {first_name} · {temp} {vaer}', { server: 'Oslo', name: 'Ola', temp: '12 °C', vaer: 'Sol' });
   out.gest = ['tap', 'double_tap', 'hold', 'ingen', undefined].map((m) => V.gest({ ...c, server_meny_med: m }, 'tittel'));
-  out.gestNone = V.gest({ server_meny_med: 'tap' }, 'tittel');
+  out.gestNone = V.gest({ servere: [], server_meny_med: 'tap' }, 'tittel');
+  out.gestStd = V.gest({ server_meny_med: 'tap' }, 'tittel');
+  // Fiks 40: standardsteder når servere ikke er satt; eksplisitt tom liste/streng = ingen
+  out.std = V.list({}).map((s) => s.navn + '|' + V.stil(s, 0).ikon + '|' + V.stil(s, 0).farge);
+  out.stdTom = [V.list({ servere: [] }).length, V.list({ servere: '' }).length, V.list({ servere: 'Bergen' }).map((s) => s.navn).join()];
+  out.stdNavn = V.navn({}, hz('toten'));
   // migrering (les begge)
   const old = { servers: [{ name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)' }, { name: 'Toten', path: '/lovelace/gard' }, { name: 'Bergen', icon: 'mdi:x', color: 'var(--red)', navigation_path: 'homeassistant://navigate/hytta?server=Bergen' }, { icon: 'mdi:y' }], servers_init: true, this_server: { name: 'toten' }, title_actions: { tap: 'config', double_tap: 'server', hold: 'none' }, kiosk_entity: 'input_boolean.k' };
   out.mig = V.fraGammel(old);
@@ -96,9 +102,11 @@ ok('URL: bare & ? # % og mellomrom kodes', pure.url2 === 'homeassistant://naviga
 ok('URL: stedets sti (ledende / fjernes) / server_sti', pure.url3 === 'homeassistant://navigate/lovelace/gard?server=Toten' && pure.url4 === 'homeassistant://navigate/dashboard-mysmarthome?server=Oslo', [pure.url3, pure.url4]);
 ok('server_plass tittel/under/navn (+ standard)', pure.plass.join() === 'tittel,under,navn,navn', pure.plass);
 const st = pure.stil;
-ok('standardstil: Oslo grønn byikon, Strömstad/Strømstad blå fyr, Toten gul traktor, andre active-big/purple', st[0].ikon === 'mdi:home-city-outline' && /--green/.test(st[0].farge) && st[1].ikon === 'mdi:lighthouse' && /--blue/.test(st[1].farge) && st[2].ikon === 'mdi:lighthouse' && st[3].ikon === 'mdi:tractor-variant' && /--yellow/.test(st[3].farge) && /--purple/.test(st[4].farge) && /--teal/.test(st[5].farge) && /--active-big/.test(pure.stil0.farge) && pure.stilOv.ikon === 'mdi:x' && /--red/.test(pure.stilOv.farge), [st, pure.stil0, pure.stilOv]);
+ok('standardstil (Hjem v3 / Fiks 31.7): Oslo grønn office-building, Strömstad/Strømstad blå sail-boat, Toten gul tractor, andre active-big/purple', st[0].ikon === 'mdi:office-building' && /--green/.test(st[0].farge) && st[1].ikon === 'mdi:sail-boat' && /--blue/.test(st[1].farge) && st[2].ikon === 'mdi:sail-boat' && st[3].ikon === 'mdi:tractor' && /--yellow/.test(st[3].farge) && /--purple/.test(st[4].farge) && /--teal/.test(st[5].farge) && /--active-big/.test(pure.stil0.farge) && pure.stilOv.ikon === 'mdi:x' && /--red/.test(pure.stilOv.farge), [st, pure.stil0, pure.stilOv]);
 ok('plassholdere {server} {name} {first_name} {temp} {vaer}', pure.fyll === 'Oslo · Ola · Ola · 12 °C Sol', pure.fyll);
-ok('server_meny_med tap/double_tap/hold/ingen (standard tap); ingen servere → ingen meny-gest', pure.gest.join() === 'tap,double_tap,hold,,tap' && pure.gestNone === '', [pure.gest, pure.gestNone]);
+ok('server_meny_med tap/double_tap/hold/ingen (standard tap); servere: [] → ingen meny-gest, ikke satt → tap', pure.gest.join() === 'tap,double_tap,hold,,tap' && pure.gestNone === '' && pure.gestStd === 'tap', [pure.gest, pure.gestNone, pure.gestStd]);
+ok('Fiks 40: servere ikke satt → Oslo (grønn office-building), Toten (gul tractor), Strømstad (blå sail-boat)', pure.std.join(';') === 'Oslo|mdi:office-building|var(--green, #66d19e);Toten|mdi:tractor|var(--yellow, #f2d26f);Strømstad|mdi:sail-boat|var(--blue, #73b9f2)', pure.std);
+ok('Fiks 40: servere: [] / \'\' → ingen steder; egen liste overstyrer; gjenkjenning mot standardstedene', pure.stdTom.join() === '0,0,Bergen' && pure.stdNavn === 'Toten', [pure.stdTom, pure.stdNavn]);
 const mg = pure.mig;
 ok('migrering: servers → servere (gamle standardikoner droppes, path/navigation_path → sti), rader uten navn droppes', JSON.stringify(mg.servere) === JSON.stringify([{ navn: 'Oslo' }, { navn: 'Toten', sti: 'lovelace/gard' }, { navn: 'Bergen', sti: 'hytta', ikon: 'mdi:x', farge: 'var(--red)' }]), mg.servere);
 ok('migrering: this_server → server_navn, title_actions → server_meny_med + greeting_*_action', mg.server_navn === 'toten' && mg.server_meny_med === 'double_tap' && mg.greeting_tap_action.navigation_path === '/config' && mg.greeting_hold_action.action === 'none' && !mg.greeting_double_tap_action, mg);
@@ -155,7 +163,7 @@ ok('tittel: stedsnavnet med pil (mdi:menu-down) i «Hjem»', m1.title === 'Oslo'
 ok('trykk åpner menyen med en gang', m1.openSync, m1);
 ok('menyen portales til ki-overlay-root over dashbord-containeren (ikke vinduet)', m1.inOverlay && m1.hostL === m1.dashL, m1);
 ok('ark 260 px, radius 22, under navnet, spiss, «Bytt sted»', m1.w === 260 && m1.rad === '22px' && m1.belowTitle && m1.spiss === '12px' && m1.top === 'Bytt sted', m1);
-ok('rader: Oslo «Du er her» (ingen chevron), andre med chevron, standardikoner, forskjøvet 45 ms', m1.rows.length === 4 && m1.rows[0].her && !m1.rows[0].chev && m1.rows[1].chev && m1.rows[2].chev && m1.rows[1].ic === 'mdi:lighthouse' && m1.rows[2].ic === 'mdi:tractor-variant' && m1.rows[2].d === '90ms' && m1.rows[3].n === 'Tilpass …', m1.rows);
+ok('rader: Oslo «Du er her» (ingen chevron), andre med chevron, standardikoner, forskjøvet 45 ms', m1.rows.length === 4 && m1.rows[0].her && !m1.rows[0].chev && m1.rows[1].chev && m1.rows[2].chev && m1.rows[1].ic === 'mdi:sail-boat' && m1.rows[2].ic === 'mdi:tractor' && m1.rows[2].d === '90ms' && m1.rows[3].n === 'Tilpass …', m1.rows);
 ok('pila roterer 180° når menyen er åpen', !!m1.rot && m1.rot !== 'none', m1.rot);
 ok('haptic ved åpning (én)', m1.hapOpen.length === 1, m1.hapOpen);
 ok('trykk på raden du er på → bare lukk', !m1.ownRow.open && !m1.ownRow.urls.length, m1.ownRow);
@@ -241,10 +249,16 @@ const pl = await p.evaluate(async (SERV) => {
   __c.shadowRoot.querySelector('.ttl').click(); await __w(400); out.underTitle = !!__menu(); __menu() && __menu().remove();
   out.undertekst = info(await __mk({ servere: SERV, mode: 'hjem', undertekst: '{temp} • {vaer} · {server}' }, 'Oslo', h));
   out.undertekstTxt = __c.shadowRoot.querySelector('.sub').textContent;
-  // ingen servere → ingen meny og ingen pil (stedsnavn som ren tekst)
-  out.none = info(await __mk({ mode: 'sted' }, 'Oslo', h));
+  // Fiks 40: servere: [] (bevisst tom) → ingen meny og ingen pil (stedsnavn som ren tekst)
+  out.none = info(await __mk({ servere: [], mode: 'sted' }, 'Oslo', h));
   __c.shadowRoot.querySelector('.ttl').click(); await __w(400); out.noneMenu = !!__menu();
-  out.noneUnder = info(await __mk({ server_plass: 'under' }, 'Oslo', h));
+  out.noneUnder = info(await __mk({ servere: '', server_plass: 'under' }, 'Oslo', h));
+  // Fiks 40: servere ikke satt → standardstedene: pil + meny med Oslo, Toten, Strømstad
+  out.std = info(await __mk({ mode: 'sted' }, 'Oslo', h));
+  __c.shadowRoot.querySelector('.ttl').click(); await __w(400);
+  out.stdMenu = __menu() ? [...__menu().shadowRoot.querySelectorAll('.rad:not(.tilpass)')].map((r) => r.querySelector('.navn').textContent + '|' + ((r.querySelector('.flis ha-icon') || { getAttribute: () => null }).getAttribute('icon'))) : null;
+  __menu() && __menu().remove();
+  out.stdUnder = info(await __mk({ server_plass: 'under' }, 'Oslo', h));
   return out;
 }, SERV);
 ok('tittel: stedsnavnet (gjenkjent med ö) er den store linja + pil', pl.tittel.title === 'Strömstad' && pl.tittel.pil, pl.tittel);
@@ -253,8 +267,10 @@ ok('navn (Hilsen): hilsenen med pil, ingen stedsnavn', /Ola/.test(pl.navn.title)
 ok('under: hilsen som før, stedsnavn + liten pil (20 px) og «•» før været på linja under', !/Oslo/.test(pl.under.title) && !pl.under.pil && pl.under.svv && /^Oslo\s*•\s*\S/.test(pl.under.sub2 || '') && /20px/.test(pl.under.svvIc || ''), pl.under);
 ok('under: stedsnavnet åpner menyen (pila roterer), hilsenen gjør ikke', pl.underMenu && pl.underRot && !pl.underTitle, [pl.underMenu, pl.underRot, pl.underTitle]);
 ok('undertekst med {temp} {vaer} {server}', /°C/.test(pl.undertekstTxt) && /Oslo$/.test(pl.undertekstTxt), pl.undertekstTxt);
-ok('ingen servere: ingen pil og ingen meny, stedsnavnet som ren tekst', pl.none.title === 'Oslo' && !pl.none.pil && !pl.noneMenu, pl.none);
-ok('ingen servere + under: stedsnavn som ren tekst (ingen knapp)', pl.noneUnder.svn && !pl.noneUnder.svv, pl.noneUnder);
+ok('servere: [] (bevisst tom): ingen pil og ingen meny, stedsnavnet som ren tekst', pl.none.title === 'Oslo' && !pl.none.pil && !pl.noneMenu, pl.none);
+ok("servere: '' + under: stedsnavn som ren tekst (ingen knapp)", pl.noneUnder.svn && !pl.noneUnder.svv, pl.noneUnder);
+ok('Fiks 40: servere ikke satt → pil og meny med standardstedene (Oslo · Toten · Strømstad, design-ikoner)', pl.std.title === 'Oslo' && pl.std.pil && (pl.stdMenu || []).join(';') === 'Oslo|mdi:office-building;Toten|mdi:tractor;Strømstad|mdi:sail-boat', [pl.std, pl.stdMenu]);
+ok('Fiks 40: servere ikke satt + under: stedsnavnet er knapp (liten pil)', pl.stdUnder.svv && !pl.stdUnder.svn, pl.stdUnder);
 
 /* ------------------------------------------------------------ 5 · migrering (les begge + skriv én gang) og editor */
 const mg2 = await p.evaluate(async () => {

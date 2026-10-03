@@ -1329,7 +1329,7 @@
           // Fiks 37: servere / server_navn / server_sti / server_plass / server_meny_med (MSH.servervelger, 06-server.js)
           { type: 'section', id: 'servers', label: 'Steder', icon: 'mdi:swap-horizontal', meta: (h, cc) => { const n = SV.list(cc).length; return n ? n + ' steder' : 'Ingen'; }, fields: [
             { type: 'rows', name: 'servere', label: 'Bytt sted – Home Assistant-servere', defaults: (h, cc) => SV.list(cc), addLabel: 'Legg til sted',
-              help: 'Trykk i Companion-appen bytter server med homeassistant://navigate/<dashbord>?server=<navn>. «Navn i appen» må være NØYAKTIG som i appens serverliste (ø/ö skrives som de er). Uten steder vises ingen meny og ingen pil.',
+              help: 'Trykk i Companion-appen bytter server med homeassistant://navigate/<dashbord>?server=<navn>. «Navn i appen» må være NØYAKTIG som i appens serverliste (ø/ö skrives som de er). Ikke satt = standardstedene Oslo, Toten og Strømstad. Slett alle steder for å fjerne menyen og pila.',
               norm: (list) => SV.parse(list).map((r) => { const o = { navn: r.navn }; if (r.server && r.server !== r.navn) o.server = r.server; ['ikon', 'farge', 'sti'].forEach((k) => { if (r[k]) o[k] = r[k]; }); return o; }),
               title: (r) => r.navn || 'Nytt sted', sub: (r) => (!r.navn ? 'Mangler navn' : [r.server && r.server !== r.navn ? 'I appen: ' + r.server : '', r.sti ? '/' + String(r.sti).replace(/^\/+/, '') : 'Samme dashbord'].filter(Boolean).join(' · ')),
               chip: (r, i) => { const st = SV.stil(r, i); return `<span class="xchip" style="border-radius:11px;background:${M.alpha(st.farge, 0.22)};color:${M.theme ? M.theme.accentText(st.farge) : st.farge}">${M.icon(st.ikon, 18)}</span>`; },
@@ -1368,7 +1368,7 @@
     _sc() { return SV.cfg(this.config); }
     _plassStd() { return M.hjemServerPlassStd(modeOf(this.config)); }
     _server() {
-      const c = this._sc(), list = SV.parse(c.servere), name = SV.navn(c, this.hass);
+      const c = this._sc(), list = SV.list(c), name = SV.navn(c, this.hass);
       return { name: name || 'Hjem', list, cur: list.findIndex((x) => x.navn === name), plass: SV.plass(c, this._plassStd()), meny: SV.gest(c, this._plassStd()) };
     }
     _weather() {
@@ -1699,7 +1699,8 @@
     }
     // Fiks 37: eldre steder/tittel-handlinger (servers, servers_init, this_server, place_name, title_actions) skrives om
     // til servere / server_navn / server_meny_med / greeting_*_action i ki-store ÉN gang (de gamle nøklene fjernes).
-    // Til det er gjort leses begge (SV.cfg). Ingen standardsteder lenger: uten servere – ingen meny og ingen pil.
+    // Til det er gjort leses begge (SV.cfg). Fiks 40: uten servere-nøkkel brukes standardstedene (SV.STD);
+    // eksplisitt tom liste (servere: [] / '') – ingen meny og ingen pil.
     _migrateServers() {
       const raw = this._rawConfig || {};
       if (this._srvMig || !SV.harGammel(raw)) return;

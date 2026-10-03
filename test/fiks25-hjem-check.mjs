@@ -170,7 +170,7 @@ const ok = (c, m, info) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (info != 
   ok(sh && sh.title === 'Tilpass' && /Ferdig/.test(sh.done) && sh.rad === '28px' && sh.cardR === '24px' && sh.cardBg === 'rgb(58, 58, 58)' && sh.h0 === 64 && sh.ic && sh.ic[0] === 40 && sh.ic[1] === 'rgb(64, 64, 64)', '24.5 arket: tittel/Ferdig, radius 28 (28.8/28.11), kort #3a3a3a r24, rader 64 px, ikon-sirkel 40 #404040', sh);
   ok(sh && sh.subs[0] === 'Veiviser for hele dashbordet' && /^(På|Av)$/.test(sh.subs[4]), '24.5 underteksten (Kiosk På/Av)', sh && sh.subs);
   // 28.8/28.11: arket går helt til bunnen (top 50 px) og ligger OVER navbaren (dekker den)
-  ok(sh && sh.navT != null && Math.abs(sh.sheetB - sh.vh) <= 1 && Math.abs(sh.sheetT - 50) <= 1 && sh.sheetB >= sh.navB - 1 && sh.hostZ > sh.navZ && sh.overNav, '28.8 arket går til bunnen (top 50) og dekker navbaren', sh && { sheetT: sh.sheetT, sheetB: sh.sheetB, vh: sh.vh, navT: sh.navT, navB: sh.navB, hostZ: sh.hostZ, navZ: sh.navZ, overNav: sh.overNav });
+  ok(sh && sh.navT != null && Math.abs(sh.sheetB - sh.vh) <= 1 && Math.abs(sh.sheetT - 52) <= 1 && sh.sheetB >= sh.navB - 1 && sh.hostZ > sh.navZ && sh.overNav, '28.8 arket går til bunnen (top 52, Fiks 40) og dekker navbaren', sh && { sheetT: sh.sheetT, sheetB: sh.sheetB, vh: sh.vh, navT: sh.navT, navB: sh.navB, hostZ: sh.hostZ, navZ: sh.navZ, overNav: sh.overNav });
   ok(sh && sh.left >= sh.D.left - 1, '24.5 arket holder seg innenfor dashbordflaten (HA-sidebaren)', sh);
   if (SHOTS) await p.screenshot({ path: SHOTS + '/f25-tilpass.png' });
   // hver rad lukker arket og åpner riktig editor

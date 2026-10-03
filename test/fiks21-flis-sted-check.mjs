@@ -90,7 +90,9 @@ const hdr = (cfg, loc) => p.evaluate(async ([cfg, loc]) => {
 }, [cfg, loc]);
 const OLD = [{ name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)' }, { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)' }, { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue)' }];
 let s = await hdr({}, 'Strømstad');
-ok('37: uten oppsett ingen standardliste og ingen pil (stedsnavnet fra location_name)', s.names.length === 0 && s.cur === -1 && !s.pil, s);
+ok('40: uten oppsett standardstedene Oslo/Toten/Strømstad med pil, location_name markerer Strømstad', s.names.join() === 'Oslo,Toten,Strømstad' && s.cur === 2 && s.pil, s);
+s = await hdr({ servere: [] }, 'Strømstad');
+ok('40: servere: [] → ingen steder og ingen pil (stedsnavnet fra location_name)', s.names.length === 0 && s.cur === -1 && !s.pil && s.name === 'Strømstad', s);
 s = await hdr({ servers: OLD, servers_init: true }, 'Strømstad');
 ok('21.4 seedet liste (servers) leses: Oslo, Toten, Strømstad', s.names.join() === 'Oslo,Toten,Strømstad' && s.pil, s);
 ok('21.4 location_name «Strømstad» markerer Strømstad', s.cur === 2, s);
@@ -138,7 +140,7 @@ const seed = await p.evaluate(async () => {
   } finally { M.store = keep; }
   return sets.map(([k, v]) => [k.split('.').slice(-1)[0], v === undefined ? '∅' : v]);
 });
-ok('37: ingen standardliste skrives; eldre servers skrives om én gang (servere + gamle nøkler fjernes)', seed.length === 3 && seed[0][0] === 'servere' && seed[0][1] === 'Oslo,Toten' && seed.slice(1).every((x) => x[1] === '∅') && seed.map((x) => x[0]).join() === 'servere,servers,servers_init', seed);
+ok('37/40: standardstedene skrives ikke til config; eldre servers skrives om én gang (servere + gamle nøkler fjernes)', seed.length === 3 && seed[0][0] === 'servere' && seed[0][1] === 'Oslo,Toten' && seed.slice(1).every((x) => x[1] === '∅') && seed.map((x) => x[0]).join() === 'servere,servers,servers_init', seed);
 
 ok('ingen sidefeil', !errs.length, errs);
 console.log(res.join('\n'));

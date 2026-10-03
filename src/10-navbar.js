@@ -667,7 +667,7 @@
     }
 
     // 24.5 · «Tilpass»-arket (Hjem v3 · tilpOpen): bunnark i ki-overlay-root (M.overlay – dashbordflaten, aldri over
-    // HA-sidebaren; rail-utsparing). 28.8/28.11: toppkant 50 px, går til bunnen og dekker navbaren (tilpass: true). Ett kort #3a3a3a r24 med rader
+    // HA-sidebaren; rail-utsparing). 28.8/28.11: toppkant 52 px (Fiks 40), maks 440 px, går til bunnen og dekker navbaren (tilpass: true). Ett kort #3a3a3a r24 med rader
     // (64 px): Tilpass alt · Tilpass Hjem · Tilpass navbar · Tilpass header · Kiosk-modus (På/Av). Trykk lukker arket og
     // åpner editoren (ki-open-editor / M.kioskSheet). Haptic light (én per trykk).
     _tilpassSheet() {
@@ -684,7 +684,7 @@
       ].filter((r) => r[4]);
       const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
         <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f);flex:none')}</button>`).join('')}</div>`;
-      // 28.8/28.11: geometrien (top 50 px, bunnforankret over navbaren, radius 28 28 0 0, bunnpadding) kommer fra M.overlay({ tilpass: true })
+      // 28.8/28.11: geometrien (Fiks 40: top 52 px, maks 440 px, bunnforankret over navbaren, radius 38 38 0 0, bunnpadding) kommer fra M.overlay({ tilpass: true })
       const css = `.sh{background:var(--ki-popup, var(--gray050,#282828))}
         .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
         .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}

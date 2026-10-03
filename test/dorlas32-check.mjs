@@ -267,7 +267,7 @@ const TP = await p.evaluate(async () => {
   ed.remove();
   return out;
 });
-ok('32.1 Tilpass dørlås: 50 px fra toppen til bunnen, Ferdig, fanene Låser · Seksjoner · Historikk, samme høyde i alle faner', TP.top === 50 && TP.bottom === TP.vh && TP.title === 'Tilpass dørlås' && TP.done === 'Ferdig' && TP.tabs.join() === 'Låser,Seksjoner,Historikk' && new Set(TP.h).size === 1, TP);
+ok('32.1 Tilpass dørlås: 52 px fra toppen (Fiks 40) til bunnen, Ferdig, fanene Låser · Seksjoner · Historikk, samme høyde i alle faner', TP.top === 52 && TP.bottom === TP.vh && TP.title === 'Tilpass dørlås' && TP.done === 'Ferdig' && TP.tabs.join() === 'Låser,Seksjoner,Historikk' && new Set(TP.h).size === 1, TP);
 ok('32.1 Låser: navnefelt per lås + Lås/Dørsensor med Auto/Mangler', TP.locks.join() === 'Boddør,Inngangsdør' && TP.chips.join() === 'Auto,Mangler,Auto,Auto', TP);
 ok('32.1 forhåndsvisning: Status av skjuler flisene straks; forklaring for Hold', !TP.previewTiles && /0,9 s/.test(TP.note), TP);
 ok('32.1 Ferdig lagrer i config (ki-store) og kortet følger', TP.stored && TP.stored.unlock === 'hold' && TP.stored.hist_count === 4 && TP.stored.show_status === false && TP.stored.hist_door === false && TP.cfg.name.name === 'Hoveddør' && TP.cfg.bod.hidden === true && TP.picks === 0 && TP.label === 'Hold for å låse opp', TP);

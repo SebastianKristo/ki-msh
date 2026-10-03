@@ -774,7 +774,7 @@
   }
 
   /* ============================================================ «Tilpass varmepumpe» (v3-arket) */
-  // MSH.overlay({ tilpass: true }) – 50 px fra toppen, til bunnen, dekker navbaren, samme høyde i alle faner (28.8/28.11).
+  // MSH.overlay({ tilpass: true }) – 52 px fra toppen, maks 440 px (Fiks 40), til bunnen, dekker navbaren, samme høyde i alle faner (28.8/28.11).
   // Fast øverst: tittel + Ferdig (rosa pille), Forhåndsvisning, fanene Knapper · Faner · Entiteter · Visning. Under: eget
   // scrollområde (vanlig blokk, flex:1, min-height:0, overflow-y:auto, overscroll-behavior:contain – 30.2-mønsteret).
   // Utkast (MSH.draftEditor): endringer vises straks i kortet, lagres i kortets config ved Ferdig; utenfor/Esc forkaster.

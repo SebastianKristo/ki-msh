@@ -76,7 +76,7 @@ const r = await p.evaluate(async () => {
 console.log(JSON.stringify(r));
 ok('overskrift «Bytt sted» + «Tilpass …»', r.head === 'Bytt sted' && r.tilpass, [r.head, r.tilpass]);
 ok('radene: fargeflis + navn + «Du er her»/chevron, ingen server=-linje', r.rows.length === 4 && r.rows.every((x) => !/server=/.test(x.t) && x.icons === (x.her ? 1 : 2)) && r.rows.map((x) => x.n).join() === 'Oslo,Toten,Strømstad,Hytta' && r.rows[0].her && /Du er her/.test(r.rows[0].t), r.rows);
-ok('eget ikon vinner, ellers standardikon', r.rows[0].ic === 'mdi:office-building' && r.rows[1].ic === 'mdi:tractor-variant' && r.rows[2].ic === 'mdi:lighthouse', r.rows.map((x) => x.ic));
+ok('eget ikon vinner, ellers standardikon', r.rows[0].ic === 'mdi:office-building' && r.rows[1].ic === 'mdi:tractor' && r.rows[2].ic === 'mdi:sail-boat', r.rows.map((x) => x.ic));
 ok('bytt: window.open(homeassistant://navigate/ki-dashboard?server=Strømstad) – ø ukodet, samme dashbord', r.s1.opened[0] === 'homeassistant://navigate/ki-dashboard?server=Strømstad', r.s1.opened);
 ok('bytt: haptic selection, menyen lukkes, ingen toast, location.href urørt', r.s1.hap.includes('selection') && !r.s1.open && !r.s1.toasts.length && r.s1.href, r.s1);
 ok('«Du er her» følger serveren (location_name), ikke trykket', r.here2.join() === 'Oslo', r.here2);

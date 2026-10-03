@@ -563,12 +563,13 @@
     // 36.5: startfane ved åpning (MSH.startTab via basekortet) – start_tab, ellers gamle startTab
     static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (c) => c.startTab }; }
     onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null }; }
-    // 36.7: «Tilpass kalender» – tittel uten «·», «Nullstill» i headeren (ingen X), eget ark: top 52, maks 440, radius 38,
+    // 36.7: «Tilpass kalender» – tittel uten «·», «Nullstill» i headeren (ingen X), ark top 52, maks 440, radius 38 (felles, Fiks 40),
     // bakteppe rgba(0,0,0,.5) + blur(4px) over dashbordflaten. Arket er portalt (MSH.overlay i ki-overlay-root) og helt dekkende.
     static get editorTitle() { return 'Tilpass kalender'; }
     static get editorHead() { return { reset: resetCfg }; }
     customize(focus, opts) {
-      return super.customize(focus, { ...(opts || {}), sheet: { top: 52, maxWidth: 440, css: `.sh.tp{border-radius:38px 38px 0 0;background:var(--ki-popup, #282828);opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 -12px 40px ${BA(0.45)}}
+      // Fiks 40: top 52 / maks 440 / radius 38 er nå felles standard for alle Tilpass-ark (MSH.overlay tilpass: true)
+      return super.customize(focus, { ...(opts || {}), sheet: { css: `.sh.tp{box-shadow:0 -12px 40px ${BA(0.45)}}
         .bg{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}` } });
     }
     get tab() { const V = visTabs(this.config); const t = this.ui.tab || this.config.startTab; return V.includes(t) ? t : V[0]; }

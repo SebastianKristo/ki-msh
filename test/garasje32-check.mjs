@@ -207,7 +207,7 @@ const TP = await p.evaluate(async () => {
   ed.remove();
   return out;
 });
-ok('32.2 Tilpass garasje: 50 px fra toppen til bunnen, fanene Port · Seksjoner · Sikkerhet, samme høyde', TP.top === 50 && TP.bottom === TP.vh && TP.title === 'Tilpass garasje' && TP.tabs.join() === 'Port,Seksjoner,Sikkerhet' && new Set(TP.h).size === 1, TP);
+ok('32.2 Tilpass garasje: 52 px fra toppen (Fiks 40) til bunnen, fanene Port · Seksjoner · Sikkerhet, samme høyde', TP.top === 52 && TP.bottom === TP.vh && TP.title === 'Tilpass garasje' && TP.tabs.join() === 'Port,Seksjoner,Sikkerhet' && new Set(TP.h).size === 1, TP);
 ok('32.2 Port: navn + Port/Lys/Bevegelse med Auto og «Bytt» (søkbar velger)', TP.names.join() === 'Garasjeport' && TP.rows.join() === 'Port:Auto,Lys:Auto,Bevegelse:Auto' && TP.picker, TP);
 ok('32.2 «Åpne krever» To trykk med forklaring; forhåndsvisning skjuler Historikk', /andre trykk innen 3 s/.test(TP.note) && !TP.previewHist, TP);
 ok('32.2 Ferdig lagrer i config (open_confirm, show_hist, doors_cfg.light = none)', TP.stored && TP.stored.open_confirm === 'to' && TP.stored.show_hist === false && TP.stored.doors_cfg && TP.stored.doors_cfg.garasjeport.light === 'none' && /^–\s*Lys/.test(TP.lightTile), TP);

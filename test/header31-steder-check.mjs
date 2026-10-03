@@ -1,6 +1,6 @@
 // Fiks 31.7 → Fiks 37 · «Bytt sted» i hjem-headeren med config fra 31.7 (servers [{ name, icon, color, navigation_path,
-// url, url_path, fallback_url }]). Fiks 37 erstatter oppførselen: stedene leses som `servere` (les begge), ingen
-// standardliste uten oppsett, «Du er her» fra hass.config.location_name (lowercase, ö→ø, ä→æ), radene viser bare ikon +
+// url, url_path, fallback_url }]). Fiks 37 erstatter oppførselen: stedene leses som `servere` (les begge), Fiks 40:
+// standardstedene Oslo/Toten/Strømstad uten oppsett (servere: [] = ingen), «Du er her» fra hass.config.location_name (lowercase, ö→ø, ä→æ), radene viser bare ikon +
 // navn + chevron, bytte = window.open(homeassistant://navigate/<sti>?server=<navn>) (sti fra eldre navigation_path),
 // ingen toast/location.href. Tilpass header → Steder redigerer `servere` (navn, server, ikon, farge, sti) også i
 // getConfigElement(). Full dekning: test/server37-check.mjs.
@@ -43,10 +43,14 @@ const r = await p.evaluate(async () => {
     { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)', url_path: 'homeassistant://navigate/gard?server=Toten', fallback_url: '' },
     { name: 'Strömstad', icon: 'mdi:sail-boat', color: 'var(--blue)' },
   ];
-  // uten oppsett: ingen standardliste → ingen meny og ingen pil
+  // Fiks 40: uten oppsett → standardstedene (Oslo, Toten, Strømstad) med meny og pil
   let c = await mk({}, 'Oslo');
-  out.defList = c._server().list.length; out.defPil = !!c.shadowRoot.querySelector('.ttl .pil');
+  out.defList = c._server().list.map((s) => s.navn).join(); out.defPil = !!c.shadowRoot.querySelector('.ttl .pil');
   c.shadowRoot.querySelector('.ttl').click(); await w(350); out.defMenu = !!menu();
+  // servere: [] (bevisst tom) → ingen meny og ingen pil
+  c = await mk({ servere: [] }, 'Oslo');
+  out.tomList = c._server().list.length; out.tomPil = !!c.shadowRoot.querySelector('.ttl .pil');
+  c.shadowRoot.querySelector('.ttl').click(); await w(350); out.tomMenu = !!menu();
   // 31.7-config leses (les begge): Du er her fra location_name (ö/ø og store bokstaver)
   c = await mk({ servers: OLD, servers_init: true }, 'STRØMSTAD');
   out.here1 = c._server().name;
@@ -83,10 +87,11 @@ const r = await p.evaluate(async () => {
   return out;
 });
 console.log(JSON.stringify(r));
-ok(r.defList === 0 && !r.defPil && !r.defMenu, '37: uten oppsett ingen standardliste, ingen pil og ingen meny ' + JSON.stringify([r.defList, r.defPil, r.defMenu]));
+ok(r.defList === 'Oslo,Toten,Strømstad' && r.defPil && r.defMenu, '40: uten oppsett standardstedene Oslo/Toten/Strømstad, pil og meny ' + JSON.stringify([r.defList, r.defPil, r.defMenu]));
+ok(r.tomList === 0 && !r.tomPil && !r.tomMenu, '40: servere: [] ingen steder, ingen pil og ingen meny ' + JSON.stringify([r.tomList, r.tomPil, r.tomMenu]));
 ok(r.here1 === 'Strömstad' && r.here2 === 'Toten', 'Du er her fra location_name (ö/ø, case) ' + JSON.stringify([r.here1, r.here2]));
 ok(JSON.stringify(r.rows.map((x) => x.n)) === JSON.stringify(['Oslo', 'Toten', 'Strömstad']) && r.rows[1].her && !r.rows[1].chev && r.rows[0].chev && r.rows.every((x) => !x.srv), 'rader (ikon + navn + Du er her/chevron, ingen server=) ' + JSON.stringify(r.rows));
-ok(r.rows[0].ic === 'mdi:home-city-outline' && r.rows[1].ic === 'mdi:tractor-variant' && r.rows[2].ic === 'mdi:lighthouse', 'gamle standardikoner → nye standardikoner ' + JSON.stringify(r.rows.map((x) => x.ic)));
+ok(r.rows[0].ic === 'mdi:office-building' && r.rows[1].ic === 'mdi:tractor' && r.rows[2].ic === 'mdi:sail-boat', 'gamle standardikoner → standardstil (Hjem v3) ' + JSON.stringify(r.rows.map((x) => x.ic)));
 ok(r.opened[0] === 'homeassistant://navigate/home?server=Oslo' && r.opened[1] === 'homeassistant://navigate/home?server=Strömstad', 'bytte: samme dashbord (første segment av pathname), ö ukodet, eldre navigation_path …/lovelace gir ingen sti ' + JSON.stringify(r.opened));
 ok(r.opened.length === 3 && r.opened[2] === 'homeassistant://navigate/gard?server=Toten', 'eldre url_path → sti, window.open ' + JSON.stringify(r.opened));
 ok(!r.toasts.length, 'ingen toast i nettleser (window.open) ' + JSON.stringify(r.toasts));

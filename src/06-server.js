@@ -6,6 +6,7 @@
  * Config (kortets, f.eks. msh-hjem-header-card):
  *   servere: "Oslo, Strömstad=Strømstad, Toten"      # tekst: etter = er navnet serveren har i Companion-appen
  *   servere: [{ navn, server?, ikon?, farge?, sti? }]  # eller liste (strenger i listen → { navn, server })
+ *   (ikke satt → standardstedene Oslo, Toten, Strømstad – V.STD; servere: [] / '' = ingen steder, ingen meny)
  *   server_sti: lovelace     # siden som åpnes på den andre serveren (ellers samme dashbord som nå)
  *   server_navn: Oslo        # overstyrer gjenkjenningen (hass.config.location_name)
  *   server_plass: tittel     # tittel | under | navn
@@ -116,7 +117,13 @@
     return true;
   };
 
-  V.list = (c) => V.parse(V.cfg(c).servere);
+  // Fiks 40: standardsteder (som Fiks 31.7 / Hjem v3 SERVERS) når servere IKKE er satt (null/undefined).
+  // Brukerens egen liste overstyrer helt; en eksplisitt tom liste (servere: [] eller '') = bevisst ingen steder →
+  // ingen meny og ingen pil. Ikon/farge kommer fra standardstilen (V.stil): Oslo/Toten/Strømstad.
+  V.STD = ['Oslo', 'Toten', 'Strømstad'];
+  V.raw = (c) => { const v = V.cfg(c).servere; return v == null ? V.STD : v; };
+  V.erStd = (c) => V.cfg(c).servere == null;
+  V.list = (c) => V.parse(V.raw(c));
 
   /* ------------------------------------------------------------ hvor er jeg (_serverNavn) */
   V.vask = (t) => String(t == null ? '' : t).toLowerCase().replace(/ö/g, 'ø').replace(/ä/g, 'æ').trim();
@@ -124,7 +131,7 @@
     c = V.cfg(c);
     if (c.server_navn) return String(c.server_navn);
     const her = String((hass && hass.config && hass.config.location_name) || '');
-    const treff = V.parse(c.servere).find((s) => V.vask(s.navn) === V.vask(her) || V.vask(s.server) === V.vask(her));
+    const treff = V.list(c).find((s) => V.vask(s.navn) === V.vask(her) || V.vask(s.server) === V.vask(her));
     return treff ? treff.navn : her;
   };
 
@@ -181,10 +188,11 @@
   };
 
   /* ------------------------------------------------------------ standardstil (_serverStil) */
+  // Fiks 40: ikonene fra Hjem v3 (SERVERS: apartment / agriculture / sailing → mdi, som Fiks 31.7)
   const KJENT = [
-    [/oslo/, 'mdi:home-city-outline', 'var(--green, #66d19e)'],
-    [/str[øo]mstad/, 'mdi:lighthouse', 'var(--blue, #73b9f2)'],
-    [/toten/, 'mdi:tractor-variant', 'var(--yellow, #f2d26f)'],
+    [/oslo/, 'mdi:office-building', 'var(--green, #66d19e)'],
+    [/str[øo]mstad/, 'mdi:sail-boat', 'var(--blue, #73b9f2)'],
+    [/toten/, 'mdi:tractor', 'var(--yellow, #f2d26f)'],
   ];
   const RESERVE = ['var(--active-big, #f285c9)', 'var(--purple, #ad99e6)', 'var(--teal, #40c8e0)'];
   V.stil = function (srv, i) {

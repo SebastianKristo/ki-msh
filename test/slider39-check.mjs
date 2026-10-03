@@ -4,7 +4,7 @@
 //     fyll = lysfargen (rgb → farge, kun dimbar = #ffc896) i full opasitet; håndtak 4 × 74 r2 ≈ fyll × 0,6, 11 px over/under,
 //     6 px luft; 0 % = håndtaket helt til venstre, 100 % = helt til høyre; 14 px mellom radene
 //   · chevron (44 × 44) bare på lys med farge/fargetemperatur → farge-/temperaturvelgeren under raden
-//   · av/på-lys: pille med bryterknapp (44 px r10, ~55 %), mdi:power, prikk når av, knappen glir til høyre når på, «On»/«Off»
+//   · av/på-lys: pille med bryterknapp (44 px r10, ~55 %), mdi:power, prikk når av, knappen glir til høyre når på, «På»/«Av» (Fiks 40)
 //   · touch-dra: lysstyrke live lokalt, light.turn_on {brightness_pct} throttlet 150 ms + ved slipp, popupen står (ikke lukket)
 //   · trykk = av/på; haptic selection ved start, light ved 0/100 %; ekstern endring animeres 250 ms
 //   · Lys-popupen: samme komponent i lyslistene og gruppe-raden (36.8); lys modus: tekst med --ki-*, spor fra lysfargen
@@ -166,12 +166,12 @@ for (const dark of [true, false]) {
   await open('#soverom'); await openLys(page);
   const oo = await page.evaluate(() => ({ g: geo('light.soverom_nattbord'), d: geo('light.soverom_tak') }));
   const g = oo.g;
-  ok(`[Rom ${M}] av/på-lys: pille 52 r14, bryterknapp 44 px r10 ~55 % bredde, mdi:power, «On», knappen til høyre, fyll i lysfargen`, g && g.oo && g.on && near(g.bar.h, 52) && g.br === '14px' && near(g.kn.h, 44) && g.knR === '10px' && near(g.kn.w / g.bar.w, 0.55, 0.03) && g.icon === 'mdi:power' && g.v[0] === 'On' && near(g.kn.r, g.bar.r - 4) && g.ofl === '1' && !g.cv, g);
+  ok(`[Rom ${M}] av/på-lys: pille 52 r14, bryterknapp 44 px r10 ~55 % bredde, mdi:power, «På», knappen til høyre, fyll i lysfargen`, g && g.oo && g.on && near(g.bar.h, 52) && g.br === '14px' && near(g.kn.h, 44) && g.knR === '10px' && near(g.kn.w / g.bar.w, 0.55, 0.03) && g.icon === 'mdi:power' && g.v[0] === 'På' && near(g.kn.r, g.bar.r - 4) && g.ofl === '1' && !g.cv, g);
   ok(`[Rom ${M}] 0 % dimbart lys (av): «0%», ingen chevron`, oo.d && oo.d.v[0] === '0%' && !oo.d.cv && near(oo.d.hh.x, oo.d.bar.x), oo.d);
   await page.evaluate(() => { window.CALLS = []; window.HAP = []; });
   await tap(g.bar);
   const of = await page.evaluate(async () => { const o = { calls: window.CALLS.filter((c) => c[0] === 'light').map((c) => [c[1], c[2].entity_id]), hap: window.HAP.map((h) => h[0]) }; await wait(300); o.g = geo('light.soverom_nattbord'); o.pop = popOpen('#soverom'); return o; });
-  ok(`[Rom ${M}] trykk på av/på-lys: light.turn_off, knappen glir til venstre, prikk vises, «Off», haptic light`, JSON.stringify(of.calls) === '[["turn_off","light.soverom_nattbord"]]' && !of.g.on && near(of.g.kn.x, of.g.bar.x + 4) && of.g.dotOp === '1' && of.g.dot.x > of.g.kn.r && of.g.v[0] === 'Off' && of.hap.includes('light') && of.pop, of);
+  ok(`[Rom ${M}] trykk på av/på-lys: light.turn_off, knappen glir til venstre, prikk vises, «Av», haptic light`, JSON.stringify(of.calls) === '[["turn_off","light.soverom_nattbord"]]' && !of.g.on && near(of.g.kn.x, of.g.bar.x + 4) && of.g.dotOp === '1' && of.g.dot.x > of.g.kn.r && of.g.v[0] === 'Av' && of.hap.includes('light') && of.pop, of);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/s39-rom-soverom-${M}.png` });
   await page.close();
 

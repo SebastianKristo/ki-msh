@@ -226,7 +226,7 @@
       const chev = !grp && (type === 'ct' || type === 'color') && (hasCt || hasHue || hasPre);
       const K = onS.length ? Math.round(kOf((onS[0] || {}).attributes || {})) : 0;
       const name = c.name || (S[0] ? M.name(h, ids[0]) : ids[0]);
-      const val = missing ? 'Finnes ikke' : unav ? 'Utilgjengelig' : (onoff ? (p ? 'On' : 'Off') : `${p}%${c.kelvin && p && K > 0 ? ` · ${K} K` : ''}`) + (c.suffix || '');
+      const val = missing ? 'Finnes ikke' : unav ? 'Utilgjengelig' : (onoff ? (p ? 'På' : 'Av') : `${p}%${c.kelvin && p && K > 0 ? ` · ${K} K` : ''}`) + (c.suffix || '');
       return { ids, S, ref, grp, type, onoff, p, col, chev, hasCt, hasHue, hasPre, name, val, dis: missing || unav, on: onS.length > 0 };
     }
     _upd() {

@@ -1,7 +1,7 @@
 // Fiks 28.8–28.11 · felles ark, toast og mellomrom (agent A):
 //   28.8  alle ark forankret i bunnen av dashbordflaten, dekker navbaren, bakteppet helt ned, bunnpadding 16 + safe-area
-//   28.11 Tilpass-ark: toppkant 50 px, fast høyde calc(100% − 50px) (også ved fanebytte), popupens bredde på PC (åpen
-//         Bubble-popup, ellers 540 px sentrert), full bredde på mobil, radius 28 28 0 0, #282828, håndtak 40×5 #545454,
+//   28.11 → Fiks 40 Tilpass-ark: toppkant 52 px, fast høyde calc(100% − 52px) (også ved fanebytte), maks 440 px
+//         sentrert i dashbord-containeren (full bredde på mobil < 440), radius 38 38 0 0, #282828, håndtak 40×5 #545454,
 //         fast header + fanelinje, inn-animasjon translateY(100%) → 0 280 ms, dra ned på håndtaket lukker
 //         (Tilpass-menyen, Tilpass Hjem, Tilpass Innstillinger, Tilpass Tesla, Tilpass klima, Tilpass vær)
 //   28.9  felles toast-pille: stil, plassering (31.6: øverst – top 16 + safe-area i dashbordflaten / 12 px under toppkanten
@@ -92,8 +92,7 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
   const closeAll = async () => { await p.evaluate(async () => { MSH.portals().forEach((h) => { const sr = h.shadowRoot; const bg = sr && sr.querySelector('.bg'); if (bg) bg.click(); }); await new Promise((q) => setTimeout(q, 400)); }); };
   const expectW = (r) => {
     if (vn === 'mobil') return near(r.left, 0) && near(r.w, r.vw);
-    if (r.pop) return near(r.left, r.pop.l) && near(r.w, r.pop.w);
-    const cw = r.dash.w - r.dash.rx; return near(r.w, Math.min(540, cw)) && near(r.left, r.dash.l + r.dash.rx + (cw - r.w) / 2);
+    const cw = r.dash.w - r.dash.rx; return near(r.w, Math.min(440, cw)) && near(r.left, r.dash.l + r.dash.rx + (cw - r.w) / 2);
   };
   const SHEETS = [
     ['tilpass-meny', () => deep('msh-navbar-card')._tilpassSheet(), false],
@@ -107,9 +106,9 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
   for (const [name, fn, popup] of SHEETS) {
     const r = await geo(name, fn, popup);
     if (r.err) { ok(`${vn} ${name}: arket åpnes`, false, r); await closeAll(); continue; }
-    ok(`${vn} ${name}: toppkant 50 px, helt ned til bunnen, fast høyde calc(100% − 50px)`, r.top === 50 && near(r.bottom, r.vh) && near(r.h, r.vh - 50), r);
-    ok(`${vn} ${name}: bredde = ${vn === 'mobil' ? 'full bredde' : r.pop ? 'popupens (600 px, samme venstrekant)' : '540 px sentrert i innholdsflaten'}`, expectW(r), { left: r.left, w: r.w, pop: r.pop, dash: r.dash });
-    ok(`${vn} ${name}: radius 28 28 0 0, #282828, bunnpadding 16 px (+ safe-area)`, r.rad === '28px 28px 0px 0px' && r.bg === 'rgb(40, 40, 40)' && (r.pb === '16px' || r.pb === '0px'), { rad: r.rad, bg: r.bg, pb: r.pb });
+    ok(`${vn} ${name}: toppkant 52 px, helt ned til bunnen, fast høyde calc(100% − 52px)`, r.top === 52 && near(r.bottom, r.vh) && near(r.h, r.vh - 52), r);
+    ok(`${vn} ${name}: bredde = ${vn === 'mobil' ? 'full bredde' : '440 px sentrert i dashbord-containeren'}`, expectW(r), { left: r.left, w: r.w, pop: r.pop, dash: r.dash });
+    ok(`${vn} ${name}: radius 38 38 0 0, #282828, bunnpadding 16 px (+ safe-area)`, r.rad === '38px 38px 0px 0px' && r.bg === 'rgb(40, 40, 40)' && (r.pb === '16px' || r.pb === '0px'), { rad: r.rad, bg: r.bg, pb: r.pb });
     ok(`${vn} ${name}: håndtak 40×5 #545454 øverst`, r.grab && r.grab.w === 40 && r.grab.h === 5 && r.grab.bg === 'rgb(84, 84, 84)' && r.grab.top < 16, r.grab);
     ok(`${vn} ${name}: inn-animasjon translateY(100%) → 0 på 280 ms cubic-bezier(.2,.8,.2,1)`, /matrix\(1, 0, 0, 1, 0, (\d+)/.test(r.t0) && near(Number(r.t0.match(/, (\d+(\.\d+)?)\)$/)[1]), r.h, 2) && /0\.28s/.test(r.dur) && /cubic-bezier\(0\.2, 0\.8, 0\.2, 1\)/.test(r.ease) && (r.tf === 'none' || /matrix\(1, 0, 0, 1, 0, 0\)/.test(r.tf)), { t0: r.t0, dur: r.dur, ease: r.ease, tf: r.tf });
     ok(`${vn} ${name}: dekker navbaren (treff = ki-overlay-root), bakteppet helt ned`, r.navHit === 'ki-overlay-root' && r.bgCover.top === 0 && near(r.bgCover.bottom, r.vh), { hit: r.navHit, bg: r.bgCover });
@@ -166,7 +165,7 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
   const g1 = await grabPt();
   await drag(g1, 30);
   const s1 = await p.evaluate(() => { const P = MSH.portals(), h = P[P.length - 1]; return { n: P.length, closed: !!h.classList.contains('tpout'), top: Math.round(h.shadowRoot.querySelector('.sh').getBoundingClientRect().top) }; });
-  ok(`${vn} 28.11 kort drag på håndtaket (30 px) fjærer tilbake – arket står`, s1.n === g1.n && !s1.closed && s1.top === 50, s1);
+  ok(`${vn} 28.11 kort drag på håndtaket (30 px) fjærer tilbake – arket står`, s1.n === g1.n && !s1.closed && s1.top === 52, s1);
   await drag(g1, 220);
   const s2 = await p.evaluate(() => ({ n: MSH.portals().length, hash: location.hash }));
   ok(`${vn} 28.11 dra ned på håndtaket (220 px) lukker arket, popupen står`, s2.n === g1.n - 1 && s2.hash === '#settings', s2);
