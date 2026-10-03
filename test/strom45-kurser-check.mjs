@@ -145,7 +145,7 @@ await ev(() => { window.__tm = 0; document.addEventListener('touchmove', () => {
 await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: a.x, y: a.y }] });
 await wait(480);
 for (let i = 1; i <= 8; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: a.x, y: a.y + ((b.y - a.y) * i) / 8 }] }); await wait(20); }
-await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await wait(100);
+await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await wait(400); // klikk-svelgingen (350 ms) er over
 const ordK = await ev(() => h.config.ord.kurs);
 ci = await ev(() => cirs());
 ok('touch: hold + dra kurs → ord.kurs lagret', Array.isArray(ordK) && ordK.indexOf('Varmtvannsbereder') === 2 && ci[2].l === 'Varmtvannsbereder', { ordK, ci: ci.map((x) => x.l) });
@@ -165,7 +165,6 @@ const ED = () => sr_ed();
 await ev(() => { window.sr_ed = () => sr.getElementById('ed'); window.typeIn = (sel, v) => { const i = sr_ed().querySelector(sel); i.focus(); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); return true; }; });
 ok('editor: info, Pris og totaler (6 felt + 3 valg), 2 grupper, knapper', await ev(() => { const e = sr_ed(); return /samme oppsett som ki-energi-card-strom/.test(e.querySelector('.sk-kinfo').textContent) && e.querySelectorAll('.sk-kcard > .sk-kfl input').length === 6 && e.querySelectorAll('.sk-keseg').length === 3 && e.querySelectorAll('.sk-kegrp').length === 2 && /Vis YAML/.test(e.textContent) && /Tilbakestill kurser/.test(e.textContent) && /Legg til gruppe/.test(e.textContent); }));
 await E('[data-sk-e="adv"]');
-console.log(await ev(() => JSON.stringify({ ed: h.__skEd, n: sr_ed().querySelectorAll('[data-sk-f]').length, adv: sr_ed().querySelector('.sk-kadvb').outerHTML.slice(0, 200) })));
 ok('Avansert åpner status/laster/logg/tau/bereder', await ev(() => ['status', 'laster', 'logg', 'tau', 'bereder'].every((k) => sr_ed().querySelector(`[data-sk-f="${k}"]`))));
 // rediger navn på første kategori → visningen oppdateres live
 await E('[data-sk-e="edit"][data-sk-p="0.0"]');
