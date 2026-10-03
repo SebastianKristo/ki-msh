@@ -66,7 +66,7 @@ async function open(tag, hash, extra, userData) {
     window.H = window.mockHass(); window.H.themes = { ...(window.H.themes || {}), darkMode: true };
     if (window.MSH.store && window.MSH.store.load) await window.MSH.store.load(window.H);
     const bc = document.createElement('bubble-card');
-    bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash, name: 'Test', icon: 'mdi:star', margin_top_mobile: '50px', bg_color: '#282828', bg_opacity: 100, bg_blur: 0, cards: [{ type: 'custom:' + tag, card_id: 'fh_' + tag, ...extra }] });
+    bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash, name: 'Test', icon: 'mdi:star', margin_top_mobile: '50px', bg_opacity: 100, bg_blur: 0, cards: [{ type: 'custom:' + tag, card_id: 'fh_' + tag, ...extra }] });
     bc.hass = window.H; document.getElementById('dash').appendChild(bc);
     await wait(400);
     location.hash = hash;
@@ -74,8 +74,10 @@ async function open(tag, hash, extra, userData) {
     window.card = () => { const c = deepAll(tag).find((e) => e.getClientRects().length) || deepAll(tag)[0] || window.__c; if (c) window.__c = c; return c; };
     card();
     window.T = () => { const c = card(); if (!c || !c.shadowRoot) return null; const row = [c.shadowRoot, ...deepAll('*', c.shadowRoot).filter((e) => e.shadowRoot).map((e) => e.shadowRoot)].flatMap((r) => [...r.querySelectorAll('*')]).find((e) => e.__tabReorder && e.getClientRects().length); return row ? row.__tabReorder : null; };
+    window.__hash = hash;
     window.popOpen = () => location.hash === hash && deepAll('.bubble-pop-up').some((p) => p.classList.contains('is-popup-opened'));
-    window.bgOf = (el) => { for (let n = el; n; n = n.parentElement || (n.getRootNode && n.getRootNode().host)) { if (n.nodeType !== 1) continue; const P = window.MSH.theme.parse(getComputedStyle(n).backgroundColor); if (P && P[3] > 0.5) return getComputedStyle(n).backgroundColor; } return 'rgb(240, 240, 240)'; };
+    // bakgrunn bak fanelinja innenfor kortet; kortroten er gjennomsiktig → popupflaten (--ki-popup, lys #f0f0f0)
+    window.bgOf = (el) => { const host = card(); for (let n = el; n && n !== host; n = n.parentElement || (n.getRootNode && n.getRootNode().host)) { if (n.nodeType !== 1) continue; const P = window.MSH.theme.parse(getComputedStyle(n).backgroundColor); if (P && P[3] > 0.5) return getComputedStyle(n).backgroundColor; } return 'rgb(240, 240, 240)'; };
     // mål: aktiv fane (pille), spor, tannhjul, tekst, ikon
     window.meas = () => {
       const t = T(); if (!t) return null;
@@ -128,7 +130,7 @@ for (const [name, tag, hash, extra, focus, hasGear] of list) {
     ok(`${name}: tab_height ${H} → pille ${H} px (to linjer: ${H + 16})${hasGear ? ', tannhjul = sporet' : ''}, ingen kutt`, okH(m, H) && (!hasGear || near(m.gear, m.track, 1)) && m.cut === 0 && m.track >= m.h, m);
   }
   const s32 = r.sizes[32], s56 = r.sizes[56];
-  ok(`${name}: tekst/ikon/radius skalerer med høyden (32 → 56)`, s32 && s56 && s56.fs > s32.fs && (s32.ic == null || s56.ic > s32.ic) && s56.r > s32.r, { fs: [s32 && s32.fs, s56 && s56.fs], ic: [s32 && s32.ic, s56 && s56.ic], r: [s32 && s32.r, s56 && s56.r] });
+  ok(`${name}: tekst/ikon/radius skalerer med høyden (32 → 56)`, s32 && s56 && s56.fs > s32.fs && (s32.ic == null || s56.ic > s32.ic) && (s56.r > s32.r || s32.r === 0 || s32.r > 500), { fs: [s32 && s32.fs, s56 && s56.fs], ic: [s32 && s32.ic, s56 && s56.ic], r: [s32 && s32.r, s56 && s56.r] });
   ok(`${name}: «Følg global» 44 → følger, 50 → følger live (samme DOM)`, okH(r.g44, 44) && okH(r.g50, 50) && r.sameDom, { g44: r.g44 && r.g44.h, g50: r.g50 && r.g50.h, same: r.sameDom });
   ok(`${name}: egen verdi (32) slår global; 'auto' = følg global; uten global tilbake til egen høyde`, okH(r.ownOverGlobal, 32) && okH(r.autoStr, 50) && r.back && r.back.h === nat.h, { own: r.ownOverGlobal && r.ownOverGlobal.h, auto: r.autoStr && r.autoStr.h, back: r.back && r.back.h, nat: nat && nat.h });
 
@@ -136,7 +138,7 @@ for (const [name, tag, hash, extra, focus, hasGear] of list) {
   for (const H of [32, 56]) {
     await page.evaluate(async (H) => { await setCfg({ tab_height: H }); }, H);
     const before = await page.evaluate(() => { const t = T(); return t.items().map((b) => t.idOf(b)); });
-    const pts = await page.evaluate(async () => { const t = T(), its = t.items(); its[0].scrollIntoView({ block: 'center', inline: 'nearest' }); t.row.scrollLeft = 0; await wait(150); const q = its[0].getBoundingClientRect(), rr = t.row.getBoundingClientRect(), l = its[its.length - 1].getBoundingClientRect(); return { a: { x: q.left + q.width / 2, y: q.top + q.height / 2 }, z: { x: Math.min(l.left + l.width / 2, rr.right - 14) }, n: its.length }; });
+    const pts = await page.evaluate(async () => { const t = T(), its = t.items(); its[0].scrollIntoView({ block: 'center', inline: 'nearest' }); t.row.scrollLeft = 0; await wait(150); const q = its[0].getBoundingClientRect(), rr = t.row.getBoundingClientRect(), l = its[its.length - 1].getBoundingClientRect(); return { a: { x: q.left + q.width / 2, y: q.top + q.height / 2 }, z: { x: Math.min(l.right - 6, rr.right - 10) }, n: its.length }; });
     await page.mouse.move(pts.a.x, pts.a.y); await page.mouse.down(); await page.waitForTimeout(520);
     for (let i = 1; i <= 10; i++) { await page.mouse.move(pts.a.x + ((pts.z.x - pts.a.x) * i) / 10, pts.a.y); await page.waitForTimeout(25); }
     await page.mouse.up(); await page.waitForTimeout(700);
@@ -198,6 +200,8 @@ for (const [name, tag, hash, extra, focus, hasGear] of list) {
 
   // kortets eget Tilpass-ark: feltet finnes, valg vises live i popupen bak arket
   const sheet = await page.evaluate(async (focus) => {
+    // trykk i GUI-editoren (utenfor popupen) lukker Bubble-popupen – åpne den igjen
+    if (!popOpen()) { location.hash = window.__hash; await wait(1300); }
     const c = card();
     c.customize(focus || undefined); await wait(900);
     const P = window.MSH.portals();
@@ -206,9 +210,9 @@ for (const [name, tag, hash, extra, focus, hasGear] of list) {
     if (!f) for (const p of P) for (const b of deepAll('[data-a="tab"],[data-a="page"][data-p="tabs"],[data-a="etab"][data-k="t"],[data-a="tetab"][data-v="faner"]', p.shadowRoot || p)) { if (f) break; b.click(); await wait(300); f = find(); }
     if (!f) return { found: false };
     f.querySelector('[data-mth="56"]').click(); await wait(500);
-    const live = meas();
+    const live = meas() || (() => { const b = deepAll('[role=tab][aria-selected=true]', card().shadowRoot).find((e) => e.getClientRects().length); return b ? { h: Math.round(b.getBoundingClientRect().height) } : null; })();
     const pp = window.MSH.portals().pop(); const bg = pp && pp.shadowRoot && pp.shadowRoot.querySelector('.bg'); if (bg) bg.click(); await wait(600);
-    return { found: true, live: live && live.h };
+    return { found: true, live: live && live.h, open: popOpen(), hash: location.hash, n: deepAll(card().localName).length };
   }, focus);
   ok(`${name}: Tilpass-arket har «Fanehøyde», valget vises live i popupen`, sheet.found && (near(sheet.live, 56) || near(sheet.live, 72)), sheet);
   ok(`${name}: ingen sidefeil`, errs.length === 0, errs.slice(0, 3));

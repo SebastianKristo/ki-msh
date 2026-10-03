@@ -519,6 +519,9 @@
   const tabsCfg = (c) => { const T = { ...TABS_DEF, ...((c && c.tabs) || {}) }; ['content', 'style'].forEach((k) => { const v = NORM[String(T[k] || '').toLowerCase()]; if (v) T[k] = v; }); if (!['text', 'icons', 'icon_active', 'both'].includes(T.content)) T.content = 'text'; if (T.style !== 'outline') T.style = 'filled'; return T; };
   const tabOrder = (c) => { const k = TABS.map((t) => t[0]); const o = (Array.isArray(tabsCfg(c).order) ? tabsCfg(c).order : []).filter((x) => k.includes(x)); k.forEach((x) => { if (!o.includes(x)) o.push(x); }); return o; };
   const tabHidden = (c) => new Set(Array.isArray(tabsCfg(c).hidden) ? tabsCfg(c).hidden : []);
+  // 36.5: startfane (felles MSH.startTab) – start_tab, ellers gamle tabs.start (uten standardverdien)
+  const ST_LEG = (c) => (c && c.tabs && c.tabs.start) || undefined;
+  const actOf = (c, V) => (M.startTab ? M.startTab.pillKey(c, V, ST_LEG) : null) || V[0];
   const visTabs = (c) => { const hid = tabHidden(c); const o = tabOrder(c).filter((k) => !hid.has(k)); return o.length ? o : [tabOrder(c)[0]]; };
   const btnCfg = (c, k) => ((c && c.buttons) || {})[k] || {};
   const limitsOf = (c) => { const L = Array.isArray(c.limits) ? c.limits.map(Number).filter((v) => v >= 50 && v <= 100) : DEF.limits; return [...new Set(L)].sort((a, b) => a - b); };
@@ -710,7 +713,7 @@
     ] });
     // Faner: live forhåndsvisning (med tannhjul) + dra-og-slipp-liste med øye
     const preview = { type: 'html', html: (hh, cc) => {
-      const V = visTabs(cc), T = tabsCfg(cc), act = V.includes(T.start) ? T.start : V[0];
+      const V = visTabs(cc), act = actOf(cc, V);
       return `<style>${TAB_CSS('.tsp')}.tsp{padding:14px 12px;border-radius:24px;background:var(--ki-popup, #282828)}.tsp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);margin:0 4px 10px}.tsp .tab,.tsp .gear{pointer-events:none}</style>
         <div class="tsp" data-key="tsp" aria-hidden="true"><div class="tl">Forhåndsvisning</div><div class="trow"${M.tabH && M.tabH.style(cc) ? ` style="${M.tabH.style(cc)}"` : ''}>${tabBar(cc, `<div class="tabs">${V.map((k) => tabBtn(cc, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div>`;
     } };
@@ -722,7 +725,7 @@
         return `<div data-tdk="${k}" data-key="tt-${k}" style="height:56px;border-radius:28px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${hid.has(k) ? 'opacity:.5' : ''}">
           <span data-tdrag title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:var(--ki-text-mid, #979797);padding:8px 6px">${M.icon('mdi:drag', 22)}</span>
           <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface-2, #404040);flex:none">${M.icon(icon, 20)}</span>
-          <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(label)}</span>${eye(key, 'eye', k, hid.has(k), label)}</div>`;
+          <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(label)}</span>${M.startTab ? M.startTab.pill(cc, k, visTabs(cc), ST_LEG) : ''}${eye(key, 'eye', k, hid.has(k), label)}</div>`;
       }).join('')}</div><span class="help">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {}, hid = tabHidden(cc);
@@ -761,10 +764,10 @@
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
+            ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, clear: ['tabs.start'], items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })) })] : []), // 36.5: Startfane øverst
             preview, ...(M.tabH ? [M.tabH.field({ ...TTH, preview: false })] : []), order, // 33.4: fanehøyde
             { type: 'select', name: 'tabs.style', label: 'Fanestil', options: [['filled', 'Fylt'], ['outline', 'Kontur']], default: 'filled' },
             { type: 'select', name: 'tabs.content', label: 'Faner viser', options: [['text', 'Tekst'], ['icons', 'Ikoner'], ['icon_active', 'Ikon + aktiv'], ['both', 'Begge']], default: 'text' },
-            { type: 'select', name: 'tabs.start', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'lading' },
             limits,
           ] },
         ] },
@@ -925,17 +928,20 @@
         <div class="row"><span class="tx"><b>Vis tekst under ikonet</b><i>Låst, Tut, Defrost …</i></span>${swH(txt, `data-a="tbool" data-name="button_text" data-v="${txt ? 0 : 1}" aria-label="Vis tekst under ikonet"`)}</div>${btns}</section>`;
     }
     _p_faner() {
-      const c = this._config, V = visTabs(c), T = tabsCfg(c), act = V.includes(T.start) ? T.start : V[0], hid = tabHidden(c);
+      const c = this._config, V = visTabs(c), T = tabsCfg(c), act = actOf(c, V), hid = tabHidden(c);
       const prev = `<section class="sec pad" data-focus="faner"><span class="lab">Forhåndsvisning</span><div class="tsp" aria-hidden="true"><div class="trow"${M.tabH && M.tabH.style(c) ? ` style="${M.tabH.style(c)}"` : ''}>${tabBar(c, `<div class="tabs">${V.map((k) => tabBtn(c, k, k === act)).join('')}</div>`)}<span class="gear">${M.icon('mdi:cog', 22)}</span></div></div></section>`;
       const list = `<section class="sec"><span class="lab lp">Faner</span><div class="tlist">${tabOrder(c).map((k) => { const [, label, icon] = TABL[k], on = !hid.has(k);
-        return `<div class="trw" data-tdk="${k}" data-key="tt-${k}"><span class="drg" data-tdrag title="Dra for å flytte">${M.icon('mdi:drag', 22)}</span>${M.icon(icon, 22, 'color:var(--ki-text-2, #afafaf)')}<span class="tn">${esc(label)}</span>${swH(on, `data-a="ttog" data-v="${k}" aria-label="Vis ${esc(label)}"`)}</div>`; }).join('')}</div></section>`;
+        return `<div class="trw" data-tdk="${k}" data-key="tt-${k}"><span class="drg" data-tdrag title="Dra for å flytte">${M.icon('mdi:drag', 22)}</span>${M.icon(icon, 22, 'color:var(--ki-text-2, #afafaf)')}<span class="tn">${esc(label)}</span>${M.startTab ? M.startTab.pill(c, k, V, ST_LEG) : ''}${swH(on, `data-a="ttog" data-v="${k}" aria-label="Vis ${esc(label)}"`)}</div>`; }).join('')}</div></section>`;
       const L = limitsOf(c);
-      const opts = `<section class="sec pad">${segH('Fanestil', 'tabs.style', [['filled', 'Fylt'], ['outline', 'Kontur']], T.style)}${segH('Faner viser', 'tabs.content', [['text', 'Tekst'], ['icons', 'Ikoner'], ['icon_active', 'Ikon + aktiv'], ['both', 'Begge']], T.content)}${segH('Startfane', 'tabs.start', V.map((k) => [k, TABL[k][1]]), act)}
+      const opts = `<section class="sec pad">${segH('Fanestil', 'tabs.style', [['filled', 'Fylt'], ['outline', 'Kontur']], T.style)}${segH('Faner viser', 'tabs.content', [['text', 'Tekst'], ['icons', 'Ikoner'], ['icon_active', 'Ikon + aktiv'], ['both', 'Begge']], T.content)}
         <div class="fl" style="gap:8px"><span class="ft">Ladegrense-knapper</span><div class="lims">${LIMIT_OPTS.map((v) => `<button class="${L.includes(v) ? 'on' : ''}" aria-pressed="${L.includes(v)}" data-a="tlim" data-v="${v}">${v} %</button>`).join('')}</div></div></section>`;
       // 33.4: fanehøyde (felles felt) rett under forhåndsvisningen
       if (M.tabH && this.shadowRoot) M.tabH.bindEditor(this.shadowRoot, { set: (v, commit) => this._set('tab_height', v, commit !== false) });
       const th = M.tabH ? `<section class="sec pad" data-key="tabh">${M.tabH.editorHTML(c.tab_height, { ...TTH, cfg: c, preview: false })}</section>` : '';
-      return prev + th + list + opts;
+      // 36.5: Startfane øverst (felles MSH.startTab – chips + «Sist brukte»)
+      if (M.startTab && this.shadowRoot) M.startTab.bindEditor(this.shadowRoot, { set: (v) => { this._config = M.startTab.clearLegacy(this._config, ['tabs.start']); this._set('start_tab', v); } });
+      const stf = M.startTab ? `<section class="sec pad" data-key="mst">${M.startTab.editorHTML(c, V.map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })), { legacy: ST_LEG })}</section>` : '';
+      return stf + prev + th + list + opts;
     }
     _p_ents() {
       const c = this._config, h = this._hass, A = autoAll(h, c), pre = prefixes(c);
@@ -1025,6 +1031,8 @@
     _S(k) { return this.s(this._e(k)); }
     _N(k) { return numS(this._S(k)); }
     get tab() { const V = visTabs(this.config), t = this.ui.tab || tabsCfg(this.config).start; return V.includes(t) ? t : V[0]; }
+    // 36.5: startfane ved åpning (MSH.startTab via basekortet)
+    static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: ST_LEG }; }
     _bid(k) { return btnCfg(this.config, k).entity || this._e(k); }
     // Hovedbryteren (Avansert, standard på) + valget per knapp (Bil) – designets «Spør før lås, tut, frunk og bagasje»
     _conf(k) { const b = btnCfg(this.config, k); return this.config.confirm !== false && (b.confirm != null ? !!b.confirm : CONF_DEF[k]); }

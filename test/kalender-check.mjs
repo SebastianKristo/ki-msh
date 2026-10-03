@@ -90,9 +90,9 @@ const S = await p.evaluate(async () => {
   await new Promise((q) => setTimeout(q, 350));
   window.removeEventListener('haptic', on); document.getElementById('dash').removeEventListener('pointermove', bl);
   const sr = window.__c.shadowRoot;
-  return { mode: sr.querySelector('.mb').dataset.mode, dots: [...sr.querySelectorAll('.mdots i')].map((i) => i.className), hp, bubbled, rail: sr.querySelector('.rail').style.transform };
+  return { mode: sr.querySelector('.mb').dataset.mode, dots: [...sr.querySelectorAll('.mdots i')].map((i) => i.className), hp, bubbled, rail: sr.querySelector('.rail').style.transform, railY: new DOMMatrix(getComputedStyle(sr.querySelector('.rail')).transform).m42, mbH: sr.querySelector('.mb').getBoundingClientRect().height };
 });
-ok('Sveip > 16 px → tannhjul (selection-haptic, prikkene bytter, bobler ikke)', S.mode === 'gear' && S.dots.join() === ',on' && S.hp.includes('selection') && S.bubbled === 0 && /-48px/.test(S.rail), S);
+ok('Sveip > 16 px → tannhjul (selection-haptic, prikkene bytter, bobler ikke)', S.mode === 'gear' && S.dots.join() === ',on' && S.hp.includes('selection') && S.bubbled === 0 && Math.round(S.railY) === -Math.round(S.mbH) && Math.round(S.mbH) === 48, S); // 33.4: skinnen flyttes én knapphøyde (følger fanehøyden, 48 px uten valg)
 await tapMb(p);
 const ed1 = await p.evaluate(async () => { await new Promise((q) => setTimeout(q, 400)); const portal = window.MSH.portals().pop(); const ed = portal && portal.shadowRoot.querySelector('msh-editor'); return ed ? { title: ed.shadowRoot.querySelector('.ttl .tt').textContent, tabs: [...ed.shadowRoot.querySelectorAll('.chips.tabs [role="tab"]')].map((t) => t.getAttribute('aria-label') || t.textContent.trim()) } : null; });
 ok('Tannhjul + trykk → «Tilpass kalender» med Faner/Kalendere/Kilder/Visning', ed1 && /Kalender/.test(ed1.title) && ed1.tabs.join('|') === 'Faner|Kalendere|Kilder|Visning', ed1);

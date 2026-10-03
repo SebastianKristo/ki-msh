@@ -213,6 +213,8 @@
   const tabName = (c, k) => ((c.tab_names || {})[k] || '').trim() || TK[k][1];
   const btnEnt = (hass, c, k) => entOf(hass, c, BK[k][3]) || (k === 'boost' ? entOf(hass, c, 'boost_sel') : null);
   const hasLuft = (hass, c) => !!(entOf(hass, c, 'bt20') || entOf(hass, c, 'bt21'));
+  // 36.5: startfane (felles MSH.startTab) – start_tab | 'last'; gammel '' («Sist brukt») = 'last'
+  const ST_LEG = (c) => (c && c.start_tab === '' ? 'last' : undefined);
   const visTabs = (hass, c) => { const H = tabHidden(c); return tabOrder(c).filter((k) => !H.has(k) && (k !== 'luft' || !hass || hasLuft(hass, c))); };
   // Knapper uten entitet vises ikke (v3: «Knapper uten entitet vises ikke»)
   const visBtns = (hass, c) => { const H = btnHidden(c); return btnOrder(c).filter((k) => !H.has(k) && (!hass || !!btnEnt(hass, c, k))); };
@@ -266,9 +268,9 @@
       if ((this._config && this._config.embedded && this._host) || focus === 'spacing') return super.customize(focus, opts);
       return openSheet(this, focus);
     }
+    // 36.5: startfanen settes av MSH.startTab (basekortet) før onOpen
+    static get startTabSpec() { return { tabs: (card) => visTabs(card.hass, card.config), legacy: ST_LEG }; }
     onOpen() {
-      const st = this.config.start_tab, V = visTabs(this.hass, this.config);
-      if (st && V.includes(st) && this.ui.tab !== st) this.setUI({ tab: st });
       this._load();
     }
     // Historikk kun når popupen er åpen (fallgruve 8): 24 t for varmtvann/luft, 7 døgn for tur/retur. 5 min mellomlager.
@@ -828,7 +830,7 @@
         return `<div class="dr${hid ? ' off' : ''}${i ? ' bt' : ''}" data-row="${k}" data-key="dr-${list}-${k}">
           <span class="hdl" data-drag="${list}" title="Dra for å flytte" aria-label="Dra for å flytte ${esc(label)}">${M.icon('mdi:drag', 22)}</span>
           <span class="dic">${M.icon(isB ? BK[k][2] : TK[k][2], 22)}</span>
-          <span class="dcol"><input class="nm" data-in="${isB ? 'button_names' : 'tab_names'}" data-k="${k}" value="${esc(label)}" placeholder="${esc(def)}" aria-label="Navn på ${esc(def)}" autocomplete="off" spellcheck="false">${miss ? `<span class="dms">${esc(miss)}</span>` : ''}</span>
+          <span class="dcol"><input class="nm" data-in="${isB ? 'button_names' : 'tab_names'}" data-k="${k}" value="${esc(label)}" placeholder="${esc(def)}" aria-label="Navn på ${esc(def)}" autocomplete="off" spellcheck="false">${miss ? `<span class="dms">${esc(miss)}</span>` : ''}</span>${!isB && M.startTab ? M.startTab.pill(D, k, visTabs(h, D), ST_LEG) : ''}
           ${sw(isB ? 'bvis' : 'tvis', k, !hid, (hid ? 'Vis ' : 'Skjul ') + label)}</div>`;
       }).join('');
     };
@@ -869,7 +871,8 @@
       if (st.tab === 'q') return safe(() => sec('Hurtigknapper · rekkefølge og navn', `<div class="dl" data-list="buttons">${listRows(D, 'buttons')}</div>`, 'lsec')
         + sec('Knappene viser', `<div class="sg2" role="radiogroup" data-glass-drag="x">${BTN_MODES.map(([k, l]) => segBtn('bmode', k, l, btnStyle(D) === k)).join('')}</div>`, 'pad')
         + '<span class="hint">Dra i håndtaket for å flytte, feltet gir nytt navn, bryteren skjuler. Knapper uten entitet vises ikke.</span>');
-      if (st.tab === 't') return safe(() => sec('Faner · rekkefølge og navn', `<div class="dl" data-list="tabs">${listRows(D, 'tabs')}</div>`, 'lsec')
+      if (st.tab === 't') return safe(() => (M.startTab ? sec('Startfane', M.startTab.editorHTML(D, visTabs(hass(), D).map((k) => ({ key: k, label: tabName(D, k), icon: TK[k][2] })), { legacy: ST_LEG, label: 'Åpne med' }), 'pad') : '') // 36.5: Startfane øverst
+        + sec('Faner · rekkefølge og navn', `<div class="dl" data-list="tabs">${listRows(D, 'tabs')}</div>`, 'lsec')
         + sec('Fanene viser', `<div class="sg2" role="radiogroup" data-glass-drag="x">${TAB_MODES.map(([k, l]) => segBtn('tmode', k, l, tabStyle(D) === k)).join('')}</div>`, 'pad')
         + (M.tabH ? sec('Fanehøyde', M.tabH.editorHTML(D.tab_height, { ...VTH, cfg: D, label: 'Høyde' }), 'pad') : '') // 33.4: fanehøyde (felles felt)
         + '<span class="hint">Dra i håndtaket for å flytte. Minst én fane må være synlig. Faner uten data (f.eks. Luft uten BT20/BT21) skjules av seg selv.</span>');
@@ -904,6 +907,7 @@
     Object.defineProperty(box, '_config', { get: () => ctl.draft });
     ov.body.appendChild(box);
     // 33.4: fanehøyde – slider live (utkast/forhåndsvisning bak arket), segment/slipp lagrer i utkastet og tegner på nytt
+    if (M.startTab) M.startTab.bindEditor(box, { set: (v) => apply({ start_tab: v }) }); // 36.5 (haptic i hjelperen)
     if (M.tabH) M.tabH.bindEditor(box, { set: (v, commit) => { if (commit) return apply({ tab_height: v }); const next = { ...ctl.draft }; if (v == null) delete next.tab_height; else next.tab_height = v; ctl.set(next); } });
     // Scrollområdet: aldri kjede til popupen/dashbordet (fallgruve 2)
     ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach((t) => box.addEventListener(t, (e) => { if (e.target.closest && e.target.closest('.scr')) e.stopPropagation(); }, { passive: true }));
@@ -1122,11 +1126,11 @@
     Rt.addEventListener('pointerup', end);
     Rt.addEventListener('pointercancel', end);
   }
-  const dragRow = (list, k, label, def, icon, off, key, extra) => `<div data-vpk="${k}" data-vpl="${list}" style="min-height:56px;border-radius:24px;background:var(--ki-surface-3, #2f2f2f);display:flex;align-items:center;gap:8px;padding:6px 6px 6px 4px;${off ? 'opacity:.5' : ''}">
+  const dragRow = (list, k, label, def, icon, off, key, extra, pill) => `<div data-vpk="${k}" data-vpl="${list}" style="min-height:56px;border-radius:24px;background:var(--ki-surface-3, #2f2f2f);display:flex;align-items:center;gap:8px;padding:6px 6px 6px 4px;${off ? 'opacity:.5' : ''}">
       <span data-vpdrag="1" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:var(--ki-text-mid, #979797);padding:8px 6px">${M.icon('mdi:drag', 22)}</span>
       <span style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:var(--ki-surface-2, #404040);flex:none">${M.icon(icon, 19)}</span>
       <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><input class="inp" style="height:36px" data-name="${list === 'tabs' ? 'tab_names' : 'button_names'}.${k}" value="${esc(label === def ? '' : label)}" placeholder="${esc(def)}" aria-label="Navn på ${esc(def)}">${extra ? `<span style="font-size:11px;color:var(--ki-text-mid, #979797)">${esc(extra)}</span>` : ''}</span>
-      <button class="ib" data-a="fn" data-k="${key}" data-v="${k}" aria-label="${off ? 'Vis' : 'Skjul'} ${esc(label)}" aria-pressed="${!off}">${M.icon(off ? 'mdi:eye-off' : 'mdi:eye', 18)}</button></div>`;
+      ${pill || ''}<button class="ib" data-a="fn" data-k="${key}" data-v="${k}" aria-label="${off ? 'Vis' : 'Skjul'} ${esc(label)}" aria-pressed="${!off}">${M.icon(off ? 'mdi:eye-off' : 'mdi:eye', 18)}</button></div>`;
   const PV_CSS = 'padding:10px;border-radius:18px;background:#303030;display:flex;flex-direction:column;gap:8px';
   const PV_T = '<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);margin:0 4px">Forhåndsvisning</div>';
 
@@ -1149,14 +1153,14 @@
       }).join('')}<span class="help">Dra i håndtaket for å flytte, feltet gir nytt navn, øyet skjuler. Knapper uten entitet vises ikke.</span></div>`;
     }, click: (dd, ed) => { const cc = ed._config || {}, s = btnHidden(cc); if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v); M.haptic('selection'); ed._set('buttons_hidden', btnOrder(cc).filter((x) => s.has(x))); } };
     const tabPrev = { type: 'html', html: (hh, cc) => {
-      const V = visTabs(hh, cc), st = tabStyle(cc), act = V.includes(cc.start_tab) ? cc.start_tab : V[0];
+      const V = visTabs(hh, cc), st = tabStyle(cc), act = (M.startTab ? M.startTab.pillKey(cc, V, ST_LEG) : null) || V[0];
       const t = (k) => { const o = k === act; return `<span style="min-width:0;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 4px;font-size:11px;font-weight:500;white-space:nowrap;${o ? `background:${PINK};color:${INK}` : 'color:var(--ki-text-2, #afafaf)'}">${st !== 'name' ? M.icon(TK[k][2], 17) : ''}${st !== 'icon' ? `<span style="overflow:hidden;text-overflow:ellipsis">${esc(tabName(cc, k))}</span>` : ''}</span>`; };
       return `<div style="${PV_CSS}" aria-hidden="true">${PV_T}<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:3px;border-radius:22px;background:var(--ki-surface, #3a3a3a)">${V.length ? V.map(t).join('') : '<span style="text-align:center;font-size:12px;color:var(--ki-text-mid, #979797);line-height:34px">Ingen synlige faner</span>'}</div><span style="width:40px;height:40px;border-radius:20px;background:var(--ki-surface, #3a3a3a);display:grid;place-items:center;flex:none">${M.icon('mdi:cog', 19)}</span></div></div>`;
     } };
     const tabList = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
       const hid = tabHidden(cc);
-      return `<div class="f" style="gap:8px"><label>Faner · rekkefølge og navn</label>${tabOrder(cc).map((k) => dragRow('tabs', k, tabName(cc, k), TK[k][1], TK[k][2], hid.has(k), key, k === 'luft' && hh && !hasLuft(hh, cc) ? 'Skjult automatisk – fant ikke BT20/BT21' : '')).join('')}<span class="help">Dra i håndtaket for å flytte. Minst én fane må være synlig.</span></div>`;
+      return `<div class="f" style="gap:8px"><label>Faner · rekkefølge og navn</label>${tabOrder(cc).map((k) => dragRow('tabs', k, tabName(cc, k), TK[k][1], TK[k][2], hid.has(k), key, k === 'luft' && hh && !hasLuft(hh, cc) ? 'Skjult automatisk – fant ikke BT20/BT21' : '', M.startTab ? M.startTab.pill(cc, k, visTabs(hh, cc), ST_LEG) : '')).join('')}<span class="help">Dra i håndtaket for å flytte. Minst én fane må være synlig.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {}, s = tabHidden(cc);
       if (!s.has(dd.v) && TABS.filter((t) => !s.has(t[0])).length <= 1) { M.haptic('warning'); M.toast('Minst én fane må være synlig'); return; }
@@ -1184,10 +1188,10 @@
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner', 'tabs'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
+            ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, items: (hh, cc) => visTabs(hh, cc || {}).map((k) => ({ key: k, label: tabName(cc || {}, k), icon: TK[k][2] })) })] : []), // 36.5: Startfane øverst
             tabPrev, tabList,
             { type: 'select', name: 'tab_style', label: 'Fanene viser', options: TAB_MODES, default: DEF.tab_style },
             ...(M.tabH ? [M.tabH.field(VTH)] : []), // 33.4: fanehøyde
-            { type: 'select', name: 'start_tab', label: 'Startfane', options: [['', 'Sist brukt'], ...TABS.map((t) => [t[0], t[1]])], default: '' },
           ] },
         ] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted-type', focus: ['entiteter', 'entities', 'overrides', ...GROUPS.map((g) => 'vp-' + g[0])], fields: [

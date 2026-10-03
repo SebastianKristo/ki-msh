@@ -309,7 +309,7 @@
   };
   const mStateOk = (x, s) => !!s && String(x || 'on').split(/[,|]/).map((v) => v.trim().toLowerCase()).filter(Boolean).includes(String(s.state).toLowerCase());
   const MINI_CSS = `
-    .mini{position:fixed;z-index:23;height:64px;border-radius:40px;overflow:hidden;isolation:isolate;touch-action:pan-x;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:${M.FONT};transform-origin:bottom center;opacity:1;transition:opacity .25s ease,transform .25s cubic-bezier(.2,.8,.3,1),height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
+    .mini{position:fixed;z-index:23;height:64px;border-radius:40px;overflow:hidden;isolation:isolate;touch-action:pan-x pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:${M.FONT};transform-origin:bottom center;opacity:1;transition:opacity .25s ease,transform .25s cubic-bezier(.2,.8,.3,1),height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
     /* Fiks 22.8: utvidet (sveip opp på play/pause) – 172 px, bunnen står fast; omslag/tekst + ⌄ · spole-slider · ⏮ −10 ⏯ +10 ⏭ */
     .mini.exp{height:172px;border-radius:32px}
     .mrow.mx{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:8px;padding:10px 12px 12px}
@@ -324,7 +324,7 @@
     .mini.white{background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323));box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
     .mini.glass{background:${'linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 45%,rgb(255 255 255/0.06))'},var(--ki-glass, rgba(40,40,44,0.5));color:var(--ki-glass-fg, #fafafa);backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:inset 0 0 0 0.5px rgb(255 255 255/0.18),inset 0 1px 0 rgb(255 255 255/0.25),0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))))}
     .mini.off{opacity:0;pointer-events:none;--mo:24px}
-    .msw{display:flex;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x}
+    .msw{display:flex;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
     .msw::-webkit-scrollbar{display:none}
     .mrow{flex:none;width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;gap:8px;padding:8px 9px 8px 8px;min-width:0}
     .mhit{flex:1;min-width:0;height:48px;display:flex;align-items:center;gap:10px;text-align:left;border-radius:24px}
@@ -333,7 +333,7 @@
     .mtx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .mtx b{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
     .mtx i{font-style:normal;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;opacity:.62}
-    .mvb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center}
+    .mvb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;touch-action:manipulation;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none} /* 36.9: trykk = volum, hold = demp */
     .mpp{width:46px;height:46px;border-radius:23px;flex:none;display:grid;place-items:center;background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #232323);box-shadow:0 2px 8px rgb(0 0 0/0.18);transition:transform .12s}
     .mpp:active,.mvb:active{transform:scale(.92)}
     /* Fiks 20.20: dra fra play/pause → ⏮/⏭ glir ut fra knappen til midten (± 62 px); fasit m.sk */
@@ -364,7 +364,8 @@
     .mdots button.on span{opacity:.9}
     /* Fiks 35.3 · sveip: ned skjuler, venstre→høyre (første spiller) avdekker rødt «Fjern»-felt bak spilleren (1/3) */
     .mini.drag{transition:opacity .25s ease,height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
-    .msw.st{touch-action:none}
+    .msw.st{touch-action:pan-y} /* 36.10: loddrett = siden ruller (ingen sveip ned), vannrett = JS (sveip høyre = fjern) */
+    .mini.exp .msw{touch-action:pan-x}.mini.exp .msw.st{touch-action:none} /* utvidet: sveip ned lukker utvidelsen (JS eier loddrett) */
     .mrmf{position:fixed;z-index:22;height:64px;border-radius:40px;overflow:hidden;display:flex;align-items:stretch;background:var(--red, #f28073);color:var(--ki-on-accent, #232323);font-family:${M.FONT};opacity:0;pointer-events:none;transition:opacity .2s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
     .mrmf.on{opacity:1;pointer-events:auto}
     .mrmb{width:33.34%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:600;color:inherit;border-radius:40px 0 0 40px}
@@ -1140,13 +1141,13 @@
             <div class="mvp${steps ? ' tvs' : ''}" data-vol="${esc(id)}" data-set="${drag ? 1 : 0}">
               <span class="mvf" style="width:${pct}%"></span>
               ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="-1" data-haptic="light" aria-label="Senk volum" style="pointer-events:auto">${M.icon('mdi:minus', 20)}</button>`}
-              <span class="mvl">${M.icon(mVolIcon(a), 18)}${a.volume_level != null ? `<b>${pct}%</b>` : steps ? '' : '<b>–</b>'}</span>
+              <span class="mvl">${M.icon(mVolIcon(a), 18, muted ? 'color:var(--ki-red-text, var(--red,#f28073))' : '')}${a.volume_level != null ? `<b>${pct}%</b>` : steps ? '' : '<b>–</b>'}</span>
               ${drag ? '' : `<button class="mst" data-act="mvstep" data-id="${esc(id)}" data-d="1" data-haptic="light" aria-label="Øk volum" style="pointer-events:auto">${M.icon('mdi:plus', 20)}</button>`}
             </div>`;
         } else mid = `<button class="mhit" data-act="mrow" data-id="${esc(id)}" data-mhold="info" aria-label="${esc(name)}">${art}<span class="mtx"><b>${esc(name)}</b><i>${esc(sub)}</i></span></button>`;
         if (this._mExp === id) return this._miniExpRow(id, s, a, art, name, sub, playing, tv);
         return `<div class="mrow" data-mid="${esc(id)}" data-key="mr_${esc(id)}">${mid}
-          <button class="mvb" data-act="mvol" data-id="${esc(id)}" data-mhold="mute" aria-label="${vol ? 'Lukk volum' : 'Volum'}">${M.icon(vol ? 'mdi:close' : muted ? 'mdi:volume-off' : mVolIcon(a), 24, muted && !vol ? 'color:var(--ki-red-text, var(--red,#f28073))' : '')}</button>
+          <button class="mvb" data-act="mvol" data-id="${esc(id)}" data-mhold="mute" title="Trykk: volum · hold: demp" aria-label="${vol ? 'Lukk volum' : muted ? 'Volum (dempet)' : 'Volum'}">${M.icon(vol ? 'mdi:close' : muted ? 'mdi:volume-off' : mVolIcon(a), 24, muted && !vol ? 'color:var(--ki-red-text, var(--red,#f28073))' : '')}</button>
           <button class="mpp" data-act="mplay" data-id="${esc(id)}" data-mhold="hide" aria-label="${playing ? 'Pause' : 'Spill'}">${M.icon(playing ? 'mdi:pause' : 'mdi:play', 26)}</button>
         </div>`;
       }).join('');
@@ -1241,6 +1242,8 @@
       sr.addEventListener('error', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('mimg')) { (this._mBad || (this._mBad = new Set())).add(t.getAttribute('src')); t.remove(); } }, true);
       // Et hold teller ikke som trykk
       sr.addEventListener('click', (e) => {
+        // 36.9: klikket etter et utløst hold (demp / more-info) spises uansett hvor lenge man holdt (_mHeld nullstilles ved neste pointerdown)
+        if (this._mHeld && inMini(e)) { this._mHeld = false; this._mSwallow = false; e.stopPropagation(); e.preventDefault(); return; }
         if (this._mSwallow && inMini(e)) { this._mSwallow = false; e.stopPropagation(); e.preventDefault(); return; }
         if (this._mRm && inMini(e)) { e.stopPropagation(); e.preventDefault(); M.haptic('light'); this._miniRmClose(); } // 35.3: trykk lukker «Fjern»
       }, true);
@@ -1249,13 +1252,14 @@
         if (!sw.classList || !sw.classList.contains('msw') || !sw.clientWidth) return;
         const i = Math.round(sw.scrollLeft / sw.clientWidth), row = sw.children[i];
         if (row && row.dataset.mid) this._mCur = row.dataset.mid;
-        sw.classList.toggle('st', sw.scrollLeft <= 2); // 35.3: touch-action none ved scroll-start (sveip høyre = fjern), ellers pan-x
+        sw.classList.toggle('st', sw.scrollLeft <= 2); // 35.3/36.10: touch-action pan-y ved scroll-start (sveip høyre = fjern), ellers pan-x pan-y
         if (this._mExp && this._mCur !== this._mExp) { this._mExp = null; this._schedule(true); } // 22.8: bytt spiller lukker
         sr.querySelectorAll('.mdots button').forEach((b, j) => b.classList.toggle('on', j === i));
       }, true);
       sr.addEventListener('pointerdown', (e) => {
         if (e.button || !inMini(e)) return;
         e.stopPropagation();
+        this._mHeld = false;
         const mini = hit(e, '[data-mini]');
         if (this._mRm) return this._miniSwipe(e, mini); // 35.3: «Fjern» avdekket → bare sveip / trykk lukker
         const sk = hit(e, '.mseek[data-set="1"]');
@@ -1281,17 +1285,19 @@
         }
         const pp = hit(e, '.mpp[data-act="mplay"]');
         if (pp) return this._miniSkipDrag(pp, e); // Fiks 20.20: trykk / hold 550 ms / dra
-        this._miniSwipe(e, mini); // 35.3: sveip ned / høyre / venstre (holdet under avbrytes av bevegelse > 8 px)
+        this._miniSwipe(e, mini); // 35.3/36.10: sveip høyre / venstre (loddrett gjør ingenting; holdet under avbrytes av bevegelse > 8 px)
         const el = hit(e, '[data-mhold]');
         if (!el) return;
+        // 36.9 (fasit volHoldDown/volHoldUp): pointerdown starter timeren; pointerup/-cancel/-leave og bevegelse > 8 px avbryter.
+        // Utløst hold → _mHeld, så klikket etterpå (trykk-handlingen, f.eks. volum-pillen) svelges.
         const x0 = e.clientX, y0 = e.clientY, kind = el.dataset.mhold, id = el.dataset.id;
-        const done = () => { clearTimeout(this._mHold); sr.removeEventListener('pointerup', done); sr.removeEventListener('pointercancel', done); sr.removeEventListener('pointermove', mv); };
+        const done = () => { clearTimeout(this._mHold); sr.removeEventListener('pointerup', done); sr.removeEventListener('pointercancel', done); sr.removeEventListener('pointermove', mv); el.removeEventListener('pointerleave', done); };
         const mv = (ev) => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) done(); };
-        sr.addEventListener('pointerup', done); sr.addEventListener('pointercancel', done); sr.addEventListener('pointermove', mv);
+        sr.addEventListener('pointerup', done); sr.addEventListener('pointercancel', done); sr.addEventListener('pointermove', mv); el.addEventListener('pointerleave', done);
         clearTimeout(this._mHold);
         this._mHold = setTimeout(() => {
           done();
-          this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 700);
+          this._mHeld = true;
           M.haptic('medium');
           this._miniHold(kind, id);
         }, kind === 'hide' ? 550 : kind === 'mute' ? 500 : 520);
@@ -1343,8 +1349,7 @@
             if (Math.abs(dy) > Math.abs(dx)) vert = true;
           }
           if (vert) {
-            // 35.3: sveip ned på play (ikke utvidet) = samme som sveip ned ellers → skjul / fjær tilbake
-            if (!vdone && dy > 0 && this._mExp !== id && mini) { vdone = true; end(); this._miniSwipe({ clientX: x0, clientY: y0, pointerId: pid, pointerType: ev.pointerType }, mini, 'v', ev); return; }
+            // 36.10: sveip ned på play (ikke utvidet) gjør ingenting (fasit swMove/playMove) – bare opp utvider, ned lukker utvidet
             if (vdone || Math.abs(dy) < 20) return;
             const exp = this._mExp === id;
             if (dy < 0 ? exp : !exp) return;
@@ -1392,11 +1397,12 @@
       }, 550);
     }
     // Fiks 35.3 · sveip i mini-spilleren (i tillegg til hold på play + kryss):
-    //  · ned > 56 px eller rask fling → glir ut og skjules (alle spillere, som hold); kortere → fjærer tilbake
-    //  · venstre → høyre bare når første spiller vises (sporet har touch-action:none ved scroll-start, ellers pan-x):
+    //  · 36.10: loddrett bevegelse gjør ingenting (ingen translate/opasitet) – sveip ned skjuler ikke lenger; sporet har
+    //    touch-action pan-y ved scroll-start (pan-x pan-y ellers), så siden kan rulle
+    //  · venstre → høyre bare når første spiller vises (sporet har touch-action:pan-y ved scroll-start, ellers pan-x pan-y):
     //    > 40 px → spilleren legger seg 1/3 ut og avdekker rødt felt (søppel + «Fjern») + toast; nytt sveip > 24 px eller
     //    «Fjern» → glir helt ut; trykk eller sveip tilbake → lukker; > 60 % av bredden → fjernes direkte
-    //  · venstre = neste spiller som før (manuell rulling når sporet har touch-action:none / mus) · utvidet: ned lukker utvidelsen
+    //  · venstre = neste spiller som før (manuell rulling når sporet har touch-action:pan-y / mus) · utvidet: ned lukker utvidelsen
     //  setPointerCapture først når retningen er bestemt (trykk på knapper virker som før), stopPropagation, haptic
     //  selection ved terskler og medium ved fjern. pre = retning bestemt av kalleren (play-knappen), ev0 = første flytt.
     _miniSwipe(e, mini, pre, ev0) {
@@ -1407,7 +1413,6 @@
       const rm0 = this._mRm ? this._mRm.px : 0, sl0 = sw ? sw.scrollLeft : 0, atStart = sl0 <= 2;
       const manual = e.pointerType !== 'touch' || !!(sw && sw.classList.contains('st')); // pan-x → nettleseren ruller selv
       let mode = pre || null, cap = false, mx = rm0, my = 0, dx = 0, dy = 0;
-      const pts = [[e.timeStamp || performance.now(), x0, y0]];
       const field = () => sr.querySelector('[data-mrmf]');
       const put = (x, y) => { mx = x; my = y; this._mDrag = { mx, my }; mini.style.setProperty('--mx', x.toFixed(1) + 'px'); mini.style.setProperty('--my', y.toFixed(1) + 'px'); };
       const thr = {};
@@ -1417,7 +1422,7 @@
         cap = true; this._mSwipeOn = true;
         clearTimeout(this._mHold);
         try { mini.setPointerCapture(pid); } catch (x) { /* */ }
-        if (mode === 'v' || mode === 'rm') { mini.classList.add('drag'); put(mx, my); }
+        if (mode === 'rm') { mini.classList.add('drag'); put(mx, my); }
         if (mode === 'rm') { const f = field(); if (f) f.classList.add('on'); }
         if (mode === 'sc' && sw) sw.style.scrollSnapType = 'none';
       };
@@ -1425,17 +1430,15 @@
         if (ev.pointerId !== pid) return;
         ev.stopPropagation();
         dx = ev.clientX - x0; dy = ev.clientY - y0;
-        pts.push([ev.timeStamp || performance.now(), ev.clientX, ev.clientY]); if (pts.length > 6) pts.shift();
         if (!mode) {
           if (Math.hypot(dx, dy) < 8) return;
-          if (Math.abs(dy) > Math.abs(dx)) mode = exp ? (dy > 0 ? 'xv' : 'no') : dy > 0 ? 'v' : 'no';
+          if (Math.abs(dy) > Math.abs(dx)) mode = exp && dy > 0 ? 'xv' : 'no'; // 36.10: loddrett gjør ingenting (utvidet: ned lukker utvidelsen)
           else mode = exp ? 'sc' : rm0 || (dx > 0 && atStart) ? 'rm' : 'sc';
           if (mode === 'no' || (mode === 'sc' && !manual)) { stop(); return; }
         }
         if (ev.cancelable) ev.preventDefault();
         start();
-        if (mode === 'v') { put(0, dy > 0 ? dy : dy * 0.15); cross('d', dy > 56); }
-        else if (mode === 'xv') { if (dy > 40) { mode = 'done'; this._mSwallow = true; M.haptic('light'); this._mExp = null; this._mVolId = null; this._schedule(true); } }
+        if (mode === 'xv') { if (dy > 40) { mode = 'done'; this._mSwallow = true; M.haptic('light'); this._mExp = null; this._mVolId = null; this._schedule(true); } }
         else if (mode === 'rm') { const x = rm0 + dx; put(x > 0 ? x : x * 0.15, 0); if (!rm0) cross('r', x > 40); cross('f', x > W * 0.6); }
         else if (mode === 'sc' && sw) sw.scrollLeft = sl0 - dx;
       };
@@ -1451,12 +1454,6 @@
         if (!cap) return; // trykk → klikket gjør jobben (i «Fjern»-tilstand: lukker)
         this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 400);
         const cancel = ev.type === 'pointercancel';
-        let vy = 0;
-        if (pts.length > 1) { const a = pts[0], b = pts[pts.length - 1], dt = Math.max(1, b[0] - a[0]); vy = (b[2] - a[2]) / dt; }
-        if (mode === 'v') {
-          if (!cancel && (my > 56 || (vy > 0.5 && my > 16))) return this._miniRmGo('down', mini);
-          return this._miniRmClose(mini);
-        }
         if (mode === 'rm') {
           if (!cancel && mx > W * 0.6) return this._miniRmGo('right', mini);
           if (rm0) {
@@ -1501,7 +1498,7 @@
       this._mRmT = setTimeout(() => { if (f && !this._mRm && !this._mDrag) f.classList.remove('on'); }, 220);
       this._schedule(true);
     }
-    // Glir helt ut (ned / høyre) og skjules til neste avspilling (som hold på play) – med «Angre»
+    // Glir helt ut mot høyre og skjules til neste avspilling (som hold på play) – med «Angre»
     _miniRmGo(dir, mini) {
       mini = mini || (this._portal && this._portal.shadowRoot.querySelector('[data-mini]'));
       const id = this._mCur;
@@ -1509,8 +1506,8 @@
       this._mGone = true;
       if (mini) {
         mini.classList.remove('drag');
-        const W = mini.offsetWidth || 400, H = mini.offsetHeight || 64;
-        this._mDrag = dir === 'down' ? { mx: 0, my: H + 120 } : { mx: W + 40, my: 0 };
+        const W = mini.offsetWidth || 400;
+        this._mDrag = { mx: W + 40, my: 0 }; // 36.10: bare mot høyre (sveip ned er fjernet)
         mini.style.setProperty('--mx', this._mDrag.mx + 'px'); mini.style.setProperty('--my', this._mDrag.my + 'px');
         mini.classList.add('off');
       }
@@ -1553,9 +1550,12 @@
       };
       try { vp.setPointerCapture(e.pointerId); } catch (x) { /* */ }
       M.haptic('selection');
+      // 36.9: dra slideren mens dempet → slå av demping
+      const st = this.hass && this.hass.states[id];
+      if (st && st.attributes && st.attributes.is_volume_muted) M.call(this.hass, 'media_player', 'volume_mute', { entity_id: id, is_volume_muted: false });
       at(e);
       const mv = (ev) => { ev.stopPropagation(); at(ev); };
-      const up = () => { vp.removeEventListener('pointermove', mv); vp.removeEventListener('pointerup', up); vp.removeEventListener('pointercancel', up); if (pend != null) { clearTimeout(this._mVT); call(pend); } };
+      const up = () => { vp.removeEventListener('pointermove', mv); vp.removeEventListener('pointerup', up); vp.removeEventListener('pointercancel', up); if (pend != null) { clearTimeout(this._mVT); call(pend); } this._miniVolTimer(); };
       vp.addEventListener('pointermove', mv); vp.addEventListener('pointerup', up); vp.addEventListener('pointercancel', up);
     }
     // Fiks 19.15: er spilleren en TV? device_class tv, valgt som TV i Media (M.mediaPlayers / Media-kortets config) eller remote.* på samme enhet
@@ -1585,12 +1585,12 @@
     _miniHold(kind, id) {
       const h = this.hass, s = h && h.states[id];
       if (!s) return;
-      const toast = (t) => { if (this.config.toasts !== false) M.toast(t); };
+      const toast = (t, o) => { if (this.config.toasts !== false) M.toast(t, o); };
       if (kind === 'info') return M.moreInfo(this, id);
       if (kind === 'mute') {
         const mute = !s.attributes.is_volume_muted;
         M.call(h, 'media_player', 'volume_mute', { entity_id: id, is_volume_muted: mute });
-        return toast(mute ? 'Dempet' : 'Lyd på');
+        return toast(mute ? 'Dempet' : 'Lyd på', { icon: mute ? 'mdi:volume-off' : 'mdi:volume-high', duration: 1400 }); // 36.9: 1,4 s
       }
       if (kind === 'hide') {
         // Fiks 19.7: skjuler BARE mini-spilleren – ingen media_pause/media_play_pause, avspillingen fortsetter uendret

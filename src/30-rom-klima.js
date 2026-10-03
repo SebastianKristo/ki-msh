@@ -60,7 +60,38 @@
   };
   // Klima-oppslag for et rom med overstyring. Nøkler: overrides.temperature|humidity|climate
   // (eldre: temperatur|fuktighet|termostat), include.climate: [ekstra termostater].
-  M.roomClimate = function (hass, area, cfg) {
+  // Fiks 36.3 · kombinert rom (area = kombinasjonens id): valgt rom (opts.room) › primærrom › «Snitt av alle» ('avg':
+  // gjennomsnitt av rommenes verdier, temps/hums = alle sensorene for grafen). Kombinasjonens egne overstyringer gjelder
+  // bare standardvisningen (ikke når et annet rom er valgt i rom-velgeren).
+  M.roomClimate = function (hass, area, cfg, opts) {
+    const CB = area && hass && !(hass.areas && hass.areas[area]) && M.combinedOfCard ? M.combinedOfCard(hass, { ...(cfg || {}), area }) : null;
+    if (CB) return M.combinedClimate(hass, CB, cfg, opts && opts.room);
+    return roomClimate1(hass, area, cfg);
+  };
+  // Rom i kombinasjonen som har egen temperatur-/fuktsensor (ikke husets reserve)
+  M.combinedSensorRooms = function (hass, CB) {
+    return CB.rooms.filter((r) => { const a = M.roomAuto(hass, r); return (!!a.temp && !a.tempFallback) || a.tempVal != null || (!!a.hum && !a.humFallback) || a.humVal != null; });
+  };
+  M.combinedClimate = function (hass, CB, cfg, room) {
+    const sel = room && (room === 'avg' || CB.rooms.includes(room)) ? room : CB.primary;
+    const lights = [...new Set(CB.rooms.flatMap((r) => M.roomAuto(hass, r).lights || []))];
+    if (sel !== 'avg') {
+      const rc = roomClimate1(hass, sel, room ? {} : cfg);
+      return { ...rc, area: CB.id, room: sel, combined: CB, lights, climates: [...new Set([...rc.climates, ...CB.rooms.flatMap((r) => roomClimate1(hass, r, {}).climates)])] };
+    }
+    const S = M.combinedSensorRooms(hass, CB), per = (S.length ? S : CB.rooms).map((r) => roomClimate1(hass, r, {}));
+    const avg = (k) => { const v = per.map((x) => x[k].v).filter((x) => x != null && !isNaN(x)); return v.length ? Math.round((v.reduce((a, b) => a + Number(b), 0) / v.length) * 10) / 10 : null; };
+    const o = (!room && cfg && cfg.overrides) || {};
+    const tO = o.temperature || o.temperatur, hO = o.humidity || o.fuktighet;
+    const clim = o.climate || o.termostat || (per.find((x) => x.climate) || {}).climate || null;
+    return {
+      area: CB.id, room: 'avg', combined: CB, auto: per[0] ? per[0].auto : { climates: [] },
+      temp: tO ? { id: tO, v: M.num(hass, tO) } : { id: null, v: avg('temp') }, hum: hO ? { id: hO, v: M.num(hass, hO) } : { id: null, v: avg('hum') },
+      temps: tO ? [tO] : per.map((x) => x.temp.id).filter(Boolean), hums: hO ? [hO] : per.map((x) => x.hum.id).filter(Boolean),
+      climate: clim, climates: [...new Set([clim, ...per.flatMap((x) => x.climates)].filter(Boolean))], lights,
+    };
+  };
+  function roomClimate1(hass, area, cfg) {
     const a = area ? M.roomAuto(hass, area) : { climates: [] };
     const rc = (area && (M.roomCfgs[area] || (M.store && M.store.eff('rooms.' + area)))) || {};
     const o = { ...((rc && rc.overrides) || {}), ...((cfg && cfg.overrides) || {}) };
@@ -75,7 +106,7 @@
       climates: [...new Set([clim, ...inc].filter(Boolean))],
       lights: a.lights || [],
     };
-  };
+  }
 
   class RomKlima extends M.Card {
     static get cardName() { return 'Rom · klima-toppkort'; }
@@ -110,6 +141,7 @@
     onOpen() { this._loadHist(); this._headerIcon(); }
     async _loadHist() {
       const e = this._ents();
+      if (e.temps || e.hums) return this._loadHistAvg(e);
       const key = (e.temp || '') + '|' + (e.hum || '');
       // byttet sensor → tøm cachen for den gamle og hent ny historikk
       if (this._histKey && this._histKey !== key) { this._histKey.split('|').filter(Boolean).forEach((id) => M.historyForget(id)); this._hist = null; }
@@ -120,27 +152,43 @@
       this._hist = { t: e.temp ? M.sample(h[e.temp], 25) : [], h: e.hum ? M.sample(h[e.hum], 25) : [] };
       this.update();
     }
+    // 36.3 · «Snitt av alle»: historikken til alle rommenes sensorer, gjennomsnitt punkt for punkt
+    async _loadHistAvg(e) {
+      const T = e.temps || [], H = e.hums || [], key = 'avg:' + T.join(',') + '|' + H.join(',');
+      this._histKey = key;
+      if (!T.length && !H.length) { this._hist = null; this.update(); return; }
+      const h = await M.history(this.hass, [...T, ...H], 24);
+      if (this._histKey !== key) return;
+      const mean = (ids) => { const L = ids.map((id) => M.sample(h[id], 25)).filter((x) => x.length); if (!L.length) return []; return L[0].map((_, i) => { const v = L.map((x) => x[i]).filter((x) => x != null && !isNaN(x)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }).filter((x) => x != null); };
+      this._hist = { t: mean(T), h: mean(H) };
+      this.update();
+    }
     _ents() {
-      const area = M.roomArea(this), rc = M.roomClimate(this.hass, area, this.config);
-      return { area, temp: rc.temp.id, hum: rc.hum.id, tVal: rc.temp.v, hVal: rc.hum.v, thermo: rc.climate, lights: rc.lights || [] };
+      const area = M.roomArea(this), CB = area && M.combinedOfCard ? M.combinedOfCard(this.hass, this.config) : null;
+      const rc = CB ? M.combinedClimate(this.hass, CB, this.config, this.ui.room) : M.roomClimate(this.hass, area, this.config);
+      return { area, temp: rc.temp.id, hum: rc.hum.id, tVal: rc.temp.v, hVal: rc.hum.v, thermo: rc.climate, lights: rc.lights || [], temps: rc.room === 'avg' ? rc.temps : null, hums: rc.room === 'avg' ? rc.hums : null, CB, room: rc.room || null };
     }
     // Popup-headerens ikon = rommets ikon (HA-område → KI Rom «ikon»).
     _headerIcon() {
       if (this.config.header_icon === false) return;
       const area = M.roomArea(this); if (!area) return;
-      const au = M.roomAuto(this.hass, area);
-      const icon = (this.hass.areas && this.hass.areas[area] && this.hass.areas[area].icon) || (au.A && au.A.ikon) || null;
+      const CB = M.combinedOfCard ? M.combinedOfCard(this.hass, this.config) : null; // 36.3: kombinert rom → kombinasjonens ikon
+      const au = CB ? {} : M.roomAuto(this.hass, area);
+      const icon = CB ? CB.icon : (this.hass.areas && this.hass.areas[area] && this.hass.areas[area].icon) || (au.A && au.A.ikon) || null;
       const cont = M.popupContainer(this), root = cont && cont.getRootNode && cont.getRootNode();
       const hi = root && root.querySelector && (root.querySelector('.bubble-header-container .bubble-icon') || root.querySelector('.bubble-header-container ha-icon'));
       if (icon && hi && hi.getAttribute('icon') !== icon) { hi.setAttribute('icon', icon); hi.icon = icon; }
     }
     render() {
       const c = this.config, e = this._ents(), ui = this.ui;
-      const name = c.name || (e.area ? M.areaName(this.hass, e.area) : '–');
+      const name = c.name || (e.CB ? e.CB.name : e.area ? M.areaName(this.hass, e.area) : '–');
+      // 36.3 · rom-velger-chip («Stue ▾») når flere rom i kombinasjonen har sensorer
+      const SR = e.CB ? M.combinedSensorRooms(this.hass, e.CB) : [];
+      const pick = SR.length > 1 ? `<label class="rpk" data-key="rpk" title="Velg rom for toppkortet"><span class="ell">${esc(e.room === 'avg' ? 'Snitt' : M.areaName(this.hass, e.room))}</span>${M.icon('mdi:menu-down', 16)}<select data-rpk aria-label="Rom i toppkortet">${[...SR, 'avg'].map((r) => `<option value="${esc(r)}" ${r === e.room ? 'selected' : ''}>${esc(r === 'avg' ? 'Snitt av alle' : M.areaName(this.hass, r))}</option>`).join('')}</select></label>` : '';
       if (e.temp) this.s(e.temp);
       if (e.hum) this.s(e.hum);
       const tNow = e.tVal, hNow = e.hVal, th = this.s(e.thermo);
-      if (this.isOpen && this._histKey != null && this._histKey !== (e.temp || '') + '|' + (e.hum || '')) setTimeout(() => this._loadHist(), 0);
+      if (this.isOpen && this._histKey != null && this._histKey !== (e.temps || e.hums ? 'avg:' + (e.temps || []).join(',') + '|' + (e.hums || []).join(',') : (e.temp || '') + '|' + (e.hum || ''))) setTimeout(() => this._loadHist(), 0);
       const on = e.lights.filter((id) => { const s = this.s(id); return s && s.state === 'on'; }).length;
       const set = th && th.attributes.temperature != null ? Number(th.attributes.temperature) : null;
       const heating = !!th && (th.attributes.hvac_action === 'heating' || (th.attributes.hvac_action == null && th.state === 'heat' && tNow != null && set != null && tNow < set));
@@ -188,7 +236,7 @@
           </div>
           <button class="gear press" data-act="customize" title="Tilpass">${M.icon('settings', 22, 'color:var(--ki-text, #fafafa)')}</button>
           <div class="top">
-            <span class="nm ell">${esc(name)}</span>
+            ${pick || `<span class="nm ell">${esc(name)}</span>`}
             <span class="chip" style="background:${M.alpha(hc, 0.18)};color:${M.theme.accentText(hc)}">${M.icon(chipIcon, 14)}${esc(chipText)}</span>
           </div>
           <div class="vals">
@@ -207,6 +255,12 @@
       return super.onAction(name, el, ev);
     }
     afterRender() {
+      const rs = this.shadowRoot.querySelector('select[data-rpk]');
+      if (rs && !rs.__b) {
+        rs.__b = true;
+        ['pointerdown', 'touchstart'].forEach((t) => rs.addEventListener(t, (ev) => ev.stopPropagation(), { passive: true }));
+        rs.addEventListener('change', () => { M.haptic('selection'); this._hist = null; this._histKey = null; this.setUI({ room: rs.value, sel: null }); this._loadHist(); });
+      }
       const sc = this.shadowRoot.querySelector('.scrub');
       if (!sc || sc.__b) return;
       sc.__b = true;
@@ -231,6 +285,8 @@
         .gear:active{transform:scale(.92)}
         .top{position:absolute;left:18px;top:18px;right:120px;display:flex;align-items:center;gap:8px}
         .nm{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .rpk{position:relative;display:flex;align-items:center;gap:2px;height:26px;max-width:140px;padding:0 6px 0 10px;border-radius:13px;font-size:12px;font-weight:600;flex:none;min-width:0;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
+        .rpk select{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:16px;width:100%}
         .chip{height:26px;padding:0 10px 0 8px;border-radius:13px;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;white-space:nowrap;flex:none}
         .vals{position:absolute;left:18px;top:54px;display:flex;flex-direction:column;gap:2px}
         .line{display:flex;align-items:baseline;gap:8px;white-space:nowrap}

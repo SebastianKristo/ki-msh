@@ -122,6 +122,20 @@
     cfg = cfg || {};
     const out = { area, ov: null, auto: {}, lists: {}, eff: {}, cls: {}, sceneMeta: {} };
     if (!hass || !area) { LISTS.forEach(([k]) => { out.auto[k] = []; out.lists[k] = []; }); return out; }
+    // Fiks 36.3 · kombinert rom (area = kombinasjonens id): autokonfig per rom som før → union i rommenes rekkefølge.
+    // roomOf[entitet] = rommet den kom fra (romtagg / grupper per rom). overrides/exclude/include gjelder kombinasjonen.
+    const CB = !(hass.areas && hass.areas[area]) && M.combinedOfCard ? M.combinedOfCard(hass, { ...cfg, area }) : null;
+    if (CB) {
+      out.roomOf = {}; out.combined = CB;
+      CB.rooms.forEach((r) => {
+        const L = M.roomLists(hass, r, {});
+        LISTS.forEach(([k]) => { const t = out.auto[k] || (out.auto[k] = []); (L.auto[k] || []).forEach((id) => { if (!t.includes(id)) t.push(id); if (!out.roomOf[id]) out.roomOf[id] = r; }); });
+        Object.keys(L.sceneMeta || {}).forEach((k) => { if (!out.sceneMeta[k]) out.sceneMeta[k] = L.sceneMeta[k]; });
+        Object.keys(L.eff || {}).forEach((k) => { if (!out.eff[k]) out.eff[k] = L.eff[k]; });
+        Object.keys(L.cls || {}).forEach((k) => { if (!out.cls[k]) out.cls[k] = L.cls[k]; });
+      });
+    }
+    if (!CB) {
     const ov = M.kiRom(hass, area, 'oversikt'), A = (ov && ov.attributes) || {};
     out.ov = ov;
     const has = (...ks) => !!ov && ks.some((k) => Array.isArray(A[k]));
@@ -159,7 +173,8 @@
       s.forEach((x) => { if (x.klasse) out.cls[x.entity] = x.klasse; });
       M.ids(A.lysniva).forEach((id) => { if (!a.sensorer.includes(id)) { a.sensorer.push(id); out.cls[id] = 'illuminance'; } });
     } else a.sensorer = [...reg('binary_sensor'), ...reg('sensor', (s) => s.attributes.device_class === 'illuminance')];
-    LISTS.forEach(([k]) => { out.lists[k] = M.applyLists(cfg, k, a[k]); });
+    }
+    LISTS.forEach(([k]) => { out.lists[k] = M.applyLists(cfg, k, out.auto[k] || []); });
     // Scener: include.scenes (alias for include.scener) + order.scenes (sortering fra «Tilpass rom»)
     (((cfg.include || {}).scenes) || []).forEach((id) => { if (!out.lists.scener.includes(id) && !((cfg.exclude || []).includes(id))) out.lists.scener.push(id); });
     const so = (cfg.order && Array.isArray(cfg.order.scenes)) ? cfg.order.scenes : null;
@@ -307,7 +322,9 @@
       c = c || {};
       const area = c.area || area0;
       const L = h && area ? M.roomLists(h, area, c) : null;
+      const CBs = L && L.combined; // 36.4: kombinert rom → rom, primær og layout (samme som «Tilpass Hjem» → Kombiner rom)
       const out = [
+        ...(CBs && M.combinedField ? [{ type: 'section', id: 'kombinert', label: 'Kombinert rom', icon: 'mdi:vector-combine', open: true, meta: () => CBs.rooms.map((r) => M.areaName(h, r)).join(' · '), fields: [M.combinedField('rom')] }] : []),
         { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
           { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
           { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 116, default: SPACING.pad_top, offset: PAD_T_OFF, presets: [[-4, 'Standard 0'], [6, 'Litt 10'], [20, 'Luftig 24'], [44, 'Ekstra 48']] },
@@ -445,7 +462,7 @@
   }
   // 19.20: «Tilpass rom» i fire faner (Oppsett · Entiteter · Klima · Kort). Entiteter har undersegment (Lys · Enheter ·
   // Sensorer · Andre) med antall = autokonfig + lagt til. Seksjonene i en fane vises flatt (01-editor: type 'tabs').
-  const TAB_OF = { area: 'oppsett', spacing: 'oppsett', sections: 'oppsett', customize_button: 'oppsett', klima: 'klima', klima_order: 'klima', look: 'kort', actions: 'kort', looks: 'kort', appliances: 'kort' };
+  const TAB_OF = { kombinert: 'oppsett', area: 'oppsett', spacing: 'oppsett', sections: 'oppsett', customize_button: 'oppsett', klima: 'klima', klima_order: 'klima', look: 'kort', actions: 'kort', looks: 'kort', appliances: 'kort' };
   function tabsOf(out, h, c, area) {
     const of = (t) => out.filter((f) => TAB_OF[f.id || f.name] === t), byId = (id) => out.find((f) => f.id === id);
     const A = h && area ? M.roomLists(h, area, {}).auto : null;
@@ -506,11 +523,26 @@
     // Egen tilpasning: samme editor/skjema som GUI-editoren, men med rommet fra popupens hash kjent.
     customize(focus) {
       const area = M.roomArea(this);
-      return M.openEditor(this, { cardClass: { schema: buildSchema(area), cardName: area ? M.areaName(this.hass, area) : 'Rom' }, focus, areaCtx: area });
+      const cb = area && M.combinedOfCard ? M.combinedOfCard(this.hass, { ...this.config, area }) : null;
+      return M.openEditor(this, { cardClass: { schema: buildSchema(area), cardName: cb ? cb.name : area ? M.areaName(this.hass, area) : 'Rom' }, focus, areaCtx: area });
     }
 
     /* ------------ hjelpere */
-    _nm(id) { return cap(M.name(this.hass, id, this._areaName)); }
+    _nm(id) { const r = this._L && this._L.roomOf && this._L.roomOf[id]; return cap(M.name(this.hass, id, r ? M.areaName(this.hass, r) : this._areaName)); }
+    // 36.3 · romtagg («Kjøkken») per entitet i et kombinert rom med > 1 rom. «Grupper per rom» (layout group) bruker
+    // underoverskrifter i listene i stedet – force = alltid tagg (karuseller, scener, gardiner)
+    _tag(id, force) {
+      const cb = this._cb;
+      if (!cb || cb.rooms.length < 2 || (!force && cb.layout === 'group')) return '';
+      const r = this._L.roomOf && this._L.roomOf[id];
+      return r ? `<span class="rtag">${esc(M.areaName(this.hass, r))}</span>` : '';
+    }
+    _grp(ids, htmlOf) {
+      const cb = this._cb;
+      if (!cb || cb.layout !== 'group' || cb.rooms.length < 2) return ids.map(htmlOf).join('');
+      const RO = this._L.roomOf || {}, rest = ids.filter((id) => !cb.rooms.includes(RO[id]));
+      return cb.rooms.map((r) => { const L = ids.filter((id) => RO[id] === r); return L.length ? `<div class="rgh" data-key="rgh-${esc(r)}">${esc(M.areaName(this.hass, r))}</div>${L.map(htmlOf).join('')}` : ''; }).join('') + (rest.length ? `<div class="rgh" data-key="rgh--">Lagt til</div>${rest.map(htmlOf).join('')}` : '');
+    }
     _look(id) { const [d, o] = [id.split('.')[0], obj(id)]; const L = this.config.looks; return (L && L[d] && L[d][o]) || {}; }
     _tekst(kind, changed) {
       if (changed) return null;
@@ -553,11 +585,13 @@
       const c = this.config;
       const area = M.roomArea(this);
       this._area = area;
-      if (!area || !(this.hass.areas && this.hass.areas[area]) && !M.kiRom(this.hass, area, 'oversikt')) {
+      if (!area || !(this.hass.areas && this.hass.areas[area]) && !M.kiRom(this.hass, area, 'oversikt') && !(M.combinedOfCard && M.combinedOfCard(this.hass, c))) { // 36.3: kombinert rom
         return `<div class="rom">${M.emptyState(area ? `Fant ikke rommet «${area}» – velg område` : 'Velg rom (område) for kortet', 'entities')}</div>`;
       }
       this._areaName = M.areaName(this.hass, area);
       const L = (this._L = M.roomLists(this.hass, area, c));
+      this._cb = L.combined || null; // 36.3: kombinert rom
+      if (this._cb) this._areaName = this._cb.name;
       if (L.ov) this.s(L.ov.entity_id);
       const keys = SECS.map((s) => s[0]);
       const order = (Array.isArray(c.sections) ? c.sections.filter((k) => keys.includes(k)) : []);
@@ -589,11 +623,11 @@
       if (!ids.length) return '';
       const multi = ids.length > 1, open = multi && !!this.ui.cvOpen;
       const v0 = this._cvPos(ids[0]);
-      const rest = open ? ids.slice(1).map((id) => { const v = this._cvPos(id); return `<div class="cvr2" data-key="cv-${esc(id)}"><span class="cvn2">${esc(this._nm(id))}</span>${this._cvSlider(id, v)}<span class="cvp2 num">${v}%</span></div>`; }).join('') : '';
+      const rest = open ? ids.slice(1).map((id) => { const v = this._cvPos(id); return `<div class="cvr2" data-key="cv-${esc(id)}"><span class="cvn2">${esc(this._nm(id))}${this._tag(id, true)}</span>${this._cvSlider(id, v)}<span class="cvp2 num">${v}%</span></div>`; }).join('') : '';
       // 35.6: forvalg-knappen som matcher ALLE gardinene er aktiv (rosa + --ki-on-accent)
       const all = open ? ids.map((id) => this._cvPos(id)) : [];
       return `<section class="cvbox" data-key="sec-curtain">
-        <div class="cvr"><span class="cvn">${esc(this._nm(ids[0]))}</span>${this._cvSlider(ids[0], v0)}<span class="cvp num">${v0}%</span>${multi ? `<button class="cvx" data-act="cvx" data-haptic="selection">${this._chev(open)}</button>` : ''}</div>
+        <div class="cvr"><span class="cvn">${esc(this._nm(ids[0]))}${this._tag(ids[0], true)}</span>${this._cvSlider(ids[0], v0)}<span class="cvp num">${v0}%</span>${multi ? `<button class="cvx" data-act="cvx" data-haptic="selection">${this._chev(open)}</button>` : ''}</div>
         ${open ? `<div class="cvo"><div class="cvpre">${[0, 25, 50, 75, 100].map((v) => { const on = all.length && all.every((x) => x === v); return `<button class="pre press ${on ? 'on' : ''}" data-act="cvall" data-v="${v}" aria-pressed="${on ? 'true' : 'false'}">${v}%</button>`; }).join('')}</div>${rest}</div>` : ''}
       </section>`;
     }
@@ -609,7 +643,7 @@
         const nm = (m && m.navn) || this._nm(id);
         const auto = (SCENE_ICON.find((x) => x[0].test(nm.toLowerCase())) || [])[1];
         const icon = lk.icon || (m && m.ikon) || (s && s.attributes.icon) || auto || (id.startsWith('script.') ? 'mdi:script-text' : 'mdi:palette');
-        return `<button class="sc" data-act="scene" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span></button>`;
+        return `<button class="sc" data-act="scene" data-id="${esc(id)}" data-ent="${esc(id)}" data-haptic="light" data-key="sc-${esc(id)}">${M.icon(icon, 26)}<span class="scl ell">${esc(lk.name || nm)}</span>${this._tag(id, true) ? `<span class="stg ell">${esc(M.areaName(this.hass, this._L.roomOf[id]))}</span>` : ''}</button>`;
       }).join('')}</section>`;
     }
 
@@ -628,14 +662,20 @@
       if (!ids.length) return '';
       const open = !!(this.ui.acc || {}).lys;
       let on = 0;
-      const rows = ids.map((id) => {
+      const H = {};
+      ids.forEach((id) => {
         const s = this.s(id), isOn = !!s && s.state === 'on';
         if (isOn) on++;
-        if (!open) return '';
-        return `<div class="lsl" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-name="${esc(this._nm(id))}" data-nomorph></div>`;
-      }).join('');
+        if (!open) return;
+        const row = `<div class="lsl" data-key="l-${esc(id)}" data-lc="${esc(id)}" data-name="${esc(this._nm(id))}" data-nomorph></div>`, tg = this._tag(id);
+        H[id] = tg ? `<div class="lw" data-key="lw-${esc(id)}"><div class="ltg">${tg}</div>${row}</div>` : row; // 36.3: romtagg over raden
+      });
+      const rows = open ? this._grp(ids, (id) => H[id]) : '';
       const sum = this._tekst('lys', this._listChanged('lys')) || `${on} på - ${ids.length - on} av`;
-      return `<section class="box" data-key="sec-lys">${this._head('lys', 'floor_lamp', 'Lys', sum)}${open ? `<div class="bd"><div class="lts" style="--lr-h:${M.lightRowHeight(this.config)}px">${rows}</div></div>` : ''}</section>`;
+      // 36.3 · «Alle lys» (kombinert rom): rosa bryter ved siden av akkordeon-hodet, styrer lysene i alle rommene
+      const head = this._head('lys', 'floor_lamp', 'Lys', sum);
+      const hd = this._cb ? `<div class="acw">${head}<button class="alls" data-act="alllights" data-haptic="medium" role="switch" aria-checked="${on > 0}" aria-label="Alle lys" title="Alle lys"><span class="alt">Alle</span><span class="asw${on > 0 ? ' on' : ''}"></span></button></div>` : head;
+      return `<section class="box" data-key="sec-lys">${hd}${open ? `<div class="bd"><div class="lts" style="--lr-h:${M.lightRowHeight(this.config)}px">${rows}</div></div>` : ''}</section>`;
     }
     // Monter/oppdater lys-radene i plassholderne (data-nomorph → morph rører dem ikke).
     _mountLights() { M.mountLightRows(this, (id) => this._lightCfg(id)); }
@@ -651,7 +691,7 @@
       if (po === 'none') return null; // 19.21: «Ingen effektsensor» → bare av/på fra bryteren
       if (e) { const v = this.n(e); if (v != null) return v; }
       if (po) return null;
-      const k = M.kiRom(this.hass, this._area, 'effekt');
+      const k = M.kiRom(this.hass, (this._L && this._L.roomOf && this._L.roomOf[id]) || this._area, 'effekt');
       const kil = k && k.attributes.kilder;
       if (kil) {
         this.s(k.entity_id);
@@ -668,7 +708,8 @@
       // Hvitevare-profiler og egen farge/regel i «Tilpass rom» beholder sin farge (og tar ingen plass i rekkefølgen).
       const multi = ids.filter((id) => { const s = this.s(id); return M.isOn(s) && !M.unavailable(s); }).length >= 2;
       let ci = 0;
-      const rows = ids.map((id) => {
+      const DH = {};
+      ids.forEach((id) => { DH[id] = ((id) => {
         const s = this.s(id), w = this._w(id), unav = M.unavailable(s);
         const DV = devOv(this.hass, this.config, id, w, this._nm(id)), isOn = DV ? DV.on : M.isOn(s);
         if (isOn) on++;
@@ -704,11 +745,12 @@
           cls: `msh-inner${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}${mc ? ' d-on' : ''}${off ? ' d-off' : ''}`,
           icon_html: M.icon(icon, 30, anim ? anim + ';' : ''),
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : status),
-          sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : '',
+          sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : '', ...(this._tag(id) && !lk.alt_text ? { sub_html: esc(lk.sub_text || lk.name || nm) + this._tag(id) } : {}),
           background_color: lk.background_color || lk.bg || (off ? 'var(--ki-surface-3, var(--gray100, #2f2f2f))' : undefined), text_color: lk.text_color || (off ? 'var(--ki-text, var(--white, #fafafa))' : undefined),
           circle_color: lk.cell || (mc ? 'rgb(255 255 255 / 0.18)' : act ? 'rgb(0 0 0 / 0.12)' : off ? 'var(--ki-surface, var(--gray200, #3a3a3a))' : undefined),
           icon_color: lk.icon_color || (off ? 'var(--ki-text-1, var(--gray1000, #e1e1e1))' : P && !act && P.col ? P.col : undefined) });
-      }).join('');
+      })(id); });
+      const rows = open ? this._grp(ids, (id) => DH[id]) : '';
       // 19.21: egen effektsensor på en enhet → summen regnes fra sensorene (KI Rom-teksten kjenner ikke overstyringen)
       const pOv = ids.some((id) => M.roomDevOv(this.config, id).power);
       const sum = this._tekst('effekt', this._listChanged('enheter') || pOv) || (hasW ? `${M.nf(W)} W` : null) || this._tekst('brytere', this._listChanged('enheter')) || `${on} på - ${ids.length - on} av`;
@@ -759,7 +801,7 @@
           const cbg = mc ? `linear-gradient(135deg, ${M.alpha(mc, 0.24)}, ${bg} 72%)` : bg;
           const dec = sp != null && Number.isInteger(sp) ? 0 : 1;
           return `<div class="kc${heat ? ' heat' : ''}" data-key="k-${esc(id)}" data-ent="${esc(id)}" style="background:${cbg}"><span class="kpk"></span>
-            <div class="kt"><span class="kn ell">${esc(this._nm(id))}</span><span class="ks ell">${esc(sub)}</span></div>
+            <div class="kt"><span class="kn ell">${esc(this._nm(id))}${this._tag(id, true)}</span><span class="ks ell">${esc(sub)}</span></div>
             <div class="kb"><span class="kv num">${t != null ? M.nf(t, 0) : '–'}°</span><span class="kh">${h != null ? M.nf(h, 0) : '–'}%</span></div>
             <div class="kctl" style="${heat ? '' : ctl}"><button class="kbtn" data-act="kset" data-d="1" data-id="${esc(id)}" data-haptic="selection" ${sp == null ? 'disabled' : ''}>${M.icon('expand_less', 24)}</button><span class="kset num">${sp != null ? M.nf(sp, dec) : '–'}°</span><button class="kbtn" data-act="kset" data-d="-1" data-id="${esc(id)}" data-haptic="selection" ${sp == null ? 'disabled' : ''}>${M.icon('expand_more', 24)}</button></div>
           </div>`;
@@ -801,7 +843,7 @@
         ...lk, mode: 'sensor', size: 'small', entity: id, st: F.s, key: 'f-' + id,
         act: F.unav ? null : 'dtoggle', id, haptic: 'success', cls: `msh-inner fan${F.isOn ? ' on' : ''}${F.unav ? ' d-unav' : ''}`,
         icon_html: M.icon(lk.icon || (F.isOn ? 'mdi:fan' : 'mdi:fan-off'), 30, anim),
-        main_text: lk.main_text || lk.sub_text || nm, sub_text: status, alt_text: '', side_html: side,
+        main_text: lk.main_text || lk.sub_text || nm, sub_text: status, alt_text: '', side_html: side, ...(this._tag(id, true) ? { sub_html: esc(status) + this._tag(id, true) } : {}),
         background_color: lk.background_color, icon_color: lk.icon_color });
     }
     _fanStep(id, d) {
@@ -881,7 +923,7 @@
               <button class="mb mo" data-act="more" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:dots-horizontal', 24)}</button>`;
         const logo = tv && pk && a.entity_picture;
         return `<div class="mc${tv ? ' tvc' : ''}" data-key="m-${esc(id)}">
-          <div class="mt msh-inner${pk ? ' pk' : ''}${logo ? ' lg' : ''}" data-ent="${esc(id)}"><span class="mpk"></span><span class="mh"><span class="mn ell">${esc(nmTv)}</span><span class="ms ell">${esc(stTv)}</span>${sub2 ? `<span class="ms2 ell">${esc(sub2)}</span>` : ''}</span>
+          <div class="mt msh-inner${pk ? ' pk' : ''}${logo ? ' lg' : ''}" data-ent="${esc(id)}"><span class="mpk"></span><span class="mh"><span class="mn ell">${esc(nmTv)}${this._tag(id, true)}</span><span class="ms ell">${esc(stTv)}</span>${sub2 ? `<span class="ms2 ell">${esc(sub2)}</span>` : ''}</span>
             <span class="art${logo ? ' logo' : ''}${pk && a.entity_picture && !logo ? ' img' : ''}">${pic}</span>
             <div class="mctl${tv && ch ? ' m7' : ''}">${ctl}
             </div></div>
@@ -899,7 +941,8 @@
       if (!ids.length) return '';
       const open = !!(this.ui.acc || {}).sens;
       let act = 0;
-      const rows = ids.map((id) => {
+      const SH = {};
+      ids.forEach((id) => { SH[id] = ((id) => {
         const s = this.s(id), a = (s && s.attributes) || {};
         const cls = this._L.cls[id] || a.device_class || '';
         const bin = id.startsWith('binary_sensor.');
@@ -922,8 +965,10 @@
           cls: 'msh-inner' + (lux.cls ? ' ' + lux.cls : ''), // 16.6: felles «indre rad-flate» (M.INNER_ROW)
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : lux.main_text || dflt.main_text), symbol: lk.symbol != null && lk.symbol !== '' ? lk.symbol : lk.main_text || lk.label || lk.mode === 'bar' ? null : lux.symbol || dflt.symbol,
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : '',
-          background_color: lk.background_color || lk.bg || lux.background_color, circle_color: lk.cell || lux.circle_color, icon_color: lk.icon_color || lux.icon_color });
-      }).join('');
+          background_color: lk.background_color || lk.bg || lux.background_color, circle_color: lk.cell || lux.circle_color, icon_color: lk.icon_color || lux.icon_color,
+          ...(this._tag(id) ? { sub_html: esc([lk.sub_text || lk.name || nm, lk.alt_text != null ? lk.alt_text : bin && s && !M.unavailable(s) ? M.relTime(s.last_changed) : ''].filter(Boolean).join(' · ')) + this._tag(id), alt_text: '' } : {}) });
+      })(id); });
+      const rows = open ? this._grp(ids, (id) => SH[id]) : '';
       const sum = this._tekst('sensorer', this._listChanged('sensorer')) || `${act} aktiv - ${ids.length - act} stille`;
       return `<section class="box" data-key="sec-sens">${this._head('sens', 'directions_walk', 'Sensorer', sum)}${open ? `<div class="bd"><div class="lst">${rows}</div></div>` : ''}</section>`;
     }
@@ -935,7 +980,9 @@
       const single = this.config.sections_mode === 'single';
       if (name === 'acc') { const on = !(this.ui.acc || {})[d.k]; const acc = single && on ? {} : { ...(this.ui.acc || {}) }; acc[d.k] = on; return this.setUI(single && on ? { acc, cvOpen: false } : { acc }); }
       if (name === 'cvx') { const on = !this.ui.cvOpen; return this.setUI(single && on ? { cvOpen: true, acc: {} } : { cvOpen: on }); }
-      if (name === 'scene') return M.toggle(h, d.id).catch(() => {}); // button.press / scene.turn_on / script.turn_on (haptic via data-haptic)
+      if (name === 'scene') return M.toggle(h, d.id).catch(() => {});
+      // 36.3 · «Alle lys» i et kombinert rom: av når noe er på, ellers på – lysene i alle rommene (etter exclude/include)
+      if (name === 'alllights') { const ids = this._L ? this._L.lists.lys : []; if (!ids.length) return; const on = ids.some((id) => M.isOn(this.s(id))); M.toast(`Alle lys ${on ? 'av' : 'på'}`); return M.call(h, 'light', on ? 'turn_off' : 'turn_on', { entity_id: ids }).catch(() => {}); } // button.press / scene.turn_on / script.turn_on (haptic via data-haptic)
       if (name === 'cvall') { const v = Number(d.v); (this._L ? this._L.lists.gardiner : []).forEach((id) => this._commit('cover', id, v)); return; }
       if (name === 'kset') return this._kstep(d.id, Number(d.d));
       // 16.5/16.8: hele raden er knappen – switch/fan/input_boolean.toggle (andre domener: felles toggle)
@@ -1107,6 +1154,21 @@
         .sc{flex:none;scroll-snap-align:start;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
         .sc:active{transform:scale(.95)}
         .scl{font-size:14px;font-weight:400;max-width:100%}
+        /* 36.3 · kombinert rom: romtagg, underoverskrift per rom, «Alle lys»-bryter */
+        .rtag{display:inline-block;vertical-align:middle;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:500;line-height:16px;white-space:nowrap;background:color-mix(in srgb, currentColor 12%, transparent);opacity:.85}
+        .cvn .rtag,.cvn2 .rtag{display:table;margin:3px 0 0}
+        .stg{font-size:11px;line-height:14px;padding:1px 7px;border-radius:8px;max-width:100%;margin-top:-6px;background:color-mix(in srgb, currentColor 12%, transparent);color:${G.g800}}
+        .rgh{font-size:12px;font-weight:600;letter-spacing:.02em;color:${G.g700};padding:6px 10px 0}
+        .lw{display:flex;flex-direction:column;gap:4px}
+        .ltg{padding:0 2px;line-height:1}
+        .ltg .rtag{margin-left:0;color:${G.g800}}
+        .acw{display:flex;align-items:center}
+        .acw>.acc{flex:1;min-width:0;padding-right:8px}
+        .alls{flex:none;display:flex;align-items:center;gap:8px;height:66px;padding:0 20px 0 6px;font-size:12px;color:${G.g700}}
+        .asw{position:relative;width:44px;height:26px;border-radius:13px;background:${G.g400};transition:background .2s}
+        .asw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, var(--white, #fafafa));transition:left .2s}
+        .asw.on{background:${PINK}}
+        .asw.on::after{left:21px}
         /* akkordeon */
         .box{border-radius:32px;background:${G.g200};overflow:hidden}
         .acc{width:100%;height:66px;padding:0 20px 0 24px;display:flex;align-items:center;gap:16px;text-align:left}

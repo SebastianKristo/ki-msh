@@ -59,6 +59,10 @@
   const textKey = (c) => { const t = String(c.text_size || 'm').toLowerCase(); return TEXT[t] ? t : (Object.keys(TEXT).find((k) => TEXT[k] === Number(c.text_size)) || 'm'); };
   const srcMode = (c) => { const s = String(c.mode || c.default_source || '').toLowerCase(); return s === 'frigate' ? 'frigate' : 'live'; };
 
+  // 36.5: Direkte/Frigate i tab_order-rekkefølge (skjulte ut, minst én) + startfane (felles MSH.startTab; gammel «Startmodus» mode leses)
+  const camTabs = (c) => { const o = Array.isArray(c.tab_order) ? c.tab_order.filter((k) => k === 'live' || k === 'frigate') : []; ['live', 'frigate'].forEach((k) => { if (!o.includes(k)) o.push(k); }); const hid = c.tab_hidden || [], v = o.filter((k) => !hid.includes(k)); return v.length ? v : o; };
+  const CAM_LEG = (c) => { const s = String(c.mode || c.default_source || '').toLowerCase(); return s === 'frigate' || s === 'live' ? s : undefined; };
+  const CAM_L = { live: ['Direkte', 'mdi:video'], frigate: ['Frigate', 'mdi:history'] };
   // Autokonfig per enhet
   const autoPrivacy = (hass, id) => sameDevice(hass, id, 'switch').find((x) => /privacy|privat/i.test(x + ' ' + M.name(hass, x))) || null;
   const autoMotion = (hass, id) => { const l = sameDevice(hass, id, 'binary_sensor'); return l.find((x) => hass.states[x].attributes.device_class === 'motion') || l.find((x) => /motion|bevegelse/i.test(x)) || null; };
@@ -233,8 +237,8 @@
           ] },
           { type: 'section', label: 'Visning', icon: 'mdi:view-dashboard', open: true, fields: [
             { type: 'select', name: 'layout', label: 'Oppsett', options: LAYOUTS.map(([k, l]) => [k, l]), default: layoutOf(c) },
-            { type: 'select', name: 'mode', label: 'Startmodus', options: [['live', 'Direkte'], ['frigate', 'Frigate']], default: srcMode(c) },
-            { type: 'order', name: 'tab_order', hiddenName: 'tab_hidden', label: 'Faner (hold inne en fane i popupen og dra for å flytte)', options: [['live', 'Direkte'], ['frigate', 'Frigate']] }, // Fiks 28.13
+            ...(M.startTab ? [M.startTab.field({ legacy: CAM_LEG, clear: ['mode', 'default_source'], items: (hh, cc) => camTabs(cc || {}).map((k) => ({ key: k, label: CAM_L[k][0], icon: CAM_L[k][1] })) })] : []), // 36.5: Startfane (erstatter «Startmodus»)
+            { type: 'order', name: 'tab_order', hiddenName: 'tab_hidden', label: 'Faner (hold inne en fane i popupen og dra for å flytte)', start: { legacy: CAM_LEG, visible: camTabs }, options: [['live', 'Direkte'], ['frigate', 'Frigate']] }, // Fiks 28.13
             ...(M.tabH ? [M.tabH.field(KTH)] : []), // 33.4: fanehøyde (Direkte/Frigate)
             { type: 'select', name: 'view', label: 'Startvisning', options: [['alle', 'Alle'], ['events', 'Hendelser']], default: 'alle' },
             { type: 'number', name: 'refresh', label: 'Oppdater stillbilder (sekunder)', min: 2, max: 300, default: 10, help: 'Kun mens popupen er åpen' },
@@ -339,6 +343,7 @@
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
     }
     _mode() { return this.ui.mode || srcMode(this.config); }
+    static get startTabSpec() { return { key: 'mode', tabs: (card) => camTabs(card.config), legacy: CAM_LEG, get: (card) => card._mode() }; } // 36.5: startfane ved åpning
 
     /* ---------------- bilder */
     _img(id) { return camImg(this.hass, id, this._tick); }

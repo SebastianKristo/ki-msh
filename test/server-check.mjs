@@ -67,16 +67,10 @@ ok('autokonfig: UniFi/Protect/Proxmox/Unraid funnet fra registrene', A.found ===
 ok('autokonfig: gateway, 3 switcher og AP-er (UniFi-enhetstyper)', /UDM Pro:ruter/.test(A.types) && ['Switch Kontor', 'Switch Stue', 'Switch Garasje'].every((n) => A.types.includes(n + ':switch')) && /AP Stue:ap/.test(A.types), A.types);
 ok('autokonfig HA: tillegg fra hassio-enheter + Supervisor (slug), systemmonitor/uptime, Core-oppdatering', A.addons === 'a0d7b954_esphome,a0d7b954_nodered,a0d7b954_vscode,core_mosquitto,core_samba' && A.sup && A.sys === 'sensor.system_monitor_processor_use,sensor.system_monitor_memory_usage,sensor.system_monitor_disk_usage,sensor.uptime' && A.core === 'update.home_assistant_core_update', A);
 
-/* ---------------------------------------------------------------- Nettverk: Protect i Enheter, Finn, rød tone, portnavn */
+/* ---------------------------------------------------------------- Nettverk: ingen Protect-kameraer i Enheter, Finn, rød tone, portnavn */
 await click(p, '.sb[data-v="enheter"]');
-let X = await p.evaluate(() => { const rows = __A('.devs .dw'); const f = (n) => rows.find((r) => __t(r.querySelector('b')) === n); return { innk: __t(f('Innkjørsel').querySelector('.dm')), hage: __t(f('Hage').querySelector('.dm')), ring: !!f('Ringeklokke') }; });
-ok('Protect-kameraer ligger som rader i Enheter (Opptak / Frakoblet), ingen Kameraer-underfane', X.innk === 'Opptak' && X.hage === 'Frakoblet' && X.ring && (await p.evaluate(() => !__R('.sb[data-v="kameraer"]'))), X);
-await click(p, '.devs .dr[data-v="dev_cam1"]');
-X = await p.evaluate(() => { const w = __R('.devs .dw.open'); return { stats: [...w.querySelectorAll('.xt .xl')].map(__t), tg: [...w.querySelectorAll('.xgr b')].map(__t), on: w.querySelector('.xgr .tg').classList.contains('on'), acts: [...w.querySelectorAll('.xa .ab')].map(__t) }; });
-ok('kamera utvidet: Opptaksmodus/Siste bevegelse/Bitrate …, «Opptak»-bryter på, «Start på nytt»', X.stats.slice(0, 3).join() === 'Opptaksmodus,Siste bevegelse,Bitrate' && X.tg.join() === 'Opptak' && X.on && X.acts.join() === 'Start på nytt', X);
-await clearCalls(p);
-await click(p, '.devs .dw.open .xgr .tg');
-ok('«Opptak» av → select.innkjorsel_recording_mode = never (Protect-støtten fra v5)', (await calls(p)).some((c) => /select\.select_option:.*innkjorsel_recording_mode.*never/.test(c)), await calls(p));
+let X = await p.evaluate(() => { const names = __A('.devs .dw').map((r) => __t(r.querySelector('b'))); return { names, kam: !!__R('.sb[data-v="kameraer"]') }; });
+ok('Protect-kameraer vises ikke i Enheter (brukervalg 35), ingen Kameraer-underfane', !['Innkjørsel', 'Hage', 'Ringeklokke'].some((n) => X.names.includes(n)) && X.names.includes('UDM Pro') && !X.kam, X);
 await click(p, '.devs .dr[data-v="dev_ap1"]');
 await clearCalls(p);
 await click(p, '.devs .dw.open [data-act="locate"]');
@@ -111,7 +105,7 @@ ok('«Bruk» (auto-valget) fjerner «none» fra config og Proxmox vises igjen', 
 await p.evaluate(async () => { window.__c._openPick('protect'); await new Promise((q) => setTimeout(q, 300)); const r = window.MSH.portals().pop().shadowRoot; r.querySelector('.rr[data-v="none"]').click(); r.querySelector('[data-p="apply"]').click(); });
 await wait(p, 700);
 pk = await p.evaluate(async () => { const c = JSON.stringify(window.__c.config.integrations); __R('[data-act="host"][data-v="net"]').click(); await new Promise((q) => setTimeout(q, 200)); __R('.sb[data-v="enheter"]').click(); await new Promise((q) => setTimeout(q, 300)); return { c, names: __A('.devs .dr b').map(__t) }; });
-ok('«Ingen» for Protect lagrer integrations.protect = none → kameraene borte fra Enheter', pk.c === '{"protect":"none"}' && !pk.names.includes('Innkjørsel') && pk.names.includes('UDM Pro'), pk);
+ok('«Ingen» for Protect lagrer integrations.protect = none (kameraene vises uansett ikke i Enheter)', pk.c === '{"protect":"none"}' && !pk.names.includes('Innkjørsel') && pk.names.includes('UDM Pro'), pk);
 await p.close();
 p = await page({ start_tab: 'unraid' }, null, () => { window.mockExtend(({ E, S }) => { Object.keys(E).forEach((id) => { if (E[id].platform === 'unraid') { delete E[id]; delete S[id]; } }); }); });
 S = await state(p);
@@ -142,7 +136,7 @@ await click(p, '.trow .gear', 900);
 let E = await p.evaluate(() => {
   const o = window.MSH.portals().pop(), r = o.shadowRoot, er = r.querySelector('msh-editor').shadowRoot;
   return { tp: o.dataset.tpSheet, tabs: [...er.querySelectorAll('.chips.tabs [data-a="tab"]')].map((x) => x.getAttribute('aria-label') || x.textContent.trim()), prev: [...er.querySelectorAll('.svp .tb')].map((x) => x.textContent.trim()),
-    velger: [...er.querySelectorAll('[data-name="velger"]')].map((x) => x.textContent.trim()), th: !!er.querySelector('[data-name="tab_height"], ki-spacing-editor[rows*="tab_height"]'), prose: !!er.querySelector('[data-name="show_prose"]') };
+    velger: [...er.querySelectorAll('[data-name="velger"]')].map((x) => x.textContent.trim()), th: !!er.querySelector('[data-name="tab_height"], ki-spacing-editor[rows*="tab_height"], [data-mth-field="tab_height"]') /* 33.4: felles fanehøyde-felt */, prose: !!er.querySelector('[data-name="show_prose"]') };
 });
 ok('«Tilpass Server» (tilpass-ark): Visning · Faner · Toppkort · Integrasjoner · Avansert, forhåndsvisning av vertvelgeren', E.tp === '1' && E.tabs.join() === 'Visning,Faner,Toppkort,Integrasjoner,Avansert' && E.prev.join() === 'Nettverk,Proxmox,Unraid,HA', E);
 ok('Visning: «Vertvelger» Faner/Kort, «Fanehøyde» (tab_height), «Setning under toppkortet» (show_prose)', E.velger.join() === 'Faner,Kort' && E.th && E.prose, E);
@@ -155,8 +149,8 @@ await wait(p, 400);
 ok('«Setning under toppkortet» av → setningen forsvinner live', await p.evaluate(() => !__R('.prose')));
 await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; [...er.querySelectorAll('.chips.tabs [data-a="tab"]')].find((x) => /Faner/.test(x.getAttribute('aria-label') || x.textContent)).click(); });
 await wait(p, 300);
-X = await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; return { txt: er.textContent.replace(/\s+/g, ' '), start: [...er.querySelectorAll('[data-name="start_tab"]')].map((x) => x.textContent.trim()) }; });
-ok('Faner: rekkefølge (tab_order/hidden_tabs) + «Åpne med»', /Rekkefølge/.test(X.txt) && ['Nettverk', 'Proxmox', 'Unraid', 'HA'].every((n) => X.txt.includes(n)) && X.start.join() === 'Sist brukt,Nettverk,Proxmox,Unraid,HA', X.start);
+X = await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; return { txt: er.textContent.replace(/\s+/g, ' '), start: [...er.querySelectorAll('[data-mst-field] .mst-c')].map((x) => x.textContent.trim()) }; }); // 36.5: felles Startfane-chips
+ok('Faner: rekkefølge (tab_order/hidden_tabs) + «Startfane» (36.5)', /Rekkefølge/.test(X.txt) && ['Nettverk', 'Proxmox', 'Unraid', 'HA'].every((n) => X.txt.includes(n)) && X.start.join() === 'Nettverk,Proxmox,Unraid,HA,Sist brukte', X.start);
 await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; [...er.querySelectorAll('.chips.tabs [data-a="tab"]')].find((x) => /Integrasjoner/.test(x.getAttribute('aria-label') || x.textContent)).click(); });
 await wait(p, 300);
 const it = await p.evaluate(() => { const er = window.MSH.portals().pop().shadowRoot.querySelector('msh-editor').shadowRoot; return [...er.querySelectorAll('[data-op="int"]')].map((x) => x.textContent.replace(/\s+/g, ' ').trim()); });

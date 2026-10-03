@@ -756,7 +756,7 @@ Basseng (ÉTT kort, legges manuelt i en egen popup): toppkort, prosalinje, faner
 |---|---|---|
 | `area` | Område · area |  |
 | `name` | Navn i toppkortet |  |
-| `overrides.{water, ute, pump, heat, quiet, sock, cover, light, spr, power, heat_power, ph, klor, target, turnover, pumped, savings, cost, mode, night, winter, heat_loss, solar, spr_duration, klor_calendar, klor_last}` | bytt entitet |  |
+| `overrides.{water, ute, pump, heat, quiet, sock, cover, light, spr, power, heat_power, ph, klor, target, turnover, pumped, savings, cost, eta, mode, night, winter, heat_loss, solar, spr_duration, klor_calendar, klor_last}` | bytt entitet |  |
 | `exclude · include.{hurtig, flagg, personer}` | skjul / legg til |  |
 | `controls · hidden_controls` | rekkefølge/synlighet: light, pump, heat, quiet, sock, cover, spr |  |
 | `tabs · hidden_tabs` | rekkefølge/synlighet: ov, heat, klor, spr |  |
@@ -786,6 +786,7 @@ Basseng (ÉTT kort, legges manuelt i en egen popup): toppkort, prosalinje, faner
 | `vals.spr_frost` | Frostvakt · boolean | Styring og verdier |
 | `anim` | Animasjoner (bølger, bobler, vifte og varme) · boolean | Animasjon |
 | `chips` | Statusikoner (pumpe, varme, tak og lys i bildet) · boolean | Animasjon |
+| `show_sentence` | Setning i Oversikt · boolean | Visning |
 | `toasts` | Bekreftelsesmeldinger · boolean | Visning |
 | `gap` | 4 / 8 / 18 px | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
@@ -818,7 +819,8 @@ KI Energi: hero med ring og timebudsjett, moduser, 8 faner (Oversikt, Soner, Ene
 | `layout.show_hero` | Hero-kort · boolean | Visning |
 | `hero_style` | Toppkort-stil (ring \| hus \| batteri \| maaler \| puls \| blokker) | Visning |
 | `layout.show_modes` | Modus-bobler · boolean | Visning |
-| `layout.tab_style` | Fanestil (both \| text \| icon) | Visning |
+| `layout.tab_look` | Fanestil (fylt \| kontur \| linje) | Visning |
+| `layout.tab_style` | Faner viser (both \| text \| icon) | Visning |
 | `layout.default_tab` | Åpne med (oversikt \| soner \| energi \| vann \| lading \| tanker \| oppsett \| avansert) | Faner |
 | `layout.remember_tab` | Husk siste fane · boolean | Faner |
 | `layout.tab_order · layout.hidden_tabs` | rekkefølge/synlighet: oversikt, soner, energi, vann, lading, tanker, oppsett, avansert | Faner |
@@ -1119,7 +1121,7 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 | `players.prosjektor.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Prosjektor · TV |
 | `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
 | `watch_time.prosjektor.maned` | Seertid denne måneden (Album-kortet) · entity | Prosjektor · TV |
-| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
+| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk | Faner |
 | `exclude · include.{spillere}` | skjul / legg til |  |
 | `area` | Begrens til område · area |  |
 | `now_playing.style` | Spilles nå-kort (album \| detailed) |  |
@@ -1207,8 +1209,8 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `players.prosjektor.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Prosjektor · TV |
 | `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
 | `watch_time.prosjektor.maned` | Seertid denne måneden (Album-kortet) · entity | Prosjektor · TV |
-| `default_tab` | Fane ved åpning (tv \| musikk \| last) |  |
-| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
+| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk | Faner |
+| `default_tab` | Fane ved åpning (tv \| musikk \| last) | Faner |
 | `exclude · include.{spillere}` | skjul / legg til |  |
 | `area` | Begrens til område · area |  |
 | `now_playing.style` | Spilles nå-kort (album \| detailed) |  |
@@ -1392,7 +1394,7 @@ Toppkort for #sikkerhet: sensorring, alarmmodus og status. Legges først i popup
 
 ## `msh-sikkerhet-card`
 
-Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste hendelser. #sikkerhet
+Alarmmodus (hold inne, kode via tastatur), rom og sensorer (status, rom/type) og siste hendelser. #sikkerhet
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
@@ -1456,10 +1458,10 @@ Alarmmodus (hold inne, kode via tastatur), varsler, sensorer per rom og siste he
 | `sensors.binary_sensor.ringeklokke_doorbell.type` | Type (door \| window \| lock \| motion \| presence) | Sensorer · navn, type og rom › Annet · 6 |
 | `sensors.binary_sensor.ringeklokke_doorbell.room` | Rom | Sensorer · navn, type og rom › Annet · 6 |
 | `unlock_sensor` | Hvem låste opp · entity | Siste hendelser · hvem låste opp |
-| `sections · hidden_sections` | rekkefølge/synlighet: modes, alerts, rooms, log, edit |  |
-| `show_alerts` | Varsler · «Krever oppmerksomhet» øverst · boolean | Visning |
+| `sections · hidden_sections` | rekkefølge/synlighet: modes, rooms, log, edit |  |
+| `show_hint` | Hjelpetekst · «Hold inne for å bytte modus» · boolean | Visning |
 | `show_log` | Siste hendelser · logg nederst · boolean | Visning |
-| `sensor_view` | Sensorer i rom (rows \| chips) | Visning |
+| `room_view` | Rom-seksjonen viser først (rom \| type) | Visning |
 | `toasts` | Bekreftelsesmeldinger (toast) · boolean | Visning |
 | `gap` | 4 / 8 / 18 px |  |
 | `gap` | Mellom seksjonene · range | Mellomrom |
@@ -1653,7 +1655,7 @@ Støvsuger-popup (#rolf): animert robot, rom, soner, kontroll, vedlikehold og ka
 
 ## `msh-server-card`
 
-Server-popup (#server): Nettverk (UniFi Network + Protect), Proxmox VE og Unraid – toppkort med graf, prosalinje, underfaner og seksjoner.
+Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
@@ -1669,7 +1671,7 @@ Søppel-popupen (#soppel): neste tømming med søppelbil, fraksjoner, kalender o
 
 ## `msh-innstillinger-card`
 
-Innstillinger-popupen (#settings): God natt/God morgen, natt- og privatmodus, varsler fra KI Varslinger og sikkerhet (kategorier som faner) og KI Energi, og dashbordets innstillinger (fiks 27).
+Innstillinger-popupen (#settings): God natt/God morgen, natt- og privatmodus, varsler fra KI Varslinger og sikkerhet (kategorier som faner) og KI Energi (fiks 27; dashbord-delen fjernet i fiks 33.3).
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|

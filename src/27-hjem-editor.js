@@ -87,6 +87,7 @@
     const add = Object.values(get(c, `layout.${t.id}.add`) || {}).filter(Boolean);
     add.forEach((id) => { const a = areas.find((x) => x.id === id); if (a && !base.includes(a)) base = [...base, a]; });
     if (t.kind === 'hjem' && !t.hc && M.roomAuto) { const has = (a) => { const au = M.roomAuto(hass, a.id); return au.temp || au.thermo ? 0 : 1; }; base = base.map((a, i) => [a, has(a), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).map((x) => x[0]); }
+    if (M.combinedApply) base = M.combinedApply(hass, c, t, base); // 36.2: kombinert rom på første medlems plass, medlemmene ut (hide_members)
     const ord = get(c, `layout.${t.id}.order`) || [];
     return [...ord.map((id) => base.find((a) => a.id === id)).filter(Boolean), ...base.filter((a) => !ord.includes(a.id))];
   }
@@ -387,6 +388,32 @@
     .o44{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));width:100%}
     .dim{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:0 4px}
     .kd{font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:0 6px}
+    /* 36.1 · Kombiner rom */
+    .cbl{display:flex;flex-direction:column;gap:8px}
+    .cbr{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 10px 8px 12px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .15s}
+    .cbr:active{transform:scale(.98)}
+    .cbr.src{opacity:.35}
+    .cbr.hov-t{box-shadow:inset 0 3px 0 0 rgb(242 133 201)}
+    .cbr.hov-b{box-shadow:inset 0 -3px 0 0 rgb(242 133 201)}
+    .cbi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040))}
+    .cbr .tt{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+    .cbr .tt b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cbr .tt i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cbn{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:16px;font-size:12px;line-height:1.4;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-orange-text, var(--orange, #f2b573))}
+    .cbhd{display:flex;align-items:center;gap:10px}
+    .cbtl{font-size:18px;font-weight:600}
+    .cbg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+    .cbo{display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 10px 6px 8px;border-radius:16px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));text-align:left;min-width:0}
+    .cbo.on{box-shadow:inset 0 0 0 2px rgb(242 133 201)}
+    .cbo.busy{opacity:.45;cursor:not-allowed}
+    .cbk{width:22px;height:22px;border-radius:11px;flex:none;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--ki-ctrl, #545454)}
+    .cbo.on .cbk{background:${PINK};box-shadow:none;color:var(--ki-on-accent, #2a1720)}
+    .cbt{display:flex;flex-direction:column;min-width:0}
+    .cbt b{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cbt i{font-style:normal;font-size:11px;color:var(--ki-text-3, #7f7f7f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cbw{font-size:12px;color:var(--ki-red-text, var(--red, #f28073))}
+    .cbact{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .cbact .done[aria-disabled]{opacity:.45}
   `;
 
   /* ------------------------------------------------------------ arket */
@@ -416,7 +443,7 @@
         this._schedule();
       }) : null;
       // Utkast: start når ki-store er lastet (ellers ville første innlasting sett ut som «endret et annet sted»)
-      if (M.store) Promise.resolve(this.hass && !M.store.loaded ? M.store.load(this.hass) : null).then(() => { if (!this.closed) this.tx = M.store.transaction({ onExternal: () => this._external() }); });
+      if (M.store) Promise.resolve(this.hass && !M.store.loaded ? M.store.load(this.hass) : null).then(() => { if (!this.closed) { this.tx = M.store.transaction({ onExternal: () => this._external() }); if (this.u.sec === 'kort' && M.combinedNorm) this._schedule(); /* 36.4: oppløste kombinasjoner ryddes i utkastet */ } });
       this.render();
     }
     // Endret på en annen enhet mens utkastet er åpent: banner øverst i arket (overlever render)
@@ -623,6 +650,8 @@
 
     /* ======================================================== Kort */
     _kort() {
+      this._combPrune();
+      if (this.u.comb && M.combinedNorm) return this._combEd(); // 36.1: «Nytt kombinert rom»-arket
       const m = this._model(), u = this.u, c = m.c;
       if (!m.t) return '<div class="hint">Fant ingen faner – legg til områder i Home Assistant.</div>';
       const t = m.t;
@@ -644,11 +673,11 @@
       if (u.pick) panel = this._pickPanel(m);
       else if (u.sel && u.sel.t === 'room') panel = this._roomPanel(m, m.rooms.find((r) => r.id === u.sel.id));
       else if (u.sel && u.sel.t === 'tile' && !u.sel.z) panel = this._tilePanel(m, u.sel.id);
-      if (M.hjemIsAkt ? M.hjemIsAkt(t) : t.kind === 'aktuelt') return strip + tgl + this._aktPanel(m) + this._accRomIkon(m) + this._blocks(); // 20.13: ingen rom-kolonner / «+ rom»
+      if (M.hjemIsAkt ? M.hjemIsAkt(t) : t.kind === 'aktuelt') return strip + tgl + this._aktPanel(m) + this._accRomIkon(m) + this._accKombiner() + this._blocks(); // 20.13: ingen rom-kolonner / «+ rom»
       const hint = `<span class="hint">Dra kort og snarveier for å flytte dem, også mellom kolonnene. Trykk for å endre, eller + for å ${t.hc ? 'legge til et rom eller en snarvei' : 'hente et rom fra en annen etasje'}.</span>`;
       const fillT = t.kind === 'floor' || t.kind === 'andre' ? `<button class="tgl" data-a="tabfill" data-h="selection">Autofyll fra HA-etasjen${this._sw(get(c, `tabs.${t.id}.auto_fill`) !== false)}</button>` : '';
       const hjem = t.kind === 'hjem' ? this._hcTools(m) : '';
-      return strip + tgl + fillT + grid + panel + hint + hjem + (m.car ? this._accSwipe(m) : '') + this._accSnar(m) + this._accRomIkon(m) + (M.romkortPillPanel ? M.romkortPillPanel.html(this) : '') + this._blocks() + (t.kind === 'hjem' ? this._hcSuggest(m) : '');
+      return strip + tgl + fillT + grid + panel + hint + hjem + (m.car ? this._accSwipe(m) : '') + this._accSnar(m) + this._accRomIkon(m) + this._accKombiner() + (M.romkortPillPanel ? M.romkortPillPanel.html(this) : '') + this._blocks() + (t.kind === 'hjem' ? this._hcSuggest(m) : '');
     }
     /* ---------- Hjem: kuratert (fiks 15.10) */
     // «Legg til» (søk blant rom, snarveier og entiteter) + «Tilbakestill til forslag» (med bekreftelse).
@@ -802,7 +831,7 @@
         <div class="ln"><span class="lb">Plassering</span><div style="display:flex;gap:6px"><div class="ud"><button data-a="rmove" data-v="-1" title="Flytt opp" ${i > 0 ? '' : 'style="opacity:.35"'}>${ic('expand_less', 20)}</button><button data-a="rmove" data-v="1" title="Flytt ned" ${i < ids.length - 1 ? '' : 'style="opacity:.35"'}>${ic('expand_more', 20)}</button></div><button class="b36 press" data-a="rswap">${ic('swap_horiz', 18)}Bytt side</button></div></div>
         <div class="ln"><span class="lb">Størrelse</span><div class="ss">${['S', 'M', 'L'].map((z) => `<button class="${sz === z ? 'on-pk' : ''}" data-a="rsize" data-v="${z}" data-h="selection">${SZ[z]}</button>`).join('')}</div></div>
         <div class="ln"><span class="lb2"><span class="lb">Klima-knapp</span><span class="sub">${note}</span></span><button data-a="rklima" data-h="selection" ${can ? '' : 'disabled'}>${this._sw(kl, true, !can)}</button></div>
-        <div class="sep">${this._look(m, r)}</div>
+        <div class="sep">${r.combined ? this._combLink(m, r) : this._look(m, r)}</div>
         <div class="sep">${this._badges(m, r)}</div>
       </div>`;
     }
@@ -1122,6 +1151,171 @@
           <span class="sub" style="line-height:1.4">Standard for alle rom. Et rom kan overstyre i «Tilpass rom» → Utseende og Handlinger.</span></div>` : '';
       const lab = (L, v) => ((L || []).find((o) => o[0] === v) || [])[1] || '';
       return this._acc('rkic', 'Romkort · ikon', 'mdi:circle-slice-8', lab(M.ICON_MODES, mode)) + body;
+    }
+
+    /* ---------- Fiks 36.1 · Kombiner rom (combined_rooms i Hjem-configen) */
+    // Liste (rad #3a3a3a radius 20: ikon i romfarge, navn, «Stue · Kjøkken», chevron → rediger; hold 400 ms + dra =
+    // rekkefølge) + «+ Nytt kombinert rom». Oppløste kombinasjoner (område slettet, < 2 rom) vises som melding.
+    _combRaw() { const c = this.F(); return Array.isArray(c.combined_rooms) ? c.combined_rooms : M.combinedRaw ? M.combinedRaw() : []; }
+    // Lagring: hver kombinasjon får stabil id (samme som strategiens hash) før listen skrives
+    _combFill(raw) { const N = M.combinedNorm(this.hass, raw).list; return M.combinedStrip(raw.map((e, i) => { const x = N.find((y) => y.index === i); return x && !e.id ? { ...e, id: x.id } : e; })); }
+    _accKombiner() {
+      if (!M.combinedNorm) return '';
+      const hass = this.hass, raw = this._combRaw(), N = M.combinedNorm(hass, raw), L = N.list;
+      let body = '';
+      if (this.u.acc.komb) {
+        const note = (this.u.combNote || []).map((t) => `<div class="cbn" role="status">${ic('mdi:information-outline', 18)}<span>${esc(t)}</span></div>`).join('');
+        const rows = L.map((cb) => {
+          const col = M.color(cb.color, 'var(--orange, #f2b573)');
+          return `<button class="cbr" data-drag="comb" data-id="${esc(cb.id)}" data-drop="comb:${esc(cb.id)}" data-a="cbedit" data-v="${cb.index}" data-h="light" data-key="cbr-${esc(cb.id)}"><span class="cbi" style="color:${M.theme ? M.theme.accentText(col) : col}">${ic(cb.icon, 22)}</span>
+            <span class="tt"><b>${esc(cb.name)}</b><i>${esc(cb.rooms.map((r) => M.combinedRoomName(hass, r)).join(' · '))}</i></span>${ic('chevron_right', 22, 'color:var(--ki-text-mid, #979797)')}</button>`;
+        }).join('');
+        body = `<div class="cbl" data-key="acb-komb">${note}${rows || '<span class="hint">Slå sammen to eller flere rom til ett romkort på Hjem og én felles Rom-popup – f.eks. «Stue + Kjøkken».</span>'}
+          ${L.length > 1 ? '<span class="hint">Hold inne en rad og dra for å endre rekkefølgen.</span>' : ''}
+          <button class="o44 press" data-a="cbnew" data-h="light" data-key="cbnew">${ic('mdi:plus', 18)}Nytt kombinert rom</button></div>`;
+      }
+      return this._acc('komb', 'Kombiner rom', 'mdi:vector-combine', L.length ? L.length + ' stk' : 'Ingen') + body;
+    }
+    // Områder som er oppløst siden sist (slettet i HA → færre enn 2 rom): meldingen vises i akkordeonet og listen ryddes
+    // i utkastet (lagres med «Ferdig»).
+    _combPrune() {
+      if (!M.combinedNorm || this._combPruned || !this.hass || !this.hass.areas || !this.tx) return;
+      const raw = this._combRaw(), N = M.combinedNorm(this.hass, raw);
+      this._combPruned = true;
+      const bad = N.dissolved, miss = N.list.filter((x) => x.missing && x.missing.length);
+      if (!bad.length && !miss.length) return;
+      const msgs = [...bad.map((d) => `«${d.name}» er oppløst – færre enn 2 rom igjen${d.missing.length ? ` (${d.missing.join(', ')} finnes ikke lenger i Home Assistant)` : ''}.`), ...miss.map((x) => `${x.missing.join(', ')} finnes ikke lenger og er tatt ut av «${x.name}».`)];
+      this.u.combNote = msgs;
+      this.u.acc = { ...this.u.acc, komb: true };
+      this.saveF({ combined_rooms: N.list.length ? M.combinedStrip(N.list.map((x) => { const r = raw[x.index] || {}; return { ...r, id: x.id, rooms: x.rooms }; })) : undefined });
+    }
+    // Arket «Nytt kombinert rom» / «Rediger kombinasjon» (erstatter Kort-innholdet til Lagre/Tilbake)
+    _combOpen(i) {
+      const hass = this.hass, raw = this._combRaw(), e = i != null && i >= 0 ? raw[i] : null;
+      const N = M.combinedNorm(hass, raw), cur = e ? N.list.find((x) => x.index === i) : null;
+      const d = cur ? { id: cur.id, name: e.name || '', icon: e.icon || '', color: e.color || '', rooms: cur.rooms.slice(), primary: e.primary || cur.primary, hide_members: cur.hide_members, layout: cur.layout, start_tab: e.start_tab } : { name: '', icon: '', color: '', rooms: [], primary: '', hide_members: true, layout: 'merge' };
+      this.u.comb = { i: cur ? i : -1, d, icQ: '', allIc: false, allCol: false };
+      this.render();
+      try { this.sheet.scrollTop = 0; } catch (x) { /* */ }
+    }
+    _combAuto(d) {
+      const hass = this.hass, rooms = d.rooms || [], first = rooms[0] && hass.areas[rooms[0]];
+      return { name: rooms.map((r) => M.combinedRoomName(hass, r)).join(' + ') || 'Kombinert rom', icon: (first && first.icon) || 'mdi:vector-combine', color: rooms[0] && M.romColor ? M.romColor(rooms[0], hass) : 'var(--orange)' };
+    }
+    _combEd() {
+      const u = this.u, S = u.comb, d = S.d, hass = this.hass, raw = this._combRaw(), A = M.combinedNorm(hass, raw).list;
+      const other = {};
+      A.forEach((x) => { if (x.index !== S.i) x.rooms.forEach((r) => { other[r] = x.name; }); });
+      const auto = this._combAuto(d), icon = d.icon || auto.icon, col = M.color(d.color || auto.color, 'var(--orange, #f2b573)');
+      const rooms = M.areas(hass).map((a) => {
+        const on = d.rooms.includes(a.id), busy = other[a.id];
+        return `<button class="cbo ${on ? 'on' : ''} ${busy ? 'busy' : ''}" data-a="cbroom" data-v="${esc(a.id)}" data-h="selection" ${busy ? 'aria-disabled="true"' : ''} aria-pressed="${on}" data-key="cbo-${esc(a.id)}">
+          <span class="cbk">${on ? ic('mdi:check', 16) : ''}</span>${ic(a.icon || 'mdi:texture-box', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="cbt"><b>${esc(a.name)}</b>${busy ? `<i>I ${esc(busy)}</i>` : a.floorName ? `<i>${esc(a.floorName)}</i>` : ''}</span></button>`;
+      }).join('');
+      const q0 = S.icQ || '', q = q0.toLowerCase().trim();
+      const hits = q ? ROOM_ICONS.filter(([n, kw]) => n.includes(q) || kw.includes(q)) : ROOM_ICONS.slice(0, 16);
+      const slug = q.indexOf(':') > 0 ? q.replace(/\s+/g, '') : q ? 'mdi:' + q.replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : '';
+      const custom = !!d.color && !COLS.some((x) => sameCol(x, d.color)) && !ALLCOLS().some(([v]) => sameCol(v, d.color));
+      const allIc = S.allIc ? (customElements.get('ha-icon-picker')
+        ? `<ha-icon-picker data-in="cbicpick" data-val="${esc(d.icon || '')}" data-nomorph data-key="cbicpick"></ha-icon-picker>`
+        : `<input class="in s" data-in="cbiconraw" value="${esc(d.icon || '')}" placeholder="mdi:… / phu:… / hue:…">`) : '';
+      const allCol = S.allCol ? `<div class="allc">${ALLCOLS().map(([v, hex, l]) => `<button class="${sameCol(v, d.color) ? 'on' : ''}" data-a="cbcol" data-v="${esc(v)}" title="${esc(l)}" style="background:${M.color(v, hex)}"></button>`).join('')}</div>` : '';
+      const prim = d.primary && (d.primary === 'avg' || d.rooms.includes(d.primary)) ? d.primary : d.rooms[0];
+      const ok = d.rooms.length >= 2, edit = S.i >= 0;
+      return `<div class="cbhd" data-key="cbhd"><button class="b36 press" data-a="cbback" data-h="light">${ic('chevron_left', 18)}Tilbake</button><span class="cbtl">${edit ? 'Rediger kombinasjon' : 'Nytt kombinert rom'}</span></div>
+        <div class="pnl" data-key="cb-rooms"><span class="ttl">1 · Velg rom</span><span class="sub">Minst 2. Rom som allerede er i en annen kombinasjon kan ikke velges.</span><div class="cbg">${rooms}</div>${ok ? '' : '<span class="cbw">Velg minst 2 rom</span>'}</div>
+        <div class="pnl" data-key="cb-look"><span class="ttl">2 · Navn, ikon og farge</span>
+          <div class="ph" style="gap:10px"><span class="pv" style="background:${col}">${ic(icon, 22)}</span><input class="in t" style="flex:1" data-in="cbname" value="${esc(d.name)}" placeholder="${esc(auto.name)}" data-key="cbname"></div>
+          <div class="srch">${ic('search', 18, 'color:var(--ki-text-3, #7f7f7f)')}<input data-in="cbicq" value="${esc(q0)}" placeholder="Søk ikon – sofa, seng, bad, garasje …"></div>
+          <div class="icg">${hits.slice(0, 24).map(([x]) => `<button data-a="cbicon" data-v="${esc(x)}" title="${esc(x)}" style="${x === icon ? `background:${col};color:var(--ki-on-accent, #232323)` : ''}">${ic(x, 18)}</button>`).join('')}</div>
+          ${slug && !hits.some((x) => x[0] === slug) ? `<button class="useq" data-a="cbicon" data-v="${esc(slug)}">${ic(slug, 18)}Bruk «${esc(q0)}» som ikon</button>` : ''}
+          <div class="cols">${COLS.map((x) => `<button class="cl ${sameCol(x, d.color || auto.color) ? 'on' : ''}" data-a="cbcol" data-v="${esc(x)}" title="${esc(x)}" style="background:${M.color(x, x)}"></button>`).join('')}
+            <label class="cw" title="Egen farge" style="background:${custom ? col : 'conic-gradient(rgb(242 128 115), rgb(242 210 111), rgb(102 209 158), rgb(115 185 242), rgb(173 153 230), rgb(242 133 201), rgb(242 128 115))'};${custom ? 'box-shadow:0 0 0 3px var(--ki-surface-3, #2f2f2f),0 0 0 5px var(--ki-text, #fafafa)' : ''}">${ic('colorize', 16)}<input type="color" data-in="cbhex" value="${toHex(col)}"></label></div>
+          <div class="chs"><button class="b34 ${S.allIc ? 'on' : ''}" data-a="cballic">${ic('apps', 16)}Alle ikoner · mdi, phu …</button><button class="b34 ${S.allCol ? 'on' : ''}" data-a="cballcol">${ic('palette', 16)}Tema- og HA-farger</button></div>
+          ${allIc}${allCol}</div>
+        <div class="pnl" data-key="cb-prim"><span class="ttl">3 · Primærrom</span><span class="sub">Styrer klima-toppkortet i popupen når flere rom har sensorer</span>
+          <div class="ss" style="align-self:flex-start;flex-wrap:wrap">${d.rooms.map((r) => `<button class="${prim === r ? 'on-pk' : ''}" data-a="cbprim" data-v="${esc(r)}" data-h="selection">${esc(M.combinedRoomName(hass, r))}</button>`).join('')}<button class="${prim === 'avg' ? 'on-pk' : ''}" data-a="cbprim" data-v="avg" data-h="selection">Snitt av alle</button></div></div>
+        <div class="pnl" data-key="cb-vis"><span class="ttl">4 · Visning</span>
+          <button class="tgl" data-a="cbhide" data-h="selection" role="switch" aria-checked="${d.hide_members !== false}" style="background:var(--ki-surface-3, var(--gray100,#2f2f2f))">Skjul enkeltrommene på Hjem${this._sw(d.hide_members !== false)}</button>
+          <span class="lb">Seksjonene i popupen</span>
+          <div class="ss" style="align-self:flex-start">${[['merge', 'Slå sammen'], ['group', 'Grupper per rom']].map(([v, l]) => `<button class="${(d.layout || 'merge') === v ? 'on-pk' : ''}" data-a="cblay" data-v="${v}" data-h="selection">${l}</button>`).join('')}</div></div>
+        <div class="cbact" data-key="cbact"><button class="done press" data-a="cbsave" data-h="${ok ? 'success' : 'failure'}" ${ok ? '' : 'aria-disabled="true"'}>Lagre</button>
+          ${edit ? `<button class="b36 press" data-a="cbsplit" data-h="medium">${ic('mdi:call-split', 18)}Del opp igjen</button><button class="red press" data-a="cbdel" data-h="warning">${ic('mdi:delete-outline', 18)}Slett kombinasjon</button>` : ''}</div>`;
+    }
+    _combLink(m, r) {
+      const raw = this._combRaw(), N = M.combinedNorm ? M.combinedNorm(this.hass, raw).list : [], cb = N.find((x) => x.id === r.id);
+      return `<div class="ph" style="gap:10px"><span class="pv" style="background:${r.col}">${ic(r.icon, 22)}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span class="ttl">Kombinert rom</span><span class="note">${esc(cb ? cb.rooms.map((x) => M.combinedRoomName(this.hass, x)).join(' · ') : '')}</span></span>
+        <button class="b36 press" data-a="cbedit" data-v="${cb ? cb.index : -1}" data-h="light">${ic('mdi:pencil', 16)}Rediger</button></div>`;
+    }
+    _actComb(a, d) {
+      const u = this.u, S = u.comb, hass = this.hass;
+      if (a === 'cbnew') return this._combOpen(-1);
+      if (a === 'cbedit') { u.sel = null; return this._combOpen(Number(d.v)); }
+      if (!S) return this.render();
+      const D = S.d;
+      switch (a) {
+        case 'cbback': u.comb = null; return this.render();
+        case 'cbroom': {
+          const raw = this._combRaw(), busy = M.combinedNorm(hass, raw).list.some((x) => x.index !== S.i && x.rooms.includes(d.v));
+          if (busy) { M.toast('Rommet er allerede i en annen kombinasjon'); return; }
+          D.rooms = D.rooms.includes(d.v) ? D.rooms.filter((x) => x !== d.v) : [...D.rooms, d.v];
+          if (D.primary && D.primary !== 'avg' && !D.rooms.includes(D.primary)) D.primary = '';
+          return this.render();
+        }
+        case 'cbicon': D.icon = d.v; return this.render();
+        case 'cbcol': D.color = d.v; return this.render();
+        case 'cballic': S.allIc = !S.allIc; return this.render();
+        case 'cballcol': S.allCol = !S.allCol; return this.render();
+        case 'cbprim': D.primary = d.v; return this.render();
+        case 'cbhide': D.hide_members = D.hide_members === false; return this.render();
+        case 'cblay': D.layout = d.v === 'group' ? 'group' : 'merge'; return this.render();
+        case 'cbsave': {
+          if (D.rooms.length < 2) { M.toast('Velg minst 2 rom'); return; }
+          const raw = this._combRaw().slice(), auto = this._combAuto(D), name = String(D.name || '').trim() || auto.name;
+          const taken = new Set([...Object.keys(hass.areas || {}), ...M.combinedNorm(hass, raw).list.filter((x) => x.index !== S.i).map((x) => x.id)]);
+          let id = D.id;
+          if (!id) { const b = M.combinedSlug(name); id = b; let n = 2; while (taken.has(id)) id = b + '-' + n++; }
+          const prim = D.primary && (D.primary === 'avg' || D.rooms.includes(D.primary)) ? D.primary : D.rooms[0];
+          const e = { ...(S.i >= 0 ? raw[S.i] : {}), id, name, icon: D.icon || auto.icon, color: D.color || auto.color, rooms: D.rooms.slice(), primary: prim, hide_members: D.hide_members !== false, layout: D.layout === 'group' ? 'group' : 'merge' };
+          if (S.i >= 0) raw[S.i] = e; else raw.push(e);
+          u.comb = null; u.combNote = null; u.acc = { ...u.acc, komb: true };
+          M.toast(`«${name}» lagret`);
+          return this.saveF({ combined_rooms: this._combFill(raw) });
+        }
+        case 'cbsplit': case 'cbdel': {
+          if (S.i < 0) { u.comb = null; return this.render(); }
+          const raw = this._combRaw().slice(), e = raw[S.i] || {}, id = D.id;
+          raw.splice(S.i, 1);
+          u.comb = null; u.acc = { ...u.acc, komb: true };
+          M.toast(a === 'cbdel' ? `«${e.name || id}» slettet` : `«${e.name || id}» er delt opp`);
+          // Slett: også rommets egne valg (ki-store rooms.<id>) og popup-valg (popups.<id>)
+          if (a === 'cbdel' && id && M.store) { if (M.store.get('rooms.' + id) != null) M.store.set('rooms.' + id, undefined); if (M.store.get('popups.' + id) != null) M.store.set('popups.' + id, undefined); }
+          return this.saveF({ combined_rooms: raw.length ? this._combFill(raw) : undefined });
+        }
+        default: return this.render();
+      }
+    }
+    _combInput(el, kind) {
+      const S = this.u.comb, k = el.dataset.in, v = el.value;
+      if (!S) return false;
+      if (k === 'cbicq') { S.icQ = v; if (kind === 'input') this._schedule(); return true; }
+      if (k === 'cbname') { S.d.name = v; if (kind === 'change') this.render(); return true; }
+      if (k === 'cbhex') { S.d.color = v; if (kind === 'change') { M.haptic('selection'); this.render(); } return true; }
+      if (k === 'cbiconraw') { if (kind === 'change') { S.d.icon = String(v).trim(); this.render(); } return true; }
+      return false;
+    }
+    // Hold 400 ms + dra: rekkefølgen i combined_rooms
+    _combDrop(s, tg) {
+      const [kind, a] = tg.drop.split(':');
+      if (kind !== 'comb' || a === s.id) return this.render();
+      const hass = this.hass, raw = this._combRaw().slice(), N = M.combinedNorm(hass, raw).list;
+      const from = (N.find((x) => x.id === s.id) || {}).index, to = (N.find((x) => x.id === a) || {}).index;
+      if (from == null || to == null) return this.render();
+      const [e] = raw.splice(from, 1);
+      let at = to > from ? to - 1 : to;
+      if (tg.pos === 'b') at++;
+      raw.splice(M.clamp(at, 0, raw.length), 0, e);
+      return this.saveF({ combined_rooms: this._combFill(raw) });
     }
 
     /* ======================================================== Faner */
@@ -1452,6 +1646,7 @@
         if (d.in === 'trtap') return this.saveS(d.w === 'tap_action' ? { tap_action: v || undefined, popup_hash: undefined } : { hold_action: v || undefined });
         return this.saveS({ [d.f]: v || undefined });
       });
+      r.addEventListener('value-changed', (e) => { const el = e.composedPath().find((n) => n.dataset && n.dataset.in === 'cbicpick'); if (!el || !this.u.comb) return; e.stopPropagation(); this.u.comb.d.icon = (e.detail && e.detail.value) || ''; this.render(); }); // 36.1
       r.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') e.target.blur(); });
       // .sh stopper pointerdown (MSH.overlay) → lytt i capture-fasen på selve arket.
       const sh = this.sheet;
@@ -1485,6 +1680,7 @@
       if (a === 'trsug') return this.saveS({ [d.f]: d.v }); // 24.4: autoforslag
       if (a === 'rkpill' && M.romkortPillPanel) return M.romkortPillPanel.act(this, d); // 20.12 (32-romkort.js)
       if (a === 'rkdef') return this.saveF({ [d.k]: d.v === (d.k === 'icon_tap' ? 'toggle_lights' : 'lights') ? undefined : d.v });
+      if (/^cb/.test(a)) return this._actComb(a, d); // 36.1
       if (u.sec === 'kort') return this._actKort(a, d);
       if (u.sec === 'faner') return this._actFaner(a, d);
       if (u.sec === 'pop') return this._actPop(a, d);
@@ -1515,7 +1711,8 @@
     _roomSet(id, patch) { const p = {}; Object.keys(patch).forEach((k) => { p[`rooms.${id}.${k}`] = patch[k]; }); this.saveF(p); }
     // Frys dagens kolonnevalg (auto-balansering) så én flytting ikke omrokkerer resten.
     _moveRoom(m, id, side, rel) {
-      const t = m.t, order = m.base.map((a) => a.id).filter((x) => x !== id);
+      const t = m.t;
+      let order = m.base.map((a) => a.id).filter((x) => x !== id);
       let at = order.length;
       if (rel && rel.before) at = order.indexOf(rel.before);
       else if (rel && rel.after) at = order.indexOf(rel.after) + 1;
@@ -1523,6 +1720,7 @@
       else { const ls = order.filter((x) => m.sides[x] === side && !m.hid.includes(x)).pop(); at = ls ? order.indexOf(ls) + 1 : order.length; }
       if (at < 0) at = order.length;
       order.splice(at, 0, id);
+      if (M.combinedKeepOrder) order = M.combinedKeepOrder(this.hass, m.c, order, get(m.c, `layout.${t.id}.order`)); // 36.2: skjulte medlemmer beholder plassen
       const sides = { ...m.sides, [id]: side };
       const lay = { ...(get(m.c, 'layout.' + t.id) || {}), order, side: sides, hidden: m.hid.filter((x) => x !== id) };
       if (!lay.hidden.length) delete lay.hidden;
@@ -1682,7 +1880,7 @@
         switch (a) {
           case 'rhide': {
             u.sel = null;
-            if (t.hc) { const x = 'rom:' + id; return this.saveF({ 'tabs.hjem': this._hcObj(m, t.hc.cards.filter((y) => y !== x), [...t.hc.exclude.filter((y) => y !== x), x]) }); }
+            if (t.hc) { const cb = M.combinedGet ? M.combinedGet(this.hass, id, c) : null, xs = ['rom:' + id, ...(cb ? cb.rooms.map((r) => 'rom:' + r) : [])]; return this.saveF({ 'tabs.hjem': this._hcObj(m, t.hc.cards.filter((y) => !xs.includes(y)), [...t.hc.exclude.filter((y) => !xs.includes(y)), ...xs]) }); } // 36.2: kombinert rom → medlemmene ut også
             const lay = { ...(get(c, 'layout.' + t.id) || {}), side: { ...m.sides }, hidden: [...m.hid, id] }; return this.saveF({ ['layout.' + t.id]: lay }); }
           case 'rmove': {
             const ids = m.side(m.sides[id]).map((x) => x.id), i = ids.indexOf(id), j = ids[i + Number(d.v)];
@@ -1838,6 +2036,7 @@
       const k = el.dataset.in, d = el.dataset, v = el.value, u = this.u;
       if (u.sec === 'pop' && M.popupsPanel && M.popupsPanel.input(this, el, kind)) return;
       if (k === 'rkpill' && M.romkortPillPanel && M.romkortPillPanel.input(this, el, kind)) return; // 20.12
+      if (/^cb/.test(k) && this._combInput(el, kind)) return; // 36.1
       // live under skriving: kun søk og slidere
       if (kind === 'input') {
         if (k === 'icq') { u.icQ = v; return this._schedule(); }
@@ -1926,7 +2125,7 @@
       const touch = e.pointerType !== 'mouse';
       const fromInput = !!e.composedPath().find((n) => n.tagName && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(n.tagName) && n !== el);
       const s = this._pdS = { el, type: el.dataset.drag, id: el.dataset.id, x: e.clientX, y: e.clientY, pid: e.pointerId, touch, mode: null, st0: this.sheet.scrollTop, fromInput };
-      if (touch && !fromInput) s.timer = setTimeout(() => { if (this._pdS === s && !s.mode) this._startDrag(s, e); }, 300);
+      if (touch && !fromInput) s.timer = setTimeout(() => { if (this._pdS === s && !s.mode) this._startDrag(s, e); }, s.type === 'comb' ? 400 : 300); // 36.1: Kombiner rom = 400 ms
     }
     _pm(e) {
       if (this._ctS) return this._ctMove(e);
@@ -1970,7 +2169,7 @@
       s.ghost = g;
       s.el.classList.add('src');
       const gr = this.root.querySelector('.gr');
-      if (gr && s.type !== 'tab') gr.classList.add('dnd');
+      if (gr && s.type !== 'tab' && s.type !== 'comb') gr.classList.add('dnd'); // 36.1: Kombiner rom-listen flytter ikke rutenettet
       this._dragMove(s, e);
     }
     _dragMove(s, e) {
@@ -1983,8 +2182,9 @@
       let n = hit, tgt = null;
       while (n && n !== this.root) { if (n.dataset && n.dataset.drop && n !== s.el) { tgt = n; break; } n = n.parentNode || n.host; }
       if (tgt && s.type === 'tab' ? !/^tab:/.test(tgt.dataset.drop) : tgt && /^tab:/.test(tgt.dataset.drop)) tgt = null;
+      if (tgt && (s.type === 'comb') !== /^comb:/.test(tgt.dataset.drop)) tgt = null; // 36.1: kombinasjoner bare mellom seg
       let pos = null;
-      if (tgt && /^(room|tile|tab|pop):/.test(tgt.dataset.drop)) { const rr = tgt.getBoundingClientRect(); pos = y > rr.top + rr.height / 2 ? 'b' : 't'; }
+      if (tgt && /^(room|tile|tab|pop|comb):/.test(tgt.dataset.drop)) { const rr = tgt.getBoundingClientRect(); pos = y > rr.top + rr.height / 2 ? 'b' : 't'; }
       const key = tgt ? tgt.dataset.drop + '|' + pos : null;
       if (key !== s.key) {
         this.root.querySelectorAll('.hov-t,.hov-b,.hov').forEach((z) => z.classList.remove('hov-t', 'hov-b', 'hov'));
@@ -2006,6 +2206,7 @@
     }
     _drop(s, tg) {
       if (s.type === 'pop') return M.popupsPanel ? M.popupsPanel.drop(this, s, tg) : this.render();
+      if (s.type === 'comb') return this._combDrop(s, tg); // 36.1
       const [kind, a, b] = tg.drop.split(':'), after = tg.pos === 'b';
       if (s.type === 'tab') {
         if (kind !== 'tab' || a === s.id) return this.render();

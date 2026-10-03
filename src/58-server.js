@@ -10,8 +10,8 @@
  *      · Unraid Array · Gjester · HA Tillegg · Oppdateringer · System.
  *   Felles utvidbar liste (35.2: Gjester/Tillegg): søk (44 px), filterchips med antall, rader 60 px med bryter (stopPropagation),
  *   trykk = utvid (6 stat-fliser, bruksstolper, brytere, handlinger). Rød-tone-handlinger krever bekreftelse (to trykk).
- * Data (autokonfig, aldri mock – mangler → «–»): UniFi Network (unifi), UniFi Protect (unifiprotect – kameraene ligger som
- *   rader i Enheter), Proxmox VE (proxmoxve), Unraid (unraid, Glances som reserve), Home Assistant (hassio-entiteter,
+ * Data (autokonfig, aldri mock – mangler → «–»): UniFi Network (unifi), UniFi Protect (unifiprotect – kameraene vises ikke i Server;
+ *   brukervalg 35), Proxmox VE (proxmoxve), Unraid (unraid, Glances som reserve), Home Assistant (hassio-entiteter,
  *   systemmonitor/uptime + Supervisor via WS `supervisor/api` /addons, /addons/<slug>/info|stats).
  *   Integrasjonene oppdages fra config entries (config_entries/get) + entitets-/enhetsregisteret; manuelt valg
  *   integrations: { unifi, protect, proxmox, unraid: <entry_id|'none'> } via integrasjonsvelgeren (portalt ark).
@@ -511,6 +511,8 @@
     const hidden = (Array.isArray(c.hidden_tabs) ? c.hidden_tabs : (T.hidden || c.tabs_hidden || [])).map(mapK).filter((k) => KEYS.includes(k));
     return { order: o, hidden, start: mapK(c.start_tab != null ? c.start_tab : (T.start || c.start_tab || '')) };
   }
+  // 36.5: startfane (felles MSH.startTab): start_tab | 'last'; gamle tabs.start leses, '' (gammel «Sist brukt») = 'last'
+  const ST_LEG = { legacy: (c) => (c.start_tab === '' ? 'last' : c.tabs && !Array.isArray(c.tabs) && c.tabs.start ? c.tabs.start : undefined), map: (k) => (k === 'unifi' ? 'net' : k) };
   function visTabs(c) { const T = tabsCfg(c), V = T.order.filter((k) => !T.hidden.includes(k)); return V.length ? V : [T.order[0]]; }
   // 33.4: felles fanehøyde (MSH.tabH, 05-tab-bar.js): kortets tab_height (28–64) → global «Fanehøyde i popups» → designets 44
   const tabH = (c) => (M.tabH ? M.tabH.height(c, 44) : 44);
@@ -603,7 +605,7 @@
     c = c || {};
     const preview = { type: 'html', html: (hh, cc, key, ed) => {
       if (ed && !ed.__svInst) { ed.__svInst = true; window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); }); }
-      const V = visTabs(cc), T = tabsCfg(cc), act = V.includes(T.start) ? T.start : V[0];
+      const V = visTabs(cc), act = (M.startTab ? M.startTab.pillKey(cc, V, ST_LEG) : null) || V[0]; // 36.5: forhåndsvisningen viser startfanen
       return `<style>${PREV_CSS()}</style><div class="svp" data-key="svp" aria-hidden="true" style="${thVars(cc)}"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}) : tabRowHTML(V, act)}</div>`;
     } };
     const ints = { type: 'html', html: (hh, cc, key) => `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${INTEG.map((I) => {
@@ -628,9 +630,9 @@
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs', 'faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
+            ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, clear: ['tabs.start'], items: (hh, cc) => { const by = Object.fromEntries(hostOpts); return visTabs(cc || {}).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane øverst
             preview,
-            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', options: hostOpts },
-            { type: 'select', name: 'start_tab', label: 'Åpne med', options: [['', 'Sist brukt'], ...hostOpts], default: '' },
+            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', start: { legacy: ST_LEG, visible: (cc) => visTabs(cc) }, options: hostOpts },
             { type: 'info', label: 'Hold inne en fane i 0,4 s og dra for å endre rekkefølgen direkte i popupen.' },
           ] },
         ] },
@@ -681,12 +683,12 @@
     onOpen() {
       CE.t = 0; entries(this.hass); // friske config entries når popupen åpnes
       supLoad(this.hass, true);
-      const st = tabsCfg(this.config).start;
-      if (st && visTabs(this.config).includes(st) && this.ui.host !== st) this.setUI({ host: st, sel: null });
-      this._loadHist();
+      this._loadHist(); // 36.5: startfanen settes av MSH.startTab (startTabSpec) før onOpen
+
     }
     onClose() { if (this._pick) { this._pick.close(); this._pick = null; } this._holdStop(); }
     get tabs() { return visTabs(this.config); }
+    static get startTabSpec() { return { key: 'host', tabs: (card) => visTabs(card.config), legacy: ST_LEG.legacy, map: ST_LEG.map, get: (card) => card.tab, set: (card, id) => { if (card.ui.host !== id) card.setUI({ host: id, sel: null }, true); } }; }
     get tab() { const V = this.tabs, st = tabsCfg(this.config).start; const u = this.ui.host || this.ui.tab; return V.includes(u) ? u : V.includes(st) ? st : V[0]; }
     _sub(host) { const S = SUBS[host], u = (this.ui.sub || {})[host]; return S.some((s) => s[0] === u) ? u : S[0][0]; }
 
@@ -1112,7 +1114,7 @@
     _devs(R) {
       const ex = new Set(this.config.exclude || []);
       const E = R.unifi.enheter.filter((e) => e.type !== 'enhet' && !ex.has(e.tracker) && !ex.has(e.cpu)).map((e) => ({ kind: e.type, e, id: e.dev }));
-      const K = R.found.protect ? R.protect.kameraer.filter((k) => !ex.has(k.cam)).map((k) => ({ kind: 'cam', e: k, id: k.dev })) : [];
+      const K = []; // brukervalg (35): UniFi Protect-kameraer vises ikke i Server → Enheter
       return [...E, ...K];
     }
     _camState(k) {
@@ -1569,7 +1571,9 @@
   M.POPUP_SUPERSEDE[HASH] = { name: 'Server', test: (cfg) => /custom:ki-(homelab|server|pve|unifi|rack)-card/.test(JSON.stringify(cfg || {})) };
   // Vilkår (strategi/allPopups): minst én av integrasjonene – entiteter i registeret eller en config entry
   M.popupNeeds = M.popupNeeds || {};
-  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && PLAT[e.platform] && e.platform !== 'glances') || (Array.isArray(CE.data) && CE.data.some((e) => e.domain !== 'glances'));
+  // brukervalg (35): UniFi Network, Proxmox VE, Unraid eller Home Assistant Supervisor (hassio) – ikke Glances eller UniFi Protect alene
+  const NEED_SKIP = { glances: 1, unifiprotect: 1 };
+  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && ((PLAT[e.platform] && !NEED_SKIP[e.platform]) || e.platform === 'hassio')) || (Array.isArray(CE.data) && CE.data.some((e) => !NEED_SKIP[e.domain]));
   M.server = { oppdag, oppdagHA, entries, entriesFor, openPick, INTEG, HOSTS, SUBS, tabsCfg, SUP };
   M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
 })();
