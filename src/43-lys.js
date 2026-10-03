@@ -13,12 +13,11 @@
  * (MSH.saveCardConfig, scope 'shared', venter på svar, deaktivert mens det lagres), Esc / hash-bytte forkaster.
  * Endret et annet sted mens arket er åpent → banner «Last inn». getConfigElement() bruker samme nøkler (static schema).
  * Config-nøkler (arket ⇄ GUI-editoren; eldre v4-nøkler leses fortsatt og flyttes ved Ferdig – se migrateV4):
- *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, mellom seksjonene), tile_gap (mellom lys-radene, std 14), cols (1–3;
- *             eldre columns), size (compact|standard|large → slider 44|52|60 px), slider_height (32–80, overstyrer size),
- *             color_mode (lamp|kelvin|single), on_color, off_color (bakgrunnen bak lys-radene), show_kelvin,
+ *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, mellom seksjonene), tile_gap (mellom lys-radene, std 10 som Rom v4),
+ *             cols (1–3; eldre columns), color_mode (lamp|kelvin|single → fyllet i lys-raden; lamp = Rom v4-fargene),
+ *             on_color, off_color (bakgrunnen bak lys-radene), show_kelvin,
  *             top / bottom (Mellomrom: fra headeren / luft i bunnen; eldre pad_top / pad_bottom)
- *             Eldre tile_height (56|64|72) → slider 52|60|68 når size/slider_height mangler. tile_gap = mellom lys-radene
- *             (std 14, Fiks 39).
+ *             Eldre size / slider_height / tile_height godtas og ignoreres (Fiks 41: lys-raden har faste mål fra Rom v4).
  *   Faner:    tab_order (fane-id), hide_tabs (eldre hidden_tabs; minst én fane vises), tab_names.<fane>, start_tab,
  *             floor_tabs.<floor_id>
  *   Design:   tab_style, tab_label (short|long), tab_count, gear_position, tab_height, scene_style (bubble|pill|grid),
@@ -28,7 +27,8 @@
  *   Rom/lys:  room_order.<floor_id|_>, room_names.<area|_>, hide_rooms (eldre hidden_rooms), light_order.<area|_>,
  *             light_room.<objekt-id> (flytt lys til annet rom), hide_lights (entity_id), groups.<area|_> {name, members},
  *             exclude, include.lys, light_types.<objekt-id>,
- *             lights.<objekt-id> {name, icon, brightness_min/max, color_control, hide_*, color_presets}
+ *             lights.<objekt-id> {name, icon, brightness_min/max, hide_temperature_slider, hide_color_controls}
+ *             (eldre color_control / hide_color_presets / color_presets godtas og ignoreres)
  *   Utelys:   outdoor {mode, on, off, latest, morning, offset, lux_on, lux_off, kveld, morgen}
  *             (eldre rotnøkler mode/on/off/… leses fortsatt; arket flytter dem inn i outdoor ved Ferdig),
  *             overrides.{lux, automatikk, modus, kveld_bryter, morgen_bryter}, include.utelys, order.utelys, exclude
@@ -38,9 +38,9 @@
  *             outdoor.exclude (prompt-formen) leses også, og flyttes til include.utelys / exclude når arket lagres.
  *             «Tilpass lys» → Utelys: «Finner du ikke lampen?» søker i hass.states (MSH.entitySearch: navn, entity_id,
  *             område, æøå-normalisert, maks 8 treff, debounce 150 ms) med «Legg til» / «Lagt til».
- * Lys: felles lysslider msh-light-slider (08-light-row.js, Fiks 39 – samme som Rom → Lys) per lys og per gruppe, gjenbrukt
- *   per nøkkel i data-nomorph-plassholdere. Fyll i lysets farge (MSH.sliderColor: rgb / Kelvin / varmhvit); «Lys på»-
- *   sirkelen bruker fortsatt MSH.lampColor (19.2). overrides.<entity>.color / lights.<objekt-id>.color / color_mode går foran.
+ * Lys (Fiks 41): felles lys-rad M.renderLightRow (08-light-row.js – Rom v4 «lights» 1:1, SAMME rad som Rom → Lys) per lys
+ *   og per gruppe, rendret inline (morph-trygg). Fyll som i Rom v4 (varmhvit / kald hvit / hsl(hue)); overrides.<entity>.color
+ *   / lights.<objekt-id>.color / color_mode kelvin|single gir eget fyll. «Lys på»-sirkelen bruker MSH.lampColor (19.2).
  * Utelys-fanen: Utelys-kortet først (status, av/på, tidslinje for neste 24 t fra «nå» med natt fra sun.sun og periode med
  * lys på, Tennes/Slukkes-fliser), så lampene, Styring og Sola.
  * Autokonfig: alle light.* gruppert per etasje/område (M.areaOf + hass.areas/hass.floors, pluss KI Rom `lys`).
@@ -107,9 +107,7 @@
   };
   const num = (v, d) => (v != null && v !== '' && !isNaN(Number(v)) ? Number(v) : d);
   const gapOf = (c) => num(c && c.gap, 12);
-  const rowGapOf = (c) => num(c && c.tile_gap, 14); // Fiks 39: 14 px mellom lys-radene
-  const sizeOf = (c) => (c && ['compact', 'standard', 'large'].includes(c.size) ? c.size : M.lightRowHeight && M.lightRowHeight(c) <= 44 ? 'compact' : 'standard');
-  const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
+  const rowGapOf = (c) => num(c && c.tile_gap, 10); // Fiks 41: 10 px mellom lys-radene (Rom v4)
 
   /* ------------------------------------------------------------ 36.8 · config (nye nøkler + eldre v4-nøkler) */
   const uni = (...xs) => [...new Set(xs.flatMap((x) => (Array.isArray(x) ? x : [])))];
@@ -298,9 +296,9 @@
     .scxi{width:28px;height:28px;display:grid;place-items:center;flex:none}
     .scxl{font-size:13px;font-weight:500;color:var(--ki-text-1, var(--gray1000,#e1e1e1));max-width:100%}
   `;
-  // 36.8 · gruppe-rad: felles msh-light-slider (Fiks 39) med alle lysene + gul kant rundt
+  // 36.8 · gruppe-rad: felles lys-rad (08, Fiks 41) med alle lysene + gul kant rundt
   const LG_CSS = `
-    .lgr{position:relative;margin:-6px -6px;padding:6px 6px 12px;border-radius:18px;box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.25)}}
+    .lgr{position:relative;margin:-6px -8px;padding:6px 8px;border-radius:18px;box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.25)}}
   `;
 
   // 36.8 · fanelinja i valgt Fanestil (felles MSH.tabBar): pill = variant gear (som før), icon = pop/aktiv (ikoner, aktiv
@@ -352,11 +350,8 @@
             { type: 'section', label: 'Slider (avansert)', icon: 'mdi:tune-variant', fields: [
               { type: 'number', name: p + '.brightness_min', label: 'Minste lysstyrke (%)', min: 0, max: 100, placeholder: '0' },
               { type: 'number', name: p + '.brightness_max', label: 'Største lysstyrke (%)', min: 0, max: 100, placeholder: '100' },
-              { type: 'select', name: p + '.color_control', label: 'Fargekontroll (utvidet)', options: LC },
-              { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperaturslider', default: false },
-              { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul fargespekter', default: false },
-              { type: 'boolean', name: p + '.hide_color_presets', label: 'Skjul fargeforhåndsvalg', default: false },
-              { type: 'text', name: p + '.color_presets', label: 'Fargeforhåndsvalg', placeholder: '#ffb74c, #ff8a65, rgb(129, 212, 250)', help: 'Kommaseparert liste' },
+              { type: 'boolean', name: p + '.hide_temperature_slider', label: 'Skjul temperatur (pil)', default: false },
+              { type: 'boolean', name: p + '.hide_color_controls', label: 'Skjul farge (pil)', default: false },
             ] },
           ] };
         };
@@ -368,10 +363,8 @@
         const hidT = V.hideTabs(c), hidS = V.hideScenes(c), hidR = V.hideRooms(c);
         const roomOpts = [['', 'Opprinnelig rom'], ...a.roomOpts.map((r) => [r.id, r.floor ? `${r.name} · ${r.floor}` : r.name])];
         const out = [
-          { type: 'section', id: 'look', label: 'Visning', icon: 'mdi:view-dashboard-outline', meta: (hh, cc) => `${V.cols(cc)} kolonne${V.cols(cc) > 1 ? 'r' : ''} · ${{ compact: 'Kompakt', large: 'Stor' }[sizeOf(cc)] || 'Standard'} · ${M.lightRowHeight(cc)} px`, fields: [
+          { type: 'section', id: 'look', label: 'Visning', icon: 'mdi:view-dashboard-outline', meta: (hh, cc) => `${V.cols(cc)} kolonne${V.cols(cc) > 1 ? 'r' : ''}`, fields: [
             sel('cols', 'Kolonner', [[1, '1'], [2, '2'], [3, '3']], 1),
-            sel('size', 'Kortstørrelse', [['compact', 'Kompakt'], ['standard', 'Standard'], ['large', 'Stor']], 'standard'),
-            { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 40, max: 80, step: 2, default: 52, presets: [[44, 'Lav 44'], [52, 'Standard 52'], [64, 'Høy 64'], [72, 'Ekstra 72']], help: 'Gjelder alle lys-radene (overstyrer kortstørrelsen)' },
             sel('color_mode', 'Farge på lys', [['lamp', 'Lampens'], ['kelvin', 'Temperatur'], ['single', 'Én farge']], 'lamp', 'Lampens = rgb_color fra HA · Temperatur = varm oransje → kald blåhvit · Én farge = på-fargen under'),
             { type: 'color', name: 'on_color', label: 'På-farge (Én farge)' },
             sel('off_color', 'Av-farge (bakgrunn bak lysene)', OFF_SW.map(([v, l]) => [v, l]), ''),
@@ -380,7 +373,7 @@
           ] },
           { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${gapOf(cc)} px mellom`, fields: [
             { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']] },
-            { type: 'range', name: 'tile_gap', label: 'Mellom lys-radene', icon: 'mdi:view-grid-outline', min: 0, max: 24, default: 14, presets: [[8, 'Tett 8'], [14, 'Standard 14'], [18, 'Luftig 18']], help: 'Tomt = 14 px (Fiks 39)' },
+            { type: 'range', name: 'tile_gap', label: 'Mellom lys-radene', icon: 'mdi:view-grid-outline', min: 0, max: 24, default: 10, presets: [[6, 'Tett 6'], [10, 'Standard 10'], [16, 'Luftig 16']], help: 'Tomt = 10 px (som Rom)' },
             { type: 'range', name: 'top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 44, default: -10, presets: [[-20, 'Tett −20'], [-10, 'Standard −10'], [16, 'Luftig 16']] },
             { type: 'range', name: 'bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, step: 10, default: 150, presets: [[0, 'Ingen 0'], [150, 'Standard 150'], [220, 'Stor 220']] },
           ] },
@@ -505,10 +498,9 @@
       const tabs = this._tabs(A, c);
       const tab = tabs.includes(ui.tab) ? ui.tab : tabs.includes(c.start_tab) ? c.start_tab : tabs[0];
       const body = tab === 'out' ? this._out(A) : tab === 'on' ? this._on(A) : this._floor(A, A.floors.find((f) => f.key === tab));
-      const sz = sizeOf(this.config);
-      const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${V.cols(c)};--lr-h:${M.lightRowHeight(this.config)}px;--lys-off:${offCss(c.off_color)}`;
+      const vars = `--msh-gap:${gapOf(this.config)}px;--lt-gap:${rowGapOf(this.config)}px;--lt-cols:${V.cols(c)};--lys-off:${offCss(c.off_color)}`;
       // Fiks 31.5 / 36.8: fanelinjen + tannhjulet = felles MSH.tabBar i stilen fra Design-fanen (lysBar)
-      return `<div class="wrap lys-sz-${sz}" style="${vars}">
+      return `<div class="wrap" style="${vars}">
         ${lysBar(c, this._tabItems(A, c, tabs), tab)}
         ${body || ''}
       </div>`;
@@ -530,20 +522,11 @@
       return out;
     }
 
-    /* ---------------- lys: felles lys-rad (08-light-row.js) per lys (plassholder data-nomorph, fylles i _mountLights) */
+    /* ---------------- lys: felles lys-rad (08-light-row.js, Fiks 41 – samme rad som Rom → Lys) */
     _light(id, name) {
-      return `<div class="lsl" data-key="lc-${esc(id)}" data-lc="${esc(id)}" data-name="${esc(name || '')}" data-nomorph></div>`;
+      const c = this.config, u = lcfg(c, id), s = this.s(id);
+      return M.renderLightRow(this, { id, name: name || u.name || cap(M.name(this.hass, id)), icon: u.icon || undefined, type: ((c.light_types || {})[obj(id)]) || undefined, user: u, fill: this._modeColor(id, s) || undefined, kelvin: !!c.show_kelvin });
     }
-    _lightCfg(id, name) {
-      const c = this.config, s = this.hass.states[id];
-      return M.lightRowCfg(id, { name: name || lcfg(c, id).name || cap(M.name(this.hass, id)), type: ltype(c, id, s), user: lcfg(c, id), height: M.lightRowHeight(c), color: this._modeColor(id, s) || undefined, kelvin: !!c.show_kelvin });
-    }
-    _mountLights() { M.mountLightRows(this, (id, wrap) => (id.startsWith('grp:') ? this._groupCfg(wrap) : this._lightCfg(id, wrap.dataset.name))); }
-    set hass(h) {
-      super.hass = h;
-      M.lightRowsHass(this, h);
-    }
-    get hass() { return super.hass; }
 
     /* ---------------- Utelys */
     // Plan for neste 24 t fra «nå»: tenn/slukk som tidspunkt (ms). Tennes = fast tid (outdoor.on) eller solnedgang +
@@ -748,20 +731,13 @@
       if (!rooms.length) out += M.emptyState('Alle rom i etasjen er skjult', 'rooms');
       return out;
     }
-    // 36.8 · gruppe-rad: felles msh-light-slider (08, Fiks 39) med alle lysene, gul kant + gruppeikon, «45% · 3 lys».
-    // Dra = lysstyrke for alle, trykk = av/på for alle (slideren: pan-y + stopPropagation, throttlet 150 ms + ved slipp).
+    // 36.8 · gruppe-rad: felles lys-rad (08, Fiks 41) med alle lysene, gul kant + gruppeikon, «45% · 3 lys».
+    // Dra = lysstyrke for alle, trykk = av/på for alle (pan-y + stopPropagation, throttlet 150 ms + ved slipp).
     _group(rk, ids, name) {
-      return `<div class="lgr" data-grp="${esc(rk)}" data-ids="${esc(ids.join(','))}" data-key="lg-${esc(rk)}" role="group" aria-label="${esc(name)}">
-        <div class="lsl" data-lc="grp:${esc(rk)}" data-ids="${esc(ids.join(','))}" data-name="${esc(name)}" data-nomorph></div></div>`;
-    }
-    _groupCfg(wrap) {
-      const c = this.config, ids = (wrap.dataset.ids || '').split(',').filter(Boolean), st = ids.map((id) => this.s(id));
-      const dim = ids.filter((id) => dimmable(this.s(id), c, id)), first = ids.find((id) => M.isOn(this.s(id))) || ids[0];
-      const col = this._modeColor(first, this.s(first));
-      const out = { entities: ids, dim_ids: dim, name: wrap.dataset.name || '', icon: 'mdi:lightbulb-group', icon_on: YT, type: dim.length ? 'dim' : 'onoff', height: M.lightRowHeight(c), suffix: ` · ${ids.length} lys` };
-      if (col) out.color = col;
-      if (c.show_kelvin && st.some((s) => s && s.state === 'on')) out.kelvin = true;
-      return out;
+      const c = this.config, dim = ids.filter((id) => dimmable(this.s(id), c, id)), first = ids.find((id) => M.isOn(this.s(id))) || ids[0];
+      const fill = this._modeColor(first, this.s(first));
+      const row = M.renderLightRow(this, { key: 'grp:' + rk, ids, dim, name, icon: 'mdi:lightbulb-group', iconColor: YT, type: dim.length ? 'dim' : 'onoff', fill: fill || undefined, kelvin: !!c.show_kelvin, suffix: ` · ${ids.length} lys` });
+      return `<div class="lgr" data-grp="${esc(rk)}" data-ids="${esc(ids.join(','))}" data-key="lg-${esc(rk)}" role="group" aria-label="${esc(name)}">${row}</div>`;
     }
     // 36.8 · Farge på lys (color_mode): lamp = lampens egen (MSH.lampColor), kelvin = Kelvin-tone, single = on_color.
     // Egen farge per lys (overrides.<id>.color / lights.<objekt-id>.color) går alltid foran.
@@ -892,7 +868,6 @@
       if (sr && !sr.__b) { sr.__b = true; const st = (e) => e.stopPropagation(); sr.addEventListener('touchstart', st, { passive: true }); sr.addEventListener('touchmove', st, { passive: true }); }
       const sc = this.shadowRoot.querySelector('.sc');
       if (sc && !sc.__b) { sc.__b = true; const st = (e) => e.stopPropagation(); sc.addEventListener('touchstart', st, { passive: true }); sc.addEventListener('touchmove', st, { passive: true }); }
-      this._mountLights();
       this._bindLamps();
       if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this);
     }
@@ -969,11 +944,8 @@
            bredde etter teksten, tannhjul 56 × 56 */
         ${M.tabBar ? M.tabBar.CSS : ''}
         ${TS_CSS}
-        /* lys-rader (Fiks 39: felles msh-light-slider, 14 px mellom; håndtaket stikker 11 px ut under baren) */
-        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,14px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--lys-off,var(--ki-surface, var(--gray200,#3a3a3a)))}
-        /* 36.8 · Kortstørrelse: navnet i lys-raden (--msh-nf, 08) og luft i kortet */
-        .lys-sz-compact .lbox{padding:10px 10px 10px 12px;border-radius:24px;--msh-nf:13px}
-        .lys-sz-large .lbox{padding:18px 14px 18px 18px;border-radius:30px;--msh-nf:17px}
+        /* lys-rader (Fiks 41: felles lys-rad fra Rom v4, 10 px mellom; samme innrykk som i Rom – 16 px til radene) */
+        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,10px);padding:16px 16px 14px;border-radius:32px;background:var(--lys-off,var(--ki-surface, var(--gray200,#3a3a3a)))}
         ${LG_CSS}
         /* Utelys-kortet */
         .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .4s}
@@ -1113,7 +1085,7 @@
     ['mdi:door', 'Romoverskrift', 'room_header', 'icon', [['icon', 'Ikon + navn', 'Som i dag', 'mdi:label-outline'], ['text', 'Kun navn', 'Uten ikon', 'mdi:format-title'], ['hidden', 'Skjult', 'Bare lysene', 'mdi:eye-off-outline']]],
   ];
   const DESIGN_SW = [['tab_count', 'Antall lys på i fanene', '«1. etg · 3»', false], ['show_scenes', 'Vis scener', 'Raden øverst i etasjefanene', true], ['room_toggle', '«Av / På»-knapp per rom', 'Til høyre i romoverskriften', true]];
-  const NUMK = ['gap', 'cols', 'top', 'bottom', 'slider_height', 'tile_gap', 'outdoor.ring_start'];
+  const NUMK = ['gap', 'cols', 'top', 'bottom', 'tile_gap', 'outdoor.ring_start'];
 
   function openSheet(card, focus) {
     if (card._sheet && !card._sheet.ov.closed) { if (focus && TAB_OF[focus]) card._sheet.go(TAB_OF[focus]); return card._sheet; }
@@ -1289,15 +1261,13 @@
           <span class="hint" style="padding:0">Tannhjulet følger høyden + 8 px. «Følg global» = «Fanehøyde i popups» i Tilpass Hjem.</span></div>`;
       return `${pvHTML(A)}${groups}<section class="card sls" data-key="dg-sl">${th}<div class="sep"></div>${DESIGN_SW.map(([k, l, sub, def]) => swRow(k, l, sub, V.on(d, k, def))).join('')}</section>`;
     };
-    // ---------- Visning: Kort (kolonner, størrelse, slider-høyde), Farger, Mellomrom (helt dekkende kort, 36.7)
+    // ---------- Visning: Kort (kolonner), Farger, Mellomrom (helt dekkende kort, 36.7)
     const pageVis = () => {
-      const d = st.draft, cm = V.colorMode(d), H = M.lightRowHeight(d);
+      const d = st.draft, cm = V.colorMode(d);
       const hint = cm === 'lamp' ? 'Bruker lampens egen farge fra Home Assistant (rgb_color).' : cm === 'kelvin' ? 'Fargen følger fargetemperaturen: varm = oransje, kald = blåhvit.' : 'Alle lys som er på bruker samme farge.';
       const onC = d.on_color || 'var(--yellow)';
       return `<section class="card sls" data-key="vis-kort"><div class="vh">${M.icon('mdi:view-grid-outline', 20, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}Kort</div>
-          ${seg5('Kolonner', 'cols', [[1, '1'], [2, '2'], [3, '3']], V.cols(d))}
-          ${seg5('Kortstørrelse', 'size', [['compact', 'Kompakt'], ['standard', 'Standard'], ['large', 'Stor']], sizeOf(d))}
-          ${slider('mdi:arrow-expand-vertical', 'Slider-høyde', 'slider_height', H, 40, 80, 2, [[44, 'Lav'], [52, 'Standard'], [64, 'Høy'], [72, 'Ekstra']])}</section>
+          ${seg5('Kolonner', 'cols', [[1, '1'], [2, '2'], [3, '3']], V.cols(d))}</section>
         <section class="card sls fc" data-key="vis-farger"><div class="vh">${M.icon('mdi:palette-outline', 20, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}Farger</div>
           ${seg5('Farge på lys', 'color_mode', [['lamp', 'Lampens'], ['kelvin', 'Temperatur'], ['single', 'Én farge']], cm)}
           <span class="hint" style="padding:0">${esc(hint)}</span>

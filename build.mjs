@@ -1,9 +1,9 @@
 // Bygger dist/ki-msh.js: alle filer i src/ i navnerekkefølge, hver i egen blokk
 // så én feil ikke stopper resten.
-import { readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-// Innebygde tredjepartskort (norsk kopi) først, så egne filer i navnerekkefølge
-const vendor = readdirSync('src/vendor').filter((f) => f.endsWith('-no.js')).sort().map((f) => 'vendor/' + f);
+// Innebygde tredjepartskort (norsk kopi, src/vendor/*-no.js – ingen for tiden) først, så egne filer i navnerekkefølge
+const vendor = (existsSync('src/vendor') ? readdirSync('src/vendor') : []).filter((f) => f.endsWith('-no.js')).sort().map((f) => 'vendor/' + f);
 const files = [...vendor, ...readdirSync('src').filter((f) => f.endsWith('.js')).sort()];
 let out = `/*! KI MSH ${pkg.version} – My SmartHome-dashbord for Home Assistant · https://github.com/SebastianKristo/ki-msh */\n`;
 // Pakkeversjonen tilgjengelig for kortene (f.eks. console.info i 48-vaer.js)

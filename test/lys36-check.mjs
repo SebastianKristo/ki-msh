@@ -176,11 +176,11 @@ async function boot(cfg, dark = true) {
   ok('Rom: per etasje, rader med navn/«N lys»/øye, utvidet viser lysene', rm.floors.length >= 2 && rm.rows.includes('gang') && rm.lights.length === 2 && rm.meta === '2 lys', rm);
   // gruppe: lenk begge lysene i Gang
   await page.evaluate(async () => { for (let i = 0; i < 2; i++) { SHR().querySelectorAll('[data-a="grp"][data-room="gang"]')[i].click(); await wait(200); } });
-  const gr = await page.evaluate(() => { const g = SR().querySelector('.lgr[data-grp="gang"]'), ls = g && g.querySelector('msh-light-slider'); return { cfg: D().groups, box: !!SHR().querySelector('.gbox'), row: ls && ls.shadowRoot ? [...ls.shadowRoot.querySelectorAll('.n, .v')].map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim() : null, ents: ls && ls.config.entities, sh: g && getComputedStyle(g).boxShadow, rows: [...SR().querySelectorAll('[data-key="r-gang"] .lsl:not([data-lc^="grp:"])')].length }; });
+  const gr = await page.evaluate(() => { const g = SR().querySelector('.lgr[data-grp="gang"]'), ls = g && g.querySelector('.lr[data-lr="grp:gang"]'); return { cfg: D().groups, box: !!SHR().querySelector('.gbox'), row: ls ? [...ls.querySelectorAll('.lr-n, .lr-p')].map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim() : null, sh: g && getComputedStyle(g).boxShadow, rows: [...SR().querySelectorAll('[data-key="r-gang"] .lr[data-lr]:not([data-lr^="grp:"])')].length }; });
   ok('Rom: 2 lenkede lys = gruppe → ÉN rad i popupen «Gang · alle · 2 lys» med gul kant', gr.cfg && gr.cfg.gang && gr.cfg.gang.members.length === 2 && gr.box && /Gang · alle/.test(gr.row) && /· 2 lys/.test(gr.row) && /242, 210, 111|0\.949\d* 0\.823\d* 0\.435/.test(gr.sh) && gr.rows === 0, gr);
   // gruppe-slideren styrer begge (touch-dra)
-  // Fiks 39: gruppe-raden er den felles msh-light-slider (entities = gruppen); dras i popupen over det halve arket
-  const gb = await page.evaluate(async () => { const ls = SR().querySelector('.lgr[data-grp="gang"] msh-light-slider'), t = ls && ls.shadowRoot.querySelector('.bar'); if (!t) return { y: -1 }; t.scrollIntoView({ block: 'center' }); await wait(150); let sc = L(); while (sc && sc !== document.body) { const cs = getComputedStyle(sc); if (/(auto|scroll)/.test(cs.overflowY) && sc.scrollHeight > sc.clientHeight + 2) break; sc = sc.parentElement || (sc.getRootNode && sc.getRootNode().host); } if (sc && sc !== document.body) sc.scrollTop += t.getBoundingClientRect().top - 250; await wait(250); const sh = SHR().querySelector('.sh').getBoundingClientRect(); window.CALLS = []; return { ...rect(t), shTop: sh.top }; });
+  // Fiks 41: gruppe-raden er den felles lys-raden (MSH.renderLightRow, ids = gruppen); dras i popupen over det halve arket
+  const gb = await page.evaluate(async () => { const t = SR().querySelector('.lgr[data-grp="gang"] .lr-sl'); if (!t) return { y: -1 }; t.scrollIntoView({ block: 'center' }); await wait(150); let sc = L(); while (sc && sc !== document.body) { const cs = getComputedStyle(sc); if (/(auto|scroll)/.test(cs.overflowY) && sc.scrollHeight > sc.clientHeight + 2) break; sc = sc.parentElement || (sc.getRootNode && sc.getRootNode().host); } if (sc && sc !== document.body) sc.scrollTop += t.getBoundingClientRect().top - 250; await wait(250); const sh = SHR().querySelector('.sh').getBoundingClientRect(); window.CALLS = []; return { ...rect(t), shTop: sh.top }; });
   if (gb.y > 60 && gb.y < 420) {
     await touch('touchStart', [{ x: gb.x + gb.w * 0.2, y: gb.cy }]);
     for (let i = 1; i <= 8; i++) { await touch('touchMove', [{ x: gb.x + gb.w * (0.2 + 0.05 * i), y: gb.cy }]); await wait(20); }
@@ -194,14 +194,14 @@ async function boot(cfg, dark = true) {
   ok('Rom: nytt navn (room_names) vises i popupen', rn.cfg && rn.cfg.gang === 'Entré' && /Entré/.test(rn.head || ''), rn);
   // flytt «light.bad_tak» til Gang (light_room) – også ut av gruppen i rommet det forlater
   await page.evaluate(async () => { SHR().querySelector('[data-a="rtog"][data-k="bad"]').click(); await wait(300); const s = SHR().querySelector('select[data-mv="light.bad_tak"]'); s.value = 'gang'; s.dispatchEvent(new Event('change', { bubbles: true, composed: true })); await wait(400); });
-  const mv = await page.evaluate(() => ({ lr: D().light_room, inGang: !!SR().querySelector('[data-key="r-gang"] [data-lc="light.bad_tak"]'), inBad: !!SR().querySelector('[data-key="r-bad"] [data-lc="light.bad_tak"]') }));
+  const mv = await page.evaluate(() => ({ lr: D().light_room, inGang: !!SR().querySelector('[data-key="r-gang"] [data-lr="light.bad_tak"]'), inBad: !!SR().querySelector('[data-key="r-bad"] [data-lr="light.bad_tak"]') }));
   ok('Rom: flytt lys til annet rom (light_room.<objekt-id>) vises live i popupen', mv.lr && mv.lr.bad_tak === 'gang' && mv.inGang && !mv.inBad, mv);
   await page.evaluate(async () => { SHR().querySelector('[data-a="rtog"][data-k="gang"]').click(); await wait(300); });
   const sub = await page.evaluate(() => { const r = SHR().querySelector('[data-row="light"][data-id="light.bad_tak"] .ln i'); return r && r.textContent; });
   ok('Rom: flyttet lys viser «Flyttet fra Bad»', /Flyttet fra Bad/.test(sub || ''), sub);
   // skjul et lys
   await page.evaluate(async () => { SHR().querySelector('[data-a="leye"][data-k="light.bad_tak"]').click(); await wait(300); });
-  const hl = await page.evaluate(() => ({ hid: D().hide_lights, shown: !!SR().querySelector('[data-lc="light.bad_tak"]') }));
+  const hl = await page.evaluate(() => ({ hid: D().hide_lights, shown: !!SR().querySelector('[data-lr="light.bad_tak"]') }));
   ok('Rom: øyet skjuler lyset (hide_lights)', JSON.stringify(hl.hid) === '["light.bad_tak"]' && !hl.shown, hl);
   // «Del opp» fjerner gruppen
   await page.evaluate(async () => { SHR().querySelector('[data-a="ungroup"][data-k="gang"]').click(); await wait(300); });
@@ -290,24 +290,24 @@ async function boot(cfg, dark = true) {
     const o = {};
     SHR().querySelector('[data-a="seg"][data-k="cols"][data-v="3"]').click(); await wait(250);
     o.cols = getComputedStyle(SR().querySelector('.lbox')).gridTemplateColumns.split(' ').length;
-    SHR().querySelector('[data-a="seg"][data-k="slider_height"][data-v="64"]').click(); await wait(250);
-    o.lr = getComputedStyle(SR().querySelector('.wrap')).getPropertyValue('--lr-h').trim();
+    // Fiks 41: Kortstørrelse / Slider-høyde er borte (lys-raden har faste mål fra Rom v4)
+    o.noSize = !SHR().querySelector('[data-k="slider_height"],[data-k="size"]');
     SHR().querySelector('[data-a="set"][data-k="off_color"][data-v="var(--gray100)"]').click(); await wait(250);
     o.off = getComputedStyle(SR().querySelector('.lbox')).backgroundColor;
     SHR().querySelector('[data-a="seg"][data-k="color_mode"][data-v="single"]').click(); await wait(250);
     SHR().querySelector('[data-a="set"][data-k="on_color"][data-v="var(--green)"]').click(); await wait(250);
     SHR().querySelector('[data-a="dsw"][data-k="show_kelvin"]').click(); await wait(300);
-    const rec = [...(L()._lc || new Map()).values()][0];
-    o.row = rec && rec.el.config ? { c: rec.el.config.color, k: rec.el.config.kelvin, h: rec.el.config.height, tag: rec.el.localName } : null;
+    const lr = [...SR().querySelectorAll('.lr[data-lr^="light."]')].find((r) => r.querySelector('.lr-f') && getComputedStyle(r.querySelector('.lr-f')).display !== 'none');
+    o.row = lr ? { bg: getComputedStyle(lr.querySelector('.lr-f')).backgroundColor, v: lr.querySelector('.lr-p').textContent, slider: !!document.querySelector('msh-light-slider') } : null;
     const mm = SHR().querySelector('[data-key="vis-mellomrom"]'), cs = getComputedStyle(mm);
     o.mm = { bg: cs.backgroundColor, r: cs.borderRadius, pre: [...mm.querySelectorAll('.mini:not(.on)')].map((b) => getComputedStyle(b).backgroundColor), on: [...mm.querySelectorAll('.mini.on')].map((b) => getComputedStyle(b).backgroundImage.slice(0, 15)) };
     SHR().querySelector('[data-a="seg"][data-k="bottom"][data-v="220"]').click(); await wait(300);
     o.pb = L().style.paddingBottom;
-    o.cfg = (({ cols, slider_height, off_color, color_mode, on_color, show_kelvin, bottom }) => ({ cols, slider_height, off_color, color_mode, on_color, show_kelvin, bottom }))(D());
+    o.cfg = (({ cols, off_color, color_mode, on_color, show_kelvin, bottom }) => ({ cols, off_color, color_mode, on_color, show_kelvin, bottom }))(D());
     return o;
   });
-  ok('Visning: kolonner 3, slider-høyde 64, av-farge (kortbakgrunn) live i popupen', vis.cols === 3 && vis.lr === '64px' && vis.off === 'rgb(47, 47, 47)', vis);
-  ok('Visning: Én farge + på-farge og «Vis fargetemperatur» når lys-radene (msh-light-slider)', vis.row && vis.row.tag === 'msh-light-slider' && /green/.test(vis.row.c || '') && vis.row.k === true && vis.row.h === 64, vis.row);
+  ok('Visning: kolonner 3, av-farge (kortbakgrunn) live i popupen, ingen Kortstørrelse/Slider-høyde (Fiks 41)', vis.cols === 3 && vis.noSize && vis.off === 'rgb(47, 47, 47)', vis);
+  ok('Visning: Én farge + på-farge (fyllet) når de felles lys-radene', vis.row && !vis.row.slider && vis.row.bg === 'rgb(102, 209, 158)', vis.row);
   ok('Visning: Mellomrom-kortet helt dekkende #3a3a3a r24, forvalg #404040 / rosa', vis.mm.bg === 'rgb(58, 58, 58)' && vis.mm.r === '24px' && vis.mm.pre.every((x) => x === 'rgb(64, 64, 64)') && vis.mm.on.every((x) => /gradient/.test(x)), vis.mm);
   ok('Visning: «Luft i bunnen» 220 → popupens bunnluft (bottom)', /220px/.test(vis.pb) && vis.cfg.bottom === 220, { pb: vis.pb, cfg: vis.cfg });
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/lys36-visning.png` });
@@ -355,7 +355,7 @@ async function boot(cfg, dark = true) {
     ed.remove();
     return { names: [...new Set(names)], got: got && got.tab_style };
   });
-  const need = ['cols', 'size', 'slider_height', 'color_mode', 'on_color', 'off_color', 'show_kelvin', 'gap', 'top', 'bottom', 'tab_order', 'hide_tabs', 'tab_style', 'tab_label', 'gear_position', 'scene_style', 'room_header', 'tab_count', 'show_scenes', 'room_toggle', 'scene_order', 'hide_scenes', 'extra_scenes', 'hide_rooms', 'hide_lights'];
+  const need = ['cols', 'color_mode', 'on_color', 'off_color', 'show_kelvin', 'gap', 'top', 'bottom', 'tab_order', 'hide_tabs', 'tab_style', 'tab_label', 'gear_position', 'scene_style', 'room_header', 'tab_count', 'show_scenes', 'room_toggle', 'scene_order', 'hide_scenes', 'extra_scenes', 'hide_rooms', 'hide_lights'];
   const miss = need.filter((n) => !gui.names.some((x) => x === n || x.startsWith(n + '.')));
   ok('GUI-editoren (getConfigElement) har de samme nøklene og skriver dem', miss.length === 0 && gui.got === 'segment' && gui.names.some((x) => x.startsWith('light_room.')) && gui.names.some((x) => x.startsWith('room_names.')) && gui.names.some((x) => /^groups\./.test(x)) && gui.names.some((x) => x.startsWith('scene_icon.')), { miss, got: gui.got });
   ok('ingen sidefeil (migrering)', errs.length === 0, errs);
@@ -384,7 +384,7 @@ async function boot(cfg, dark = true) {
       }
     }
     o.bad = bad;
-    const g = SR().querySelector('.lgr msh-light-slider'); o.group = g && g.shadowRoot && [...g.shadowRoot.querySelectorAll('.n, .v')].map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim();
+    const g = SR().querySelector('.lgr .lr'); o.group = g && [...g.querySelectorAll('.lr-n, .lr-p')].map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim();
     return o;
   });
   ok('lys modus: arket #f0f0f0 (helt dekkende), kort hvite', r.theme === 'light' && r.bg === 'rgb(240, 240, 240)' && r.card === 'rgb(255, 255, 255)', r);

@@ -106,7 +106,7 @@ const pop = await E(async () => {
   for (const b of [...R.querySelectorAll('.acc')]) { if (!b.closest('section').querySelector('.bd,.cw')) { b.click(); await wait(120); } }
   const cvx = R.querySelector('.cvx'); if (cvx) { cvx.click(); await wait(150); }
   out.tags = [...new Set([...R.querySelectorAll('.rtag')].map((t) => t.textContent.trim()))];
-  out.lights = [...R.querySelectorAll('[data-lc]')].map((e) => e.dataset.lc);
+  out.lights = [...R.querySelectorAll('.lr[data-lr]')].map((e) => e.dataset.lr);
   const tagOf = (sel) => { const el = R.querySelector(sel); return el && el.querySelector('.rtag') ? el.querySelector('.rtag').textContent.trim() : null; };
   out.tagSpot = (() => { const w = R.querySelector('[data-key="lw-light.kjokken_spot"]'); return w && w.querySelector('.rtag') ? w.querySelector('.rtag').textContent.trim() : null; })();
   out.tagTak = (() => { const w = R.querySelector('[data-key="lw-light.stue_tak"]'); return w && w.querySelector('.rtag') ? w.querySelector('.rtag').textContent.trim() : null; })();
