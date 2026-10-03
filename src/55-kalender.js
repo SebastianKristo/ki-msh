@@ -14,7 +14,7 @@
  * 36.7: «Tilpass kalender» = helt dekkende ark (--ki-popup/#282828), top 52, maks 440, radius 38, bakteppe .5 + blur 4.
  * Faner og deler (section_order/section_hidden per fane, tab_order/tab_hidden):
  *   kalender: main · hytta: sok, steder, seg · framover: filter, hero, kommende, plex · bursdager: hero, kommende ·
- *   posten: posten, postnord, pakker
+ *   posten: kort, postnord (av/på), pakker   (46: gamle `posten` = `kort`; `postnord` står alltid rett etter kortet)
  * Config:
  *   src: { hytta, bday, post, parcel, postnord, sonarr, radarr, plex }   # overstyring (tom = automatisk, 'none' = av;
  *     `sources: { postnord }` leses også) · postnord_outgoing: true = «Vis pakker jeg sender» (standard skjult)
@@ -37,9 +37,14 @@
  *   rolle = registerets translation_key → unique_id-suffiks → entity_id-suffiks (engelsk eller norsk), gruppert per
  *   enhet/config entry («PostNord (<konto>)»); overstyring per rolle i `sources.postnord.<rolle>` (`src.postnord.<rolle>`
  *   leses også), `postnord_view: account|merged`. 42.1 blå prikk 7 px øverst til høyre + forklaring + leveringsrad for
- *   valgt dag (kalender-hendelser for de 14 dagene som vises); 42.2 seksjonen `postnord` (Oppdater, 4 tall-fliser =
- *   filter på Pakker, Neste levering, Siste vellykkede oppdatering); 42.3 én rad per `…_pakke_<kode>`, utgående med
+ *   valgt dag (kalender-hendelser for de 14 dagene som vises); 42.2 (erstattet av 46); 42.3 én rad per `…_pakke_<kode>`, utgående med
  *   «PostNord · Utgående», filter-chip i Pakker-headeren, entity_registry_updated mens popupen er åpen.
+ * Fiks 46 · «Når kommer Posten» + PostNord = ÉTT kompakt kort (padding 16, gap 12): topp (tittel 12px med rødt
+ *   mail-ikon, «I morgen» 26/300, dato 12px, chip øverst til høyre) → rutenett med blå PostNord-prikker → leveringsrad
+ *   (pn_row: valgt = bare valgt dag med levering, alltid = også neste levering uten valgt dag) → tall-chips
+ *   Inn/Hentes/Levert/Ut (summert over kontoene, trykk = filter på Pakker) + oppdater (button.press på alle kontoenes
+ *   knapper). Delen `postnord` («PostNord-tall», øye) av → chips, oppdater, prikker og leveringsrad skjules.
+ *   Det egne PostNord-kortet (42.2), forklaringen og `postnord_view` er fjernet (gammel config tolereres).
  */
 (function () {
   const M = window.MSH;
@@ -55,7 +60,7 @@
     hytta: [['sok', 'Søk'], ['steder', 'Steder'], ['seg', 'Kalender/Opphold/Statistikk']],
     framover: [['filter', 'Filter'], ['hero', 'Neste utgivelse'], ['kommende', 'Kommende'], ['plex', 'Nylig i Plex']],
     bursdager: [['hero', 'Neste bursdag'], ['kommende', 'Kommende']],
-    posten: [['posten', 'Når kommer Posten'], ['postnord', 'PostNord'], ['pakker', 'Pakker']], // 42.2: PostNord mellom kortet og Pakker
+    posten: [['kort', 'Når kommer Posten'], ['postnord', 'PostNord-tall'], ['pakker', 'Pakker']], // 46: PostNord-tall = av/på for PostNord i kortet
   };
   const SRC = [
     ['hytta', 'Hyttebesøk', 'mdi:home-roof', C.green],
@@ -453,23 +458,6 @@
     if (f && t && hasT(f) && dk(f) === dk(t)) return `${day} ${tShort(f)}–${tShort(t)}`;
     return hasT(a) ? `${day} ${tShort(a)}` : day;
   }
-  // 42.2 «Neste levering»: «I dag 14–18» · «I morgen 9» · «Fre 2. okt»
-  function pnNext(f, t) {
-    if (!f) return '–';
-    const n = dayDiff(new Date(), f);
-    if (n === 0 || n === 1) { const w = hasT(f) ? (t && hasT(t) && dk(t) === dk(f) && t > f ? `${tShort(f)}–${tShort(t)}` : tShort(f)) : ''; return (n ? 'I morgen' : 'I dag') + (w ? ' ' + w : ''); }
-    return `${DAG_S[f.getDay()]} ${dShort(f)}`;
-  }
-  // 42.2 «Siste vellykkede oppdatering»: relativ tid
-  function pnAgo(d) {
-    if (!d) return '–';
-    const s = Math.round((Date.now() - d.getTime()) / 1000);
-    if (s < 60) return 'nå';
-    if (s < 3600) return `for ${Math.round(s / 60)} min siden`;
-    if (s < 6 * 3600 || dayDiff(d, new Date()) === 0) return `for ${Math.round(s / 3600)} t siden`;
-    if (dayDiff(d, new Date()) === 1) return `i går ${hm(d)}`;
-    return `${dShort(d)} ${hm(d)}`;
-  }
   const pnWeight = (w) => { if (w == null || w === '') return ''; if (typeof w === 'number' || /^\d+(\.\d+)?$/.test(String(w))) return String(Math.round(Number(w) * 100) / 100).replace('.', ',') + ' kg'; return str(w); };
   function pnItem(key, e) {
     const p = e.p || {}, code = pnCode(p);
@@ -495,7 +483,7 @@
     if (kind === 'levert' && dAt) meta = 'Levert ' + (dayDiff(new Date(), dAt) >= -1 ? dayWord(dAt).toLowerCase() : `${DAG_L[dAt.getDay()]} ${dShort(dAt)}`) + (hasT(dAt) ? ' ' + hm(dAt) : '');
     // 42.3: utgående – «Til <mottaker> · estimert <dato>»
     if (out) { const ed = from ? (dayDiff(new Date(), from) === 0 ? 'i dag' : dayDiff(new Date(), from) === 1 ? 'i morgen' : `${DAG_S[from.getDay()].toLowerCase()} ${dShort(from)}`) : ''; meta = `Til ${receiver || '–'} · ${kind !== 'levert' && ed ? 'estimert ' + ed : meta}`; }
-    return { id: key, pn: true, code, status: s, kind, col, icon: out ? 'mdi:inbox-arrow-up' : icon, label, raw, meta, name, url: str(p.url || p.tracking_url || p.link || p.deep_link), events, account: !!e.account, dir: e.dir, sensor: e.psensor || e.sensor, acct: e.acct || null,
+    return { id: key, pn: true, code, status: s, kind, col, icon: out ? 'mdi:inbox-arrow-up' : icon, label, raw, meta, name, method, from, to, sender, url: str(p.url || p.tracking_url || p.link || p.deep_link), events, account: !!e.account, dir: e.dir, sensor: e.psensor || e.sensor, acct: e.acct || null,
       chip: out ? 'PostNord · Utgående' : 'PostNord',
       facts: [['Leveringsmåte', method], ['Avsender', sender], ...(out ? [['Mottaker', receiver]] : []), ['Vekt', pnWeight(p.weight != null ? p.weight : p.weight_kg)], ['Sporingsnummer', code]].filter((f) => f[1]) };
   }
@@ -543,8 +531,8 @@
     });
     return [...by.entries()].map(([k, e]) => pnItem(k, e)).sort((a, b) => PN_RANK[a.kind] - PN_RANK[b.kind]);
   }
-  // 42.2 filtrene (tall-flisene) på Pakker-lista
-  const PN_TILES = [['in', 'Innkommende', 'incoming_parcels'], ['klar', 'Klar for henting', 'awaiting_pickup'], ['lev', 'Leverte', 'delivered_parcels'], ['out', 'Utgående', 'outgoing_parcels']];
+  // 42.2/46 filtrene (tall-chipsene) på Pakker-lista
+  const PN_TILES = [['in', 'Innkommende', 'incoming_parcels', 'Inn'], ['klar', 'Klar for henting', 'awaiting_pickup', 'Hentes'], ['lev', 'Leverte', 'delivered_parcels', 'Levert'], ['out', 'Utgående', 'outgoing_parcels', 'Ut']]; // 46: kort etikett i chipsen
   const PN_FK = { in: (x) => x.dir !== 'out' && x.kind !== 'levert', klar: (x) => x.dir !== 'out' && x.kind === 'klar', lev: (x) => x.dir !== 'out' && x.kind === 'levert', out: (x) => x.dir === 'out' && x.kind !== 'levert' };
   const PN_RLAB = { incoming_parcels: 'Innkommende', awaiting_pickup: 'Klar for henting', delivered_parcels: 'Leverte', next_delivery: 'Neste levering', last_update: 'Siste vellykkede oppdatering', outgoing_parcels: 'Utgående', outgoing_delivered_parcels: 'Utgående leverte', refresh: 'Oppdater-knapp', deliveries: 'Leveringskalender' };
 
@@ -577,9 +565,18 @@
   const ADDCAL = new Set(); // «Legg til kalender»-listen er åpen (card_id)
   const tabOrder = (c) => { const k = TABS.map((t) => t[0]); const o = (Array.isArray(c.tab_order) ? c.tab_order : []).filter((x) => k.includes(x)); k.forEach((x) => { if (!o.includes(x)) o.push(x); }); return o; };
   const tabHidden = (c) => { const h = c.tab_hidden; return new Set(Array.isArray(h) ? h : h && typeof h === 'object' ? Object.keys(h).filter((k) => h[k]) : []); };
+  // 46: gamle del-id-er (Posten: `posten` → `kort`)
+  const PART_ALIAS = { posten: { posten: 'kort' } };
+  const partIds = (t, L) => uniq((Array.isArray(L) ? L : []).map((x) => (PART_ALIAS[t] && PART_ALIAS[t][x]) || x));
   // Nye deler (f.eks. 42.2 PostNord) i en lagret rekkefølge: rett etter delen som står foran dem som standard
-  const partOrder = (c, t) => { const k = PARTS[t].map((p) => p[0]); const o = (((c.section_order || {})[t]) || []).filter((x) => k.includes(x)); k.forEach((x, i) => { if (o.includes(x)) return; const prev = k.slice(0, i).reverse().find((y) => o.includes(y)); o.splice(prev ? o.indexOf(prev) + 1 : 0, 0, x); }); return o; };
-  const partHidden = (c, t) => new Set(((c.section_hidden || {})[t]) || []);
+  const partOrder = (c, t) => {
+    const k = PARTS[t].map((p) => p[0]); const o = partIds(t, ((c.section_order || {})[t])).filter((x) => k.includes(x));
+    k.forEach((x, i) => { if (o.includes(x)) return; const prev = k.slice(0, i).reverse().find((y) => o.includes(y)); o.splice(prev ? o.indexOf(prev) + 1 : 0, 0, x); });
+    if (t === 'posten') { o.splice(o.indexOf('postnord'), 1); o.splice(o.indexOf('kort') + 1, 0, 'postnord'); } // 46: «PostNord-tall» er en bryter for kortet, ikke en egen plass
+    return o;
+  };
+  const partHidden = (c, t) => new Set(partIds(t, ((c.section_hidden || {})[t])));
+  const PART_FIXED = { posten: ['postnord'] }; // 46: ingen dra-håndtak (følger kortet)
   const visTabs = (c) => { const hid = tabHidden(c); const o = tabOrder(c).filter((k) => !hid.has(k)); return o.length ? o : ['kalender']; };
   const hdl = (list) => `<span class="kdrag" data-edrag="${esc(list)}" title="Dra for rekkefølge" style="touch-action:none;cursor:grab;display:inline-flex;color:var(--ki-text-mid, #979797);padding:8px 2px">${M.icon('mdi:drag', 20)}</span>`;
   const eyeB = (key, op, t, v, hid, label) => `<button class="ib" data-a="fn" data-k="${key}" data-op="${op}" data-t="${esc(t || '')}" data-v="${esc(v || '')}" aria-label="${hid ? 'Vis' : 'Skjul'} ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 20, `color:${hid ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text, #fafafa)'}`)}</button>`;
@@ -658,7 +655,7 @@
           <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px">${esc(label)}${M.startTab && M.startTab.pill ? M.startTab.pill(cc, k, visTabs(cc), cc.startTab) : ''}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length} ${P.length === 1 ? 'del' : 'deler'}</span></span>
           ${P.length > 1 ? `<button class="ib" data-a="fn" data-k="${key}" data-op="exp" data-v="${k}" aria-expanded="${isO}" aria-label="Deler i ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:chevron-down', 22)}</button>` : ''}
           ${eyeB(key, 'eye', '', k, hid.has(k), label)}</div>`;
-        const parts = isO ? partOrder(cc, k).map((p) => { const pl = P.find((x) => x[0] === p)[1]; return `<div class="ordrow kpart" data-edk="${p}" data-elist="sec:${k}" data-key="kp-${k}-${p}" style="height:52px;border-radius:26px;margin-left:28px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;${ph.has(p) ? 'opacity:.5' : ''}">${hdl('sec:' + k)}<span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`; }).join('') : '';
+        const parts = isO ? partOrder(cc, k).map((p) => { const pl = P.find((x) => x[0] === p)[1], fx = (PART_FIXED[k] || []).includes(p); return `<div class="ordrow kpart" data-edk="${p}" data-elist="sec:${k}" data-key="kp-${k}-${p}" style="height:52px;border-radius:26px;margin-left:${fx ? 52 : 28}px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:8px;padding:0 6px 0 ${fx ? 14 : 10}px;${ph.has(p) ? 'opacity:.5' : ''}">${fx ? '' : hdl('sec:' + k)}<span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`; }).join('') : '';
         return row + parts;
       }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Pilen viser delene i fanen, øyet skjuler. Minst én fane må være synlig.</span></div>`;
     }, click: (dd, ed) => {
@@ -671,7 +668,7 @@
         M.haptic('selection'); return ed._set('tab_hidden', hid.size ? [...hid] : undefined);
       }
       if (dd.op === 'peye') {
-        const S = { ...(cc.section_hidden || {}) }, s = new Set(S[dd.t] || []);
+        const S = { ...(cc.section_hidden || {}) }, s = new Set(partIds(dd.t, S[dd.t])); // 46: gamle id-er normaliseres
         if (s.has(dd.v)) s.delete(dd.v); else s.add(dd.v);
         if (s.size) S[dd.t] = [...s]; else delete S[dd.t];
         M.haptic('selection'); return ed._set('section_hidden', Object.keys(S).length ? S : undefined);
@@ -775,7 +772,7 @@
         return ed._set('sources', Object.keys(S).length ? S : undefined);
       }
     } };
-    const pnView = { type: 'select', name: 'postnord_view', label: 'PostNord-seksjonen', options: [['account', 'Én per konto'], ['merged', 'Slått sammen']], default: 'account', help: 'Med flere PostNord-kontoer: én seksjon per konto, eller alle slått sammen.' };
+    // 46: `postnord_view` (eget PostNord-kort per konto) er fjernet – tallene summeres i «Når kommer Posten»
     // Fiks 40: PostNord-pakker jeg sender (konto: *_outgoing_parcels) – standard skjult
     const pnOut = { type: 'boolean', name: 'postnord_outgoing', label: 'Vis pakker jeg sender', default: false, help: 'PostNord-konto: vis også pakker du har sendt i Pakker.' };
     const spacing = { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
@@ -796,6 +793,8 @@
         }
         return `<div class="f" data-name="default_view"><label>Startvisning</label><div class="chips sg">${[['list', 'Liste'], ['month', 'Måned']].map(([k, l]) => `<button class="chip ${k === v ? 'on' : ''}" aria-selected="${k === v}" data-a="fn" data-k="${key}" data-op="dv" data-v="${k}">${l}</button>`).join('')}</div><span class="help">${help}</span></div>`;
       }, click: (dd, ed) => { if (dd.op !== 'dv') return; M.haptic('selection'); if ((ed._config || {}).defaultView != null) { const n = { ...ed._config }; delete n.defaultView; ed._config = n; } return ed._set('default_view', dd.v); } },
+      // 46: leveringsraden i «Når kommer Posten» – bare for valgt dag, eller alltid (uten valgt dag: neste levering)
+      { type: 'select', name: 'pn_row', label: 'PostNord-levering i Posten', options: [['valgt', 'Ved valgt dag'], ['alltid', 'Alltid']], default: 'valgt', help: 'Ved valgt dag: raden vises når du trykker på en dag med levering. Alltid: uten valgt dag vises neste PostNord-levering.' },
       { type: 'boolean', name: 'showPlex', label: 'Vis «Nylig i Plex»', default: true },
       { type: 'boolean', name: 'birthdayToday', label: 'Konfetti når noen har bursdag i dag', default: true },
       spacing,
@@ -804,7 +803,7 @@
       { type: 'tabs', id: 'kalender', tabs: [
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [faner, ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })), mode: (cc) => (cc.tab_labels === 'name' ? 'tekst' : 'aktiv'), native: 40, gear: true })] : [])] }, // 33.4: fanehøyde
         { key: 'kalendere', label: 'Kalendere', icon: 'mdi:calendar-multiple', focus: ['kalendere'], fields: [kal] },
-        { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder'], fields: [info, ...SRC.map(kilde), pnRoles, pnView, pnOut] },
+        { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder'], fields: [info, ...SRC.map(kilde), pnRoles, pnOut] },
         { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing', 'visning'], fields: visning },
       ] },
       { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); resetCfg(hh, cc, ed); } }, // også i headeren (36.7); knappen er dekkende #3a3a3a
@@ -847,7 +846,7 @@
     onOpen() { this._ui = { ...this._ui, kview: null, fview: null, btn: 'view', pSel: null }; this._pnSub(); this.update(); }
     // 36.5: startfane ved åpning (MSH.startTab via basekortet) – start_tab, ellers gamle startTab
     static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (c) => c.startTab }; }
-    onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null, pMsg: null, pnF: null }; this._pnUnsub(); if (this._pnNow) this._pnNow.clear(); clearTimeout(this._pnRegT); clearTimeout(this._pnRegT2); }
+    onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null, pMsg: null, pnF: null }; this._pnUnsub(); clearTimeout(this._pnRegT); clearTimeout(this._pnRegT2); }
     // Fiks 40.5: PostNord-hendelsene kun mens popupen er åpen (ingen polling – integrasjonen poller selv).
     // onClose kalles også fra disconnectedCallback (basekortet), så abonnementet avsluttes alltid.
     _pnSub() {
@@ -1398,48 +1397,24 @@
       // Fiks 42: PostNord-kontoene (registeret) – alle entitetene er avhengigheter (nye/forsvunne pakke-sensorer tegnes)
       const accts = pnAccounts(h, c);
       accts.forEach((A) => { Object.values(A.roles).forEach((id) => this.s(id)); A.parcels.forEach((x) => this.s(x.id)); });
-      const pnSecOn = accts.length > 0 && parts.includes('postnord');
+      // 46: «PostNord-tall» (delen `postnord`) av → ingen PostNord i kortet (chips, oppdater, prikker, leveringsrad)
+      const pnOn = accts.length > 0 && parts.includes('postnord');
       let F = this.ui.pnF && PN_FK[this.ui.pnF.k] ? this.ui.pnF : null;
       if (F && F.a !== '*' && !accts.some((A) => A.key === F.a)) F = null;
+      let chipsRef = false; // oppdater-knappen står i kortet → ikke i Pakker-headeren
       parts.forEach((p) => {
-        if (p === 'posten') {
-          const id = srcOf(h, c, 'post'); if (id) { this.s(id); this.s(id + '_relative'); }
-          const P = postData(h, id);
-          if (!P) { out.push(this._hdr('Når kommer Posten') + this._missing('Ingen Posten-sensor', 'kilder')); return; }
-          const now = d0(new Date()), n = P.next ? dayDiff(now, P.next) : null, today = n === 0;
-          const days = []; for (let d = now; days.length < 10; d = addD(d, 1)) if (d.getDay() !== 0 && d.getDay() !== 6) days.push(d);
-          // 42.1: leveringskalenderen(e) – hendelser bare for dagene som vises (14 dager), mens popupen er åpen
-          const cals = uniq(accts.map((A) => A.roles.deliveries));
-          let pnDays = null; const pnEv = new Map();
-          if (cals.length) {
-            pnDays = new Set();
-            const end = addD(days[days.length - 1], 1);
-            cals.forEach((cal) => { this.s(cal); (this._ev(cal, now, end) || []).forEach((e) => { for (let d = d0(e.start), i = 0; d <= d0(e.end) && i < 15; d = addD(d, 1), i++) { const k = dk(d); pnDays.add(k); if (!pnEv.has(k)) pnEv.set(k, []); pnEv.get(k).push(e); } }); });
-          }
-          let rel = P.next ? (n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n <= 6 ? `På ${DAG_L[P.next.getDay()]}` : dShort(P.next)) : '–';
-          let sub = P.rel && P.rel.toLowerCase() !== rel.toLowerCase() ? P.rel : P.next ? `${DAG_L[P.next.getDay()]} ${dShort(P.next)}${n > 1 ? ' · ' + relDays(n) : ''}` : '';
-          // 36.6: valgt dag (trykk i rutenettet) → «I morgen» / «Om 5 dager» + «tirsdag 29. sep · posten kommer|ingen utdeling»
-          const sk = this.ui.pSel && days.some((d) => dk(d) === this.ui.pSel) ? this.ui.pSel : null;
-          if (sk) { const sd = fromKey(sk), sn = dayDiff(now, sd); rel = sn === 0 ? 'I dag' : sn === 1 ? 'I morgen' : `Om ${sn} dager`; sub = `${DAG_L[sd.getDay()]} ${dShort(sd)} · ${P.dates.has(sk) ? 'posten kommer' : 'ingen utdeling'}`; }
-          // 42.1: valgt dag (ellers i dag) med PostNord-levering → rad(er) under rutenettet
-          const dEv = pnDays ? (pnEv.get(sk || dk(now)) || []).slice().sort((a, b) => a.start - b.start) : [];
-          const dRows = dEv.map((e) => `<div class="pnday" data-key="pnday-${esc(e.uid || e.summary)}-${e.start.getTime()}"><span class="pndi">${M.icon('mdi:truck-delivery', 18)}</span><span class="grow evc"><b class="ell">PostNord · ${esc(e.summary)}</b><span class="ell">${esc(e.allDay ? dayWord(e.start) : pnWin(e.start, e.end > e.start ? e.end : null))}</span></span></div>`).join('');
-          const leg = pnDays ? '<div class="pleg" aria-hidden="true"><span><i class="r"></i>Posten</span><span><i class="b"></i>PostNord-levering</span></div>' : '';
-          out.push(`<div class="card post" data-ent="${esc(id)}"><div class="pt"><span class="pic ${today ? 'on' : ''}">${M.icon('mdi:email', 26)}</span><div class="grow"><span class="pchip ${today ? 'on' : ''}">${today ? 'Posten kommer i dag' : 'Ikke i dag'}</span><b class="prel">${esc(rel)}</b><span class="dim psub">${esc(sub)}</span></div></div>
-            <div class="pg">${days.map((d) => { const k = dk(d), on = P.dates.has(k), sl = k === sk; return `<button class="pd ${on ? 'on' : ''} ${k === dk(now) ? 'today' : ''} ${sl ? 'sel' : ''}" data-act="psel" data-v="${k}" data-haptic="selection" aria-pressed="${sl}" aria-label="${esc(`${DAG_L[d.getDay()]} ${dShort(d)} · ${on ? 'posten kommer' : 'ingen utdeling'}${pnDays && pnDays.has(k) ? ' · PostNord-levering' : ''}`)}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b>${pnDays && pnDays.has(k) ? '<i class="pnd" aria-hidden="true"></i>' : ''}</button>`; }).join('')}</div>${leg}${dRows}</div>`);
-        }
-        if (p === 'postnord' && pnSecOn) out.push(this._pnSec(h, c, accts, F));
+        if (p === 'kort') { const r = this._postCard(h, c, accts, pnOn, F); chipsRef = r.ref; out.push(r.html); }
         if (p === 'pakker') {
           const nw = parcelsOf(h, c); nw.forEach((x) => this.s(x.id));
           // Fiks 40: PostNord i samme liste (sortert ute → klar → transport → avvik → levert); uten PostNord som før
           const pnS = pnSensors(h, c); pnS.forEach((id) => this.s(id));
           const pn = pnParcels(h, c, this._pnLive, { out: !!(F && F.k === 'out') });
           const all = pn.length ? [...nw, ...pn].sort((a, b) => PN_RANK[a.kind] - PN_RANK[b.kind]) : nw;
-          // 42.2: aktivt filter (tall-flis) → bare PostNord-pakkene i den kategorien (og kontoen)
+          // 42.2/46: aktivt filter (tall-chip) → bare PostNord-pakkene i den kategorien (alle kontoer, '*')
           const show = F ? all.filter((x) => x.pn && (F.a === '*' || x.acct === F.a) && PN_FK[F.k](x)) : this.ui.pDel ? all : all.filter((x) => x.kind !== 'levert');
           const nDel = all.filter((x) => x.kind === 'levert').length;
-          // 40.5: «Oppdater» i Pakker-headeren bare når PostNord-seksjonen (med egen oppdater-knapp) ikke vises
-          const pnBtn = pnS.length && !pnSecOn ? (accts.find((A) => A.roles.refresh) || { roles: {} }).roles.refresh : null;
+          // 40.5: «Oppdater» i Pakker-headeren bare når kortet ikke har oppdater-knappen (PostNord-tall av / kortet skjult)
+          const pnBtn = pnS.length && !chipsRef ? (accts.find((A) => A.roles.refresh) || { roles: {} }).roles.refresh : null;
           const fl = F ? (PN_TILES.find((t) => t[0] === F.k) || [])[1] : '';
           out.push(this._hdr('Pakker', `<span class="meta num">${all.filter((x) => x.kind !== 'levert').length || ''}</span>${F ? `<button class="pnfc press" data-act="pnfclr" data-haptic="selection" aria-label="Fjern filteret ${esc(fl)}">${esc(fl)}${M.icon('mdi:close', 16)}</button>` : ''}${pnBtn ? `<button class="add press" data-act="prefresh" data-id="${esc(pnBtn)}" aria-label="Oppdater pakker">${M.icon('mdi:refresh', 22)}</button>` : ''}<button class="add press" data-act="padd" aria-label="Legg til pakke">${M.icon(this.ui.pAdd ? 'mdi:close' : 'mdi:plus', 22)}</button>`));
           if (this.ui.pAdd) out.push(`<div class="card bform"><input data-input="pnum" value="${esc(this.ui.pNum || '')}" placeholder="Sporingsnummer" autocapitalize="characters" autocorrect="off" spellcheck="false"><button class="pri press" data-act="psave" data-haptic="off">${M.icon('mdi:package-variant-plus', 20)}Spor pakken</button>${this.ui.pMsg ? `<div class="pmsg" role="status">${M.icon('mdi:alert-circle-outline', 18)}<span>${esc(this.ui.pMsg)}</span></div>` : ''}</div>`);
@@ -1451,31 +1426,55 @@
       });
       return out.join('');
     }
-    // 42.2 · PostNord-seksjonen: én per konto (eller slått sammen, postnord_view: merged)
-    _pnSec(h, c, accts, F) {
-      const G = c.postnord_view === 'merged' && accts.length > 1 ? [{ key: '*', name: accts.map((A) => A.name).join(' · '), accts }] : accts.map((A) => ({ key: A.key, name: A.name, accts: [A] }));
-      return G.map((g) => this._pnCard(h, g, F)).join('');
-    }
-    _pnCard(h, g, F) {
-      const ids = (r) => uniq(g.accts.map((A) => A.roles[r]));
-      const num = (r) => { const L = ids(r).map((id) => h.states[id]).filter((st) => st && st.state !== '' && !isNaN(Number(st.state))); return L.length ? L.reduce((s, st) => s + Number(st.state), 0) : null; };
-      // Neste levering: tidligste neste_levering-sensor; tidsvinduets slutt fra pakken (planned_to) når den finnes
-      let nf = null, nbc = '';
-      ids('next_delivery').forEach((id) => { const st = h.states[id], d = st && pDate(st.state); if (d && (!nf || d < nf)) { nf = d; nbc = str((st.attributes || {}).barcode).toUpperCase(); } });
-      let nt = null;
-      if (nf && nbc) {
-        const pp = g.accts.flatMap((A) => [...A.parcels.filter((q) => q.code === nbc).map((q) => (h.states[q.id] || {}).attributes || {}), ...[A.roles.incoming_parcels].filter(Boolean).flatMap((id) => { const L = ((h.states[id] || {}).attributes || {}).parcels; return Array.isArray(L) ? L.filter((q) => q && pnCode(q) === nbc) : []; })]);
-        nt = pp.map((q) => pDate(q.planned_to || q.estimated_delivery_to)).find(Boolean) || null;
+    // 46 · «Når kommer Posten» med PostNord bakt inn – ÉTT kompakt kort. → { html, ref: oppdater-knappen vises }
+    _postCard(h, c, accts, pnOn, F) {
+      const id = srcOf(h, c, 'post'); if (id) { this.s(id); this.s(id + '_relative'); }
+      const P = postData(h, id);
+      const now = d0(new Date()), n = P && P.next ? dayDiff(now, P.next) : null, today = n === 0;
+      const days = []; for (let d = now; days.length < 10; d = addD(d, 1)) if (d.getDay() !== 0 && d.getDay() !== 6) days.push(d);
+      // 42.1: leveringer per dag – leveringskalenderen(e) (bare dagene som vises, mens popupen er åpen); uten kalender:
+      // pakkenes planlagte tidsvindu (planned_from/-to)
+      const pnEv = new Map(), add = (k, e) => { if (!pnEv.has(k)) pnEv.set(k, []); pnEv.get(k).push(e); };
+      const items = pnOn ? pnParcels(h, c, this._pnLive) : [];
+      if (pnOn) {
+        const end = addD(days[days.length - 1], 1), cals = uniq(accts.map((A) => A.roles.deliveries));
+        if (cals.length) cals.forEach((cal) => { this.s(cal); (this._ev(cal, now, end) || []).forEach((e) => { for (let d = d0(e.start), i = 0; d <= d0(e.end) && i < 15; d = addD(d, 1), i++) add(dk(d), e); }); });
+        else items.filter((x) => x.dir !== 'out' && x.kind !== 'levert' && x.from && d0(x.from) >= now && x.from < end).forEach((x) => add(dk(x.from), { summary: x.name, uid: x.code, start: x.from, end: x.to || x.from, allDay: !hasT(x.from), x }));
       }
-      // Siste vellykkede oppdatering – «nå» fra trykk på Oppdater til sensoren endrer seg
-      let last = null, now = false;
-      const NOW = this._pnNow || (this._pnNow = new Map());
-      ids('last_update').forEach((id) => { const st = h.states[id]; if (NOW.has(id)) { if (st && st.state === NOW.get(id)) now = true; else NOW.delete(id); } const d = st && pDate(st.state); if (d && (!last || d > last)) last = d; });
-      const btns = ids('refresh'), spin = this._pnSpin && this._pnSpin.k === g.key && Date.now() - this._pnSpin.t < 600;
-      const tiles = PN_TILES.map(([k, lab, r]) => { const v = num(r), on = !!F && F.k === k && F.a === g.key; return `<button class="pnt4 press ${on ? 'on' : ''}" data-act="pnf" data-v="${k}" data-g="${esc(g.key)}" data-haptic="selection" aria-pressed="${on}" aria-label="${esc(lab)}: ${v == null ? 'ukjent' : v}"><b class="num">${v == null ? '–' : v}</b><span>${esc(lab)}</span></button>`; }).join('');
-      return `<div class="card pnc" data-key="pnc-${esc(g.key)}"><div class="pnh"><span class="pnic">${M.icon('mdi:package-variant', 22)}</span><span class="pnt"><b>PostNord</b><span class="ell">${esc(g.name || '')}</span></span>${btns.length ? `<button class="pnr press ${spin ? 'spin' : ''}" data-act="pnref" data-g="${esc(g.key)}" data-ids="${esc(btns.join(','))}" data-haptic="off" aria-label="Oppdater PostNord">${M.icon('mdi:refresh', 22)}</button>` : ''}</div>
-        <div class="pnts">${tiles}</div>
-        <div class="pnl"><div><i>Neste levering</i><b>${esc(pnNext(nf, nt))}</b></div><div><i>Siste vellykkede oppdatering</i><b class="lo">${esc(now ? 'nå' : last ? pnAgo(last) : '–')}</b></div></div></div>`;
+      const has = (k) => pnEv.has(k);
+      let rel = P && P.next ? (n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n <= 6 ? `På ${DAG_L[P.next.getDay()]}` : dShort(P.next)) : '–';
+      let sub = !P ? '' : P.rel && P.rel.toLowerCase() !== rel.toLowerCase() ? P.rel : P.next ? `${DAG_L[P.next.getDay()]} ${dShort(P.next)}${n > 1 ? ' · ' + relDays(n) : ''}` : '';
+      // 36.6: valgt dag (trykk i rutenettet) → «I morgen» / «Om 5 dager» + «tirsdag 29. sep · posten kommer|ingen utdeling»
+      const sk = this.ui.pSel && days.some((d) => dk(d) === this.ui.pSel) ? this.ui.pSel : null;
+      if (sk) { const sd = fromKey(sk), sn = dayDiff(now, sd); rel = sn === 0 ? 'I dag' : sn === 1 ? 'I morgen' : `Om ${sn} dager`; sub = `${DAG_L[sd.getDay()]} ${dShort(sd)}${P ? ' · ' + (P.dates.has(sk) ? 'posten kommer' : 'ingen utdeling') : ''}${has(sk) ? ' · PostNord-levering' : ''}`; }
+      // Leveringsrad: valgt dag (begge valgene) · uten valgt dag bare «Alltid» (pn_row) → neste levering (i dag eller senere)
+      let dEv = [];
+      if (sk) dEv = (pnEv.get(sk) || []).slice().sort((a, b) => a.start - b.start);
+      else if (c.pn_row === 'alltid') { const k = [...pnEv.keys()].filter((x) => x >= dk(now)).sort()[0]; if (k) dEv = pnEv.get(k).slice().sort((a, b) => a.start - b.start).slice(0, 1); }
+      const dRows = dEv.map((e) => this._pnDay(e, items)).join('');
+      const grid = P || pnEv.size ? `<div class="pg">${days.map((d) => { const k = dk(d), on = !!P && P.dates.has(k), sl = k === sk; return `<button class="pd ${on ? 'on' : ''} ${k === dk(now) ? 'today' : ''} ${sl ? 'sel' : ''}" data-act="psel" data-v="${k}" data-haptic="selection" aria-pressed="${sl}" aria-label="${esc(`${DAG_L[d.getDay()]} ${dShort(d)}${P ? ' · ' + (on ? 'posten kommer' : 'ingen utdeling') : ''}${has(k) ? ' · PostNord-levering' : ''}`)}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b>${has(k) ? '<i class="pnd" aria-hidden="true"></i>' : ''}</button>`; }).join('')}</div>` : '';
+      const chips = pnOn ? this._pnChips(h, accts, F) : { html: '', ref: false };
+      // Uten Posten-sensor: toppen viser «–» + «Velg entitet» (kortet, chipsene og leveringsraden vises likevel)
+      const chip = P ? `<span class="pchip ${today ? 'on' : ''}">${today ? 'Posten kommer i dag' : 'Ikke i dag'}</span>` : '';
+      const subH = P || sk ? `<span class="psub">${esc(sub)}</span>` : this._missing('Ingen Posten-sensor', 'kilder');
+      return { ref: chips.ref, html: `<div class="card post" data-ent="${esc(id || '')}"><div class="pt"><div class="grow"><span class="ptl">${M.icon('mdi:email', 16)}Når kommer Posten</span><b class="prel">${esc(rel)}</b>${subH}</div>${chip}</div>${grid}${dRows}${chips.html}</div>` };
+    }
+    // 46 · leveringsraden: «PostNord · <avsender/pakke>» + «<vindu/estimat> · <status> · <leveringsmåte>» (pakke-attributtene)
+    _pnDay(e, items) {
+      const u = String(e.uid || '').toUpperCase(), sm = String(e.summary || '').trim();
+      const x = e.x || items.find((y) => y.code && (y.code === u || sm.toUpperCase().includes(y.code))) || items.find((y) => y.dir !== 'out' && y.name && y.name === sm) || null;
+      const win = e.allDay ? dayWord(e.start) : pnWin(e.start, e.end > e.start ? e.end : null);
+      const line = [win || (x && x.from ? pnWin(x.from, x.to) : ''), x ? x.label : '', x ? x.method : ''].filter(Boolean).join(' · ');
+      return `<div class="pnday" data-key="pnday-${esc(e.uid || sm)}-${e.start.getTime()}"><span class="pndi">${M.icon('mdi:truck-delivery', 18)}</span><span class="grow evc"><b class="ell">PostNord · ${esc((x && x.name) || sm || 'Pakke')}</b><span class="ell">${esc(line)}</span></span></div>`;
+    }
+    // 46 · tall-chips (summert over kontoene) = filter på Pakker + oppdater (button.press på alle kontoenes knapper)
+    _pnChips(h, accts, F) {
+      const ids = (r) => uniq(accts.map((A) => A.roles[r]));
+      const num = (r) => { const L = ids(r).map((id) => h.states[id]).filter((st) => st && st.state !== '' && !isNaN(Number(st.state))); return L.length ? L.reduce((s, st) => s + Number(st.state), 0) : null; };
+      const btns = ids('refresh'), spin = this._pnSpin && Date.now() - this._pnSpin.t < 600;
+      const tiles = PN_TILES.map(([k, lab, r, sh]) => { const v = num(r), on = !!F && F.k === k, t = `${lab}: ${v == null ? 'ukjent' : v}`; return `<button class="pnch press ${on ? 'on' : ''}" data-act="pnf" data-v="${k}" data-g="*" data-haptic="selection" aria-pressed="${on}" title="${esc(t)}" aria-label="${esc(t)}"><b class="num">${v == null ? '–' : v}</b><span>${esc(sh)}</span></button>`; }).join('');
+      const ref = btns.length ? `<button class="pnr press ${spin ? 'spin' : ''}" data-act="pnref" data-g="*" data-ids="${esc(btns.join(','))}" data-haptic="off" title="Oppdater PostNord" aria-label="Oppdater PostNord">${M.icon('mdi:refresh', 18)}</button>` : '';
+      return { ref: !!ref, html: `<div class="pnchs" data-key="pnchs">${tiles}${ref}</div>` };
     }
     _pRow(x) {
       const [lab, col, icon] = PK[x.kind], open = this.ui.pOpen === x.id;
@@ -1497,7 +1496,7 @@
           ${x.facts.length ? `<div class="facts">${x.facts.map(([k, v]) => `<span><i>${esc(k)}</i><b>${esc(v)}</b></span>`).join('')}</div>` : ''}
           <div class="pka">${x.url ? `<a class="press lnk" data-act="plink" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${M.icon('mdi:open-in-new', 18)}Åpne i PostNord</a>` : ''}${canUn ? `<button class="press" data-act="pnun" data-v="${esc(x.code)}" data-haptic="off">${M.icon('mdi:package-variant-remove', 18)}Slutt å spore</button>` : ''}${x.sensor ? `<button class="press" data-act="more" data-id="${esc(x.sensor)}">${M.icon('mdi:information-outline', 18)}Detaljer</button>` : ''}</div></div>` : ''}</div>`;
     }
-    // 42.2: Oppdater → button.press på kontoens oppdater-knapp; ikonet roterer 360° (0,6 s), «Siste oppdatering» = «nå»
+    // 42.2/46: Oppdater → button.press på alle kontoenes oppdater-knapper; ikonet roterer 360° (0,6 s), haptic success
     _pnRefresh(el) {
       const h = this.hass, ids = String(el.dataset.ids || '').split(',').filter(Boolean);
       if (!h || !ids.length) return;
@@ -1505,9 +1504,6 @@
       this._pnSpin = { k: el.dataset.g, t: Date.now() };
       el.classList.remove('spin'); void el.offsetWidth; el.classList.add('spin');
       clearTimeout(this._pnSpinT); this._pnSpinT = setTimeout(() => { this._pnSpin = null; this._upd(); }, 650);
-      const NOW = this._pnNow || (this._pnNow = new Map());
-      pnAccounts(h, this.config).filter((A) => ids.includes(A.roles.refresh)).forEach((A) => { const id = A.roles.last_update; if (id) NOW.set(id, (h.states[id] || {}).state); });
-      this._upd();
       ids.forEach((id) => { Promise.resolve(h.callService('button', 'press', { entity_id: id })).catch((e) => { M.haptic('warning'); M.toast('Kunne ikke oppdatere: ' + ((e && e.message) || e)); }); });
     }
     async _pnUntrack(code) {
@@ -1759,14 +1755,17 @@
         .bform{display:flex;flex-wrap:wrap;gap:8px;padding:10px}
         .bform input{flex:1 1 140px;min-width:0;height:44px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040));padding:0 16px;font-size:14px;color-scheme:dark}
         .bform .pri,.pka .pri{height:44px;padding:0 16px;border-radius:22px;background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:600;display:inline-flex;align-items:center;gap:6px;font-size:13px}
-        .post{padding:16px;display:flex;flex-direction:column;gap:14px}
-        .pt{display:flex;align-items:center;gap:14px}
-        .pic{width:60px;height:60px;border-radius:30px;display:grid;place-items:center;background:var(--ki-surface-2, rgba(250,251,252,.1));flex:none}
-        .pic.on{background:${C.red};color:var(--ki-on-accent, #232323)}
-        .pt .grow{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+        .post{padding:16px;display:flex;flex-direction:column;gap:12px}
+        .pt{display:flex;align-items:flex-start;gap:10px}
+        .pt .grow{display:flex;flex-direction:column;gap:2px;align-items:flex-start;min-width:0}
+        .ptl{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .ptl ha-icon{color:${AT(C.red)}}
+        .pt .pchip{flex:none}
+        .pt .miss{padding:2px 0 0;background:none;justify-content:flex-start;gap:6px;font-size:12px}.pt .miss .mdash,.pt .miss .mdash+span{display:none}.pt .miss .mt{flex-basis:auto;text-align:left}
+        .psub{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .pchip{height:24px;padding:0 10px;border-radius:12px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .pchip.on{background:${TONE(C.red, 0.25)};color:${AT(C.red)}}
-        .prel{font-size:22px;font-weight:500}
+        .prel{font-size:26px;font-weight:300;line-height:1.15;letter-spacing:-.02em}
         .pg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
         .pd{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;border:0;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));font:inherit;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,box-shadow .15s}
         .pd:active{transform:scale(.94)}
@@ -1799,29 +1798,17 @@
         .pd{position:relative}
         .pnd{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:${C.blue}}
         .pd.on .pnd{box-shadow:0 0 0 1.5px var(--ki-on-accent, #282828)}
-        .pleg{display:flex;align-items:center;gap:14px;padding:0 2px;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797))}
-        .pleg span{display:inline-flex;align-items:center;gap:5px}.pleg i{width:7px;height:7px;border-radius:50%}
-        .pleg i.r{background:${C.red}}.pleg i.b{background:${C.blue}}
-        .pnday{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 12px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040))}
+        .pnday{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 12px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040))}
+        .pnday b{font-size:13px;font-weight:500}.pnday .evc>span{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .pndi{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;flex:none;background:${C.blue};color:var(--ki-on-accent, #282828)}
-        .pnc{padding:16px;display:flex;flex-direction:column;gap:14px}
-        .pnh{display:flex;align-items:center;gap:12px}
-        .pnic{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none;background:${C.blue};color:var(--ki-on-accent, #282828)}
-        .pnt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-        .pnt>b{font-size:15px;font-weight:600}
-        .pnt>span{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
-        .pnr{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none;background:${WA(0.1)};color:var(--ki-text, var(--white,#fafafa))}
+        .pnchs{display:grid;grid-template-columns:repeat(4,minmax(min-content,1fr)) auto;gap:6px;align-items:center}
+        .pnch{min-width:min-content;height:36px;padding:0 4px;border-radius:18px;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;background:transparent;box-shadow:inset 0 0 0 1px ${WA(0.08)};color:var(--ki-text, var(--white,#fafafa));transition:background .15s,color .15s}
+        .pnch b{font-size:14px;font-weight:600;line-height:1}
+        .pnch span{flex:none;font-size:11px;line-height:1;color:var(--ki-text-mid, var(--gray700,#979797))}
+        .pnch.on{background:${C.blue};box-shadow:none;color:var(--ki-on-accent, #282828)}.pnch.on span{color:var(--ki-on-accent, #282828)}
+        .pnr{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:${WA(0.08)};color:var(--ki-text, var(--white,#fafafa))}
         .pnr.spin>*{animation:pnspin .6s ease}
         @keyframes pnspin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        .pnts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-        .pnt4{min-width:0;min-height:64px;padding:8px 10px;border-radius:16px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;text-align:left;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa));transition:background .15s,color .15s}
-        .pnt4 b{font-size:20px;font-weight:500;line-height:1.1}
-        .pnt4 span{font-size:11px;line-height:1.2;color:var(--ki-text-mid, var(--gray700,#979797))}
-        .pnt4.on{background:${C.blue};color:var(--ki-on-accent, #282828)}.pnt4.on span{color:var(--ki-on-accent, #282828)}
-        .pnl{display:flex;flex-direction:column;gap:8px;padding-top:12px;box-shadow:inset 0 1px 0 ${WA(0.06)}}
-        .pnl>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:13px}
-        .pnl i{font-style:normal;color:var(--ki-text-mid, var(--gray700,#979797))}
-        .pnl b{font-weight:500;text-align:right}.pnl b.lo{font-weight:400;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .pnfc{height:30px;padding:0 8px 0 12px;border-radius:15px;display:inline-flex;align-items:center;gap:4px;flex:none;font-size:12px;font-weight:600;background:${C.blue};color:var(--ki-on-accent, #282828)}
         .pka button:not(.pri){height:44px;padding:0 16px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:inline-flex;align-items:center;gap:6px;font-size:13px}
       `;
