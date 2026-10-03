@@ -739,20 +739,19 @@ Romkort for Hjem: temperatur, fukt, lys, termostat og varsler. Trykk åpner Rom-
 
 ## `msh-basseng-hero-card`
 
-Toppkortet i msh-basseng-card (innebygd via MSH.HEROES, fiks 26.14): vanntemperatur, status og animert pumpe/varmepumpe/tak/lys. Legges ikke som eget kort i popupen.
+Toppkortet i msh-basseng-card (innebygd via MSH.HEROES): bassengscenen med pumpe, varmepumpe, tak og lys, og – når toppkortet følger fanen – Varme-graf, Klor-uke og Spreder. Legges ikke som eget kort i popupen.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `area` | Område · area |  |
 | `name` | Navn |  |
 | `overrides.{water, pump, heat, cover, light, target, turnover}` | bytt entitet |  |
-| `anim` | Animasjoner (bølger, bobler, vifte og varme) · boolean | Animasjon |
-| `chips` | Statusikoner (pumpe, varme, tak og lys i bildet) · boolean | Animasjon |
+| `anim` | Animasjoner · boolean | Animasjon |
 | `vals.turnovers` | Omsetninger per døgn (mål) | Animasjon |
 
 ## `msh-basseng-card`
 
-Basseng (ÉTT kort, legges manuelt i en egen popup): toppkort, prosalinje, faner (Oversikt, Varme, Klor, Spreder), hurtigknapper (Lys, Pumpe, Varme, Stille, Stikkontakt) autokonfigurert, klorlogg og spreder.
+Basseng (ÉTT kort i popupen #basseng, 1:1 «Basseng v4 popup»): toppkort som følger fanen, hurtigknapper (Lys, Pumpe, Varme, Stille, Kontakt), faner (Oversikt, Varme, Klor, Spreder), klorlogg og spreder – autokonfigurert.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
@@ -782,13 +781,17 @@ Basseng (ÉTT kort, legges manuelt i en egen popup): toppkort, prosalinje, faner
 | `vals.loss_closed` | Varmetap med tak | Styring og verdier |
 | `vals.sun_through` | Sol gjennom taket | Styring og verdier |
 | `vals.klor_every` | Klortablett hver (dager) | Styring og verdier |
+| `vals.klor_remind` | Påminnelse · boolean | Styring og verdier |
+| `vals.spr_prog` | Program · boolean | Styring og verdier |
 | `vals.spr_every` | Start hver | Styring og verdier |
 | `vals.spr_max` | Maks per døgn | Styring og verdier |
 | `vals.spr_durs` | Varigheter (min) | Styring og verdier |
 | `vals.spr_frost` | Frostvakt · boolean | Styring og verdier |
-| `anim` | Animasjoner (bølger, bobler, vifte og varme) · boolean | Animasjon |
-| `chips` | Statusikoner (pumpe, varme, tak og lys i bildet) · boolean | Animasjon |
+| `anim` | Animasjoner · boolean | Visning |
+| `hero_follow` | Toppkortet følger fanen · boolean | Visning |
 | `show_sentence` | Setning i Oversikt · boolean | Visning |
+| `quick_mode` | Knappene viser (begge \| ikon) | Visning |
+| `tab_mode` | Fanene viser (tekst \| ikon \| begge) | Visning |
 | `toasts` | Bekreftelsesmeldinger · boolean | Visning |
 | `gap` | 4 / 8 / 18 px | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
@@ -1689,6 +1692,14 @@ Søppel-popupen (#soppel): neste tømming med søppelbil, fraksjoner, kalender o
 ## `msh-innstillinger-card`
 
 Innstillinger-popupen (#settings): God natt/God morgen, natt- og privatmodus, varsler fra KI Varslinger og sikkerhet (kategorier som faner) og KI Energi (fiks 27; dashbord-delen fjernet i fiks 33.3).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+
+
+## `msh-strom-card`
+
+Strøm-popup (#strom): toppkort, priser, forbruk, kurser og undersider
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
