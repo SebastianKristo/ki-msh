@@ -156,7 +156,7 @@ ok('Internett: tittel + «– · 9 ms» (ISP mangler → –), fliser Ned 38 / O
 await shot(p, 'net-internett');
 await sub(p, 'enheter');
 let D = await p.evaluate(() => ({ head: __A('.devs .ch > span').map(__t).join('|'), names: __A('.devs .dr b').map(__t), metas: __A('.devs .dm').map(__t), offCol: (__A('.devs .dm.off')[0] && __rgb(getComputedStyle(__A('.devs .dm.off')[0]).color)) }));
-ok('Enheter: gateway, switcher, AP-er (+ Protect-kameraer), «x av y online»', ['UDM Pro', 'Switch Kontor', 'Switch Stue', 'Switch Garasje', 'AP Stue', 'AP Loft', 'Innkjørsel'].every((n) => D.names.includes(n)) && /^Enheter\|\d+ av \d+ online$/.test(D.head), D);
+ok('Enheter: gateway, switcher, AP-er, ingen Protect-kameraer (brukervalg 35), «x av y online»', ['UDM Pro', 'Switch Kontor', 'Switch Stue', 'Switch Garasje', 'AP Stue', 'AP Loft'].every((n) => D.names.includes(n)) && !D.names.includes('Innkjørsel') && /^Enheter\|\d+ av \d+ online$/.test(D.head), D);
 ok('Enheter: «Frakoblet» i oransje, klienter som undertekst', D.metas[D.names.indexOf('AP Loft')] === 'Frakoblet' && D.offCol === '242,181,115' && D.metas[D.names.indexOf('AP Stue')] === '11 klienter', D);
 await click(p, '.devs .dr[data-v="dev_udm"]');
 D = await p.evaluate(() => { const w = __R('.devs .dw.open'); return w && { bg: getComputedStyle(w).backgroundColor, stats: [...w.querySelectorAll('.xt .xl')].map(__t), vals: [...w.querySelectorAll('.xt .xv')].map(__t), acts: [...w.querySelectorAll('.xa .ab')].map(__t), tg: [...w.querySelectorAll('.xgr b')].map(__t) }; });

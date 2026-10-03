@@ -67,16 +67,10 @@ ok('autokonfig: UniFi/Protect/Proxmox/Unraid funnet fra registrene', A.found ===
 ok('autokonfig: gateway, 3 switcher og AP-er (UniFi-enhetstyper)', /UDM Pro:ruter/.test(A.types) && ['Switch Kontor', 'Switch Stue', 'Switch Garasje'].every((n) => A.types.includes(n + ':switch')) && /AP Stue:ap/.test(A.types), A.types);
 ok('autokonfig HA: tillegg fra hassio-enheter + Supervisor (slug), systemmonitor/uptime, Core-oppdatering', A.addons === 'a0d7b954_esphome,a0d7b954_nodered,a0d7b954_vscode,core_mosquitto,core_samba' && A.sup && A.sys === 'sensor.system_monitor_processor_use,sensor.system_monitor_memory_usage,sensor.system_monitor_disk_usage,sensor.uptime' && A.core === 'update.home_assistant_core_update', A);
 
-/* ---------------------------------------------------------------- Nettverk: Protect i Enheter, Finn, rød tone, portnavn */
+/* ---------------------------------------------------------------- Nettverk: ingen Protect-kameraer i Enheter, Finn, rød tone, portnavn */
 await click(p, '.sb[data-v="enheter"]');
-let X = await p.evaluate(() => { const rows = __A('.devs .dw'); const f = (n) => rows.find((r) => __t(r.querySelector('b')) === n); return { innk: __t(f('Innkjørsel').querySelector('.dm')), hage: __t(f('Hage').querySelector('.dm')), ring: !!f('Ringeklokke') }; });
-ok('Protect-kameraer ligger som rader i Enheter (Opptak / Frakoblet), ingen Kameraer-underfane', X.innk === 'Opptak' && X.hage === 'Frakoblet' && X.ring && (await p.evaluate(() => !__R('.sb[data-v="kameraer"]'))), X);
-await click(p, '.devs .dr[data-v="dev_cam1"]');
-X = await p.evaluate(() => { const w = __R('.devs .dw.open'); return { stats: [...w.querySelectorAll('.xt .xl')].map(__t), tg: [...w.querySelectorAll('.xgr b')].map(__t), on: w.querySelector('.xgr .tg').classList.contains('on'), acts: [...w.querySelectorAll('.xa .ab')].map(__t) }; });
-ok('kamera utvidet: Opptaksmodus/Siste bevegelse/Bitrate …, «Opptak»-bryter på, «Start på nytt»', X.stats.slice(0, 3).join() === 'Opptaksmodus,Siste bevegelse,Bitrate' && X.tg.join() === 'Opptak' && X.on && X.acts.join() === 'Start på nytt', X);
-await clearCalls(p);
-await click(p, '.devs .dw.open .xgr .tg');
-ok('«Opptak» av → select.innkjorsel_recording_mode = never (Protect-støtten fra v5)', (await calls(p)).some((c) => /select\.select_option:.*innkjorsel_recording_mode.*never/.test(c)), await calls(p));
+let X = await p.evaluate(() => { const names = __A('.devs .dw').map((r) => __t(r.querySelector('b'))); return { names, kam: !!__R('.sb[data-v="kameraer"]') }; });
+ok('Protect-kameraer vises ikke i Enheter (brukervalg 35), ingen Kameraer-underfane', !['Innkjørsel', 'Hage', 'Ringeklokke'].some((n) => X.names.includes(n)) && X.names.includes('UDM Pro') && !X.kam, X);
 await click(p, '.devs .dr[data-v="dev_ap1"]');
 await clearCalls(p);
 await click(p, '.devs .dw.open [data-act="locate"]');
@@ -111,7 +105,7 @@ ok('«Bruk» (auto-valget) fjerner «none» fra config og Proxmox vises igjen', 
 await p.evaluate(async () => { window.__c._openPick('protect'); await new Promise((q) => setTimeout(q, 300)); const r = window.MSH.portals().pop().shadowRoot; r.querySelector('.rr[data-v="none"]').click(); r.querySelector('[data-p="apply"]').click(); });
 await wait(p, 700);
 pk = await p.evaluate(async () => { const c = JSON.stringify(window.__c.config.integrations); __R('[data-act="host"][data-v="net"]').click(); await new Promise((q) => setTimeout(q, 200)); __R('.sb[data-v="enheter"]').click(); await new Promise((q) => setTimeout(q, 300)); return { c, names: __A('.devs .dr b').map(__t) }; });
-ok('«Ingen» for Protect lagrer integrations.protect = none → kameraene borte fra Enheter', pk.c === '{"protect":"none"}' && !pk.names.includes('Innkjørsel') && pk.names.includes('UDM Pro'), pk);
+ok('«Ingen» for Protect lagrer integrations.protect = none (kameraene vises uansett ikke i Enheter)', pk.c === '{"protect":"none"}' && !pk.names.includes('Innkjørsel') && pk.names.includes('UDM Pro'), pk);
 await p.close();
 p = await page({ start_tab: 'unraid' }, null, () => { window.mockExtend(({ E, S }) => { Object.keys(E).forEach((id) => { if (E[id].platform === 'unraid') { delete E[id]; delete S[id]; } }); }); });
 S = await state(p);

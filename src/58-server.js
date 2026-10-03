@@ -10,8 +10,8 @@
  *      · Unraid Array · Gjester · HA Tillegg · Oppdateringer · System.
  *   Felles utvidbar liste (35.2: Gjester/Tillegg): søk (44 px), filterchips med antall, rader 60 px med bryter (stopPropagation),
  *   trykk = utvid (6 stat-fliser, bruksstolper, brytere, handlinger). Rød-tone-handlinger krever bekreftelse (to trykk).
- * Data (autokonfig, aldri mock – mangler → «–»): UniFi Network (unifi), UniFi Protect (unifiprotect – kameraene ligger som
- *   rader i Enheter), Proxmox VE (proxmoxve), Unraid (unraid, Glances som reserve), Home Assistant (hassio-entiteter,
+ * Data (autokonfig, aldri mock – mangler → «–»): UniFi Network (unifi), UniFi Protect (unifiprotect – kameraene vises ikke i Server;
+ *   brukervalg 35), Proxmox VE (proxmoxve), Unraid (unraid, Glances som reserve), Home Assistant (hassio-entiteter,
  *   systemmonitor/uptime + Supervisor via WS `supervisor/api` /addons, /addons/<slug>/info|stats).
  *   Integrasjonene oppdages fra config entries (config_entries/get) + entitets-/enhetsregisteret; manuelt valg
  *   integrations: { unifi, protect, proxmox, unraid: <entry_id|'none'> } via integrasjonsvelgeren (portalt ark).
@@ -1112,7 +1112,7 @@
     _devs(R) {
       const ex = new Set(this.config.exclude || []);
       const E = R.unifi.enheter.filter((e) => e.type !== 'enhet' && !ex.has(e.tracker) && !ex.has(e.cpu)).map((e) => ({ kind: e.type, e, id: e.dev }));
-      const K = R.found.protect ? R.protect.kameraer.filter((k) => !ex.has(k.cam)).map((k) => ({ kind: 'cam', e: k, id: k.dev })) : [];
+      const K = []; // brukervalg (35): UniFi Protect-kameraer vises ikke i Server → Enheter
       return [...E, ...K];
     }
     _camState(k) {
@@ -1569,7 +1569,9 @@
   M.POPUP_SUPERSEDE[HASH] = { name: 'Server', test: (cfg) => /custom:ki-(homelab|server|pve|unifi|rack)-card/.test(JSON.stringify(cfg || {})) };
   // Vilkår (strategi/allPopups): minst én av integrasjonene – entiteter i registeret eller en config entry
   M.popupNeeds = M.popupNeeds || {};
-  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && PLAT[e.platform] && e.platform !== 'glances') || (Array.isArray(CE.data) && CE.data.some((e) => e.domain !== 'glances'));
+  // brukervalg (35): UniFi Network, Proxmox VE, Unraid eller Home Assistant Supervisor (hassio) – ikke Glances eller UniFi Protect alene
+  const NEED_SKIP = { glances: 1, unifiprotect: 1 };
+  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && ((PLAT[e.platform] && !NEED_SKIP[e.platform]) || e.platform === 'hassio')) || (Array.isArray(CE.data) && CE.data.some((e) => !NEED_SKIP[e.domain]));
   M.server = { oppdag, oppdagHA, entries, entriesFor, openPick, INTEG, HOSTS, SUBS, tabsCfg, SUP };
   M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
 })();
