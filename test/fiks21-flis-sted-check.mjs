@@ -1,4 +1,5 @@
-// Fiks 21.2 (lås/garasje/alarm: én variant per tilstand) og 21.4 (standard steder Oslo/Toten/Strømstad i «Bytt sted»).
+// Fiks 21.2 (lås/garasje/alarm: én variant per tilstand) og 21.4 → Fiks 37 («Bytt sted»: ingen standardsteder lenger –
+// uten servere ingen meny/pil; eldre servers/this_server leses og skrives om til servere/server_navn én gang).
 import { createRequire } from 'node:module';
 import { readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -76,7 +77,7 @@ await setSt('alarm_control_panel.hjem', 'triggered');
 t = await tile('alarm');
 ok('21.2 alarm utløst: rød, mørk tekst', t && t.bg === 'rgb(242, 128, 115)' && t.fg === 'rgb(47, 47, 47)', t);
 
-/* ---------------- 21.4 */
+/* ---------------- 21.4 → Fiks 37 */
 const hdr = (cfg, loc) => p.evaluate(async ([cfg, loc]) => {
   document.getElementById('dash').innerHTML = '';
   const h = window.mockHass(); h.config = { ...(h.config || {}), location_name: loc };
@@ -85,54 +86,59 @@ const hdr = (cfg, loc) => p.evaluate(async ([cfg, loc]) => {
   c.hass = h; document.getElementById('dash').appendChild(c); window.__hd = c;
   await new Promise((q) => setTimeout(q, 400));
   const S = c._server();
-  return { names: S.list.map((x) => x.name), cur: S.cur, name: S.name };
+  return { names: S.list.map((x) => x.navn), cur: S.cur, name: S.name, pil: !!c.shadowRoot.querySelector('.ttl .pil') };
 }, [cfg, loc]);
+const OLD = [{ name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)' }, { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)' }, { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue)' }];
 let s = await hdr({}, 'Strømstad');
-ok('21.4 standardliste Oslo, Toten, Strømstad', s.names.join() === 'Oslo,Toten,Strømstad', s);
+ok('37: uten oppsett ingen standardliste og ingen pil (stedsnavnet fra location_name)', s.names.length === 0 && s.cur === -1 && !s.pil, s);
+s = await hdr({ servers: OLD, servers_init: true }, 'Strømstad');
+ok('21.4 seedet liste (servers) leses: Oslo, Toten, Strømstad', s.names.join() === 'Oslo,Toten,Strømstad' && s.pil, s);
 ok('21.4 location_name «Strømstad» markerer Strømstad', s.cur === 2, s);
-s = await hdr({}, 'STROMSTAD');
-ok('21.4 uten case/aksenter', s.cur === 2, s);
-s = await hdr({}, 'Bergen');
-ok('21.4 ingen treff → ingen markering', s.cur === -1, s);
-s = await hdr({ this_server: { name: 'toten' } }, 'Oslo');
-ok('21.4 this_server vinner', s.cur === 1, s);
-s = await hdr({ servers: [{ name: 'Oslo' }], servers_init: true }, 'x');
-ok('21.4 config er sannheten (slettede kommer ikke tilbake)', s.names.join() === 'Oslo', s);
+s = await hdr({ servere: 'Oslo, Strömstad=Strømstad, Toten' }, 'STRÖMSTAD');
+ok('37 uten case, ö = ø', s.cur === 1 && s.name === 'Strömstad', s);
+s = await hdr({ servers: OLD, servers_init: true }, 'Bergen');
+ok('21.4 ingen treff → ingen markering', s.cur === -1 && s.name === 'Bergen', s);
+s = await hdr({ servers: OLD, servers_init: true, this_server: { name: 'Toten' } }, 'Oslo');
+ok('21.4 this_server → server_navn vinner', s.cur === 1, s);
+s = await hdr({ servere: [{ navn: 'Oslo' }] }, 'x');
+ok('config er sannheten (slettede kommer ikke tilbake)', s.names.join() === 'Oslo', s);
 s = await hdr({ servers: [], servers_init: true }, 'x');
-ok('21.4 tom liste etter init forblir tom', s.names.length === 0, s);
-// Meny og melding
+ok('tom liste etter init forblir tom', s.names.length === 0 && !s.pil, s);
+// Meny: «Du er her» på Oslo, de andre med chevron; bytte = window.open (ingen toast)
 const menu = await p.evaluate(async () => {
-  const c = window.__hd; c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hd_m' }); c.hass = { ...c.hass, config: { ...c.hass.config, location_name: 'Oslo' } };
+  const c = window.__hd; c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hd_m', servere: 'Oslo, Toten, Strømstad', mode: 'hjem' }); c.hass = { ...c.hass, config: { ...c.hass.config, location_name: 'Oslo' } };
   await new Promise((q) => setTimeout(q, 300));
-  c._serverMenu(c.shadowRoot.querySelector('.ttl') || c);
-  await new Promise((q) => setTimeout(q, 300));
+  c.shadowRoot.querySelector('.ttl').click();
+  await new Promise((q) => setTimeout(q, 400));
   const all = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { all.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document);
-  const rows = all.filter((e) => e.classList && e.classList.contains('sv')).map((e) => e.textContent.trim());
-  const me = all.find((e) => e.classList && e.classList.contains('me'));
-  const toasts = [];
+  const rows = all.filter((e) => e.classList && e.classList.contains('rad') && !e.classList.contains('tilpass')).map((e) => e.textContent.replace(/\s+/g, ' ').trim());
+  const toasts = [], opened = [];
   const orig = window.MSH.toast; window.MSH.toast = (t) => { toasts.push(t); };
+  const oo = window.open; window.open = (u) => { opened.push(u); return null; };
   const r = c._goServer(c._server().list[1]);
-  window.MSH.toast = orig;
-  if (c._srv) c._srv.close();
-  return { rows, me: me && me.textContent, r, toasts };
+  window.MSH.toast = orig; window.open = oo;
+  c._srvClose(true);
+  return { rows, r, toasts, opened };
 });
-ok('21.4 menyen: Oslo markert (Du er her), Toten og Strømstad i listen', /Oslo/.test(menu.me || '') && menu.rows.map((x) => x.replace(/server=.*/, '')).join() === 'Toten,Strømstad', menu);
-ok('21.4/34.2 nettleser → melding «Bytt server i appen»', menu.r === 'toast' && /Bytt server i appen/.test(menu.toasts.join()), menu);
+ok('menyen: Oslo «Du er her», Toten og Strømstad i listen', menu.rows.join().replace(/\s/g, '') === 'OsloDuerher,Toten,Strømstad', menu);
+ok('37: bytte = window.open (ingen toast «Bytt server i appen»)', menu.opened.length === 1 && /^homeassistant:\/\/navigate\/[^?]+\?server=Toten$/.test(menu.opened[0]) && !menu.toasts.length, menu);
 
-// Skrives én gang til ki-store (servers + servers_init)
+// Ingen standardliste skrives lenger; eldre servers/this_server skrives om til servere/server_navn én gang
 const seed = await p.evaluate(async () => {
   const M = window.MSH, keep = M.store, sets = [];
-  M.store = { loaded: true, set: (k, v) => { sets.push([k, v]); }, get: () => undefined, subscribe: () => () => {}, data: {} };
+  M.store = { loaded: true, set: (k, v) => { sets.push([k, Array.isArray(v) ? v.map((x) => x.navn).join() : v]); }, get: () => undefined, subscribe: () => () => {}, card: () => null, data: {} };
   try {
-    document.getElementById('dash').innerHTML = '';
-    const c = document.createElement('msh-hjem-header-card');
-    c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hd_seed' }); c.hass = window.mockHass();
-    document.getElementById('dash').appendChild(c);
-    await new Promise((q) => setTimeout(q, 300)); c.update(); await new Promise((q) => setTimeout(q, 200));
+    for (const cfg of [{ card_id: 'hd_seed' }, { card_id: 'hd_seed2', servers: [{ name: 'Oslo' }, { name: 'Toten' }], servers_init: true }]) {
+      document.getElementById('dash').innerHTML = '';
+      const c = document.createElement('msh-hjem-header-card');
+      c.setConfig({ type: 'custom:msh-hjem-header-card', ...cfg }); c.hass = window.mockHass();
+      document.getElementById('dash').appendChild(c);
+      await new Promise((q) => setTimeout(q, 300)); c.update(); await new Promise((q) => setTimeout(q, 200));
+    }
   } finally { M.store = keep; }
-  return sets.map(([k, v]) => [k, Array.isArray(v) ? v.map((x) => x.name).join() : v]);
+  return sets.map(([k, v]) => [k.split('.').slice(-1)[0], v === undefined ? '∅' : v]);
 });
-ok('21.4 standardlisten skrives én gang (servers + servers_init)', seed.length === 2 && /\.servers$/.test(seed[0][0]) && seed[0][1] === 'Oslo,Toten,Strømstad' && /servers_init$/.test(seed[1][0]) && seed[1][1] === true, seed);
+ok('37: ingen standardliste skrives; eldre servers skrives om én gang (servere + gamle nøkler fjernes)', seed.length === 3 && seed[0][0] === 'servere' && seed[0][1] === 'Oslo,Toten' && seed.slice(1).every((x) => x[1] === '∅') && seed.map((x) => x[0]).join() === 'servere,servers,servers_init', seed);
 
 ok('ingen sidefeil', !errs.length, errs);
 console.log(res.join('\n'));

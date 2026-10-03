@@ -13,7 +13,7 @@
  * (MSH.saveCardConfig, scope 'shared', venter på svar, deaktivert mens det lagres), Esc / hash-bytte forkaster.
  * Endret et annet sted mens arket er åpent → banner «Last inn». getConfigElement() bruker samme nøkler (static schema).
  * Config-nøkler (arket ⇄ GUI-editoren; eldre v4-nøkler leses fortsatt og flyttes ved Ferdig – se migrateV4):
- *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, også mellom lys-radene når tile_gap mangler), tile_gap, cols (1–3;
+ *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, mellom seksjonene), tile_gap (mellom lys-radene, std 14), cols (1–3;
  *             eldre columns), size (compact|standard|large → slider 44|52|60 px), slider_height (32–80, overstyrer size),
  *             color_mode (lamp|kelvin|single), on_color, off_color (bakgrunnen bak lys-radene), show_kelvin,
  *             top / bottom (Mellomrom: fra headeren / luft i bunnen; eldre pad_top / pad_bottom)
@@ -380,7 +380,7 @@
           ] },
           { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${gapOf(cc)} px mellom`, fields: [
             { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']] },
-            { type: 'range', name: 'tile_gap', label: 'Mellom lys-radene', icon: 'mdi:view-grid-outline', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']], help: 'Tomt = som «Mellom seksjonene»' },
+            { type: 'range', name: 'tile_gap', label: 'Mellom lys-radene', icon: 'mdi:view-grid-outline', min: 0, max: 24, default: 14, presets: [[8, 'Tett 8'], [14, 'Standard 14'], [18, 'Luftig 18']], help: 'Tomt = 14 px (Fiks 39)' },
             { type: 'range', name: 'top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 44, default: -10, presets: [[-20, 'Tett −20'], [-10, 'Standard −10'], [16, 'Luftig 16']] },
             { type: 'range', name: 'bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, step: 10, default: 150, presets: [[0, 'Ingen 0'], [150, 'Standard 150'], [220, 'Stor 220']] },
           ] },

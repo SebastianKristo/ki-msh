@@ -1,8 +1,9 @@
-// Fiks 31.7 · «Bytt sted» i hjem-headeren: standard Oslo / Toten / Strømstad uten oppsett (ikon, farge, navigation_path
-// URL-kodet), «Du er her» fra hass.config.location_name (case/æøå-normalisert, ellers ?server= i URL-en), rader med
-// «server=<navn>» (monospace 11 px #7f7f7f), bytte via navigation_path (app) / url (nettleser) / toast, eldre nøkler
-// (url_path/fallback_url) leses, redigerbart i Tilpass header → Steder (navn, ikon, farge, navigation_path, url,
-// rekkefølge, legg til/fjern, Tilbakestill) og i getConfigElement().
+// Fiks 31.7 → Fiks 37 · «Bytt sted» i hjem-headeren med config fra 31.7 (servers [{ name, icon, color, navigation_path,
+// url, url_path, fallback_url }]). Fiks 37 erstatter oppførselen: stedene leses som `servere` (les begge), ingen
+// standardliste uten oppsett, «Du er her» fra hass.config.location_name (lowercase, ö→ø, ä→æ), radene viser bare ikon +
+// navn + chevron, bytte = window.open(homeassistant://navigate/<sti>?server=<navn>) (sti fra eldre navigation_path),
+// ingen toast/location.href. Tilpass header → Steder redigerer `servere` (navn, server, ikon, farge, sti) også i
+// getConfigElement(). Full dekning: test/server37-check.mjs.
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -24,9 +25,11 @@ p.setDefaultTimeout(60000);
 const r = await p.evaluate(async () => {
   const M = window.MSH, w = (ms) => new Promise((q) => setTimeout(q, ms || 0));
   const deepAll = (sel) => { const o = []; const x = (rt) => rt.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) o.push(e); if (e.shadowRoot) x(e.shadowRoot); }); x(document); return o; };
+  const menu = () => deepAll('.msh-servermeny')[0] || null;
+  const opened = []; window.open = (u) => { opened.push(u); return null; };
   const out = {};
-  out.defs = M.hjemDefaultServers();
   const mk = async (cfg, loc) => {
+    if (menu()) menu().remove();
     document.getElementById('dash').innerHTML = '';
     const h = window.mockHass(); h.config = { ...(h.config || {}), location_name: loc };
     const c = document.createElement('msh-hjem-header-card');
@@ -35,69 +38,62 @@ const r = await p.evaluate(async () => {
     await w(300);
     return c;
   };
-  let c = await mk({}, 'strømstad');
-  out.here1 = c._server().cur;
-  c = await mk({}, 'TOTEN');
-  out.here2 = c._server().cur;
-  // meny: Toten = Du er her, Oslo og Strømstad i listen med server=<navn>
-  c._serverMenu(c.shadowRoot.querySelector('.ttl') || c); await w(300);
-  const sv = deepAll('.sv');
-  out.rows = sv.map((e) => e.querySelector('.nm b').textContent);
-  out.srvLine = sv.some((e) => /server=/.test(e.textContent) || e.querySelector('.srv'));
-  out.me = (deepAll('.me')[0] || {}).textContent;
-  if (c._srv) c._srv.close(); await w(200);
-  // bytte: app → navigation_path; nettleser → url / toast
-  const nav = []; const toasts = []; const oN = M.hjemNavigate, oT = M.toast, oA = M.hjemIsApp;
-  M.hjemNavigate = (u) => nav.push(u); M.toast = (t) => toasts.push(t);
+  const OLD = [
+    { name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)', navigation_path: 'homeassistant://navigate/lovelace?server=Oslo', url: 'https://oslo.example' },
+    { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)', url_path: 'homeassistant://navigate/gard?server=Toten', fallback_url: '' },
+    { name: 'Strömstad', icon: 'mdi:sail-boat', color: 'var(--blue)' },
+  ];
+  // uten oppsett: ingen standardliste → ingen meny og ingen pil
+  let c = await mk({}, 'Oslo');
+  out.defList = c._server().list.length; out.defPil = !!c.shadowRoot.querySelector('.ttl .pil');
+  c.shadowRoot.querySelector('.ttl').click(); await w(350); out.defMenu = !!menu();
+  // 31.7-config leses (les begge): Du er her fra location_name (ö/ø og store bokstaver)
+  c = await mk({ servers: OLD, servers_init: true }, 'STRØMSTAD');
+  out.here1 = c._server().name;
+  c = await mk({ servers: OLD, servers_init: true }, 'toten');
+  out.here2 = c._server().name;
+  c.shadowRoot.querySelector('.ttl').click(); await w(350);
+  const rows = menu() ? [...menu().shadowRoot.querySelectorAll('.rad:not(.tilpass)')] : [];
+  out.rows = rows.map((e) => ({ n: e.querySelector('.navn').textContent, her: !!e.querySelector('.her'), chev: !!e.querySelector('.gaa'), srv: /server=/.test(e.textContent), ic: e.querySelector('.flis ha-icon').getAttribute('icon') }));
+  // bytte: eldre url_path gir sti, url ignoreres, ingen toast, window.open
+  const toasts = []; const oT = M.toast; M.toast = (t) => toasts.push(t);
   try {
-    M.hjemIsApp = () => true;
-    out.goApp = c._goServer(c._server().list[2]);
-    M.hjemIsApp = () => false;
-    out.goWeb = c._goServer(c._server().list[0]);
-    out.goUrl = c._goServer({ name: 'Toten', url: 'https://toten.example/lovelace' }); // 34.2: url brukes ikke lenger
-    out.goOld = (M.hjemIsApp = () => true, c._goServer({ name: 'X', url_path: 'homeassistant://navigate/lovelace?server=X%20Y' }));
-  } finally { M.hjemNavigate = oN; M.toast = oT; M.hjemIsApp = oA; }
-  out.nav = nav; out.toasts = toasts;
-  // gamle seedede standardsteder (21.4: tomme url_path, gamle ikoner) virker og får nye ikoner
-  out.old = M.hjemServerNorm({ name: 'Oslo', icon: 'mdi:city', url_path: '', fallback_url: '' });
-  out.oldUrl = M.hjemServerUrl(out.old);
-  // editor: Tilpass header → Steder (rader, felt, Tilbakestill) – samme skjema i getConfigElement()
-  const ed = c.constructor.getConfigElement(); ed.hass = c.hass; ed.setConfig({ type: 'custom:msh-hjem-header-card', servers: [{ name: 'Bergen' }], servers_init: true });
+    rows.find((e) => /Oslo/.test(e.textContent)).click(); await w(200);
+    c.shadowRoot.querySelector('.ttl').click(); await w(350);
+    [...menu().shadowRoot.querySelectorAll('.rad')].find((e) => /Strömstad/.test(e.textContent)).click(); await w(200);
+    c = await mk({ servers: OLD, servers_init: true }, 'Oslo');
+    c.shadowRoot.querySelector('.ttl').click(); await w(350);
+    [...menu().shadowRoot.querySelectorAll('.rad')].find((e) => /Toten/.test(e.textContent)).click(); await w(200);
+  } finally { M.toast = oT; }
+  out.opened = opened; out.toasts = toasts;
+  // editor: Tilpass header → Steder (servere) – samme skjema i getConfigElement()
+  const ed = c.constructor.getConfigElement(); ed.hass = c.hass; ed.setConfig({ type: 'custom:msh-hjem-header-card', servere: 'Bergen, Strömstad=Strømstad' });
   document.body.appendChild(ed); await w(200);
   const chg = []; ed.addEventListener('config-changed', (e) => { chg.push(e.detail.config); });
   const R = ed.shadowRoot;
   const sec = R.querySelector('details[data-focus="servers"]'); if (sec) { sec.open = true; await w(100); }
-  out.edRows = [...R.querySelectorAll('[data-key^="servers-"] .xrh b')].map((x) => x.textContent);
-  const rb = [...R.querySelectorAll('.xbtn')].find((x) => /Tilbakestill steder/.test(x.textContent));
-  out.hasReset = !!rb;
-  if (rb) { rb.click(); await w(100); }
-  const last = chg[chg.length - 1] || {};
-  out.reset = (last.servers || []).map((x) => x.name + '|' + x.icon + '|' + x.color + '|' + (x.path || ''));
-  // åpne første rad → felt navn / ikon / farge / navigation_path / url
-  const ob = R.querySelector('[data-a="x-ropen"][data-n="servers"][data-i="0"]'); if (ob) { ob.click(); await w(100); }
-  out.fields = ['name', 'icon', 'color', 'path'].map((f) => !!R.querySelector(`[data-name="servers.0.${f}"]`));
-  const add = R.querySelector('[data-a="x-radd"][data-n="servers"]'); if (add) { add.click(); await w(100); }
-  out.added = ((chg[chg.length - 1] || {}).servers || []).length;
+  out.edRows = [...R.querySelectorAll('[data-key^="servere-"] .xrh b')].map((x) => x.textContent);
+  out.hasReset = [...R.querySelectorAll('.xbtn')].some((x) => /Tilbakestill steder/.test(x.textContent));
+  const ob = R.querySelector('[data-a="x-ropen"][data-n="servere"][data-i="1"]'); if (ob) { ob.click(); await w(100); }
+  out.fields = ['navn', 'server', 'ikon', 'farge', 'sti'].map((f) => !!R.querySelector(`[data-name="servere.1.${f}"]`));
+  out.srvVal = (R.querySelector('[data-name="servere.1.server"]') || {}).value;
+  const add = R.querySelector('[data-a="x-radd"][data-n="servere"]'); if (add) { add.click(); await w(100); }
+  out.added = ((chg[chg.length - 1] || {}).servere || []).length;
   ed.remove();
   return out;
 });
 console.log(JSON.stringify(r));
-const D = r.defs;
-ok(D.map((x) => [x.name, x.icon, x.color, x.path || ''].join('|')).join(',') === 'Oslo|mdi:office-building|var(--green)|,Toten|mdi:tractor|var(--yellow)|,Strømstad|mdi:sail-boat|var(--blue)|', 'standard servere ' + JSON.stringify(D));
-ok(r.here1 === 2 && r.here2 === 1, 'Du er her fra location_name ' + JSON.stringify([r.here1, r.here2]));
-ok(JSON.stringify(r.rows) === JSON.stringify(['Oslo', 'Strømstad']), 'rader ' + JSON.stringify(r.rows));
-ok(!r.srvLine, '34.2: ingen server=-linje i radene');
-ok(/Toten/.test(r.me || '') && /Du er her/.test(r.me || '') && !/server=/.test(r.me || ''), 'Du er her-raden ' + r.me);
-ok(r.goApp === 'app' && /^homeassistant:\/\/navigate\/[^?]+\?server=Str%C3%B8mstad$/.test(r.nav[0]), 'app: lenke ' + JSON.stringify([r.goApp, r.nav]));
-ok(r.goWeb === 'toast' && r.toasts.includes('Bytt server i appen'), 'nettleser → toast ' + JSON.stringify([r.goWeb, r.toasts]));
-ok(r.goUrl === 'toast' && r.nav.length === 2, '34.2: nettleser med url → toast, ingen navigering ' + JSON.stringify([r.goUrl, r.nav]));
-ok(r.goOld === 'app' && /\?server=X$/.test(r.nav[1]), 'eldre url_path (navnet er sannheten) ' + JSON.stringify(r.nav));
-ok(r.old.icon === 'mdi:office-building' && /\?server=Oslo$/.test(r.oldUrl), 'gamle seedede steder ' + JSON.stringify([r.old, r.oldUrl]));
-ok(r.edRows.join() === 'Bergen' && r.hasReset, 'editor: rader / Tilbakestill ' + JSON.stringify([r.edRows, r.hasReset]));
-ok(r.reset.length === 3 && r.reset[2] === 'Strømstad|mdi:sail-boat|var(--blue)|', 'Tilbakestill ' + JSON.stringify(r.reset));
-ok(r.fields.every(Boolean), 'editor-felt ' + JSON.stringify(r.fields));
-ok(r.added === 4, 'legg til sted ' + r.added);
+ok(r.defList === 0 && !r.defPil && !r.defMenu, '37: uten oppsett ingen standardliste, ingen pil og ingen meny ' + JSON.stringify([r.defList, r.defPil, r.defMenu]));
+ok(r.here1 === 'Strömstad' && r.here2 === 'Toten', 'Du er her fra location_name (ö/ø, case) ' + JSON.stringify([r.here1, r.here2]));
+ok(JSON.stringify(r.rows.map((x) => x.n)) === JSON.stringify(['Oslo', 'Toten', 'Strömstad']) && r.rows[1].her && !r.rows[1].chev && r.rows[0].chev && r.rows.every((x) => !x.srv), 'rader (ikon + navn + Du er her/chevron, ingen server=) ' + JSON.stringify(r.rows));
+ok(r.rows[0].ic === 'mdi:home-city-outline' && r.rows[1].ic === 'mdi:tractor-variant' && r.rows[2].ic === 'mdi:lighthouse', 'gamle standardikoner → nye standardikoner ' + JSON.stringify(r.rows.map((x) => x.ic)));
+ok(r.opened[0] === 'homeassistant://navigate/home?server=Oslo' && r.opened[1] === 'homeassistant://navigate/home?server=Strömstad', 'bytte: samme dashbord (første segment av pathname), ö ukodet, eldre navigation_path …/lovelace gir ingen sti ' + JSON.stringify(r.opened));
+ok(r.opened.length === 3 && r.opened[2] === 'homeassistant://navigate/gard?server=Toten', 'eldre url_path → sti, window.open ' + JSON.stringify(r.opened));
+ok(!r.toasts.length, 'ingen toast i nettleser (window.open) ' + JSON.stringify(r.toasts));
+ok(r.edRows.join() === 'Bergen,Strömstad' && !r.hasReset, 'editor: rader fra servere-streng, ingen Tilbakestill ' + JSON.stringify([r.edRows, r.hasReset]));
+ok(r.fields.every(Boolean) && r.srvVal === 'Strømstad', 'editor-felt navn/server/ikon/farge/sti ' + JSON.stringify([r.fields, r.srvVal]));
+ok(r.added === 3, 'legg til sted ' + r.added);
 ok(!errs.length, 'feil: ' + errs.join(' | '));
 await b.close();
-console.log(fails.length ? 'FEIL:\n- ' + fails.join('\n- ') : 'OK – header 31.7 steder');
+console.log(fails.length ? 'FEIL:\n- ' + fails.join('\n- ') : 'OK – header 31.7 steder (Fiks 37)');
 process.exit(fails.length ? 1 : 0);

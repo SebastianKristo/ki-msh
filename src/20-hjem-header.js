@@ -1155,18 +1155,23 @@
    * dashbordet er smalere enn 420 px), står side om side med hGap (≥ 0, aldri overlapp) og vises maks 3 + «+N».
    * Får ikke hilsen + bilder plass på én rad: ① hilsenen krymper ned til 32 px ② bildene flyttes til egen rad under
    * (høyrejustert, wrap) og hilsenen får hele bredden igjen ③ først da kortes navnet med «…» (min. 26 px).
-   * W = radens bredde, tw1 = tekstbredde per px skrift, arr = ▾ + mellomrom, n = antall personer.
-   * → { fs, av, gap, k, bs, wrap, cut } (k = bilder som vises; k < n → «+(n − k)»-sirkel etter dem) */
-  const HIL_MIN = { fs: 32, wrapFs: 26 };
+   * Fiks 37.4: før alt dette skjules ▾ (pil = false) når navn + pil ikke får plass i full størrelse.
+   * W = radens bredde, tw1 = tekstbredde per px skrift, arr = ▾ + mellomrom (0 = ingen pil), n = antall personer.
+   * → { fs, av, gap, k, bs, wrap, cut, pil } (k = bilder som vises; k < n → «+(n − k)»-sirkel etter dem) */
+  const HIL_MIN = { fs: 32, wrapFs: 26 }, HIL_ARR = 28; // HIL_ARR = ▾ 24 px + 4 px mellomrom
   const hilBadge = (S, av, narrow) => Math.max(8, Math.min(Math.round(av / 2), narrow ? Math.round(S.badge * HIL_NARROW.badge) : S.badge));
   const fitHil = (W, tw1, arr, n, S, narrow) => {
     const av = narrow ? Math.round(S.av * HIL_NARROW.av) : S.av, gap = S.gap, bs = hilBadge(S, av, narrow);
     let k = Math.min(n, HIL_MAX);
-    const R = (fs, wrap, cut) => ({ fs, av, gap, k, bs, wrap: !!wrap, cut: !!cut });
+    let a = arr;
+    const R = (fs, wrap, cut) => ({ fs, av, gap, k, bs, wrap: !!wrap, cut: !!cut, pil: a === arr });
     if (!(W > 0) || !(tw1 > 0) || !n) return R(S.font);
     const row = (kk) => { const m = kk < n ? kk + 1 : kk; return m ? m * av + (m - 1) * gap + Math.round(bs * 0.25) : 0; };
-    const fsIn = (w) => Math.min(S.font, Math.floor(((w - arr - 2) / (tw1 * 1.01)) * 10) / 10);
-    const one = fsIn(W - row(k) - S.tgap);
+    const fsIn = (w) => Math.min(S.font, Math.floor(((w - a - 2) / (tw1 * 1.01)) * 10) / 10);
+    let one = fsIn(W - row(k) - S.tgap);
+    if (one >= S.font) return R(one); // alt får plass – også pila
+    a = 0; // Fiks 37.4 ⓪: får ikke navn + pil plass → pila skjules først (trykk på navnet åpner fortsatt menyen)
+    one = fsIn(W - row(k) - S.tgap);
     if (one >= Math.min(S.font, HIL_MIN.fs)) return R(one);
     while (k > 1 && row(k) > W) k--; // egen rad: så mange bilder som får plass (normalt alle 3 + «+N»)
     const fs = fsIn(W), min = Math.min(S.font, HIL_MIN.wrapFs);
@@ -1744,6 +1749,29 @@
         cancelAnimationFrame(this._hRaf);
         this._hRaf = requestAnimationFrame(() => this._hFitNow());
       } else if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; this._hFit = null; }
+      // Fiks 37.4: andre oppsett (Hjem/Profil/Navn) – pila skjules først, så krymper teksten (min. 85 %), til slutt «…»
+      if (!isHil(modeOf(this.config)) && modeOf(this.config) !== 'stor') {
+        cancelAnimationFrame(this._tRaf);
+        this._tRaf = requestAnimationFrame(() => this._tFitNow());
+      } else this._tFit = null;
+    }
+    _tFitNow() {
+      const R = this.shadowRoot, t = R.querySelector('.ttl'), sp = t && t.querySelector('.tx'), lc = R.querySelector('.lc');
+      if (!sp || !lc || !sp.isConnected) return;
+      const cur = this._tFit || {}, pil = t.querySelector('.pil');
+      const fsNow = parseFloat(getComputedStyle(sp).fontSize) || 30, fs0 = cur.fs ? cur.fs0 : fsNow;
+      const tw1 = sp.scrollWidth / fsNow, avail = lc.clientWidth;
+      if (!tw1 || !avail) return;
+      const pw = pil ? (pil.offsetWidth ? pil.offsetWidth + (parseFloat(getComputedStyle(t).columnGap) || 6) : cur.pw || 32) : 0;
+      const next = { pw };
+      if (tw1 * fs0 + pw > avail + 0.5) {
+        next.upil = !!pil;
+        if (tw1 * fs0 > avail + 0.5) { next.fs0 = fs0; next.fs = Math.round(Math.max(0.85 * fs0, (avail / tw1) * 0.99) * 10) / 10; }
+      }
+      if (!!cur.upil === !!next.upil && (cur.fs || 0) === (next.fs || 0)) { this._tFit = next; this._tN = 0; return; }
+      if ((this._tN = (this._tN || 0) + 1) > 12) return;
+      this._tFit = next;
+      this.update();
     }
     // Fiks 19.12: mål tekstens bredde (per px skrift) og radens bredde, og regn ut fitHil: navnet vises alltid helt;
     // bildene overlapper, krymper (40 px), så krymper teksten (28 px), til slutt «+N».
@@ -1753,9 +1781,9 @@
       const HS = hilSizes(this.config, this._isFold()), cur = this._hFit || {};
       const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, W = top.clientWidth; // offset*/client* = uten CSS-zoom
       if (!tw || !W) return;
-      const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0;
+      const arr = sp.nextElementSibling ? HIL_ARR : 0; // fast bredde – pila kan være skjult (37.4)
       const next = fitHil(W, tw / fs, arr, this._hNum || 0, HS, !!this._hNarrow);
-      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || next.bs !== cur.bs || !!next.wrap !== !!cur.wrap || !!next.cut !== !!cur.cut;
+      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || next.bs !== cur.bs || !!next.wrap !== !!cur.wrap || !!next.cut !== !!cur.cut || next.pil !== cur.pil;
       if (!ch || (this._hN = (this._hN || 0) + 1) > 12) return;
       this._hFit = next;
       this.update();
@@ -1830,6 +1858,16 @@
         .hil.hwrap .top{flex-wrap:wrap;row-gap:12px}
         .hil.hwrap .lc{flex:1 0 100%}
         .hil.hwrap .faces{margin-left:auto}
+        /* Fiks 37: pila (åpner «Bytt sted») roterer når menyen er åpen; skjules først når navnet ikke får plass */
+        .pil{display:inline-flex;align-items:center;flex:none;align-self:center;transition:transform .2s ease}
+        .pil.apen{transform:rotate(180deg)}
+        .upil .ttl .pil{display:none}
+        /* «under»: stedsnavn + liten pil (20 px) på linja under, «•» før værteksten */
+        .sub2{display:flex;align-items:center;gap:6px;min-width:0;font-size:15px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap}
+        .svv,.svn{display:inline-flex;align-items:center;gap:2px;flex:none;color:var(--ki-text, #fafafa);font-weight:500;font-size:15px;-webkit-tap-highlight-color:transparent}
+        .svv{cursor:pointer}
+        .sk{opacity:.6;flex:none}
+        .sub2 .sub{min-width:0;overflow:hidden;text-overflow:ellipsis}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-mid, var(--gray700,#979797))}
       `;
     }

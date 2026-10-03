@@ -1,6 +1,8 @@
 // Fiks 36.8 · ny «Tilpass lys» (fasit Lys v5.dc.html → data-screen-label="Tilpass lys") mot EKTE Bubble Card, 390 px, touch.
-//   · arket: halvhøyt (58 %), helt dekkende --ki-popup (#282828 / lys #f0f0f0), radius 38 øverst, ingen bakteppe,
-//     portalet ut av popupen (ki-overlay-root), popupen synlig/trykkbar/scrollbar bak med ekstra bunnluft; håndtaket halv ⇄ full
+//   · arket (38.2): åpner i FULL høyde som de andre Tilpass-arkene (dashbordflaten − 52 px, bunnforankret, maks 440 px
+//     sentrert), helt dekkende --ki-popup (#282828 / lys #f0f0f0), radius 38 øverst, ingen bakteppe, portalet ut av popupen
+//     (ki-overlay-root); håndtaket → halv (58 %): popupen synlig/trykkbar/scrollbar bak med ekstra bunnluft; → full igjen;
+//     tilstanden huskes ikke (åpner i full høyde igjen etter Ferdig)
 //   · header «Tilpass lys» + «Endringer vises live bak arket», Nullstill (#3a3a3a) + rosa Ferdig; faner Faner · Rom ·
 //     Scener · Utelys · Design · Visning (aktiv viser navn, rosa)
 //   · Faner: Startfane-chips (MSH.startTab) + «Start»-pille, touch-dra på håndtaket → tab_order live i popupen uten at
@@ -90,6 +92,7 @@ async function boot(cfg, dark = true) {
       root: host.getRootNode() && host.getRootNode().host && host.getRootNode().host.localName, inPopup, hostPE: getComputedStyle(host).pointerEvents,
       bg: cs.backgroundColor, bf: cs.backdropFilter, r: cs.borderTopLeftRadius + ' ' + cs.borderTopRightRadius + ' ' + cs.borderBottomLeftRadius,
       h: Math.round(sh0.getBoundingClientRect().height), hostH: Math.round(host.getBoundingClientRect().height), scrim: bg ? getComputedStyle(bg).display : 'none',
+      geo: (() => { const a = sh0.getBoundingClientRect(), b = host.getBoundingClientRect(); return { top: Math.round(a.top - b.top), bot: Math.round(b.bottom - a.bottom), w: Math.round(a.width), cx: Math.round(a.left + a.width / 2 - (b.left + b.width / 2)), full: sh0.classList.contains('full'), half: sh0.classList.contains('half'), anim: getComputedStyle(sh0).transitionProperty }; })(),
       title: tt.textContent.trim(), tfs: getComputedStyle(tt).fontSize, tfw: getComputedStyle(tt).fontWeight, sub: ts.textContent.trim(),
       rst: [rst.textContent.trim(), getComputedStyle(rst).backgroundColor], done: [done.textContent.trim(), getComputedStyle(done).backgroundImage.slice(0, 15)],
       tabs: tabs.map((b) => [b.dataset.p, b.classList.contains('on'), b.textContent.trim()]),
@@ -100,11 +103,19 @@ async function boot(cfg, dark = true) {
   ok('arket åpnes fra tannhjulet (touch) og er portalet til ki-overlay-root, ikke i popupen', sh && sh.root === 'ki-overlay-root' && !sh.inPopup, sh);
   if (sh) {
     ok('arket: helt dekkende #282828, ingen backdrop-filter, radius 38 38 0', sh.bg === 'rgb(40, 40, 40)' && sh.bf === 'none' && sh.r === '38px 38px 0px', sh);
-    ok('arket: halvhøyt (58 % av dashbordflaten), ingen bakteppe, verten slipper trykk gjennom', Math.abs(sh.h - sh.hostH * 0.58) <= 2 && sh.scrim === 'none' && sh.hostPE === 'none', sh);
+    ok('38.2 · arket åpner i FULL høyde (dashbordflaten − 52 px), bunnforankret, maks 440 px sentrert, glir inn (transform)', sh.geo.full && !sh.geo.half && Math.abs(sh.h - (sh.hostH - 52)) <= 2 && sh.geo.top === 52 && sh.geo.bot === 0 && sh.geo.w <= 440 && Math.abs(sh.geo.cx) <= 1 && /transform/.test(sh.geo.anim), { h: sh.h, H: sh.hostH, geo: sh.geo });
+    ok('arket: ingen bakteppe, verten slipper trykk gjennom', sh.scrim === 'none' && sh.hostPE === 'none', sh);
     ok('header: «Tilpass lys» 24/600 + «Endringer vises live bak arket», Nullstill #3a3a3a + rosa Ferdig', sh.title === 'Tilpass lys' && sh.tfs === '24px' && sh.tfw === '600' && sh.sub === 'Endringer vises live bak arket' && sh.rst[0] === 'Nullstill' && sh.rst[1] === 'rgb(58, 58, 58)' && sh.done[0] === 'Ferdig' && /gradient/.test(sh.done[1]), sh);
     ok('faner i arket: Faner · Rom · Scener · Utelys · Design · Visning, aktiv viser navn (rosa)', JSON.stringify(sh.tabs.map((t) => t[0])) === JSON.stringify(['tabs', 'rooms', 'scenes', 'out', 'design', 'vis']) && sh.tabs[0][1] && sh.tabs[0][2] === 'Faner' && sh.tabs.slice(1).every((t) => !t[2]) && /gradient/.test(sh.onBg), sh.tabs);
     ok('utkastet ligger på .lys-sheet._config (samme config som GUI-editoren)', sh.draftOk);
   }
+  // full høyde: ingen ekstra bunnluft i popupen
+  const pb0 = await page.evaluate(() => L().style.paddingBottom);
+  ok('full høyde ved åpning: popupen har vanlig bunnluft (ikke arkets høyde i tillegg)', !/^calc\(calc\(/.test(pb0), pb0);
+  // håndtaket → halv høyde (58 %)
+  await tap(await page.evaluate(() => rect(SHR().querySelector('[data-a="height"]')))); await wait(500);
+  const hv = await page.evaluate(() => { const s = SHR().querySelector('.sh'); return { full: s.classList.contains('full'), half: s.classList.contains('half'), h: Math.round(s.getBoundingClientRect().height), H: Math.round(L()._sheet.ov.host.getBoundingClientRect().height), pressed: SHR().querySelector('[data-a="height"]').getAttribute('aria-pressed') }; });
+  ok('håndtaket bytter til halv høyde (58 % av dashbordflaten)', !hv.full && hv.half && Math.abs(hv.h - hv.H * 0.58) <= 2 && hv.pressed === 'true', hv);
   // popupen bak: synlig, trykkbar og scrollbar, med ekstra bunnluft
   const behind = await page.evaluate(async () => {
     const c = L(), t = SR().querySelector('.mtb-t:not(.on)'), r = rect(t);
@@ -120,11 +131,11 @@ async function boot(cfg, dark = true) {
   await page.mouse.click(behind.x, behind.y); await wait(500);
   const t2 = await page.evaluate(() => ({ cur: L()._curTab(), open: !!(L()._sheet && !L()._sheet.ov.closed), pop: popOpen() }));
   ok('trykk i popupen bak bytter fane, arket og popupen står åpne', t2.open && t2.pop, t2);
-  // håndtaket: halv ⇄ full
+  // håndtaket: halv → full → halv
   const hd = await page.evaluate(() => rect(SHR().querySelector('[data-a="height"]')));
   await tap(hd); await wait(500);
   const full = await page.evaluate(() => { const s = SHR().querySelector('.sh'); return { full: s.classList.contains('full'), h: Math.round(s.getBoundingClientRect().height), H: Math.round(L()._sheet.ov.host.getBoundingClientRect().height), pb: L().style.paddingBottom }; });
-  ok('håndtaket bytter til full høyde (100 % − 50 px), bunnluften tilbake til normal', full.full && Math.abs(full.h - (full.H - 50)) <= 2 && !/^calc\(calc\(/.test(full.pb) && !full.pb.includes(Math.round(full.H * 0.58) + 'px'), full);
+  ok('håndtaket bytter tilbake til full høyde (100 % − 52 px), bunnluften tilbake til normal', full.full && Math.abs(full.h - (full.H - 52)) <= 2 && !/^calc\(calc\(/.test(full.pb) && !full.pb.includes(Math.round(full.H * 0.58) + 'px'), full);
   await tap(await page.evaluate(() => rect(SHR().querySelector('[data-a="height"]')))); await wait(500);
   const half = await page.evaluate(() => { const s = SHR().querySelector('.sh'); return { full: s.classList.contains('full'), h: Math.round(s.getBoundingClientRect().height) }; });
   ok('… og tilbake til halv høyde', !half.full && half.h < full.h - 100, half);
@@ -165,17 +176,18 @@ async function boot(cfg, dark = true) {
   ok('Rom: per etasje, rader med navn/«N lys»/øye, utvidet viser lysene', rm.floors.length >= 2 && rm.rows.includes('gang') && rm.lights.length === 2 && rm.meta === '2 lys', rm);
   // gruppe: lenk begge lysene i Gang
   await page.evaluate(async () => { for (let i = 0; i < 2; i++) { SHR().querySelectorAll('[data-a="grp"][data-room="gang"]')[i].click(); await wait(200); } });
-  const gr = await page.evaluate(() => { const g = SR().querySelector('.lgr[data-grp="gang"]'); return { cfg: D().groups, box: !!SHR().querySelector('.gbox'), row: g && g.textContent.replace(/\s+/g, ' ').trim(), sh: g && getComputedStyle(g).boxShadow, rows: [...SR().querySelectorAll('[data-key="r-gang"] .lsl')].length }; });
+  const gr = await page.evaluate(() => { const g = SR().querySelector('.lgr[data-grp="gang"]'), ls = g && g.querySelector('msh-light-slider'); return { cfg: D().groups, box: !!SHR().querySelector('.gbox'), row: ls && ls.shadowRoot ? [...ls.shadowRoot.querySelectorAll('.n, .v')].map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim() : null, ents: ls && ls.config.entities, sh: g && getComputedStyle(g).boxShadow, rows: [...SR().querySelectorAll('[data-key="r-gang"] .lsl:not([data-lc^="grp:"])')].length }; });
   ok('Rom: 2 lenkede lys = gruppe → ÉN rad i popupen «Gang · alle · 2 lys» med gul kant', gr.cfg && gr.cfg.gang && gr.cfg.gang.members.length === 2 && gr.box && /Gang · alle/.test(gr.row) && /· 2 lys/.test(gr.row) && /242, 210, 111|0\.949\d* 0\.823\d* 0\.435/.test(gr.sh) && gr.rows === 0, gr);
   // gruppe-slideren styrer begge (touch-dra)
-  const gb = await page.evaluate(() => { const t = SR().querySelector('.lgr[data-grp="gang"] .lgt'); if (!t) return { y: -1 }; t.scrollIntoView({ block: 'center' }); window.CALLS = []; return rect(t); });
+  // Fiks 39: gruppe-raden er den felles msh-light-slider (entities = gruppen); dras i popupen over det halve arket
+  const gb = await page.evaluate(async () => { const ls = SR().querySelector('.lgr[data-grp="gang"] msh-light-slider'), t = ls && ls.shadowRoot.querySelector('.bar'); if (!t) return { y: -1 }; t.scrollIntoView({ block: 'center' }); await wait(150); let sc = L(); while (sc && sc !== document.body) { const cs = getComputedStyle(sc); if (/(auto|scroll)/.test(cs.overflowY) && sc.scrollHeight > sc.clientHeight + 2) break; sc = sc.parentElement || (sc.getRootNode && sc.getRootNode().host); } if (sc && sc !== document.body) sc.scrollTop += t.getBoundingClientRect().top - 250; await wait(250); const sh = SHR().querySelector('.sh').getBoundingClientRect(); window.CALLS = []; return { ...rect(t), shTop: sh.top }; });
   if (gb.y > 60 && gb.y < 420) {
     await touch('touchStart', [{ x: gb.x + gb.w * 0.2, y: gb.cy }]);
     for (let i = 1; i <= 8; i++) { await touch('touchMove', [{ x: gb.x + gb.w * (0.2 + 0.05 * i), y: gb.cy }]); await wait(20); }
     await touch('touchEnd', []); await wait(400);
   }
   const gc = await page.evaluate(() => ({ calls: window.CALLS.filter((c) => c[0] === 'light'), pop: popOpen() }));
-  ok('Rom: gruppe-slideren (touch) styrer alle lysene i gruppen, popupen står', gb.y > 60 && gb.y < 420 ? gc.calls.some((c) => [].concat(c[2].entity_id).length === 2 || [].concat(c[2].entity_id).includes('light.gang_tak')) && gc.pop : true, { gb, gc });
+  ok('Rom: gruppe-slideren (touch, over det halve arket) styrer alle lysene i gruppen, popupen står', gb.y > 60 && gb.b < gb.shTop && gc.calls.some((c) => [].concat(c[2].entity_id).includes('light.gang_tak')) && gc.calls.some((c) => [].concat(c[2].entity_id).includes('light.gang_speil')) && gc.pop, { gb, gc });
   // gi navn til rommet
   await page.evaluate(async () => { const i = SHR().querySelector('[data-rname="gang"]'); i.value = 'Entré'; i.dispatchEvent(new Event('change', { bubbles: true, composed: true })); await wait(300); });
   const rn = await page.evaluate(() => ({ cfg: D().room_names, head: SR().querySelector('[data-key="r-gang"] .rh') && SR().querySelector('[data-key="r-gang"] .rh').textContent }));
@@ -286,7 +298,7 @@ async function boot(cfg, dark = true) {
     SHR().querySelector('[data-a="set"][data-k="on_color"][data-v="var(--green)"]').click(); await wait(250);
     SHR().querySelector('[data-a="dsw"][data-k="show_kelvin"]').click(); await wait(300);
     const rec = [...(L()._lc || new Map()).values()][0];
-    o.row = rec && rec.el.config ? { c: rec.el.config.msh_color, k: rec.el.config.msh_kelvin, h: rec.el.config.msh_height } : null;
+    o.row = rec && rec.el.config ? { c: rec.el.config.color, k: rec.el.config.kelvin, h: rec.el.config.height, tag: rec.el.localName } : null;
     const mm = SHR().querySelector('[data-key="vis-mellomrom"]'), cs = getComputedStyle(mm);
     o.mm = { bg: cs.backgroundColor, r: cs.borderRadius, pre: [...mm.querySelectorAll('.mini:not(.on)')].map((b) => getComputedStyle(b).backgroundColor), on: [...mm.querySelectorAll('.mini.on')].map((b) => getComputedStyle(b).backgroundImage.slice(0, 15)) };
     SHR().querySelector('[data-a="seg"][data-k="bottom"][data-v="220"]').click(); await wait(300);
@@ -295,7 +307,7 @@ async function boot(cfg, dark = true) {
     return o;
   });
   ok('Visning: kolonner 3, slider-høyde 64, av-farge (kortbakgrunn) live i popupen', vis.cols === 3 && vis.lr === '64px' && vis.off === 'rgb(47, 47, 47)', vis);
-  ok('Visning: Én farge + på-farge og «Vis fargetemperatur» når lys-radene', vis.row && /green/.test(vis.row.c || '') && vis.row.k === true && vis.row.h === 64, vis.row);
+  ok('Visning: Én farge + på-farge og «Vis fargetemperatur» når lys-radene (msh-light-slider)', vis.row && vis.row.tag === 'msh-light-slider' && /green/.test(vis.row.c || '') && vis.row.k === true && vis.row.h === 64, vis.row);
   ok('Visning: Mellomrom-kortet helt dekkende #3a3a3a r24, forvalg #404040 / rosa', vis.mm.bg === 'rgb(58, 58, 58)' && vis.mm.r === '24px' && vis.mm.pre.every((x) => x === 'rgb(64, 64, 64)') && vis.mm.on.every((x) => /gradient/.test(x)), vis.mm);
   ok('Visning: «Luft i bunnen» 220 → popupens bunnluft (bottom)', /220px/.test(vis.pb) && vis.cfg.bottom === 220, { pb: vis.pb, cfg: vis.cfg });
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/lys36-visning.png` });
@@ -310,7 +322,8 @@ async function boot(cfg, dark = true) {
   ok('Ferdig: lagrer nye nøkler (én gang), lukker arket, haptic success, popupen står', fin.closed && fin.hap.includes('success') && fin.keys.includes('scene_style') && fin.keys.includes('cols') && fin.keys.includes('light_room') && fin.keys.includes('hide_lights') && fin.pop, fin);
   ok('etter Ferdig: popupens bunnluft tilbake til normal (bottom 220, uten arkets høyde)', !/^calc\(calc\(/.test(fin.pb) && /\+ 220px\)$/.test(fin.pb.trim()), fin.pb);
   // Nullstill (medium) i et nytt ark tilbakestiller utkastet
-  const rs = await page.evaluate(async () => { L().customize('design'); await wait(500); window.HAP = []; SHR().querySelector('[data-a="reset"]').click(); await wait(300); const d = D(); const o = { keys: Object.keys(d).sort(), hap: window.HAP.slice(), tab: L()._sheet.st.tab }; L()._sheet.close(); await wait(300); return o; });
+  const rs = await page.evaluate(async () => { L().customize('design'); await wait(500); const s0 = SHR().querySelector('.sh'); const re = { full: s0.classList.contains('full'), half: s0.classList.contains('half'), h: Math.round(s0.getBoundingClientRect().height), H: Math.round(L()._sheet.ov.host.getBoundingClientRect().height) }; window.HAP = []; SHR().querySelector('[data-a="reset"]').click(); await wait(300); const d = D(); const o = { keys: Object.keys(d).sort(), hap: window.HAP.slice(), tab: L()._sheet.st.tab, re }; L()._sheet.close(); await wait(300); return o; });
+  ok('38.2 · halv høyde huskes ikke: arket (lukket halvt) åpner i full høyde igjen', rs.re.full && !rs.re.half && Math.abs(rs.re.h - (rs.re.H - 52)) <= 2, rs.re);
   ok('Nullstill (haptic medium) → utkast = standard; Esc/lukk forkaster', JSON.stringify(rs.keys) === JSON.stringify(['card_id', 'type']) && rs.hap.includes('medium') && rs.tab === 'design', rs);
   const after = await page.evaluate(() => ({ style: L()._rawConfig.tab_style }));
   ok('lukket uten Ferdig: lagret config står', after.style === 'pill', after);
@@ -371,7 +384,7 @@ async function boot(cfg, dark = true) {
       }
     }
     o.bad = bad;
-    const g = SR().querySelector('.lgr'); o.group = g && g.textContent.replace(/\s+/g, ' ').trim();
+    const g = SR().querySelector('.lgr msh-light-slider'); o.group = g && g.shadowRoot && [...g.shadowRoot.querySelectorAll('.n, .v')].map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim();
     return o;
   });
   ok('lys modus: arket #f0f0f0 (helt dekkende), kort hvite', r.theme === 'light' && r.bg === 'rgb(240, 240, 240)' && r.card === 'rgb(255, 255, 255)', r);

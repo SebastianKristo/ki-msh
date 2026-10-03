@@ -16451,18 +16451,23 @@ try {
    * dashbordet er smalere enn 420 px), står side om side med hGap (≥ 0, aldri overlapp) og vises maks 3 + «+N».
    * Får ikke hilsen + bilder plass på én rad: ① hilsenen krymper ned til 32 px ② bildene flyttes til egen rad under
    * (høyrejustert, wrap) og hilsenen får hele bredden igjen ③ først da kortes navnet med «…» (min. 26 px).
-   * W = radens bredde, tw1 = tekstbredde per px skrift, arr = ▾ + mellomrom, n = antall personer.
-   * → { fs, av, gap, k, bs, wrap, cut } (k = bilder som vises; k < n → «+(n − k)»-sirkel etter dem) */
-  const HIL_MIN = { fs: 32, wrapFs: 26 };
+   * Fiks 37.4: før alt dette skjules ▾ (pil = false) når navn + pil ikke får plass i full størrelse.
+   * W = radens bredde, tw1 = tekstbredde per px skrift, arr = ▾ + mellomrom (0 = ingen pil), n = antall personer.
+   * → { fs, av, gap, k, bs, wrap, cut, pil } (k = bilder som vises; k < n → «+(n − k)»-sirkel etter dem) */
+  const HIL_MIN = { fs: 32, wrapFs: 26 }, HIL_ARR = 28; // HIL_ARR = ▾ 24 px + 4 px mellomrom
   const hilBadge = (S, av, narrow) => Math.max(8, Math.min(Math.round(av / 2), narrow ? Math.round(S.badge * HIL_NARROW.badge) : S.badge));
   const fitHil = (W, tw1, arr, n, S, narrow) => {
     const av = narrow ? Math.round(S.av * HIL_NARROW.av) : S.av, gap = S.gap, bs = hilBadge(S, av, narrow);
     let k = Math.min(n, HIL_MAX);
-    const R = (fs, wrap, cut) => ({ fs, av, gap, k, bs, wrap: !!wrap, cut: !!cut });
+    let a = arr;
+    const R = (fs, wrap, cut) => ({ fs, av, gap, k, bs, wrap: !!wrap, cut: !!cut, pil: a === arr });
     if (!(W > 0) || !(tw1 > 0) || !n) return R(S.font);
     const row = (kk) => { const m = kk < n ? kk + 1 : kk; return m ? m * av + (m - 1) * gap + Math.round(bs * 0.25) : 0; };
-    const fsIn = (w) => Math.min(S.font, Math.floor(((w - arr - 2) / (tw1 * 1.01)) * 10) / 10);
-    const one = fsIn(W - row(k) - S.tgap);
+    const fsIn = (w) => Math.min(S.font, Math.floor(((w - a - 2) / (tw1 * 1.01)) * 10) / 10);
+    let one = fsIn(W - row(k) - S.tgap);
+    if (one >= S.font) return R(one); // alt får plass – også pila
+    a = 0; // Fiks 37.4 ⓪: får ikke navn + pil plass → pila skjules først (trykk på navnet åpner fortsatt menyen)
+    one = fsIn(W - row(k) - S.tgap);
     if (one >= Math.min(S.font, HIL_MIN.fs)) return R(one);
     while (k > 1 && row(k) > W) k--; // egen rad: så mange bilder som får plass (normalt alle 3 + «+N»)
     const fs = fsIn(W), min = Math.min(S.font, HIL_MIN.wrapFs);
@@ -16786,56 +16791,43 @@ try {
     }
     constructor() {
       super();
-      // Tittel-gester: hold avbrytes ved slipp / flytt > 8 px / pointercancel
-      const stop = () => { if (this._tHold) { clearTimeout(this._tHold); this._tHold = null; } };
+      // Fiks 37: gestene på tittelen (port av family-status-card): hold 500 ms, trykk i click, dobbelttrykk-frist 320 ms
+      this._g = SV.gester({
+        meny: () => this._server().meny,
+        handling: (g) => SV.handling(this._sc(), g, GSTD),
+        apen: () => !!this._srv,
+        veksle: () => (this._srv ? this._srvClose() : this._serverMenu()),
+        lukk: (uten) => this._srvClose(uten),
+        kjor: (h) => this._kjor(h),
+        tilpass: () => this._tilpass(),
+      });
+      const stop = () => this._g.up();
       this.shadowRoot.addEventListener('pointerup', stop);
       this.shadowRoot.addEventListener('pointercancel', stop);
-      this.shadowRoot.addEventListener('pointermove', (e) => { if (this._tHold && (Math.abs(e.clientX - this._tx) > 8 || Math.abs(e.clientY - this._ty) > 8)) stop(); });
+      // pointerleave (fsc): fingeren/pekeren forlater tittelen → ingen hold
+      this.shadowRoot.addEventListener('pointerout', (e) => { const t = this._el(e, '.ttl'); if (t && !(e.relatedTarget && t.contains(e.relatedTarget))) this._g.cancel(); });
+      this.shadowRoot.addEventListener('pointermove', (e) => this._g.move(e));
       this.shadowRoot.addEventListener('contextmenu', (e) => { if (this._el(e, '.ttl') || this._el(e, '[data-act="person"]')) e.preventDefault(); });
       this.shadowRoot.addEventListener('selectstart', (e) => { if (this._el(e, '.ttl')) e.preventDefault(); });
     }
-    // Tittelen har egne gester (title_actions); resten av headeren bruker basekortets hold (→ «Tilpass header»).
+    // Tittelen har egne gester; resten av headeren bruker basekortets hold (→ «Tilpass header»).
     _onDown(e) {
       const t = this._el(e, '.ttl');
       if (!t) return super._onDown(e);
       this._cancelHold();
-      if (e.button) return;
-      this._tHeld = false;
-      if (this._tHold) clearTimeout(this._tHold);
-      this._tHold = null;
-      const A = M.hjemTitleActions(this.config);
-      if (A.hold === 'none') return;
-      this._tx = e.clientX; this._ty = e.clientY;
-      this._tHold = setTimeout(() => {
-        this._tHold = null;
-        this._tHeld = true; // slippet etter hold utløser ikke trykk
-        if (this._tTap) { clearTimeout(this._tTap); this._tTap = null; }
-        M.haptic('medium');
-        this._titleRun(A.hold);
-      }, 500);
+      this._g.down(e);
     }
-    // Trykk (click): med dobbelttrykk = Ingen kjøres trykket med én gang, ellers venter det maks 260 ms.
-    // Én haptic per gest: ved første trykk (ikke igjen ved dobbelttrykk / når handlingen kjøres).
-    _titleTap() {
-      if (this._tHeld) { this._tHeld = false; return; }
-      const A = M.hjemTitleActions(this.config);
-      if (this._tTap) { clearTimeout(this._tTap); this._tTap = null; this._titleRun(A.double_tap); return; }
-      if (A.tap !== 'none' || A.double_tap !== 'none') M.haptic('light');
-      if (A.double_tap === 'none') { this._titleRun(A.tap); return; }
-      this._tTap = setTimeout(() => { this._tTap = null; this._titleRun(A.tap); }, 260);
+    // Kjør en handling på hilsenen (SV.kjor) – kortets egne: kiosk, edit (rediger dashbord), tilpass (Tilpass header)
+    _kjor(h) {
+      this._srvClose();
+      SV.kjor(this, h, {
+        kiosk: () => this._kiosk(),
+        edit: () => M.navigate(location.pathname + '?edit=1'),
+        tilpass: () => this._tilpass(),
+        navigate: (x) => { const p = String(x.navigation_path || ''); return p[0] === '#' ? M.openPopup(p) : M.navigate(p[0] === '?' ? location.pathname + p : p); },
+      });
     }
-    _titleRun(act) {
-      const c = this.config;
-      switch (act) {
-        case 'server': { if (this._srv) return this._srvClose(); const t = this.shadowRoot.querySelector('.ttl'); if (t) this._serverMenu(t); return; }
-        case 'kiosk': return this._kiosk();
-        case 'config': this._srvClose(); return M.navigate('/config');
-        case 'edit': this._srvClose(); return M.navigate(location.pathname + '?edit=1');
-        case 'header': this._srvClose(); window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); return;
-        case 'vaer': this._srvClose(); return M.openPopup(c.weather_hash || '#vaer');
-        default:
-      }
-    }
+    _tilpass() { this._srvClose(true); window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); }
     // Kiosk-modus av/på: veksler kiosk_entity (standard input_boolean.kiosk_mode) – samme entitet som kiosk-mode / UIX bruker.
     _kiosk() {
       const id = M.hjemKioskEntity(this.config), s = this.hass && this.hass.states[id];
@@ -16845,9 +16837,11 @@ try {
       M.hjemToast(this, `Kiosk-modus ${on ? 'av' : 'på'}`);
     }
     onAction(name, el, ev) {
-      if (name === 'title') {
+      if (name === 'title') return this._g.click(ev);
+      if (name === 'srvmenu') { // «under»: stedsnavnet på linja under åpner/lukker menyen
         if (ev) ev.stopPropagation();
-        return this._titleTap();
+        M.haptic('light');
+        return this._srv ? this._srvClose() : this._serverMenu(el);
       }
       if (name === 'person') {
         return this._personTap(el.dataset.id);
@@ -16882,65 +16876,28 @@ try {
       window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } }));
       return true;
     }
-    // Bakteppet ignorerer trykk de første 300 ms (guard), så trykket som åpnet (touch → click) aldri lukker menyen igjen.
-    // Haptic gis av gesten (_titleTap), ingen ved lukking via bakteppet.
-    _srvClose() { if (this._srv) this._srv.close(); }
-    // Menyen (fiks 16.3): «Du er her» øverst (ikke trykkbar, grønn hake), deretter de andre stedene. Samme sted står
-    // aldri to ganger. Trykk → _goServer (HAs egen url-handling, som tap_action: action: url).
+    // Fiks 37 · «Bytt sted»-menyen (MSH.servervelger.meny): portalt lag over dashbord-containeren, 260 px ark med spiss
+    // under navnet, «Bytt sted», én rad per sted (fargeflis, navn, «Du er her» / chevron), «Tilpass …» nederst.
+    // Trykk utenfor / Esc lukker; andre trykk innen 320 ms (dobbelttrykk) lukker uten utgangsanimasjon.
     _serverMenu(anchor) {
-      const R = M.dashRect(), a = anchor.getBoundingClientRect();
       const S = this._server();
-      const hc = M.color(S.color, C.green);
-      const top = `<div class="me" data-key="here" aria-current="location"><span class="iw" style="background:${M.alpha(hc, 0.35)};color:${M.theme ? M.theme.accentText(hc) : hc}">${M.icon(S.icon, 20)}</span><span class="tt"><b>${esc(S.name)}</b><i class="srv">Du er her${S.host && S.host !== S.name ? ' · ' + esc(S.host) : ''}</i></span><span class="ok">${M.icon('mdi:check', 16, 'color:var(--ki-on-accent, #232323)')}</span></div>`;
-      // 34.2: hver rad = ikon + navn + chevron (ingen «server=…»-linje)
-      const rows = S.list.map((v, i) => {
-        if (i === S.cur) return '';
-        const col = M.color(v.color, C.blue);
-        return `<button class="sv" data-a="go" data-i="${i}"><span class="iw" style="background:${M.alpha(col, 0.35)};color:${M.theme ? M.theme.accentText(col) : col}">${M.icon(v.icon || 'mdi:home', 20)}</span><span class="nm"><b>${esc(v.name)}</b></span>${M.icon('chevron_right', 20, 'color:var(--ki-text-mid, #979797)')}</button>`;
-      }).join('');
-      const css = `.bg{background:transparent}
-        .sh{left:${Math.max(8, a.left - R.left)}px;right:auto;top:${a.bottom + 8}px;bottom:auto;width:256px;max-width:calc(100% - 16px);margin:0;padding:10px 6px 6px;border-radius:24px;background:rgba(58,58,58,0.92);backdrop-filter:blur(24px) saturate(190%);-webkit-backdrop-filter:blur(24px) saturate(190%);box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));
-          opacity:0;transform:scale(.96);transform-origin:top left;transition:opacity .14s ease-out,transform .14s ease-out}
-        :host(.on) .sh{opacity:1;transform:none}
-        .body{display:flex;flex-direction:column;gap:2px}
-        .hd{font-size:11px;font-weight:500;color:var(--ki-text-mid, #979797);padding:0 10px 4px}
-        .me{display:flex;align-items:center;gap:12px;min-height:58px;padding:0 8px;border-radius:14px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)));cursor:default;user-select:none;-webkit-user-select:none}
-        .me .tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-        .me b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .me i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .ok{width:22px;height:22px;border-radius:11px;flex:none;display:grid;place-items:center;background:var(--green,#66d19e)}
-        .sep{height:1px;margin:4px 10px;background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
-        .sv{height:52px;padding:0 8px;border-radius:14px;display:flex;align-items:center;gap:12px;width:100%;text-align:left}
-        .sv:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
-        .sv:active{transform:scale(.98)}
-        .iw{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center}
-        .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-        .nm b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .sv{height:58px}
-        .none{padding:8px 10px 6px;font-size:12px;color:var(--ki-text-3, #7f7f7f)}`;
-      const html = `<span class="hd">Bytt sted</span>${top}${rows ? `<span class="sep"></span>${rows}` : '<span class="none">Legg til steder i Tilpass header → Steder</span>'}`;
-      const ov = M.overlay({ html, css, sheet: false, maxWidth: 256, guard: 300, bgHaptic: false, onClose: () => { if (this._srv === ov) this._srv = null; } });
-      this._srv = ov;
-      ov.root.addEventListener('click', (e) => {
-        const b = e.composedPath().find((n) => n && n.dataset && n.dataset.a);
-        if (!b || b.dataset.a !== 'go') return;
-        const v = S.list[Number(b.dataset.i)];
-        M.haptic('light');
-        ov.close();
-        if (v) this._goServer(v);
+      if (!S.list.length) return null; // ingen servere → ingen meny
+      const a = anchor || this.shadowRoot.querySelector(S.plass === 'under' ? '.svv' : '.ttl .tx') || this.shadowRoot.querySelector('.ttl');
+      const ov = SV.meny({
+        anchor: a, liste: S.list, her: S.name, tilpass: true,
+        onVelg: (srv) => this._goServer(srv),
+        onTilpass: () => this._tilpass(),
+        onBakgrunn: () => this._g.bakgrunn(),
+        onArk: () => this._g.ark(),
+        onLukk: () => { if (this._srv === ov) { this._srv = null; this.update(); } },
       });
+      this._srv = ov;
+      this.update(); // pila roterer
+      return ov;
     }
-    // 34.2 · Bytt server: bare i HA Companion-appen → window.location.href = homeassistant://navigate/<path>?server=<navn>
-    // («Du er her» flyttes til stedet). I nettleser: toast «Bytt server i appen», ingen navigering.
-    _goServer(v) {
-      const n = M.hjemServerNorm(v) || {}, nav = M.hjemServerUrl(n);
-      if (!nav) return 'none';
-      if (!M.hjemIsApp()) { M.hjemToast(this, 'Bytt server i appen'); return 'toast'; }
-      this._hereName = String(n.name).trim();
-      M.hjemNavigate(nav);
-      this.update();
-      return 'app';
-    }
+    _srvClose(uten) { if (this._srv) this._srv.lukk(uten); }
+    // Bytt server (SV.bytt): window.open(homeassistant://navigate/<sti>?server=<navn>) – aldri location.href
+    _goServer(v) { return v ? SV.bytt(v, this._sc()) : ''; }
     // Person-hurtigarket (fiks 16.14): Hjemme/Borte styrer people[].home, Våken/Sover styrer people[].sleep (toveis).
     // Aktivt segment = entitetens faktiske tilstand (live). Trykk/dra → optimistisk bytte + tjenestekall; har entiteten
     // ikke endret seg innen 5 s, går segmentet tilbake med «Kunne ikke endre {navn}». binary_sensor → «Styres av {navn}».
@@ -17036,23 +16993,21 @@ try {
       this._modeMig = true;
       try { Promise.resolve(M.store.set(key + '.mode', 'hilsen')).catch(() => {}); } catch (e) { /* */ }
     }
-    // Fiks 21.4: standardstedene skrives til config (ki-store) én gang; servers_init hindrer at slettede kommer tilbake.
-    _seedServers() {
+    // Fiks 37: eldre steder/tittel-handlinger (servers, servers_init, this_server, place_name, title_actions) skrives om
+    // til servere / server_navn / server_meny_med / greeting_*_action i ki-store ÉN gang (de gamle nøklene fjernes).
+    // Til det er gjort leses begge (SV.cfg). Ingen standardsteder lenger: uten servere – ingen meny og ingen pil.
+    _migrateServers() {
       const raw = this._rawConfig || {};
-      if (this._srvSeed || raw.servers_init) return;
+      if (this._srvMig || !SV.harGammel(raw)) return;
       if (!this.hass || !M.store || !M.store.loaded || M.draftOf(this)) return;
       const key = this._yamlConfig ? M.storeKey(this._yamlConfig, this) : null;
       if (!key) return;
-      this._srvSeed = true;
-      const has = Array.isArray(raw.servers) && raw.servers.length;
-      try {
-        if (!has) Promise.resolve(M.store.set(key + '.servers', M.hjemDefaultServers())).catch(() => {});
-        Promise.resolve(M.store.set(key + '.servers_init', true)).catch(() => {});
-      } catch (e) { /* */ }
+      this._srvMig = true;
+      SV.migrer(raw, (k, v) => Promise.resolve(M.store.set(key + '.' + k, v)).catch(() => {}));
     }
     afterRender() {
       this._migrateMode();
-      this._seedServers();
+      this._migrateServers();
       // Fiks 16.2: msh-hjem-card setter avstanden til prosaen (prose_gap) – si fra når headerens config er tegnet
       const host = this.getRootNode && this.getRootNode().host;
       if (host && typeof host._proseGap === 'function') host._proseGap();
@@ -17090,6 +17045,29 @@ try {
         cancelAnimationFrame(this._hRaf);
         this._hRaf = requestAnimationFrame(() => this._hFitNow());
       } else if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; this._hFit = null; }
+      // Fiks 37.4: andre oppsett (Hjem/Profil/Navn) – pila skjules først, så krymper teksten (min. 85 %), til slutt «…»
+      if (!isHil(modeOf(this.config)) && modeOf(this.config) !== 'stor') {
+        cancelAnimationFrame(this._tRaf);
+        this._tRaf = requestAnimationFrame(() => this._tFitNow());
+      } else this._tFit = null;
+    }
+    _tFitNow() {
+      const R = this.shadowRoot, t = R.querySelector('.ttl'), sp = t && t.querySelector('.tx'), lc = R.querySelector('.lc');
+      if (!sp || !lc || !sp.isConnected) return;
+      const cur = this._tFit || {}, pil = t.querySelector('.pil');
+      const fsNow = parseFloat(getComputedStyle(sp).fontSize) || 30, fs0 = cur.fs ? cur.fs0 : fsNow;
+      const tw1 = sp.scrollWidth / fsNow, avail = lc.clientWidth;
+      if (!tw1 || !avail) return;
+      const pw = pil ? (pil.offsetWidth ? pil.offsetWidth + (parseFloat(getComputedStyle(t).columnGap) || 6) : cur.pw || 32) : 0;
+      const next = { pw };
+      if (tw1 * fs0 + pw > avail + 0.5) {
+        next.upil = !!pil;
+        if (tw1 * fs0 > avail + 0.5) { next.fs0 = fs0; next.fs = Math.round(Math.max(0.85 * fs0, (avail / tw1) * 0.99) * 10) / 10; }
+      }
+      if (!!cur.upil === !!next.upil && (cur.fs || 0) === (next.fs || 0)) { this._tFit = next; this._tN = 0; return; }
+      if ((this._tN = (this._tN || 0) + 1) > 12) return;
+      this._tFit = next;
+      this.update();
     }
     // Fiks 19.12: mål tekstens bredde (per px skrift) og radens bredde, og regn ut fitHil: navnet vises alltid helt;
     // bildene overlapper, krymper (40 px), så krymper teksten (28 px), til slutt «+N».
@@ -17099,9 +17077,9 @@ try {
       const HS = hilSizes(this.config, this._isFold()), cur = this._hFit || {};
       const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, W = top.clientWidth; // offset*/client* = uten CSS-zoom
       if (!tw || !W) return;
-      const arr = sp.nextElementSibling ? sp.nextElementSibling.offsetWidth + 4 : 0;
+      const arr = sp.nextElementSibling ? HIL_ARR : 0; // fast bredde – pila kan være skjult (37.4)
       const next = fitHil(W, tw / fs, arr, this._hNum || 0, HS, !!this._hNarrow);
-      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || next.bs !== cur.bs || !!next.wrap !== !!cur.wrap || !!next.cut !== !!cur.cut;
+      const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || next.bs !== cur.bs || !!next.wrap !== !!cur.wrap || !!next.cut !== !!cur.cut || next.pil !== cur.pil;
       if (!ch || (this._hN = (this._hN || 0) + 1) > 12) return;
       this._hFit = next;
       this.update();
@@ -17133,7 +17111,8 @@ try {
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; }
       cancelAnimationFrame(this._hRaf);
-      clearTimeout(this._tHold); clearTimeout(this._tTap); this._tHold = this._tTap = null;
+      if (this._g) this._g.stopp();
+      this._srvClose(true);
     }
     get styles() {
       return `
@@ -17175,6 +17154,16 @@ try {
         .hil.hwrap .top{flex-wrap:wrap;row-gap:12px}
         .hil.hwrap .lc{flex:1 0 100%}
         .hil.hwrap .faces{margin-left:auto}
+        /* Fiks 37: pila (åpner «Bytt sted») roterer når menyen er åpen; skjules først når navnet ikke får plass */
+        .pil{display:inline-flex;align-items:center;flex:none;align-self:center;transition:transform .2s ease}
+        .pil.apen{transform:rotate(180deg)}
+        .upil .ttl .pil{display:none}
+        /* «under»: stedsnavn + liten pil (20 px) på linja under, «•» før værteksten */
+        .sub2{display:flex;align-items:center;gap:6px;min-width:0;font-size:15px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap}
+        .svv,.svn{display:inline-flex;align-items:center;gap:2px;flex:none;color:var(--ki-text, #fafafa);font-weight:500;font-size:15px;-webkit-tap-highlight-color:transparent}
+        .svv{cursor:pointer}
+        .sk{opacity:.6;flex:none}
+        .sub2 .sub{min-width:0;overflow:hidden;text-overflow:ellipsis}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-mid, var(--gray700,#979797))}
       `;
     }
@@ -33549,7 +33538,7 @@ try {
  * (MSH.saveCardConfig, scope 'shared', venter på svar, deaktivert mens det lagres), Esc / hash-bytte forkaster.
  * Endret et annet sted mens arket er åpent → banner «Last inn». getConfigElement() bruker samme nøkler (static schema).
  * Config-nøkler (arket ⇄ GUI-editoren; eldre v4-nøkler leses fortsatt og flyttes ved Ferdig – se migrateV4):
- *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, også mellom lys-radene når tile_gap mangler), tile_gap, cols (1–3;
+ *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, mellom seksjonene), tile_gap (mellom lys-radene, std 14), cols (1–3;
  *             eldre columns), size (compact|standard|large → slider 44|52|60 px), slider_height (32–80, overstyrer size),
  *             color_mode (lamp|kelvin|single), on_color, off_color (bakgrunnen bak lys-radene), show_kelvin,
  *             top / bottom (Mellomrom: fra headeren / luft i bunnen; eldre pad_top / pad_bottom)
@@ -33916,7 +33905,7 @@ try {
           ] },
           { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${gapOf(cc)} px mellom`, fields: [
             { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']] },
-            { type: 'range', name: 'tile_gap', label: 'Mellom lys-radene', icon: 'mdi:view-grid-outline', min: 0, max: 24, default: 12, presets: [[8, 'Tett 8'], [12, 'Standard 12'], [18, 'Luftig 18']], help: 'Tomt = som «Mellom seksjonene»' },
+            { type: 'range', name: 'tile_gap', label: 'Mellom lys-radene', icon: 'mdi:view-grid-outline', min: 0, max: 24, default: 14, presets: [[8, 'Tett 8'], [14, 'Standard 14'], [18, 'Luftig 18']], help: 'Tomt = 14 px (Fiks 39)' },
             { type: 'range', name: 'top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 44, default: -10, presets: [[-20, 'Tett −20'], [-10, 'Standard −10'], [16, 'Luftig 16']] },
             { type: 'range', name: 'bottom', label: 'Luft i bunnen (over navbaren)', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, step: 10, default: 150, presets: [[0, 'Ingen 0'], [150, 'Standard 150'], [220, 'Stor 220']] },
           ] },

@@ -2,6 +2,18 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 37 · Servervelger («Bytt sted») med logikk fra family-status-card
+- Ny felles hjelper `MSH.servervelger` (`src/06-server.js`; `MSH.server` er Server-kortets): parsing av `servere`
+  (streng «Oslo, Strömstad=Strømstad, Toten» eller liste med navn/server/ikon/farge/sti), gjenkjenning (`server_navn`,
+  ellers `location_name` med ö→ø/ä→æ), URL `homeassistant://navigate/<sti>?server=<navn>` (navnet kodes bare for & ? # %
+  og mellomrom) åpnet med `window.open` (aldri `location.href`), `server_plass` tittel/under/navn, `server_meny_med`,
+  gester (trykk i click, hold 500 ms → Tilpass uten handling, dobbelttrykk 320 ms), `greeting_*_action`, og menyen
+  (portalt lag over dashbordflaten, 260 px ark med spiss, «Bytt sted», «Du er her», «Tilpass …», Esc, lys/mørk).
+- Hjem-headeren bruker den; ingen standardsteder lenger (uten servere: ingen meny, ingen pil). Pila skjules først når
+  navnet ikke får plass. Eldre `servers`/`this_server`/`place_name`/`title_actions` leses og skrives om én gang.
+- Tilpass header → Steder og GUI-editoren har det nye skjemaet. Test: `test/server37-check.mjs` (+ oppdaterte
+  header31/header34/fiks21-flis-sted/header-check).
+
 ## Basseng: popupene er slettet
 - Strategien lager ingen bassengpopup lenger – verken `#badebasseng` eller `#basseng` (`FUNCTION_POPUPS` og vilkåret i
   `04-strategy.js` er fjernet), og ingen rom-popup for et område som heter «Basseng»/«Pool» (`MSH.ROOM_BLOCK`/`roomBlocked`).

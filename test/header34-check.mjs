@@ -1,10 +1,10 @@
-// Fiks 34.2 · «Bytt sted» i hjem-headeren (fasit Hjem v3 servers/serverMenu):
-//  · radene viser bare ikon + navn (+ chevron), ingen «server=…»-linje
-//  · i HA Companion-appen (window.externalApp / webkit.messageHandlers.externalBus / UA «Home Assistant»):
-//    window.location.href = homeassistant://navigate/<dashbord-path>?server=<navn URL-kodet> (path = location.pathname uten
-//    ledende /, eller stedets egen path) · haptic · menyen lukkes · «Du er her» flyttes til stedet
-//  · i nettleser: toast «Bytt server i appen», ingen navigering (også når eldre url er satt)
-//  · Tilpass header → Steder: name, icon, color, path
+// Fiks 34.2 → Fiks 37 · «Bytt sted» i hjem-headeren (meny-design Hjem v3, logikk fra family-status-card):
+//  · radene: fargeflis + navn + «Du er her» / chevron (ingen «server=…»-linje), overskrift «Bytt sted», «Tilpass …»
+//  · bytte (i appen OG i nettleser – appdeteksjon brukes ikke lenger): window.open(homeassistant://navigate/<sti>?server=<navn>)
+//    der sti = stedets sti || server_sti || første segment av location.pathname || lovelace; navnet kodes bare for
+//    & ? # % og mellomrom (Strømstad står ukodet). ALDRI location.href, ingen toast. Haptic selection, menyen lukkes.
+//  · «Du er her» følger serveren (location_name / server_navn) – ikke trykket
+//  · Tilpass header → Steder: navn, server, ikon, farge, sti (ikke path/navigation_path/url)
 // Kjør: node test/header34-check.mjs
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync } from 'node:fs';
@@ -28,71 +28,61 @@ await p.addScriptTag({ path: bundle });
 const r = await p.evaluate(async () => {
   const M = window.MSH, w = (ms) => new Promise((q) => setTimeout(q, ms || 0));
   const deepAll = (sel) => { const o = []; const x = (rt) => rt.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) o.push(e); if (e.shadowRoot) x(e.shadowRoot); }); x(document); return o; };
+  const menu = () => deepAll('.msh-servermeny')[0] || null;
   const out = {};
   const hap = []; window.addEventListener('haptic', (e) => hap.push(e.detail));
-  const nav = [], toasts = [];
-  M.hjemNavigate = (u) => nav.push(u);
+  const opened = [], toasts = [];
+  window.open = (u) => { opened.push(u); return null; };
   const oT = M.toast; M.toast = (t, o) => { toasts.push(t); return oT(t, o); };
-  // dashbord-sti som i HA: /ki-dashboard/hjem
-  out.curPath = M.hjemCurPath();
+  const href0 = location.href;
   document.getElementById('dash').innerHTML = '';
   const h = window.mockHass(); h.config = { ...(h.config || {}), location_name: 'Oslo' };
   const c = document.createElement('msh-hjem-header-card');
-  c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hd34', servers: [{ name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)' }, { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)', path: '/lovelace/gard' }, { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue)', url: 'https://stromstad.example' }], servers_init: true });
+  c.setConfig({ type: 'custom:msh-hjem-header-card', card_id: 'hd34', mode: 'hjem', servere: [{ navn: 'Oslo', ikon: 'mdi:office-building', farge: 'var(--green)' }, { navn: 'Toten', sti: '/lovelace/gard' }, { navn: 'Strømstad' }, { navn: 'Hytta', server: 'Min hytte & co' }] });
   c.hass = h; document.getElementById('dash').appendChild(c);
   await w(300);
-  const open = async () => { c._serverMenu(c.shadowRoot.querySelector('.ttl') || c); await w(300); };
-  const rowsOf = () => deepAll('.sv').map((e) => ({ t: e.textContent.trim(), srv: !!e.querySelector('.srv'), icons: e.querySelectorAll('ha-icon').length, nm: e.querySelector('.nm b').textContent }));
-  // nettleser
-  const UA = navigator.userAgent;
-  out.isAppBrowser = M.hjemIsApp();
+  const open = async () => { c.shadowRoot.querySelector('.ttl').click(); await w(400); };
+  const rowsOf = () => [...menu().shadowRoot.querySelectorAll('.rad:not(.tilpass)')].map((e) => ({ t: e.textContent.replace(/\s+/g, ' ').trim(), n: e.querySelector('.navn').textContent, icons: e.querySelectorAll('ha-icon').length, her: !!e.querySelector('.her'), ic: e.querySelector('.flis ha-icon').getAttribute('icon') }));
   await open();
+  out.head = menu().shadowRoot.querySelector('.topp').textContent;
   out.rows = rowsOf();
-  out.me = (deepAll('.me')[0] || {}).textContent;
+  out.tilpass = !!menu().shadowRoot.querySelector('.rad.tilpass');
   hap.length = 0;
-  deepAll('.sv[data-i="2"]')[0].click(); await w(300);
-  out.web = { nav: nav.slice(), toasts: toasts.slice(), hap: hap.slice(), open: !!c._srv };
-  // app via externalApp
-  window.externalApp = {}; out.isApp1 = M.hjemIsApp(); delete window.externalApp;
-  // app via webkit externalBus
-  window.webkit = { messageHandlers: { externalBus: { postMessage() {} } } }; out.isApp2 = M.hjemIsApp(); delete window.webkit;
-  // app via UA
-  Object.defineProperty(navigator, 'userAgent', { configurable: true, get: () => UA + ' Home Assistant/2025.1' }); out.isApp3 = M.hjemIsApp();
-  // trykk Strømstad i appen → URL-koding + nåværende path
+  [...menu().shadowRoot.querySelectorAll('.rad')].find((e) => /Strømstad/.test(e.textContent)).click(); await w(300);
+  out.s1 = { opened: opened.slice(), hap: hap.slice(), open: !!menu(), toasts: toasts.slice(), href: location.href === href0 };
+  // «Du er her» følger serveren (location_name), ikke trykket
   await open();
-  hap.length = 0; toasts.length = 0;
-  deepAll('.sv[data-i="2"]')[0].click(); await w(300);
-  out.app1 = { nav: nav.slice(), hap: hap.slice(), open: !!c._srv, toasts: toasts.slice(), here: c._server().name };
-  // «Du er her» oppdateres: Strømstad øverst, Oslo i listen
+  out.here2 = rowsOf().filter((x) => x.her).map((x) => x.n);
+  [...menu().shadowRoot.querySelectorAll('.rad')].find((e) => /Toten/.test(e.textContent)).click(); await w(300);
   await open();
-  out.me2 = (deepAll('.me')[0] || {}).textContent; out.rows2 = rowsOf().map((x) => x.nm);
-  // Toten med egen path
-  deepAll('.sv').find((e) => /Toten/.test(e.textContent)).click(); await w(300);
-  out.app2 = nav[nav.length - 1];
-  delete navigator.userAgent;
-  // editor: felt name / icon / color / path
-  const ed = c.constructor.getConfigElement(); ed.hass = c.hass; ed.setConfig({ type: 'custom:msh-hjem-header-card', servers: [{ name: 'Bergen' }], servers_init: true });
+  [...menu().shadowRoot.querySelectorAll('.rad')].find((e) => /Hytta/.test(e.textContent)).click(); await w(300);
+  out.urls = opened.slice();
+  // også i «appen»: samme window.open (ingen location.href)
+  window.externalApp = {};
+  await open();
+  [...menu().shadowRoot.querySelectorAll('.rad')].find((e) => /Strømstad/.test(e.textContent)).click(); await w(300);
+  delete window.externalApp;
+  out.app = { last: opened[opened.length - 1], n: opened.length, href: location.href === href0, toasts: toasts.slice() };
+  // editor: felt navn / server / ikon / farge / sti
+  const ed = c.constructor.getConfigElement(); ed.hass = c.hass; ed.setConfig({ type: 'custom:msh-hjem-header-card', servere: [{ navn: 'Bergen' }] });
   document.body.appendChild(ed); await w(200);
   const R = ed.shadowRoot;
   const sec = R.querySelector('details[data-focus="servers"]'); if (sec) { sec.open = true; await w(100); }
-  const ob = R.querySelector('[data-a="x-ropen"][data-n="servers"][data-i="0"]'); if (ob) { ob.click(); await w(100); }
-  out.fields = ['name', 'icon', 'color', 'path', 'navigation_path', 'url'].map((f) => !!R.querySelector(`[data-name="servers.0.${f}"]`));
+  const ob = R.querySelector('[data-a="x-ropen"][data-n="servere"][data-i="0"]'); if (ob) { ob.click(); await w(100); }
+  out.fields = ['navn', 'server', 'ikon', 'farge', 'sti', 'path', 'navigation_path', 'url'].map((f) => !!R.querySelector(`[data-name="servere.0.${f}"]`));
   ed.remove();
   return out;
 });
 console.log(JSON.stringify(r));
-ok('nåværende path fra location.pathname uten ledende /', r.curPath === 'ki-dashboard/hjem', r.curPath);
-ok('radene: bare ikon + navn + chevron (ingen server=-linje)', r.rows.length === 2 && r.rows.every((x) => !x.srv && !/server=/.test(x.t) && x.icons === 2) && r.rows.map((x) => x.nm).join() === 'Toten,Strømstad', r.rows);
-ok('«Du er her» uten server=', /Oslo/.test(r.me) && /Du er her/.test(r.me) && !/server=/.test(r.me), r.me);
-ok('nettleser: ikke app', r.isAppBrowser === false);
-ok('nettleser: toast «Bytt server i appen», ingen navigering (url brukes ikke)', !r.web.nav.length && r.web.toasts.includes('Bytt server i appen') && !r.web.open, r.web);
-ok('nettleser: haptic + menyen lukkes', r.web.hap.length >= 1 && !r.web.open, r.web);
-ok('appdeteksjon: externalApp / webkit externalBus / UA «Home Assistant»', r.isApp1 && r.isApp2 && r.isApp3, [r.isApp1, r.isApp2, r.isApp3]);
-ok('app: homeassistant://navigate/ki-dashboard/hjem?server=Str%C3%B8mstad', r.app1.nav[0] === 'homeassistant://navigate/ki-dashboard/hjem?server=Str%C3%B8mstad', r.app1);
-ok('app: haptic, menyen lukkes, ingen toast', r.app1.hap.length >= 1 && !r.app1.open && !r.app1.toasts.length, r.app1);
-ok('app: «Du er her» oppdateres', r.app1.here === 'Strømstad' && /Strømstad/.test(r.me2) && r.rows2.join() === 'Oslo,Toten', { here: r.app1.here, me2: r.me2, rows2: r.rows2 });
-ok('app: stedets egen path brukes (ledende / fjernes)', r.app2 === 'homeassistant://navigate/lovelace/gard?server=Toten', r.app2);
-ok('Tilpass header → Steder: name, icon, color, path (ikke navigation_path/url)', r.fields.slice(0, 4).every(Boolean) && !r.fields[4] && !r.fields[5], r.fields);
+ok('overskrift «Bytt sted» + «Tilpass …»', r.head === 'Bytt sted' && r.tilpass, [r.head, r.tilpass]);
+ok('radene: fargeflis + navn + «Du er her»/chevron, ingen server=-linje', r.rows.length === 4 && r.rows.every((x) => !/server=/.test(x.t) && x.icons === (x.her ? 1 : 2)) && r.rows.map((x) => x.n).join() === 'Oslo,Toten,Strømstad,Hytta' && r.rows[0].her && /Du er her/.test(r.rows[0].t), r.rows);
+ok('eget ikon vinner, ellers standardikon', r.rows[0].ic === 'mdi:office-building' && r.rows[1].ic === 'mdi:tractor-variant' && r.rows[2].ic === 'mdi:lighthouse', r.rows.map((x) => x.ic));
+ok('bytt: window.open(homeassistant://navigate/ki-dashboard?server=Strømstad) – ø ukodet, samme dashbord', r.s1.opened[0] === 'homeassistant://navigate/ki-dashboard?server=Strømstad', r.s1.opened);
+ok('bytt: haptic selection, menyen lukkes, ingen toast, location.href urørt', r.s1.hap.includes('selection') && !r.s1.open && !r.s1.toasts.length && r.s1.href, r.s1);
+ok('«Du er her» følger serveren (location_name), ikke trykket', r.here2.join() === 'Oslo', r.here2);
+ok('stedets egen sti (ledende / fjernes) · navnet i appen kodes bare for & og mellomrom', r.urls[1] === 'homeassistant://navigate/lovelace/gard?server=Toten' && r.urls[2] === 'homeassistant://navigate/ki-dashboard?server=Min%20hytte%20%26%20co', r.urls);
+ok('i appen: samme window.open, aldri location.href', r.app.n === 4 && r.app.last === 'homeassistant://navigate/ki-dashboard?server=Strømstad' && r.app.href && !r.app.toasts.length, r.app);
+ok('Tilpass header → Steder: navn, server, ikon, farge, sti (ikke path/navigation_path/url)', r.fields.slice(0, 5).every(Boolean) && !r.fields.slice(5).some(Boolean), r.fields);
 ok('ingen sidefeil', !errs.length, errs);
 await b.close();
 res.forEach((x) => console.log(x));
