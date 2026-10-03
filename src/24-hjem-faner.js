@@ -420,6 +420,7 @@
     add.forEach((id) => { const a = areas.find((x) => x.id === id); if (a && !base.includes(a)) base = [...base, a]; });
     // Hjem med autofyll (gammelt oppsett): rom med klimadata først (som favorittene i designet), deretter resten
     if (t.kind === 'hjem' && !t.hc && M.roomAuto) { const has = (a) => { const au = M.roomAuto(hass, a.id); return au.temp || au.thermo ? 0 : 1; }; base = base.map((a, i) => [a, has(a), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).map((x) => x[0]); }
+    if (M.combinedApply) base = M.combinedApply(hass, c, t, base); // 36.2: kombinert rom på første medlems plass, medlemmene ut (hide_members)
     const ord = get(c, `layout.${t.id}.order`) || [];
     return [...ord.map((id) => base.find((a) => a.id === id)).filter(Boolean), ...base.filter((a) => !ord.includes(a.id))];
   }
@@ -693,6 +694,8 @@
             ...(tabStyle(c) === 'popup' ? [{ type: 'select', name: 'tab_mode', label: 'Fanene viser', options: TAB_MODES, default: 'begge' }] : []),
             ...(['glide', 'chips', 'to', 'popup'].includes(tabStyle(c)) ? T.map((t) => ({ type: 'icon', name: `tab_icons.${t.id}`, label: `Ikon · ${t.label}`, placeholder: M.iconName ? M.iconName(tabIcon(hass, c, t)) : tabIcon(hass, c, t) })) : []),
           ] },
+          // 36.4: kombinerte rom (combined_rooms) – samme valg som «Tilpass Hjem» → Kort → «Kombiner rom»
+          { type: 'section', id: 'kombiner', label: 'Kombiner rom', icon: 'mdi:vector-combine', meta: (hh, cc) => { const n = M.combinedList ? M.combinedList(hh, cc).length : 0; return n ? n + ' stk' : 'Ingen'; }, fields: [M.combinedField ? M.combinedField('hjem') : { type: 'info', label: '–' }] },
           { type: 'section', id: 'batterier', label: 'Batterier', icon: 'mdi:battery-alert', fields: [
             { type: 'number', name: 'battery.limit', label: 'Grense for lavt batteri (%)', min: 5, max: 60, step: 5, placeholder: '20' },
             { type: 'select', name: 'battery.show', label: 'Liste', options: [['lav', 'Bare lave'], ['alle', 'Alle']], default: 'lav' },

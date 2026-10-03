@@ -810,7 +810,7 @@
         p.hass = this._hass;
         if (p.dataset.selector !== p.__selJson) { p.__selJson = p.dataset.selector; p.selector = JSON.parse(p.dataset.selector); }
         p.label = p.dataset.label || ''; p.helper = p.dataset.helper || ''; p.required = false;
-        const raw = this._val ? this._val(p.dataset.name) : get(this._config, p.dataset.name), v = raw != null ? raw : (p.dataset.def !== undefined && p.dataset.def !== '' ? Number(p.dataset.def) : undefined);
+        const raw = this._val ? this._val(p.dataset.name) : get(this._config, p.dataset.name), v = raw != null ? raw : p.dataset.sdef !== undefined ? p.dataset.sdef : (p.dataset.def !== undefined && p.dataset.def !== '' ? Number(p.dataset.def) : undefined); // sdef: tekst-standard (36.5 startfane)
         if (p.value !== v) p.value = v;
       });
       this.shadowRoot.querySelectorAll('msh-entity-picker,msh-entity-multi').forEach((p) => { p.hass = this._hass; });
@@ -1094,11 +1094,14 @@
         const v = get(c, f.openName + '.' + k), on = v != null ? !!v : !!(f.openDefault && f.openDefault(c, k));
         return `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" title="Åpen ved start" aria-label="${esc(lab[k])}: åpen ved start" data-a="bool" data-name="${esc(f.openName + '.' + k)}" data-v="${on ? 0 : 1}" ${hid.has(k) ? 'disabled' : ''} style="transform:scale(.85)"></button>`;
       };
+      // Fiks 36.5: f.start (true | { legacy, visible(cfg) }) → «Start»-pill på startfanen (MSH.startTab)
+      const stVis = f.start ? (f.start.visible ? (() => { try { return f.start.visible(c) || []; } catch (e) { return []; } })() : order.filter((k) => !hid.has(k))) : [];
+      const stPill = (k) => (f.start && M.startTab ? M.startTab.pill(c, k, stVis, f.start.legacy) : '');
       const after = (f.after || []).map((x, j) => (x.type === 'boolean' && x.on != null
         ? (() => { const on = get(c, x.name) === x.on; return `<div class="f"><div class="line"><span style="flex:1;font-size:13px">${esc(x.label)}</span><button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-a="sel" data-name="${esc(x.name)}" data-v="${esc(on ? x.off : x.on)}"></button></div>${x.help ? `<div class="small">${esc(x.help)}</div>` : ''}</div>`; })()
         : this._field(x, 'ord_' + f.name + '_' + j))).join('');
       const inner = `${f.openName ? '<div class="small" style="padding:0 6px">Bryteren = «Åpen ved start»: seksjonen er utvidet hver gang popupen åpnes. Øye = vis/skjul, piler = rekkefølge.</div>' : ''}
-        ${order.map((k, i) => `<div class="ordrow ${hid.has(k) ? 'off' : ''}" style="${hid.has(k) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(lab[k])}</span>${opn(k)}
+        ${order.map((k, i) => `<div class="ordrow ${hid.has(k) ? 'off' : ''}" style="${hid.has(k) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(lab[k])}</span>${stPill(k)}${opn(k)}
           <button class="ib" data-a="mv" data-name="${esc(f.name)}" data-ord="${esc(order.join(','))}" data-i="${i}" data-d="-1" ${i ? '' : 'disabled style="opacity:.3"'}>${M.icon('mdi:chevron-up', 20)}</button>
           <button class="ib" data-a="mv" data-name="${esc(f.name)}" data-ord="${esc(order.join(','))}" data-i="${i}" data-d="1" ${i < order.length - 1 ? '' : 'disabled style="opacity:.3"'}>${M.icon('mdi:chevron-down', 20)}</button>
           <button class="ib" data-a="hid" data-name="${esc(f.hiddenName)}" data-v="${esc(k)}">${M.icon(hid.has(k) ? 'mdi:eye-off' : 'mdi:eye', 18)}</button></div>`).join('')}

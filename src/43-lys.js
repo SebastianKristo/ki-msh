@@ -252,8 +252,8 @@
           ] },
           { type: 'section', id: 'tabs', label: 'Faner', icon: 'mdi:tab', meta: () => `${tabs.filter(([k]) => !(c.hidden_tabs || []).includes(k)).length} av ${tabs.length} vises`, fields: [
             { type: 'info', label: 'Standard: Utelys · én fane per etasje · Lys på. Piler = rekkefølge, øye = skjul (minst én fane vises). Du kan også holde inne en fane i popupen og dra den.' },
-            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge og synlighet', options: tabs.map(([k, l]) => [k, l]) },
-            { type: 'select', name: 'start_tab', label: 'Startfane', options: [['', 'Første'], ...tabs.map(([k, l]) => [k, l])] },
+            ...(M.startTab ? [M.startTab.field({ items: () => { const hid = c.hidden_tabs || [], by = Object.fromEntries(tabs.map(([k, l]) => [k, l])); return M.mshOrder(tabs.map(([k]) => k), c.tab_order, hid).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane (felles MSH.startTab)
+            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge og synlighet', start: true, options: tabs.map(([k, l]) => [k, l]) },
             ...(M.tabH ? [M.tabH.field({ items: tabs.map(([, l]) => l), native: 48, variant: 'gear' })] : []), // 33.4: fanehøyde (felles felt)
             { type: 'section', label: 'Navn på fanene', icon: 'mdi:rename-outline', fields: tabs.map(([k, , d]) => ({ type: 'text', name: 'tab_names.' + k, label: d, placeholder: d })) },
             ...(a.floorsHA.length ? [{ type: 'section', label: 'Fane per etasje', icon: 'mdi:home-floor-1', fields: a.floorsHA.map((f) => ({ type: 'boolean', name: 'floor_tabs.' + f.id, label: f.name, default: f.has, help: f.has ? '' : 'Fant ingen lys i etasjen' })) }] : []),
@@ -659,6 +659,8 @@
         default: return super.onAction(name, el, ev);
       }
     }
+    // 36.5: startfane ved åpning (MSH.startTab via basekortet): synlige faner i tab_order-rekkefølge
+    static get startTabSpec() { return { tabs: (card) => M.mshOrder(tabDefs(card._A || M.lysAuto(card.hass, card.config), card.cfg).map((x) => x[0]), card.cfg.tab_order, card.cfg.hidden_tabs) }; }
     _curTab() {
       const c = this.cfg, A = this._A;
       const tabs = M.mshOrder(tabDefs(A, c).map((x) => x[0]), c.tab_order, c.hidden_tabs);

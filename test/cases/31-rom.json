@@ -92,5 +92,39 @@
     }
    }
   ]
+ },
+ {
+  "name": "Rom · kombinert Stue + Kjøkken (rooms, 36.3)",
+  "hash": "#stue-kjokken",
+  "cards": [
+   {
+    "type": "custom:msh-rom-card",
+    "area": "stue-kjokken",
+    "name": "Stue + Kjøkken",
+    "rooms": [
+     "stue",
+     "kjokken"
+    ],
+    "primary": "stue",
+    "layout": "merge"
+   }
+  ]
+ },
+ {
+  "name": "Rom · kombinert 3 rom gruppert (36.3)",
+  "hash": "#gang-soverom-bad",
+  "cards": [
+   {
+    "type": "custom:msh-rom-card",
+    "area": "gang-soverom-bad",
+    "rooms": [
+     "gang",
+     "soverom",
+     "bad"
+    ],
+    "primary": "avg",
+    "layout": "group"
+   }
+  ]
  }
 ]

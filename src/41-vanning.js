@@ -1101,6 +1101,9 @@
       V.sist = lastTxt ? { tekst: lastTxt } : null;
     }
 
+    // Fiks 36.5: startfane ved åpning (MSH.startTab) – synlige faner (Historikk bare med statistikk)
+    static get startTabSpec() { return { tabs: (card) => { let V = card.__V; if (!V) { try { V = card._vm(); } catch (e) { V = {}; } } const t = fanerCfg(card.config).filter((f) => (f !== 'historikk' || V.harHist)); return t.length ? t : ['naa']; } }; }
+
     /* ---------------------------------------------------------- tegning */
     render() {
       const c = this.config, V = this._vm();
@@ -2040,7 +2043,7 @@
         const [l, ic] = FANE[k], on = vis.has(k);
         return `<div class="ordrow" data-vk="${k}" data-vl="fane" data-key="vf-${k}" style="${rowCss};${on ? '' : 'opacity:.55'}">${hdl('fane')}
           <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface-2, #404040);flex:none">${M.icon(ic, 20)}</span>
-          <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(l)}</span>${sw(on, `data-a="fn" data-k="${key}" data-op="fane" data-v="${k}"`, 'Vis ' + l)}</div>`;
+          <span style="flex:1;min-width:0;font-size:14px;font-weight:500">${esc(l)}</span>${M.startTab ? M.startTab.pill(cc, k, [...vis]) : ''}${sw(on, `data-a="fn" data-k="${key}" data-op="fane" data-v="${k}"`, 'Vis ' + l)}</div>`;
       }).join('')}<span class="help">Dra i håndtaket for rekkefølge. Forbruk viser KI Vann, vannmåleren og «Hvor gikk vannet» (tom-tilstand uten sensor), Historikk vises når KI Vanning fører statistikk.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {}, vis = fanerCfg(cc);
@@ -2143,7 +2146,7 @@
     ];
     return [
       { type: 'tabs', id: 'vanning', tabs: [
-        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [cogFelt, lookFelt, fanevis, ...(fanehoyde ? [fanehoyde] : []), faner] },
+        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [...(M.startTab ? [M.startTab.field({ items: (hh, cc) => fanerCfg(cc).map((k) => ({ key: k, label: FANE[k][0], icon: FANE[k][1] })) })] : []), cogFelt, lookFelt, fanevis, ...(fanehoyde ? [fanehoyde] : []), faner] }, // 36.5: Startfane øverst
         { key: 'soner', label: 'Soner', icon: 'mdi:sprinkler-variant', focus: ['soner'], fields: [grupper, soner, stdMin] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:format-list-bulleted', focus: ['entiteter', 'overrides', 'reserve'], fields: entiteter },
         { key: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', focus: ['avansert', 'innstillinger', 'spacing'], fields: avansert },

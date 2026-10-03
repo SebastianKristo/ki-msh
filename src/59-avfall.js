@@ -310,7 +310,7 @@
       M.edKit(ed);
       ed.__edDrop['sop-tab'] = (o) => ed._set('tab_order', o);
       const hid = tabHidden(cc);
-      return `<div class="edlist">${tabOrder(cc).map((k) => { const [, label, icon] = TABL[k]; return `<div class="edrow ${hid.has(k) ? 'off' : ''}" data-edk="${k}" data-elist="sop-tab" data-key="st-${k}">${M.edHandle()}<span class="edic">${M.icon(icon, 20)}</span><span class="nm"><b>${esc(label)}</b><i>${k === (cc.start_tab || visTabs(cc)[0]) ? 'Startfane' : ''}</i></span>${M.edEye(key, 'teye', k, hid.has(k), label)}</div>`; }).join('')}
+      return `<div class="edlist">${tabOrder(cc).map((k) => { const [, label, icon] = TABL[k]; return `<div class="edrow ${hid.has(k) ? 'off' : ''}" data-edk="${k}" data-elist="sop-tab" data-key="st-${k}">${M.edHandle()}<span class="edic">${M.icon(icon, 20)}</span><span class="nm"><b>${esc(label)}</b></span>${M.startTab ? M.startTab.pill(cc, k, visTabs(cc)) : ''}${M.edEye(key, 'teye', k, hid.has(k), label)}</div>`; }).join('')}
         <span class="help" style="font-size:11px;color:var(--ki-text-3, #7f7f7f);padding:0 6px">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span></div>`;
     }, click: (dd, ed) => {
       const cc = ed._config || {};
@@ -383,8 +383,9 @@
     return [
       { type: 'tabs', id: 'soppel', tabs: [
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [
+          ...(M.startTab ? [M.startTab.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })) })] : []), // 36.5: Startfane øverst (felles MSH.startTab)
           { type: 'section', id: 'faner', label: 'Faner', fields: [faner] },
-          { type: 'section', id: 'visning', label: 'Visning', fields: [{ type: 'select', name: 'start_tab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'oversikt' }, ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => TABL[k][1]), mode: 'tekst', native: 40, gear: false })] : [])] }, // 33.4: fanehøyde
+          { type: 'section', id: 'visning', label: 'Visning', fields: [...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => TABL[k][1]), mode: 'tekst', native: 40, gear: false })] : [])] }, // 33.4: fanehøyde
         ] },
         { key: 'fraksjoner', label: 'Fraksjoner', icon: 'mdi:delete-variant', focus: ['fraksjoner'], fields: [{ type: 'section', id: 'fraksjoner', label: 'Fraksjoner', fields: [frak] }] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:database-search-outline', focus: ['entiteter'], fields: [
@@ -418,6 +419,7 @@
     onOpen() { this.update(); }
     onClose() { this._ui = { ...this._ui, sel: null, day: null, mnd: 0 }; }
     get tab() { const V = visTabs(this.config), t = this.ui.tab || this.config.start_tab; return V.includes(t) ? t : V[0]; }
+    static get startTabSpec() { return { tabs: (card) => visTabs(card.config) }; } // 36.5: startfane ved åpning
     _hp(t) { return `data-haptic="${this.config.haptikk === false ? 'off' : t}"`; }
     async _save(patch) {
       const old = this._rawConfig || this.config, n = { ...old, ...patch };

@@ -511,6 +511,8 @@
     const hidden = (Array.isArray(c.hidden_tabs) ? c.hidden_tabs : (T.hidden || c.tabs_hidden || [])).map(mapK).filter((k) => KEYS.includes(k));
     return { order: o, hidden, start: mapK(c.start_tab != null ? c.start_tab : (T.start || c.start_tab || '')) };
   }
+  // 36.5: startfane (felles MSH.startTab): start_tab | 'last'; gamle tabs.start leses, '' (gammel «Sist brukt») = 'last'
+  const ST_LEG = { legacy: (c) => (c.start_tab === '' ? 'last' : c.tabs && !Array.isArray(c.tabs) && c.tabs.start ? c.tabs.start : undefined), map: (k) => (k === 'unifi' ? 'net' : k) };
   function visTabs(c) { const T = tabsCfg(c), V = T.order.filter((k) => !T.hidden.includes(k)); return V.length ? V : [T.order[0]]; }
   // 33.4: felles fanehøyde (MSH.tabH, 05-tab-bar.js): kortets tab_height (28–64) → global «Fanehøyde i popups» → designets 44
   const tabH = (c) => (M.tabH ? M.tabH.height(c, 44) : 44);
@@ -603,7 +605,7 @@
     c = c || {};
     const preview = { type: 'html', html: (hh, cc, key, ed) => {
       if (ed && !ed.__svInst) { ed.__svInst = true; window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); }); }
-      const V = visTabs(cc), T = tabsCfg(cc), act = V.includes(T.start) ? T.start : V[0];
+      const V = visTabs(cc), act = (M.startTab ? M.startTab.pillKey(cc, V, ST_LEG) : null) || V[0]; // 36.5: forhåndsvisningen viser startfanen
       return `<style>${PREV_CSS()}</style><div class="svp" data-key="svp" aria-hidden="true" style="${thVars(cc)}"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}) : tabRowHTML(V, act)}</div>`;
     } };
     const ints = { type: 'html', html: (hh, cc, key) => `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${INTEG.map((I) => {
@@ -628,9 +630,9 @@
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs', 'faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
+            ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, clear: ['tabs.start'], items: (hh, cc) => { const by = Object.fromEntries(hostOpts); return visTabs(cc || {}).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane øverst
             preview,
-            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', options: hostOpts },
-            { type: 'select', name: 'start_tab', label: 'Åpne med', options: [['', 'Sist brukt'], ...hostOpts], default: '' },
+            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', start: { legacy: ST_LEG, visible: (cc) => visTabs(cc) }, options: hostOpts },
             { type: 'info', label: 'Hold inne en fane i 0,4 s og dra for å endre rekkefølgen direkte i popupen.' },
           ] },
         ] },
@@ -681,12 +683,12 @@
     onOpen() {
       CE.t = 0; entries(this.hass); // friske config entries når popupen åpnes
       supLoad(this.hass, true);
-      const st = tabsCfg(this.config).start;
-      if (st && visTabs(this.config).includes(st) && this.ui.host !== st) this.setUI({ host: st, sel: null });
-      this._loadHist();
+      this._loadHist(); // 36.5: startfanen settes av MSH.startTab (startTabSpec) før onOpen
+
     }
     onClose() { if (this._pick) { this._pick.close(); this._pick = null; } this._holdStop(); }
     get tabs() { return visTabs(this.config); }
+    static get startTabSpec() { return { key: 'host', tabs: (card) => visTabs(card.config), legacy: ST_LEG.legacy, map: ST_LEG.map, get: (card) => card.tab, set: (card, id) => { if (card.ui.host !== id) card.setUI({ host: id, sel: null }, true); } }; }
     get tab() { const V = this.tabs, st = tabsCfg(this.config).start; const u = this.ui.host || this.ui.tab; return V.includes(u) ? u : V.includes(st) ? st : V[0]; }
     _sub(host) { const S = SUBS[host], u = (this.ui.sub || {})[host]; return S.some((s) => s[0] === u) ? u : S[0][0]; }
 

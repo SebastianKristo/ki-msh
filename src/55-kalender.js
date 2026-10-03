@@ -488,7 +488,7 @@
       { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['icon', 'Symboler'], ['name', 'Navn']], default: 'icon', help: 'Symboler: bare ikon, den aktive fanen viser også navnet. Navn: bare tekst.' },
       { type: 'select', name: 'days', label: 'Dager fremover', options: [[7, '7'], [14, '14'], [30, '30']], default: 14 },
       { type: 'select', name: 'defaultView', label: 'Standardvisning', options: [['liste', 'Liste'], ['maned', 'Måned']], default: 'liste' },
-      { type: 'select', name: 'startTab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'kalender' },
+      ...(M.startTab ? [M.startTab.field({ legacy: (cc) => cc.startTab, clear: ['startTab'], items: (hh, cc) => visTabs(cc).map((k) => { const t = TABS.find((x) => x[0] === k) || [k, k]; return { key: k, label: t[1] }; }) })] : []), // 36.5: Startfane (felles MSH.startTab; gamle startTab leses)
       { type: 'boolean', name: 'showPlex', label: 'Vis «Nylig i Plex»', default: true },
       { type: 'boolean', name: 'birthdayToday', label: 'Konfetti når noen har bursdag i dag', default: true },
       spacing,
@@ -538,6 +538,8 @@
       return normView(s) || normView(this.config.defaultView) || 'liste';
     }
     onOpen() { this.update(); }
+    // 36.5: startfane ved åpning (MSH.startTab via basekortet) – start_tab, ellers gamle startTab
+    static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (c) => c.startTab }; }
     onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '' }; }
     get tab() { const V = visTabs(this.config); const t = this.ui.tab || this.config.startTab; return V.includes(t) ? t : V[0]; }
     _upd() { if (this.isConnected) this.update(); }

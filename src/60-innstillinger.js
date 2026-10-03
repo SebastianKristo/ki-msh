@@ -139,6 +139,7 @@
   });
   M.innstFaner = fanerOf;
   M.innstFanerOut = fanerOut;
+  const ST_LEG = { map: keyOf }; // 36.5: gamle fane-nøkler i start_tab (LEGACY) → nye
   const visTabs = (c) => { const D = fanerOf(c), V = D.filter((t) => !t.hidden); return V.length ? V : D.slice(0, 1); };
   const tabDef = (c, k) => fanerOf(c).find((t) => t.key === keyOf(k)) || null;
   // Kortnivå-valg som gjelder alle faner + fanens egne nøkler → én ki-varsling-card-config
@@ -612,7 +613,7 @@
     // Forhåndsvisning (27.5): fanelinjen + tannhjul live, ikke trykkbar
     const preview = { type: 'html', html: (hh, cc, key, ed) => {
       innKit(ed);
-      const V = visTabs(cc), st = keyOf(cc.start_tab), cur = V.some((t) => t.key === st) ? st : V[0].key;
+      const V = visTabs(cc), cur = (M.startTab ? M.startTab.pillKey(cc, V.map((t) => t.key), ST_LEG) : null) || V[0].key; // 36.5: startfanen
       return `<div class="pvw" data-key="pvw"><div class="pvb">${tabBar(cc, V, cur, { preview: true })}</div></div>`;
     } };
     // Faner: dra-håndtak, ikon (→ fanepanelet), navnefelt, søppelkasse (egne faner), bryter = vis/skjul; «Legg til fane» nederst
@@ -622,7 +623,7 @@
       const D = fanerOf(cc), N = ntOf(ed), open = EXPF.get(cid(ed));
       const rows = D.map((t) => `<div class="irow ${t.hidden ? 'off' : ''}" data-edk="${esc(t.key)}" data-elist="inn-tab" data-key="it-${esc(t.key)}">${handle()}<button class="iic" data-a="fn" data-k="${key}" data-op="texp" data-v="${esc(t.key)}" aria-expanded="${open === t.key}" aria-label="Integrasjoner og filter for ${esc(t.name)}">${M.icon(t.icon, 22)}</button>
           <input class="inm" data-inn="tname" data-v="${esc(t.key)}" value="${esc(BUILTIN[t.key] && t.name === BUILTIN[t.key][0] ? '' : t.name)}" placeholder="${esc(BUILTIN[t.key] ? BUILTIN[t.key][0] : t.name)}" aria-label="Navn på fanen" autocapitalize="off" autocorrect="off" spellcheck="false">
-          ${t.custom ? `<button class="idel" data-a="fn" data-k="${key}" data-op="tdel" data-v="${esc(t.key)}" title="Slett fane" aria-label="Slett fanen ${esc(t.name)}">${M.icon('mdi:delete-outline', 20)}</button>` : ''}${sw(key, 'teye', t.key, !t.hidden, (t.hidden ? 'Vis ' : 'Skjul ') + t.name)}</div>${open === t.key ? fanePanel(hh, cc, key, ed, t) : ''}`).join('');
+          ${M.startTab ? M.startTab.pill(cc, t.key, visTabs(cc).map((x) => x.key), ST_LEG) : ''}${t.custom ? `<button class="idel" data-a="fn" data-k="${key}" data-op="tdel" data-v="${esc(t.key)}" title="Slett fane" aria-label="Slett fanen ${esc(t.name)}">${M.icon('mdi:delete-outline', 20)}</button>` : ''}${sw(key, 'teye', t.key, !t.hidden, (t.hidden ? 'Vis ' : 'Skjul ') + t.name)}</div>${open === t.key ? fanePanel(hh, cc, key, ed, t) : ''}`).join('');
       let panel = '';
       if (N.open) {
         const ok = ntOk(N);
@@ -786,12 +787,12 @@
     return [
       { type: 'tabs', id: 'innstillinger', tabs: [
         { key: 'faner', label: 'Faner', focus: ['faner', 'visning', 'forhandsvisning'], fields: [
+          ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, items: (hh, cc) => visTabs(cc || {}).map((t) => ({ key: t.key, label: t.name, icon: t.icon })) })] : []), // 36.5: Startfane øverst (felles MSH.startTab)
           { type: 'section', id: 'forhandsvisning', label: 'Forhåndsvisning', fields: [preview] },
           { type: 'section', id: 'faner', label: 'Faner · dra for rekkefølge', fields: [faner, gui] },
           { type: 'section', id: 'visning', label: '', fields: [
             { type: 'select', name: 'tab_labels', label: 'Faner viser', options: [['icon', 'Ikon + tekst'], ['name', 'Tekst'], ['ikon', 'Ikoner']], default: 'icon' },
             ...(M.tabH ? [M.tabH.field({ native: (cc) => (tabMode(cc) === 'b' ? 40 : 44), preview: false })] : []), // 33.4: fanehøyde (forhåndsvisningen øverst følger valget)
-            { type: 'select', name: 'start_tab', label: 'Startfane', options: fanerOf(cfg0 || {}).map((t) => [t.key, t.name]), default: 'sikkerhet' },
           ] },
         ] },
         { key: 'rader', label: 'Rader', focus: ['rader'], fields: [
@@ -898,6 +899,7 @@
       return super._changed(o, n);
     }
     get tab() { const V = visTabs(this.config).map((t) => t.key), t = keyOf(this.ui.tab || this.config.start_tab); return V.includes(t) ? t : V[0]; }
+    static get startTabSpec() { return { tabs: (card) => visTabs(card.config).map((t) => t.key), map: keyOf }; } // 36.5: startfane ved åpning
     _hp(t) { return `data-haptic="${this.config.haptikk === false ? 'off' : t}"`; }
     get _anim() { return this.config.animasjoner !== false; }
     // «Tilpass Innstillinger»: arkhøyden er felles for alle Tilpass-ark (28.11, MSH.overlay) – ingen egen overstyring her

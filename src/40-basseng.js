@@ -442,7 +442,8 @@
         { type: 'overrides', id: 'overrides', label: 'Entiteter', fields: ovrFields() },
         { type: 'lists', id: 'entities', label: 'Hurtigknapper, brytere og navn', lists: (h, c) => { const a = M.poolAuto(h, c); return [{ key: 'hurtig', label: 'Ekstra hurtigknapper', ids: [], domains: ['switch', 'light', 'input_boolean', 'fan', 'script', 'scene', 'cover', 'valve'] }, { key: 'flagg', label: 'Brytere (Oversikt)', ids: a.flags, domains: ['switch', 'input_boolean'] }, { key: 'personer', label: 'Navn i klorloggen', ids: a.people, domains: ['person'] }]; } },
         { type: 'order', name: 'controls', hiddenName: 'hidden_controls', label: 'Hurtigknapper (vises når rollen finnes)', options: Object.keys(CTL).map((k) => [k, CTL[k][3] ? `${CTL[k][1]} (${CTL[k][3]})` : CTL[k][1]]) },
-        { type: 'order', name: 'tabs', hiddenName: 'hidden_tabs', label: 'Faner', options: Object.keys(TABS).map((k) => [k, TABS[k]]) },
+        ...(M.startTab ? [M.startTab.field({ items: (h, c) => { const hid = new Set(c.hidden_tabs || []), o = (Array.isArray(c.tabs) ? c.tabs : []).filter((k) => TABS[k]); Object.keys(TABS).forEach((k) => { if (!o.includes(k)) o.push(k); }); return o.filter((k) => !hid.has(k)).map((k) => ({ key: k, label: TABS[k] })); } })] : []), // 36.5: startfane over Faner
+        { type: 'order', name: 'tabs', hiddenName: 'hidden_tabs', label: 'Faner', start: true, options: Object.keys(TABS).map((k) => [k, TABS[k]]) },
         { type: 'section', id: 'styr', label: 'Styring og verdier', icon: 'mdi:tune', fields: CFG.flatMap(([, title, rows]) => [{ type: 'info', label: title.toUpperCase() }].concat(rows.map(([k, l, sub, v]) => (typeof v === 'boolean' ? { type: 'boolean', name: 'vals.' + k, label: l, help: sub, default: v } : { type: 'text', name: 'vals.' + k, label: l, help: sub, placeholder: String(v) })))) },
         { type: 'section', label: 'Animasjon', icon: 'mdi:animation', fields: [
           { type: 'boolean', name: 'anim', label: 'Animasjoner (bølger, bobler, vifte og varme)', default: true },
@@ -494,6 +495,8 @@
       this._klor = await M.calEvents(this.hass, e.klor_calendar, a.getTime(), b.getTime());
       this.update();
     }
+    // Fiks 36.5: startfane ved åpning (MSH.startTab, 05-start-tab.js) – synlige faner i rekkefølge
+    static get startTabSpec() { return { tabs: (card) => card._tabs(card._e || M.poolEnts(card.hass, card.config)) }; }
     // Faner uten data skjules automatisk (Spreder uten spreder …)
     _tabs(e) {
       const c = this.config, hid = new Set(c.hidden_tabs || []);

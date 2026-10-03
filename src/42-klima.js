@@ -141,7 +141,10 @@
     const out = { ...LAY_DEF, ...L };
     if (!Array.isArray(out.tab_order) && Array.isArray(c.tab_order)) out.tab_order = c.tab_order.map(tabId);
     if (!Array.isArray(out.hidden_tabs) && Array.isArray(c.hidden_tabs)) out.hidden_tabs = c.hidden_tabs.map(tabId);
-    if (!out.default_tab && c.start_tab) out.default_tab = tabId(c.start_tab);
+    // 36.5: start_tab (rot, felles MSH.startTab) vinner over de gamle layout.default_tab/remember_tab
+    const sv = c.start_tab != null && c.start_tab !== '' ? String(c.start_tab) : null;
+    if (sv === 'last') out.remember_tab = true;
+    else if (sv) { out.default_tab = tabId(sv); out.remember_tab = false; }
     if (out.remember_tab == null && c.remember_tab != null) out.remember_tab = c.remember_tab;
     out.remember_tab = out.remember_tab === true || out.remember_tab === 'true';
     out.block_order = L.block_order && typeof L.block_order === 'object' ? L.block_order : {};
@@ -149,6 +152,9 @@
     return out;
   }
   M.klimaLayout = layoutOf;
+  // 36.5: gamle nøkler → startfane ('last' = «Husk siste fane»)
+  const startLegacy = (c) => { const L = layoutOf({ ...(c || {}), start_tab: undefined }); return L.remember_tab ? 'last' : L.default_tab || undefined; };
+  const START_CLEAR = ['layout.default_tab', 'layout.remember_tab', 'remember_tab'];
   // Synlige faner i rekkefølge (minst én)
   function visibleTabs(card, L) {
     const all = tabDefs().map((t) => t.id);
@@ -717,9 +723,8 @@
           ] },
           ...(M.tabH ? [{ type: 'section', id: 'fanehoyde', label: 'Fanehøyde', icon: 'mdi:arrow-expand-vertical', fields: [M.tabH.field(TH_OPTS())] }] : []), // 33.4
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
-            { type: 'select', name: 'layout.default_tab', label: 'Åpne med', options: (() => { const v = visibleTabs(pc, layoutOf(c)); return T.filter((t) => v.includes(t.id)).map((t) => [t.id, t.label]); })(), default: 'oversikt' },
-            { type: 'boolean', name: 'layout.remember_tab', label: 'Husk siste fane', help: 'På: åpner med fanen du sist var på (per enhet). Av: alltid «Åpne med».', default: false },
-            { type: 'order', name: 'layout.tab_order', hiddenName: 'layout.hidden_tabs', label: 'Faner (rekkefølge og synlighet)', options: T.map((t) => [t.id, t.label]) },
+            ...(M.startTab ? [M.startTab.field({ legacy: startLegacy, clear: START_CLEAR, items: (hh, cc) => { const p2 = proxyCard(hh, cc), v = visibleTabs(p2, layoutOf(cc)); return v.map((k) => { const t = T.find((x) => x.id === k) || { id: k, label: k }; return { key: k, label: t.label, icon: t.icon }; }); } })] : []), // 36.5: Startfane (felles)
+            { type: 'order', name: 'layout.tab_order', hiddenName: 'layout.hidden_tabs', label: 'Faner (rekkefølge og synlighet)', start: { legacy: startLegacy, visible: (cc) => visibleTabs(proxyCard(h, cc), layoutOf(cc)) }, options: T.map((t) => [t.id, t.label]) },
           ] },
           ...(blocks.length ? [{ type: 'section', id: 'blokker', label: 'Blokker', icon: 'mdi:view-agenda-outline', fields: blocks }] : []),
           { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : SPACING.gap} px mellom`, fields: SPACING_FIELDS },
@@ -883,9 +888,9 @@
     onInput(name, el, ev, kind) {
       if (M.klimaInput && safe(() => M.klimaInput(this, name, el, ev, kind), false)) return;
     }
+    // 36.5: startfanen settes av MSH.startTab.apply (basekortet) før onOpen – start_tab / gamle «Åpne med»/«Husk siste fane»
+    static get startTabSpec() { return { tabs: (card) => visibleTabs(card, card.layout), legacy: startLegacy, get: (card) => card._curTab(), set: (card, id) => { card._tab = id; card.setUI({ tab: id }, true); } }; }
     onOpen() {
-      // 19.8: «Husk siste fane» av → popupen åpner alltid med «Åpne med»-fanen
-      if (!this.layout.remember_tab) this._tab = null;
       if (M.klimaOnOpen) safe(() => M.klimaOnOpen(this)); this._armWatch();
     }
     onClose() { if (M.klimaOnClose) safe(() => M.klimaOnClose(this)); }
@@ -1016,15 +1021,15 @@
       // 19.8: «Åpne med» = default_tab når den er synlig, ellers første synlige (stjernen og nedtrekkslisten er den samme verdien)
       const visT = visibleTabs(P, L), defTab = L.default_tab && visT.includes(L.default_tab) ? L.default_tab : visT[0];
       const dt = byId[defTab] || { label: defTab || '–', icon: 'mdi:tab' };
-      const openWith = `<div class="r"><span class="rl">Åpne med</span><label class="dsel press">${M.icon(dt.icon, 18)}<span class="ell">${esc(dt.label)}</span>${M.icon('mdi:chevron-down', 18)}
-          <select data-deftab="1" aria-label="Åpne med">${visT.map((k) => `<option value="${esc(k)}"${k === defTab ? ' selected' : ''}>${esc((byId[k] || { label: k }).label)}</option>`).join('')}</select></label></div>`;
-      const remRow = `<button class="r" data-a="remember" data-v="${L.remember_tab ? 0 : 1}" role="switch" aria-checked="${L.remember_tab}"><span class="rl col"><span>Husk siste fane</span><span class="rs">${L.remember_tab ? 'Åpner med fanen du sist var på (denne enheten)' : 'Åpner alltid med «Åpne med»-fanen'}</span></span><span class="sw${L.remember_tab ? ' on' : ''}"><span></span></span></button>`;
+      // 36.5: «Startfane» (felles MSH.startTab) – chips over synlige faner + «Sist brukte»; erstatter «Åpne med»/«Husk siste fane»
+      void dt;
+      const openWith = M.startTab ? `<div class="r col2" data-key="mst">${M.startTab.editorHTML(d, visT.map((k) => ({ key: k, label: (byId[k] || { label: k }).label, icon: (byId[k] || {}).icon })), { legacy: startLegacy })}</div>` : '';
+      const remRow = '';
       const tabRows = order.map((k, i) => {
-        const t = byId[k], hid = hidT.has(k), avail = hasTab(P, k), star = k === defTab;
+        const t = byId[k], hid = hidT.has(k), avail = hasTab(P, k);
         return `<div class="r tr${hid ? ' off' : ''}" data-key="t-${esc(k)}">
-          <button class="ib star${star ? ' on' : ''}" data-a="star" data-k="${esc(k)}" aria-label="${star ? 'Standardfane' : 'Gjør til standardfane'}: ${esc(t.label)}" aria-pressed="${star}">${M.icon(star ? 'mdi:star' : 'mdi:star-outline', 20)}</button>
           <span class="ti">${M.icon(t.icon, 18)}</span>
-          <span class="rl col"><span class="ell">${esc(t.label)}</span>${!avail ? `<span class="rs">${k === 'lading' ? 'Vises når laderen er satt opp' : 'Ikke tilgjengelig her'}</span>` : ''}</span>
+          <span class="rl col"><span class="ell">${esc(t.label)}</span>${!avail ? `<span class="rs">${k === 'lading' ? 'Vises når laderen er satt opp' : 'Ikke tilgjengelig her'}</span>` : ''}</span>${M.startTab ? M.startTab.pill(d, k, visT, startLegacy) : ''}
           ${ib('tab', k, hid ? 'mdi:eye-off-outline' : 'mdi:eye-outline', (hid ? 'Vis ' : 'Skjul ') + t.label, '', false)}
           ${ib('tmv', k, 'mdi:chevron-up', 'Flytt opp', 'data-d="-1"', i === 0)}
           ${ib('tmv', k, 'mdi:chevron-down', 'Flytt ned', 'data-d="1"', i === order.length - 1)}
@@ -1077,7 +1082,7 @@
           ${remRow}
         </div>
         <div class="grp tl-list">${tabRows}</div>
-        <p class="note">Stjerne = standardfane. Minst én fane må vises. Rekkefølgen er den samme som når du drar i fane-raden.</p></section>
+        <p class="note">«Start» = fanen popupen åpner med. Minst én fane må vises. Rekkefølgen er den samme som når du drar i fane-raden.</p></section>
         <section class="sec" data-sec="blokker"><span class="cap">Blokker</span>
         <div class="bseg noscroll" data-glass-drag="x">${T.map((t) => `<button class="${t.id === st.btab ? 'on' : ''}" data-a="btab" data-v="${esc(t.id)}" aria-selected="${t.id === st.btab}">${esc(t.label)}</button>`).join('')}</div>
         <div class="grp">${blkRows || `<div class="r"><span class="rl rs">${M.klimaBlockList ? 'Ingen blokker i denne fanen' : 'Blokkene lastes …'}</span></div>`}</div>
@@ -1120,6 +1125,8 @@
     };
     // 19.8: «Åpne med» → layout.default_tab, bytt til fanen med én gang (stjernen i listen følger samme verdi)
     const goTab = (k) => { card._tab = k; card.setUI({ tab: k }); };
+    // 36.5: Startfane-chips (MSH.startTab) → start_tab i utkastet; gamle nøkler fjernes; fast fane vises straks
+    if (M.startTab) M.startTab.bindEditor(ov.root, { set: (v) => { upd((d) => { d.start_tab = v; START_CLEAR.forEach((p2) => { if (p2 === 'remember_tab') delete d.remember_tab; else if (d.layout) delete d.layout[p2.split('.')[1]]; }); }); if (v !== 'last') goTab(v); } });
     ov.root.addEventListener('change', (e) => {
       const el = e.target;
       if (!el || !el.dataset || !el.dataset.deftab || !el.value) return;

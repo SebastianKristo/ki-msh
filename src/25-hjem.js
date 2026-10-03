@@ -79,6 +79,8 @@
         { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
           { type: 'boolean', label: 'Liquid Glass-animasjon', help: 'Glass-linse når du drar eller trykker i faner og segmenter i hele dashbordet', get: () => (M.glassAnimOn ? M.glassAnimOn() : true), set: (v) => { if (M.setGlassAnim) M.setGlassAnim(v); } },
         ] },
+        // Fiks 36.4: kombinerte rom (Hjem-configen combined_rooms, samme som «Tilpass Hjem» → Kort → «Kombiner rom»)
+        { type: 'section', id: 'kombiner', label: 'Kombiner rom', icon: 'mdi:vector-combine', fields: [M.combinedField ? M.combinedField('hjem') : { type: 'info', label: '–' }] },
         { type: 'order', name: 'order', hiddenName: 'hidden', label: 'Blokker (rekkefølge på mobil · skjul)', options: BLOCKS.map((b) => [b[0], b[2]]) },
         // 23.7: «Tilpass alt» (54-onboarding.js) – samler alle Tilpass-arkene med hurtigvalg
         { type: 'section', id: 'tilpass_alt', label: 'Tilpass alt', icon: 'mdi:tune', fields: [

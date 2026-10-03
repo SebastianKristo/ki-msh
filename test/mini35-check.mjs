@@ -1,10 +1,10 @@
 // Fiks 35.3 · mini-spilleren: sveip for å fjerne (i tillegg til hold på play + kryss), med touch (CDP).
-//  · sveip ned < 56 px fjærer tilbake, > 56 px / rask fling → glir ut og skjules (alle spillere) + «Angre»
+//  · 36.10: sveip NED gjør ingenting (ingen translate/opasitet, ikke skjult) – også fra play-knappen; siden kan rulle (pan-y)
 //  · venstre → høyre (første spiller): > 40 px → 1/3 ut + rødt felt (søppel + «Fjern») + toast; trykk «Fjern» / sveip igjen
 //    > 24 px → skjult; trykk på spilleren / sveip tilbake → lukker; langt sveip (> 60 %) → skjult direkte
 //  · sveip venstre = neste spiller; på spiller 2 (pan-x) gir sveip høyre vanlig rulling, ikke «Fjern»
 //  · utvidet spiller: sveip ned lukker utvidelsen, skjuler ikke
-//  · siden scroller ikke under sveipet; haptic selection/medium; mørk + lys, standard + glass
+//  · siden scroller ikke under sveip høyre; haptic selection/medium; mørk + lys, standard + glass
 // Kjør: node test/mini35-check.mjs
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync } from 'node:fs';
@@ -74,34 +74,39 @@ const rowPt = async (p) => { const r = await box(p, '[data-mini] .mtx'); return 
   const { p } = S;
   let s = await st(p);
   ok('vises når noe spiller', !s.off, s);
-  ok('sporet: touch-action none ved scroll-start', s.ta === 'none', s.ta);
+  ok('36.10 sporet: touch-action pan-y ved scroll-start', s.ta === 'pan-y', s.ta);
   let pt = await rowPt(p);
   await p.evaluate(() => window.scrollTo(0, 200)); await p.waitForTimeout(800);
   const y0 = (await st(p)).scrollY;
   pt = await rowPt(p);
-  // kort sveip ned → fjærer tilbake
+  // 36.10: sveip ned (kort, langt, fling) gjør ingenting – ingen translate/opasitet underveis, ikke skjult, ingen haptic
   await hap(p);
-  await swipe(S, pt.x, pt.y, 0, 40, 8, 30);
+  const mid = async (dy, n, ms) => { // sveip ned og mål midt i bevegelsen
+    await S.cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pt.x, y: pt.y }] });
+    let worst = { my: 0, op: '1', tf: null };
+    for (let i = 1; i <= n; i++) {
+      await S.cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: pt.x, y: pt.y + (dy * i) / n }] }); await p.waitForTimeout(ms);
+      const m = await p.evaluate(() => { const e = deep('[data-mini]'); return { my: parseFloat(e.style.getPropertyValue('--my')) || 0, op: getComputedStyle(e).opacity, drag: e.classList.contains('drag') }; });
+      if (Math.abs(m.my) > Math.abs(worst.my) || m.op !== '1' || m.drag) worst = m;
+    }
+    await S.cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(450);
+    return worst;
+  };
+  let w = await mid(40, 8, 30);
   s = await st(p);
-  ok('ned 40 px → fjærer tilbake', !s.off && s.my === 0 && !s.hid, s);
-  ok('siden scroller ikke under sveipet', s.scrollY === y0, { y0, y: s.scrollY });
-  // langt sveip ned → skjult + Angre
-  await swipe(S, pt.x, pt.y, 0, 90, 8, 30);
+  ok('36.10 ned 40 px → ingenting (ingen translate/opasitet)', !s.off && s.my === 0 && !s.hid && w.my === 0 && w.op === '1' && !w.drag, { s, w });
+  ok('36.10 siden kan rulle under loddrett sveip (pan-y)', s.scrollY !== y0, { y0, y: s.scrollY });
+  pt = await rowPt(p);
+  w = await mid(90, 8, 30);
   s = await st(p);
   let h = await hap(p);
-  ok('ned 90 px → skjult (sessionStorage)', s.off && s.hid, s);
-  ok('haptic selection ved terskel + medium ved fjern', h.includes('selection') && h.includes('medium'), h);
-  ok('«Mini-spilleren er skjult · Angre»', /Mini-spilleren er skjult/.test(s.undo || '') && /Angre/.test(s.undo || ''), s.undo);
-  ok('siden scroller ikke (ned)', s.scrollY === y0, s.scrollY);
-  await undo(S);
-  s = await st(p);
-  ok('Angre → tilbake', !s.off && !s.hid && !s.undo, s);
-  // fling: 30 px på ~20 ms
+  ok('36.10 ned 90 px → ikke skjult, ingen translate', !s.off && !s.hid && !s.undo && s.my === 0 && w.my === 0 && w.op === '1', { s, w });
+  ok('36.10 ingen haptic ved loddrett sveip', !h.length, h);
   pt = await rowPt(p);
   await swipe(S, pt.x, pt.y, 0, 34, 2, 8);
   s = await st(p);
-  ok('rask fling ned (34 px) → skjult', s.off && s.hid, s);
-  await undo(S);
+  ok('36.10 rask fling ned (34 px) → ikke skjult', !s.off && !s.hid && s.my === 0, s);
+  await p.evaluate(() => window.scrollTo(0, 200)); await p.waitForTimeout(500);
   // delvis høyre → rødt felt + toast
   pt = await rowPt(p);
   await p.evaluate(() => { window.__toasts.length = 0; window.__calls.length = 0; });
@@ -128,6 +133,7 @@ const rowPt = async (p) => { const r = await box(p, '[data-mini] .mtx'); return 
   await p.waitForTimeout(200);
   s = await st(p); h = await hap(p);
   ok('«Fjern» → skjult', s.off && s.hid && !s.field, s);
+  ok('«Mini-spilleren er skjult · Angre»', /Mini-spilleren er skjult/.test(s.undo || '') && /Angre/.test(s.undo || ''), s.undo);
   ok('haptic medium ved fjern', h.includes('medium'), h);
   await undo(S);
   // åpne → sveip igjen > 24 px
@@ -159,11 +165,13 @@ const rowPt = async (p) => { const r = await box(p, '[data-mini] .mtx'); return 
   ok('hold på play skjuler fortsatt (som før)', s.off && s.hid, s);
   await p.evaluate(() => { sessionStorage.clear(); const nb = deep('msh-navbar-card'); nb._schedule(true); }); await p.waitForTimeout(500);
   ok('tilbake etter at skjulingen er nullstilt', !(await st(p)).off);
-  // sveip ned på play-knappen = samme som ned ellers
+  // 36.10: sveip ned på play-knappen gjør ingenting (ingen spill/pause, ikke skjult)
+  await p.evaluate(() => { window.__calls.length = 0; });
   const pp2 = await box(p, '[data-mini] .mpp');
   await swipe(S, pp2.l + pp2.w / 2, pp2.t + pp2.h / 2, 0, 90, 8, 30);
   s = await st(p);
-  ok('sveip ned fra play-knappen → skjult', s.off && s.hid, s);
+  const c2 = await p.evaluate(() => window.__calls.map((c) => c[1]));
+  ok('36.10 sveip ned fra play-knappen → ingenting', !s.off && !s.hid && !s.exp && s.my === 0 && !c2.length, { s, c2 });
   ok('ingen sidefeil (mørk)', !S.errs.length, S.errs);
   await p.close();
 }
@@ -224,7 +232,7 @@ for (const style of ['white', 'glass']) {
   pt = await rowPt(p);
   await swipe(S, pt.x, pt.y, 0, 90, 8, 30);
   s = await st(p);
-  ok(`lys ${style}: sveip ned skjuler`, s.off && s.hid, s);
+  ok(`lys ${style}: 36.10 sveip ned gjør ingenting`, !s.off && !s.hid && s.my === 0, s);
   ok(`lys ${style}: ingen sidefeil`, !S.errs.length, S.errs);
   await p.close();
 }

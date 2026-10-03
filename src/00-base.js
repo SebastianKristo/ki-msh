@@ -1940,6 +1940,7 @@
       window.removeEventListener('hashchange', this._onHash);
       window.removeEventListener('location-changed', this._onHash);
       // Bubble Card tar innholdet ut av DOM-en når popupen lukkes – neste åpning skal gi onOpen igjen
+      if (this._open && MSH.startTab) MSH.startTab.closed(this); // Fiks 36.5: husk fanen («Sist brukte»)
       this._open = false;
       this._safeCall('onClose');
     }
@@ -1949,8 +1950,8 @@
       if (!this._hass || !this.isConnected) return;
       const open = MSH.isPopupOpen(this);
       if (open && MSH.theme && !(this._themePop && this._themePop.isConnected)) this._themePop = MSH.theme.adopt(this); // Fiks 34: popup-roten får data-ki-theme
-      if (open && !this._open) { this._open = true; this._safeCall('onOpen'); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
-      else if (!open && this._open) { this._open = false; this._safeCall('onClose'); }
+      if (open && !this._open) { this._open = true; if (MSH.startTab) MSH.startTab.apply(this); /* Fiks 36.5: startfanen */ this._safeCall('onOpen'); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
+      else if (!open && this._open) { if (MSH.startTab) MSH.startTab.closed(this); this._open = false; this._safeCall('onClose'); }
     }
     get isOpen() { return !!this._open; }
     _schedule(force) {
@@ -1965,6 +1966,7 @@
       this._ui = { ...this._ui, ...p };
       const keys = this.constructor.uiPersist || [], id = this._rawConfig && this._rawConfig.card_id;
       if (id && keys.some((k) => k in p)) { const o = {}; keys.forEach((k) => { if (this._ui[k] !== undefined) o[k] = this._ui[k]; }); MSH.uiStore(id, o); }
+      if (MSH.startTab) MSH.startTab.onUI(this, p); // Fiks 36.5: fanebytte huskes for «Sist brukte»
       if (!quiet) this._schedule(true);
     }
     _register(prevId) {

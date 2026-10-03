@@ -426,7 +426,7 @@
     return r;
   };
   // Endring i ki-store (egne popups, overstyringer, skjul/navn/ikon) → oppdater popupene (debounce 250 ms)
-  const sigOf = (d) => { try { return JSON.stringify([d.custom_popups || null, d.popup_overrides || null, d.popups || null, d.popup_header_gap == null ? null : d.popup_header_gap]); } catch (e) { return ''; } };
+  const sigOf = (d) => { try { const fc = (d.cards || {})[(M.CARD_IDS || {}).faner] || {}; return JSON.stringify([d.custom_popups || null, d.popup_overrides || null, d.popups || null, d.popup_header_gap == null ? null : d.popup_header_gap, fc.combined_rooms || null]); } catch (e) { return ''; } }; // 36.4: + combined_rooms
   const gSigOf = (d) => { try { return JSON.stringify(d.dashboard_globals || null); } catch (e) { return ''; } };
   let lastSig = null, sigTimer = null, lastG = null, gTimer = null;
   /* Maler/globale nøkler endret → skriv dem inn i den levende lovelace.config (så nye kort finner dem straks) og be HA
@@ -456,7 +456,7 @@
         if (M.strategyIsDashboard && g !== lastG) { lastG = g; clearTimeout(gTimer); gTimer = setTimeout(() => M.applyDashboardGlobals(), 300); }
         else lastG = g;
       }
-      if (path && !/^(custom_popups|popup_overrides|popups|popup_header_gap|devices)(\.|$)/.test(path)) return;
+      if (path && !/^(custom_popups|popup_overrides|popups|popup_header_gap|devices|cards)(\.|$)/.test(path)) return; // 36.4: cards.<faner>.combined_rooms (signaturen avgjør)
       const sig = sigOf(d || {});
       if (sig === lastSig) return;
       lastSig = sig;
@@ -466,6 +466,17 @@
   }
   const remember = (config, dash) => { M.strategyConfig = config || {}; if (dash) M.strategyIsDashboard = true; const d = (M.store && M.store.get()) || {}; lastSig = sigOf(d); lastG = gSigOf(d); };
 
+  // Fiks 36.4 · kombinerte rom fra Hjem-configen (ki-store cards.<faner>.combined_rooms › strategiens home.cards.faner)
+  // validert mot områdene i registeret (slettet område → fjernes, < 2 rom → oppløst)
+  function combinedOf(R, hass, config, user) {
+    if (!M.combinedNorm) return [];
+    const I = M.CARD_IDS || {}, st = ((user && user.cards) || {})[I.faner] || {};
+    const raw = Object.prototype.hasOwnProperty.call(st, 'combined_rooms') ? st.combined_rooms || [] : (((config.home || {}).cards || {}).faner || {}).combined_rooms || [];
+    const areas = {}; (R.areas || []).forEach((a) => { areas[a.area_id] = a; });
+    const floors = {}; (R.floors || []).forEach((f) => { floors[f.floor_id] = f; });
+    return M.combinedNorm({ ...hass, areas: Object.keys(areas).length ? areas : hass.areas, floors: Object.keys(floors).length ? floors : hass.floors }, raw).list;
+  }
+  M.strategyCombined = combinedOf;
   // «Tilpass rom»-verdiene (ki-store rooms.<area>) tas med i kortets config, så GUI-editoren viser dem
   const roomCfg = (area) => { const r = (M.store && M.store.eff('rooms.' + area)) || {}; const o = {}; Object.keys(r).forEach((k) => { if (r[k] !== null && k !== 'type' && k !== 'card_id' && k !== 'area') o[k] = r[k]; }); return o; };
   M.generateDashboardView = async function (config, hass) {
@@ -498,6 +509,13 @@
         const au = M.roomAuto(hass, r.id);
         const col = plainVar(o.color || L.col);
         return { group: 'rom', color: col, config: M.popupTemplateB({ name: o.name || r.name, icon: o.icon || L.icon || r.icon || (au.A && au.A.ikon) || 'mdi:home', hash: '#' + r.id, color: col, card: { type: 'custom:msh-rom-card', card_id: I.room(r.id), area: r.id, ...roomCfg(r.id) } }) };
+      }),
+      // Fiks 36.3 · kombinerte rom (combined_rooms i Hjem-configen): ÉN mal B-popup #<id> med ett msh-rom-card (rooms: [..]).
+      // Enkeltrommenes popups beholdes (åpnes fortsatt via hash). Kilde: ki-store cards.<faner> › strategiens home.cards.faner.
+      ...combinedOf(R, hass, config, user).filter((cb) => !fHash.has('#' + cb.id) && !rooms.some((r) => r.id === cb.id)).map((cb) => {
+        const o = uo('#' + cb.id), col = plainVar(o.color || cb.color);
+        const card = { type: 'custom:msh-rom-card', card_id: I.room(cb.id), ...roomCfg(cb.id), area: cb.id, rooms: cb.rooms.slice(), primary: cb.primary, layout: cb.layout, ...(cb.start_tab ? { start_tab: cb.start_tab } : {}) };
+        return { group: 'rom', color: col, combined: true, config: M.popupTemplateB({ name: o.name || cb.name, icon: o.icon || cb.icon, hash: '#' + cb.id, color: col, card }) };
       }),
       ...funcs.map((f) => {
         const o = uo(f.hash);

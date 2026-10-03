@@ -158,6 +158,7 @@
   }
   const tabOrder = (c) => { const k = TABS.map((t) => t[0]); const o = (Array.isArray(c.tab_order) ? c.tab_order : []).filter((x) => k.includes(x)); k.forEach((x) => { if (!o.includes(x)) o.push(x); }); return o; };
   const tabHidden = (c) => new Set(Array.isArray(c.tab_hidden) ? c.tab_hidden : []);
+  const LEG_ST = (c) => c.startTab; // 36.5: gammel nøkkel for startfanen
   const visTabs = (c) => { const hid = tabHidden(c); const o = tabOrder(c).filter((k) => !hid.has(k)); return o.length ? o : ['renhold']; };
   const partHidden = (c, t) => new Set(((c.section_hidden || {})[t]) || []);
 
@@ -346,13 +347,13 @@
     // Faner: forhåndsvisning + piller med dra, ikon, navn, «N deler», pil (innhold) og øye
     const faner = { type: 'html', html: (hh, cc, key, ed) => {
       installEd(ed);
-      const hid = tabHidden(cc), open = EXP.get(cid(ed)), V = visTabs(cc), st = cc.startTab && V.includes(cc.startTab) ? cc.startTab : V[0], names = cc.tab_labels !== 'icon';
+      const hid = tabHidden(cc), open = EXP.get(cid(ed)), V = visTabs(cc), st = (M.startTab ? M.startTab.pillKey(cc, V, LEG_ST) : null) || V[0], names = cc.tab_labels !== 'icon'; // 36.5: forhåndsvisningen viser startfanen
       const prev = `<div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface-3, #282828);overflow:hidden" aria-label="Forhåndsvisning">${V.map((k) => { const [, l, ic] = TABL[k], on = k === st; return `<span style="flex:${on || names ? '1 1 auto' : '0 0 40px'};height:36px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:12px;white-space:nowrap;${on ? `background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500` : 'color:var(--ki-text-2, #afafaf)'}">${names ? '' : M.icon(ic, 18)}${on || names ? esc(l) : ''}</span>`; }).join('')}<span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);flex:none">${M.icon('mdi:cog', 18)}</span></div>`;
       return box(prev + tabOrder(cc).map((k) => {
         const [, label, icon] = TABL[k], P = PARTS[k], ph = partHidden(cc, k), isO = open === k;
         const row = `<div class="ordrow vtab" data-edk="${k}" data-elist="tab" data-key="vt-${k}" style="height:56px;border-radius:28px;background:var(--ki-surface-2, #404040);display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;${hid.has(k) ? 'opacity:.5' : ''}">${hdl('tab')}
           <span style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:var(--ki-surface, #2f2f2f);flex:none">${M.icon(icon, 20)}</span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length - ph.size} av ${P.length} deler</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:500">${esc(label)}</span><span style="font-size:11px;color:var(--ki-text-mid, #979797)">${P.length - ph.size} av ${P.length} deler</span></span>${M.startTab ? M.startTab.pill(cc, k, V, LEG_ST) : ''}
           <button class="ib" data-a="fn" data-k="${key}" data-op="exp" data-v="${k}" aria-expanded="${isO}" aria-label="Innhold i ${esc(label)}" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none">${M.icon(isO ? 'mdi:chevron-up' : 'mdi:chevron-down', 22)}</button>
           ${eyeB(key, 'eye', '', k, hid.has(k), label)}</div>`;
         const parts = isO ? P.map(([p, pl]) => `<div class="vpart" data-key="vp-${k}-${p}" style="height:48px;border-radius:24px;margin-left:28px;background:var(--ki-surface-3, #2f2f2f);display:flex;align-items:center;gap:8px;padding:0 6px 0 16px;${ph.has(p) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(pl)}</span>${eyeB(key, 'peye', k, p, ph.has(p), pl)}</div>`).join('') : '';
@@ -389,9 +390,9 @@
           { type: 'section', id: 'soner', label: 'Soner', icon: 'mdi:selection-drag', fields: [soner] },
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [
+          ...(M.startTab ? [M.startTab.field({ legacy: LEG_ST, clear: ['startTab'], items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })) })] : []), // 36.5: Startfane øverst
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [faner] },
           { type: 'select', name: 'tab_labels', label: 'Stil', options: [['name', 'Tekst'], ['icon', 'Symboler']], default: 'name', help: 'Tekst (standard): like brede tekstfaner i full bredde. Symboler: bare ikon, den aktive fanen viser også navnet.' },
-          { type: 'select', name: 'startTab', label: 'Startfane', options: TABS.map((t) => [t[0], t[1]]), default: 'renhold' },
           ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })), mode: (cc) => (cc.tab_labels === 'icon' ? 'aktiv' : 'tekst'), native: 40, gear: true })] : []), // 33.4: fanehøyde
         ] },
         { key: 'entiteter', label: 'Entiteter', icon: 'mdi:link-variant', focus: ['entiteter', ...groups.map((g) => 'ent-' + M.slug(g))], fields: entFields },
@@ -430,6 +431,8 @@
     // Fremdriften teller mens roboten jobber og popupen er åpen (ingen polling ellers, fallgruve 8)
     _tick() { clearInterval(this._timer); this._timer = setInterval(() => { if (!this.isConnected || !this.isOpen) { clearInterval(this._timer); this._timer = 0; return; } const s = this._E && this._hass && this._hass.states[this._E.vacuum]; if (s && s.state === 'cleaning') this.update(); }, 15000); }
     get tab() { const V = visTabs(this.config); const t = this.ui.tab || this.config.startTab; return V.includes(t) ? t : V[0]; }
+    // 36.5: startfane ved åpning (MSH.startTab via basekortet)
+    static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: LEG_ST }; }
     _run(h, id, data) { if (!id) return; const d = id.split('.')[0]; if (d === 'script') return M.call(h, 'script', 'turn_on', { entity_id: id, ...(data || {}) }); if (d === 'button') return M.call(h, 'button', 'press', { entity_id: id }); return M.toggle(h, id); }
 
     /* ---------------------------------------------------------- data */

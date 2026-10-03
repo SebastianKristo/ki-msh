@@ -95,6 +95,8 @@
     const tv = pick('tv'), musikk = pick('musikk');
     return { tv, musikk, all: withHidden ? base : base.filter((p) => tv.includes(p) || musikk.includes(p)) };
   }
+  // 36.5: startfane (felles MSH.startTab): start_tab, ellers gamle default_tab (tv | musikk | last)
+  const startLegacy = (c) => (c && c.default_tab) || undefined;
   const tabOrder = (cfg) => {
     const k = TABS.map((t) => t[0]);
     const o = Array.isArray(cfg.tab_order) ? cfg.tab_order.filter((x) => k.includes(x)) : [];
@@ -232,7 +234,9 @@
    *                      level: 0–100|null, approx (vis «≈»), muted, dis (nedtonet, «–»), alt: stilen bryteren bytter til|null }
    *   CSS              → stilene (legg i kortets styles)
    *   bind(root, ctl)  → delegerte lyttere på shadowRoot (én gang; ctl kan byttes ved hver tegning).
-   *                      ctl(key) → { set(v, final), step(dir ±1), mute(), toggle(), stepDrag }
+   *                      ctl(key) → { set(v, final), step(dir ±1), mute(), toggle(), stepDrag, toasts }
+   *                      36.9: volumknappen (ikon + tall, data-vhold) – trykk demper aldri, hold 500 ms = mute() + toast;
+   *                      dra mens dempet (raden data-muted="1") → mute() én gang (lyd på)
    *                      set: under drag throttlet 150 ms (final=false), endelig verdi ved slipp (final=true).
    *                      stepDrag: true = knapp-volum → drag gir step() per 4 % bevegelse (haptic light per steg).
    *   pref(kind, cfg)  → { style, alt } for 'musikk' (pille|trinn, ki-store media.vol_style) eller 'tv' (trinn|knapper,
@@ -276,14 +280,14 @@
         body = `<div class="mvp mvs ${dis ? 'dis' : ''}">
           <button class="mvb" data-vact="down" title="Volum ned" aria-label="Volum ned">${M.icon('mdi:minus', 22)}</button>
           <div class="mvbars" data-vdrag="bars" role="slider" aria-label="Volum" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${v == null ? '' : v}">${bars}</div>
-          <button class="mvnum" data-vact="mute" title="Demp" aria-label="Demp">${M.icon(ic, 18, icCol)}<span class="num">${num}</span></button>
+          <button class="mvnum" data-vact="mute" data-vhold="mute" title="Hold: demp" aria-label="${muted ? 'Volum (dempet) – hold for lyd på' : 'Volum – hold for å dempe'}">${M.icon(ic, 18, icCol)}<span class="num">${num}</span></button>
           <button class="mvb" data-vact="up" title="Volum opp" aria-label="Volum opp">${M.icon('mdi:plus', 22)}</button></div>`;
       } else {
         const inner = (dk) => `<div class="mvc ${dk ? 'dk' : ''}">${M.icon(ic, 22, dk ? '' : icCol)}<span>Volum</span><span class="mvn num">${v == null ? '–' : num + '%'}</span></div>`;
         body = `<div class="mvp mvl ${dis ? 'dis' : ''}" data-vdrag="pill" role="slider" aria-label="Volum" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${v == null ? '' : v}" style="--v:${v == null ? 0 : v}%">
           ${inner(false)}<div class="mvf">${inner(true)}</div></div>`;
       }
-      return `<div class="mvr" data-key="mvr:${esc(key)}:${o.style}" data-vkey="${esc(key)}">${body}${tog}</div>`;
+      return `<div class="mvr" data-key="mvr:${esc(key)}:${o.style}" data-vkey="${esc(key)}" data-muted="${muted ? 1 : 0}">${body}${tog}</div>`;
     },
     // Male direkte under drag (uten ny tegning)
     _paint(row, v, approx) {
@@ -301,7 +305,7 @@
       root.__mvrB = true;
       const inRow = (e) => e.composedPath().find((n) => n.classList && n.classList.contains('mvr'));
       const find = (e, sel) => e.composedPath().find((n) => n.matches && n.matches(sel));
-      let g = null, rep = null;
+      let g = null, rep = null, hold = null, held = false;
       const stopRep = () => { if (rep) { clearTimeout(rep.t); clearInterval(rep.i); rep = null; } };
       const fracOf = (el, x) => { const r = el.getBoundingClientRect(); return r.width ? M.clamp((x - r.left) / r.width, 0, 1) : 0; };
       root.addEventListener('pointerdown', (e) => {
@@ -310,6 +314,28 @@
         e.stopPropagation(); // Bubble Card skal ikke få gesten
         const key = row.dataset.vkey, c = root.__mvrCtl && root.__mvrCtl(key);
         if (!c) return;
+        // 36.9 (fasit volHoldDown/volHoldUp): volumknappen (ikon + tall) – trykk demper ALDRI, hold 500 ms = demp / lyd på
+        // (haptic medium + toast 1,4 s); pointerup/-cancel/-leave og bevegelse > 8 px avbryter, klikket etter holdet svelges
+        held = false;
+        const hb = find(e, '[data-vhold]');
+        if (hb) {
+          if (hb.closest('.dis')) return;
+          const x0 = e.clientX, y0 = e.clientY;
+          const done = () => { clearTimeout(hold); root.removeEventListener('pointerup', done); root.removeEventListener('pointercancel', done); root.removeEventListener('pointermove', mv); hb.removeEventListener('pointerleave', done); };
+          const mv = (ev) => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) done(); };
+          root.addEventListener('pointerup', done); root.addEventListener('pointercancel', done); root.addEventListener('pointermove', mv); hb.addEventListener('pointerleave', done);
+          clearTimeout(hold);
+          hold = setTimeout(() => {
+            done();
+            held = true;
+            M.haptic('medium');
+            const was = row.dataset.muted === '1';
+            c.mute();
+            row.dataset.muted = was ? '0' : '1';
+            if (M.toast && c.toasts !== false) M.toast(was ? 'Lyd på' : 'Dempet', { icon: was ? 'mdi:volume-high' : 'mdi:volume-off', duration: 1400 });
+          }, 500);
+          return;
+        }
         const b = find(e, '[data-vact="up"],[data-vact="down"]');
         if (b) {
           if (b.closest('.dis')) return;
@@ -323,6 +349,8 @@
         e.preventDefault();
         try { d.setPointerCapture(e.pointerId); } catch (x) { /* */ }
         g = { id: e.pointerId, el: d, row, key, c, x0: e.clientX, sent: 0, v: null, rel: !!c.stepDrag };
+        // 36.9: dra slideren mens dempet → slå av demping (én gang)
+        if (row.dataset.muted === '1' && c.mute) { row.dataset.muted = '0'; c.mute(); }
         if (!g.rel) { g.v = Math.round(fracOf(d, e.clientX) * 100); VL[key] = { v: g.v, t: Date.now(), drag: true }; M.volumeRow._paint(row, g.v); c.set(g.v, false); g.sent = Date.now(); M.haptic('selection'); }
       });
       root.addEventListener('pointermove', (e) => {
@@ -353,6 +381,7 @@
       root.addEventListener('pointerup', end);
       root.addEventListener('pointercancel', end);
       root.addEventListener('pointerleave', stopRep);
+      root.addEventListener('contextmenu', (e) => { if (inRow(e)) e.preventDefault(); });
       const tstop = (e) => { if (inRow(e)) e.stopPropagation(); };
       root.addEventListener('touchstart', tstop, { passive: true });
       root.addEventListener('touchmove', (e) => { if (inRow(e)) { e.stopPropagation(); if (g && e.cancelable) e.preventDefault(); } }, { passive: false });
@@ -365,6 +394,7 @@
         const c = root.__mvrCtl && root.__mvrCtl(row.dataset.vkey), a = b.dataset.vact;
         if (!c) return;
         if (a === 'toggle') return c.toggle();
+        if (b.dataset.vhold) { if (held) { held = false; return undefined; } if (!b.closest('.dis')) M.haptic('light'); return undefined; } // 36.9: trykk demper aldri
         if (a === 'mute') { if (b.closest('.dis')) return; M.haptic('light'); return c.mute(); }
         // −/+ via tastatur (klikk uten peker): ett steg
         if ((a === 'up' || a === 'down') && e.detail === 0) { M.haptic('light'); c.step(a === 'up' ? 1 : -1); }
@@ -385,7 +415,7 @@
       .mvbars{flex:1;min-width:0;height:30px;display:flex;align-items:flex-end;gap:3px;touch-action:none;cursor:pointer;padding:0 2px}
       .mvbars span{flex:1;min-width:2px;border-radius:2px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));transition:background .12s}
       .mvbars span.on{background:${C.pink}}
-      .mvnum{flex:none;height:44px;min-width:56px;padding:0 4px;display:flex;align-items:center;justify-content:center;gap:3px;font-size:15px;font-weight:500;color:var(--ki-text, var(--white,#fafafa));font-variant-numeric:tabular-nums}
+      .mvnum{flex:none;height:44px;min-width:56px;padding:0 4px;display:flex;align-items:center;justify-content:center;gap:3px;touch-action:manipulation;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none;font-size:15px;font-weight:500;color:var(--ki-text, var(--white,#fafafa));font-variant-numeric:tabular-nums}
       .mvk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
       .mvk button{height:100%;display:grid;place-items:center;color:var(--ki-text, var(--white,#fafafa));transition:background .15s}
       .mvk button:active{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
@@ -718,7 +748,7 @@
     type: 'html',
     html: (h, c) => {
       c = c || {};
-      const T = tabOrder(c).vis, dt = c.default_tab && c.default_tab !== 'last' && T.includes(c.default_tab) ? c.default_tab : T[0];
+      const T = tabOrder(c).vis, dt = (M.startTab ? M.startTab.pillKey(c, T, startLegacy) : null) || T[0]; // 36.5: startfanen (Sist brukte → første)
       const i = Math.max(0, T.indexOf(dt)), n = T.length || 1;
       const ring = 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))';
       // 33.4: forhåndsvisningen følger fanehøyden (kortets egen → global → 38)
@@ -736,9 +766,9 @@
   const commonSchema = (common) => [
       { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
         tabPreview(),
-        { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', options: TABS },
-        ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => { const o = Array.isArray(cc.tab_order) ? cc.tab_order.filter((k) => TABS.some((t) => t[0] === k)) : []; TABS.forEach((t) => { if (!o.includes(t[0])) o.push(t[0]); }); return o.filter((k) => !(cc.hidden_tabs || []).includes(k)).map((k) => TABS.find((t) => t[0] === k)[1]); }, native: 38, gear: true, preview: false })] : []), // 33.4: fanehøyde (forhåndsvisningen over følger valget)
         ...(common || []),
+        { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', start: { legacy: startLegacy }, options: TABS },
+        ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => { const o = Array.isArray(cc.tab_order) ? cc.tab_order.filter((k) => TABS.some((t) => t[0] === k)) : []; TABS.forEach((t) => { if (!o.includes(t[0])) o.push(t[0]); }); return o.filter((k) => !(cc.hidden_tabs || []).includes(k)).map((k) => TABS.find((t) => t[0] === k)[1]); }, native: 38, gear: true, preview: false })] : []), // 33.4: fanehøyde (forhåndsvisningen over følger valget)
       ] },
       { type: 'info', label: 'Felles for begge faner' },
       { type: 'lists', label: 'Mediaspillere', lists: (hh) => [{ key: 'spillere', label: 'Mediaspillere', ids: M.all(hh, 'media_player'), domains: ['media_player'] }] },
@@ -1269,12 +1299,12 @@
     @media (prefers-reduced-motion: reduce){.m{animation:none}}`;
   class MediaCard extends MediaBase {
     static get cardName() { return 'Media'; }
-    static get defaults() { return { default_tab: 'tv' }; }
+    static get defaults() { return {}; } // 36.5: startfane = start_tab (standard første fane i tab_order)
     // Valgt fane/spiller er ren UI-tilstand (localStorage), aldri Lovelace-config.
     static get uiPersist() { return ['tab', 'sel']; }
     static get schema() {
       return (h, c) => [
-        ...baseSchema(h, c, [{ type: 'select', name: 'default_tab', label: 'Fane ved åpning', options: [['tv', 'TV'], ['musikk', 'Musikk'], ['last', 'Sist brukt']], default: 'tv', help: 'Velges hver gang popupen åpnes' }]), { type: 'gap' },
+        ...baseSchema(h, c, M.startTab ? [M.startTab.field({ legacy: startLegacy, clear: ['default_tab'], items: (hh, cc) => tabOrder(cc).vis.map((k) => ({ key: k, label: (TABS.find((t) => t[0] === k) || [k, k])[1] })) })] : []), { type: 'gap' }, // 36.5: Startfane øverst i Faner
       ];
     }
     get cardSize() { return 8; }
@@ -1300,12 +1330,15 @@
       b.main = this;
       if (b.cfg !== this.config) { b.cfg = this.config; emit(this.key, this); }
     }
+    // 36.5: startfanen via MSH.startTab (basekortet kaller apply før onOpen → __startTab); fanebytte/lukking huskes
+    static get startTabSpec() { return { legacy: startLegacy, tabs: (card) => tabOrder(card.config).vis, get: (card) => bus(card.key).tab, set: (card, id) => { card.__startTab = id; } }; }
     onOpen() {
-      // Hver åpning: fane = default_tab (tv | musikk | last = sist brukt fra UI-tilstanden), første spiller.
+      // Hver åpning: fane = startfanen (start_tab | 'last' = sist brukte; gamle default_tab leses), første spiller.
       const b = bus(this.key), cfg = this.config, T = tabOrder(cfg).vis, P = M.mediaPlayers(this.hass, cfg);
-      const dt = cfg.default_tab || 'tv', ui = this.ui;
-      let tab = dt === 'last' ? ui.tab : dt, sel = {};
-      if (!T.includes(tab)) tab = dt === 'last' ? null : (T.find((t) => (P[t] || []).length) || T[0]);
+      const dt = M.startTab ? M.startTab.value(cfg, startLegacy) : cfg.default_tab, ui = this.ui;
+      let tab = this.__startTab || (dt === 'last' ? ui.tab : dt), sel = {};
+      this.__startTab = null;
+      if (!T.includes(tab)) tab = T.find((t) => (P[t] || []).length) || T[0];
       if (dt === 'last' && ui.sel && typeof ui.sel === 'object') sel = { ...ui.sel };
       if (tab && !sel[tab] && P[tab] && P[tab][0]) sel[tab] = P[tab][0].id;
       b.main = this; b.tab = tab; b.sel = sel;
@@ -1751,7 +1784,7 @@
           return mp(k === 'up' ? 'volume_up' : 'volume_down');
         };
         return {
-          stepDrag: true, toggle,
+          stepDrag: true, toggle, toasts: this.toasts,
           step: (dir) => {
             press(dir > 0 ? 'up' : 'down');
             const cur = volInfo(this, p);
@@ -1763,7 +1796,7 @@
       }
       const st = Number(a.volume_step) > 0 ? Number(a.volume_step) * (Number(a.volume_step) <= 1 ? 100 : 1) : 5;
       return {
-        stepDrag: false, toggle,
+        stepDrag: false, toggle, toasts: this.toasts,
         set: (v) => mp('volume_set', { volume_level: Math.round(v) / 100 }),
         step: (dir) => {
           const cur = M.volumeRow.live(id, V.level);
