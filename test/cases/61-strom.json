@@ -1,0 +1,4 @@
+[
+  { "name": "Strøm", "hash": "#strom", "cards": [ { "type": "custom:msh-strom-card", "card_id": "pop-strom" } ] },
+  { "name": "Strøm · Forbruk, kontur, tannhjul i fanelinjen", "hash": "#strom", "cards": [ { "type": "custom:msh-strom-card", "card_id": "pop-strom-b", "start": "Forbruk", "tabStyle": "kontur", "gear": "tab", "cardSize": "kompakt", "useCards": ["cost", "peak"], "hid": { "p_minis": false } } ] }
+]

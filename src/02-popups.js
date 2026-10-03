@@ -91,6 +91,7 @@
     ['#garasje', 'Garasje', 'mdi:garage', 'msh-garasje-card'], // fiks 32.2 – bare med cover.* device_class garage (M.popupNeeds, 62-garasje.js)
     ['#ringeklokke', 'Ringeklokke', 'mdi:doorbell-video', 'msh-ringeklokke-card'], // fiks 19.17 – bare med UniFi Protect-ringeklokke (M.popupNeeds)
     ['#kart', 'Kart', 'mdi:map', 'msh-kart-card'], // fiks 20.22/23.3 – fullskjerm-kart (M.POPUP_LOOK/M.POPUP_FORCE['#kart'], Bubble-header over kartet)
+    ['#strom', 'Strøm', 'mdi:power-plug', 'msh-strom-card'], // Del 45 – Strøm-popup v3 (61-strom.js); bare med pris-/effekt-/energikilde (M.popupNeeds['#strom']); #norgespris/#stromregning = undersider (M.HASH_ALIAS)
     ['#energi', 'Energi', 'mdi:lightning-bolt', 'msh-energi-card'], // fiks 21.1 – strøm og vann fra HAs Energi-oppsett (52-energi.js)
     ['#kalender', 'Kalender', 'mdi:calendar-month', 'msh-kalender-card'], // fiks 23.8 – kalendere, hytta, Sonarr/Radarr/Plex, bursdager, Posten (55-kalender.js); erstatter den importerte #kalender
     ['#server', 'Server', 'mdi:server', 'msh-server-card'], // fiks 24.10 – homelab: UniFi, Proxmox VE, Unraid (58-server.js); erstatter den importerte #server
