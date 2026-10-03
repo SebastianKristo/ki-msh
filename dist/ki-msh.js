@@ -4481,6 +4481,7 @@ try {
     ['#garasje', 'Garasje', 'mdi:garage', 'msh-garasje-card'], // fiks 32.2 – bare med cover.* device_class garage (M.popupNeeds, 62-garasje.js)
     ['#ringeklokke', 'Ringeklokke', 'mdi:doorbell-video', 'msh-ringeklokke-card'], // fiks 19.17 – bare med UniFi Protect-ringeklokke (M.popupNeeds)
     ['#kart', 'Kart', 'mdi:map', 'msh-kart-card'], // fiks 20.22/23.3 – fullskjerm-kart (M.POPUP_LOOK/M.POPUP_FORCE['#kart'], Bubble-header over kartet)
+    ['#strom', 'Strøm', 'mdi:power-plug', 'msh-strom-card'], // Del 45 – Strøm-popup v3 (61-strom.js); bare med pris-/effekt-/energikilde (M.popupNeeds['#strom']); #norgespris/#stromregning = undersider (M.HASH_ALIAS)
     ['#energi', 'Energi', 'mdi:lightning-bolt', 'msh-energi-card'], // fiks 21.1 – strøm og vann fra HAs Energi-oppsett (52-energi.js)
     ['#kalender', 'Kalender', 'mdi:calendar-month', 'msh-kalender-card'], // fiks 23.8 – kalendere, hytta, Sonarr/Radarr/Plex, bursdager, Posten (55-kalender.js); erstatter den importerte #kalender
     ['#server', 'Server', 'mdi:server', 'msh-server-card'], // fiks 24.10 – homelab: UniFi, Proxmox VE, Unraid (58-server.js); erstatter den importerte #server
@@ -53267,6 +53268,1105 @@ try {
 
 } catch (e) { console.error('[ki-msh] 60-innstillinger.js', e); }
 
+/* ---- 61-strom.js ---- */
+try {
+/* msh-strom-card · Strøm-popup v3 (#strom, Del 45) – ETT kort i Bubble-popupen (Mal A, «Strøm», mdi:power-plug).
+ * Fasit: design/Strøm popup v3.dc.html (mål, farger → tokens med mørk fallback, tekster, animasjoner glowP/ping/draw/grow).
+ * Innhold (designets rekkefølge): toppkort (energi-hus-v2.svg, BRUKER NÅ, spot-chip med ping, 3 glassfliser, glød) ·
+ *   fanelinje Priser/Forbruk/Kurser (4 stiler, hold 400 ms + dra via MSH.tabRow, skjul, startfane via MSH.startTab,
+ *   tannhjul i toppkortet eller ved fanelinjen) · Priser (regning/kostnad/spart, «Hva koster det nå», pris time for time
+ *   med draw-animasjon, Norgespris-linje, Nå-markør, I dag/I morgen, scrub, nivå-chip, lavest/høyest/snitt (skjult som
+ *   standard), «Inkludert i prisen» = input_boolean.include_* (bare de som finnes)) · Forbruk (2 valgbare kort, Dag/Måned/År
+ *   med trend fra `endring`, datovelger + stablede timesøyler (grow-stagger), forklaring, kildetabell) · Kurser
+ *   (M.stromKurser, 62-strom-kurser.js) · undersider Norgespris / Strømregning / Strøminnstillinger (M.stromSider,
+ *   63-strom-sider.js) med tilbake-pil. Lenker til #norgespris / #stromregning / #strominnstillinger åpner undersidene.
+ * Vertsgrensesnitt for modulene (B/C): host.hass, host.config, host.root, host.setCfg(patch), host.render(), host.go(page|null),
+ *   host.ui (ren UI-tilstand, localStorage ki:<card_id>:ui), host.ent(role), host.anim, host.haptic(type), host.sec(tab).
+ * Data: entiteter etter rolle (Auto/overstyrt i config.ent) + HAs Energi-oppsett (M.energiPrefs/M.energiSources, 52-energi.js)
+ *   og recorder/statistics_during_period – hentes bare mens popupen er åpen, mellomlagres 5 min (fallgruve 8). Pris fra den
+ *   felles strømpris-kilden (M.powerPrice, 15-strompris-kilde.js). Aldri mock: mangler → «–».
+ * Config (A): order, hid, ent{effekt,spot,norge,dag,maned,spart,forbruk}, start, tabStyle (pille|kontur|ikoner|kompakt),
+ *   gear (hero|tab), cardSize (stor|kompakt), useCards [2], exPrice (norge|spot|total), exShow [], ord{sec-*, useStats},
+ *   anim, live. B: kurs, ord.kurs, ord.cat. C: sider.*. «Tilpass strøm» (MSH.overlay tilpass) og getConfigElement
+ *   (msh-strom-editor) viser de samme valgene og skriver de samme nøklene (config er sannheten, ki-store – fallgruve 3).
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || customElements.get('msh-strom-card')) return;
+  const esc = M.esc, TH = M.theme || {};
+  const HASH = '#strom';
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgba(255,255,255,${a})`); // ki-hex-ok: fallback uten tema / mørk fallback
+  const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0 / ${a})`);
+  const ic = (n, s, st) => M.icon(n, s || 24, st || '');
+  const nf = (v, d) => M.nf(v, d || 0);
+  const num = (v) => (v == null || v === '' || isNaN(Number(v)) ? null : Number(v));
+  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  const PINK = 'linear-gradient(160deg,#f28ac9,#f6c9c4)';
+  const ACC = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+  const INK = 'var(--ki-on-accent, rgba(50,38,44,.95))';
+  const INK2 = 'var(--ki-on-accent, #2f2f2f)';
+  const GREEN = 'var(--ki-green-text, rgb(120 210 165))', RED = 'var(--ki-red-text, rgb(240 120 100))';
+  const GREEN_F = 'rgb(110 200 160)', AMBER_F = 'rgb(242 176 79)', RED_F = 'rgb(240 120 100)';
+  const SURF = 'var(--ki-surface, #3d3d3d)', SURF2 = 'var(--ki-surface-2, #4f4f4f)';
+  const T = 'var(--ki-text, #fafafa)', T1 = 'var(--ki-text-1, #e1e1e1)', T1B = 'var(--ki-text-1, #d6d6d6)', T2 = 'var(--ki-text-2, #b8b8b8)', T2B = 'var(--ki-text-2, #a8a8a8)', TM = 'var(--ki-text-mid, #979797)', T3 = 'var(--ki-text-3, #7f7f7f)';
+  const PINK_T = 'var(--ki-pink-text, rgb(242 133 201))';
+  const MND = ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'];
+  const MNK = ['jan.', 'feb.', 'mars', 'apr.', 'mai', 'juni', 'juli', 'aug.', 'sep.', 'okt.', 'nov.', 'des.'];
+  const DAGER = ['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'];
+  const TTL = 300000, HOUR = 3600000;
+
+  /* ------------------------------------------------------------ illustrasjon (energi-hus-v2.svg, også i examples/www/ki/) */
+  const HUS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" fill="none"><defs><linearGradient id="wl" x1="0" y1="0" x2="1" y2="0.3"><stop offset="0" stop-color="#2b2d35"></stop><stop offset="1" stop-color="#34373f"></stop></linearGradient><linearGradient id="wr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3d404b"></stop><stop offset="1" stop-color="#353843"></stop></linearGradient><linearGradient id="rf" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#434655"></stop><stop offset="1" stop-color="#30333d"></stop></linearGradient><linearGradient id="gw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4ebcc"></stop><stop offset="1" stop-color="#d8c79a"></stop></linearGradient><radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#f1e3b4" stop-opacity="0.28"></stop><stop offset="1" stop-color="#f1e3b4" stop-opacity="0"></stop></radialGradient><linearGradient id="gin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#15161a"></stop><stop offset="1" stop-color="#26272e"></stop></linearGradient><radialGradient id="gnd" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#000" stop-opacity="0.5"></stop><stop offset="1" stop-color="#000" stop-opacity="0"></stop></radialGradient><linearGradient id="car" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3d46"></stop><stop offset="1" stop-color="#23252b"></stop></linearGradient></defs><ellipse cx="205" cy="226" rx="200" ry="28" fill="url(#gnd)"></ellipse><polygon points="38,199.6 114,219.1 63.2,240.2 -12.8,220.7" fill="#2a2b31" opacity="0.75"></polygon><ellipse cx="318" cy="238" rx="58" ry="12" fill="url(#glow)"></ellipse><polygon points="122,210 262,246 262,182 122,146" fill="url(#wl)"></polygon><g stroke="#ffffff" stroke-opacity="0.025" stroke-width="1"><path d="M140,150.6 V214.6 M160,155.7 V219.8 M180,160.9 V224.9 M200,166 V230.1 M220,171.2 V235.2 M240,176.3 V240.3"></path></g><polygon points="196,229 212,233.1 212,195.1 196,191" fill="#24262d"></polygon><polygon points="196,229 212,233.1 212,195.1 196,191" stroke="#4a4d58" stroke-width="1"></polygon><circle cx="209" cy="215" r="1" fill="#8a8e99"></circle><polygon points="150,190.2 172,195.8 172,177.8 150,172.2" fill="url(#gw)"></polygon><path d="M161,193 V175" stroke="#2f323b" stroke-width="1.6"></path><polygon points="150,190.2 172,195.8 172,177.8 150,172.2" stroke="#2b2d35" stroke-width="1.6"></polygon><polygon points="229,217 240,219.8 240,204.8 229,202" fill="#4c505c"></polygon><path d="M235.6,205.6 l-2.4,4.2 h2.2 l-1.3,3.6" stroke="#dcdcdc" stroke-width="1.1" fill="none" stroke-linecap="round" stroke-linejoin="round"></path><polygon points="262,246 358,206 358,142 310,110 262,182" fill="url(#wr)"></polygon><ellipse cx="310" cy="168" rx="54" ry="54" fill="url(#glow)"></ellipse><polygon points="288,215.2 332,196.8 332,140.8 288,159.2" fill="url(#gw)"></polygon><path d="M310,206 V150 M288,187.2 L332,168.8" stroke="#30333d" stroke-width="2.4"></path><polygon points="288,215.2 332,196.8 332,140.8 288,159.2" stroke="#30333d" stroke-width="2.4"></polygon><polygon points="286,217 334,197 334,199.4 286,219.4" fill="#4a4e5a"></polygon><polygon points="162,72 318,112 262,187 106,147" fill="url(#rf)"></polygon><polygon points="106,147 262,187 262,192 106,152" fill="#23252c"></polygon><polygon points="262,187 318,112 322,113 266,188" fill="#4c5060"></polygon><polygon points="318,112 366,144 362,146 314,114" fill="#4c5060"></polygon><polygon points="262,192 266,188 322,113 318,112 262,187" fill="#1f2127" opacity="0.5"></polygon><polygon points="204,86 214,88.6 214,70.6 204,68" fill="#353843"></polygon><polygon points="214,88.6 222,85.3 222,67.3 214,70.6" fill="#2c2e36"></polygon><polygon points="204,68 214,70.6 222,67.3 212,64.7" fill="#4a4e5a"></polygon><polygon points="24,196 128,222.7 128,172.7 24,146" fill="url(#wl)"></polygon><polygon points="128,222.7 159.8,209.5 159.8,159.5 128,172.7" fill="url(#wr)"></polygon><polygon points="24,146 128,172.7 159.8,159.5 55.8,132.8" fill="#2f323b"></polygon><polygon points="24,146 128,172.7 128,169.2 24,142.5" fill="#484c58"></polygon><polygon points="128,172.7 159.8,159.5 159.8,156 128,169.2" fill="#484c58"></polygon><polygon points="24,142.5 128,169.2 159.8,156 55.8,129.3" fill="#3a3d48"></polygon><defs><linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4d57"></stop><stop offset="1" stop-color="#33353d"></stop></linearGradient><radialGradient id="lamp" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffe6a8" stop-opacity="0.55"></stop><stop offset="1" stop-color="#ffe6a8" stop-opacity="0"></stop></radialGradient><linearGradient id="cTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f5f7"></stop><stop offset="1" stop-color="#d9dbe0"></stop></linearGradient><linearGradient id="cSide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d6d8de"></stop><stop offset="1" stop-color="#a9adb6"></stop></linearGradient><linearGradient id="cFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c2c5cc"></stop><stop offset="1" stop-color="#8f939c"></stop></linearGradient><linearGradient id="cGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4250"></stop><stop offset="0.55" stop-color="#161a21"></stop><stop offset="1" stop-color="#2a303b"></stop></linearGradient></defs><polygon points="38,199.6 114,219.1 114,180.1 38,160.6" fill="url(#gd)"></polygon><path d="M38,168.4 L114,187.9" stroke="#262830" stroke-width="1"></path><path d="M38,169.2 L114,188.7" stroke="#5a5e69" stroke-width="0.5" stroke-opacity="0.6"></path><path d="M38,176.2 L114,195.7" stroke="#262830" stroke-width="1"></path><path d="M38,177.0 L114,196.5" stroke="#5a5e69" stroke-width="0.5" stroke-opacity="0.6"></path><path d="M38,184.0 L114,203.5" stroke="#262830" stroke-width="1"></path><path d="M38,184.8 L114,204.3" stroke="#5a5e69" stroke-width="0.5" stroke-opacity="0.6"></path><path d="M38,191.8 L114,211.3" stroke="#262830" stroke-width="1"></path><path d="M38,192.6 L114,212.1" stroke="#5a5e69" stroke-width="0.5" stroke-opacity="0.6"></path><polygon points="38,199.6 114,219.1 114,180.1 38,160.6" stroke="#23252c" stroke-width="1.4" fill="none"></polygon><polygon points="36,161 116,181.5 116,179 36,158.5" fill="#3e414c"></polygon><ellipse cx="76" cy="166" rx="26" ry="12" fill="url(#lamp)"></ellipse><polygon points="73,165.4 79,166.9 79,164.9 73,163.4" fill="#fff1c8"></polygon><polygon points="117.5,193.6 124,195.3 124,205.3 117.5,203.6" fill="#2a2c33" stroke="#555966" stroke-width="0.8"></polygon><circle cx="120.8" cy="197.6" r="1.1" fill="#6fd29e"></circle><g transform="translate(14 3.6) translate(-4 0.3999999999999999) translate(74 212) scale(1.5) translate(-74 -212)"><ellipse cx="50.15" cy="221.25" rx="31" ry="10" fill="#000" opacity="0.5" transform="rotate(-22 50.15 221.25)"></ellipse><ellipse cx="26.34" cy="218.42" rx="4.9" ry="5.3" fill="#0b0c0f"></ellipse><ellipse cx="26.94" cy="218.32" rx="3.4" ry="3.7" fill="#25282e"></ellipse><path d="M26.94,218.32 q1.90,0.00 2.73,1.83" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M26.94,218.32 q0.59,2.00 -0.75,3.40" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M26.94,218.32 q-1.54,1.23 -3.19,0.27" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M26.94,218.32 q-1.54,-1.23 -1.22,-3.23" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M26.94,218.32 q0.59,-2.00 2.43,-2.27" stroke="#3d414a" stroke-width="0.7" fill="none"></path><ellipse cx="26.94" cy="218.32" rx="0.7" ry="0.8" fill="#4d515a"></ellipse><polygon points="40.24,227.51 19.36,222.29 18.9,219.87 19.45,217.34 21.05,215.02 44.25,220.82 42.19,223.02 40.7,225.33" fill="url(#cFront)"></polygon><polygon points="40.24,227.51 19.36,222.29 19.59,221.25 40.01,226.35" fill="#16181c"></polygon><polygon points="36.18,226.2 23.42,223.01 23.77,222.49 35.83,225.51" fill="#2a2d33"></polygon><polygon points="82.1,210.4 82.1,202.4 80.88,201.71 57.68,210.94 55.24,212.95 51.17,215.74 47.1,218.53 44.25,220.82 42.42,223.08 41.4,225.5 40.7,227.63 42.01,227.75 81.49,211.35" fill="url(#cSide)"></polygon><path d="M80.47,203.28 L56.87,212.68" stroke="#ffffff" stroke-width="0.6" opacity="0.55"></path><polygon points="81.29,211.44 42.01,227.75 42.21,226.26 80.88,210.21" fill="#16181c"></polygon><ellipse cx="73.96" cy="213.88" rx="6.2" ry="6.6" fill="#16181c"></ellipse><ellipse cx="73.96" cy="213.88" rx="5.5" ry="5.9" fill="#0d0e11"></ellipse><ellipse cx="49.54" cy="224.02" rx="6.2" ry="6.6" fill="#16181c"></ellipse><ellipse cx="49.54" cy="224.02" rx="5.5" ry="5.9" fill="#0d0e11"></ellipse><polygon points="82.1,202.4 78.09,201.01 60.46,196.6 58.9,196.6" fill="#eef0f3"></polygon><polygon points="78.09,201.01 75.65,199.43 71.99,198.15 67.92,198.54 63.85,200.13 60.59,202.68 57.75,206.26 54.9,209.94 37.26,205.54 40.11,201.85 42.96,198.27 46.22,195.72 50.29,194.13 54.36,193.74 58.02,195.02 60.46,196.6" fill="url(#cGlass)"></polygon><polygon points="64.09,198.12 59.21,200.45 49.93,198.13 54.81,195.8" fill="#ffffff" opacity="0.1"></polygon><polygon points="57.11,203.89 54.67,207.7 50.03,206.54 52.47,202.73" fill="#ffffff" opacity="0.07"></polygon><polygon points="80.88,201.71 57.68,210.94 54.9,210.24 78.09,201.01" fill="#eef0f3"></polygon><polygon points="77.22,201.21 71.99,198.95 67.92,199.34 63.85,200.93 60.59,203.38 56.47,209.42" fill="url(#cGlass)"></polygon><path d="M77.22,201.21 L71.99,198.95 L67.92,199.34 L63.85,200.93 L60.59,203.38 L56.47,209.42" stroke="#0a0b0e" stroke-width="0.6" fill="none"></path><path d="M66.23,205.57 L65.89,200.08" stroke="#0a0b0e" stroke-width="1.3"></path><polygon points="57.68,210.94 55.24,212.95 51.17,215.74 47.1,218.53 44.25,220.82 21.05,215.02 23.9,212.73 27.97,209.94 32.04,207.15 37.26,205.84 54.9,210.24" fill="url(#cTop)"></polygon><path d="M52.05,210.84 L41.12,219.19" stroke="#ffffff" stroke-width="0.55" opacity="0.6"></path><path d="M20.97,216.09 L42.54,221.49" stroke="#f7faff" stroke-width="1" stroke-linecap="round"></path><path d="M35.76,223.78 L40.5,224.15" stroke="#1f2227" stroke-width="1.5" stroke-linecap="round"></path><path d="M24.16,220.88 L20.08,219.05" stroke="#1f2227" stroke-width="1.5" stroke-linecap="round"></path><ellipse cx="19.63" cy="230.43" rx="14" ry="4.5" fill="#eef6ff" opacity="0.12" transform="rotate(-22 19.63 230.43)"></ellipse><ellipse cx="73.96" cy="214.08" rx="4.9" ry="5.3" fill="#0b0c0f"></ellipse><ellipse cx="74.55999999999999" cy="213.98000000000002" rx="3.4" ry="3.7" fill="#25282e"></ellipse><path d="M74.56,213.98 q1.90,0.00 2.73,1.83" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M74.56,213.98 q0.59,2.00 -0.75,3.40" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M74.56,213.98 q-1.54,1.23 -3.19,0.27" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M74.56,213.98 q-1.54,-1.23 -1.22,-3.23" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M74.56,213.98 q0.59,-2.00 2.43,-2.27" stroke="#3d414a" stroke-width="0.7" fill="none"></path><ellipse cx="74.55999999999999" cy="213.98000000000002" rx="0.7" ry="0.8" fill="#4d515a"></ellipse><ellipse cx="49.54" cy="224.22" rx="4.9" ry="5.3" fill="#0b0c0f"></ellipse><ellipse cx="50.14" cy="224.12" rx="3.4" ry="3.7" fill="#25282e"></ellipse><path d="M50.14,224.12 q1.90,0.00 2.73,1.83" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M50.14,224.12 q0.59,2.00 -0.75,3.40" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M50.14,224.12 q-1.54,1.23 -3.19,0.27" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M50.14,224.12 q-1.54,-1.23 -1.22,-3.23" stroke="#3d414a" stroke-width="0.7" fill="none"></path><path d="M50.14,224.12 q0.59,-2.00 2.43,-2.27" stroke="#3d414a" stroke-width="0.7" fill="none"></path><ellipse cx="50.14" cy="224.12" rx="0.7" ry="0.8" fill="#4d515a"></ellipse><path d="M68.47,215.16 L68.47,206.86" stroke="#a7acb4" stroke-width="0.4"></path><path d="M58.29,218.59 L57.68,211.04" stroke="#a7acb4" stroke-width="0.4"></path><path d="M72.33,207.26 L70.7,207.88" stroke="#2a2d33" stroke-width="0.75" stroke-linecap="round"></path><path d="M63.38,210.77 L61.75,211.4" stroke="#2a2d33" stroke-width="0.75" stroke-linecap="round"></path><polygon points="55.24,214.75 54.22,214.98 54.22,215.78" fill="#22252b"></polygon><ellipse cx="58.84" cy="211.17999999999998" rx="0.7" ry="0.5" fill="#16181c"></ellipse><ellipse cx="58.84" cy="210.73" rx="1.5" ry="1" fill="#eef0f3"></ellipse><ellipse cx="80.06" cy="204.85" rx="0.9" ry="0.7" fill="#6fd29e"></ellipse></g><path d="M120.8,204.5 C121,228 113.1,221.3 93.1,205.3" stroke="#6fd29e" stroke-width="1.4" fill="none" stroke-linecap="round"></path><circle cx="93.1" cy="205.3" r="1.3" fill="#6fd29e"></circle><g stroke="#4b4e58" stroke-width="1.3" fill="none" stroke-linecap="round"><path d="M234.5,215 V240 L400,214"></path><path d="M234.5,240 L114,219.1"></path></g></svg>'; // ki-hex-ok: illustrasjonen (fast mørk scene)
+  const HUS_URL = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(HUS_SVG);
+  M.stromHusSvg = HUS_SVG;
+
+  /* ------------------------------------------------------------ definisjoner (designet) */
+  const TABDEF = [['Priser', 'mdi:tag-outline'], ['Forbruk', 'mdi:chart-bar'], ['Kurser', 'mdi:power-plug-outline']];
+  const TABK = TABDEF.map((t) => t[0]);
+  const SECS = {
+    Priser: [['p_kort', 'Regning og kostnad', 'mdi:receipt-text-outline'], ['p_eks', 'Hva koster det nå', 'mdi:calculator'], ['p_graf', 'Pris time for time', 'mdi:chart-line'], ['p_minis', 'Lavest · høyest · snitt', 'mdi:function-variant'], ['p_bryt', 'Inkludert i prisen', 'mdi:toggle-switch']],
+    Forbruk: [['f_kort', 'Forbruk nå og i dag', 'mdi:lightning-bolt'], ['f_stat', 'Dag · måned · år', 'mdi:meter-electric'], ['f_graf', 'Forbruk per time', 'mdi:chart-bar'], ['f_kilder', 'Kilder', 'mdi:table-large']],
+    Kurser: [['k_total', 'Totalkort', 'mdi:cash-multiple'], ['k_kat', 'Kategorier', 'mdi:shape-outline'], ['k_kurs', 'Sikringsskap', 'mdi:power-plug-outline']],
+  };
+  const ROLES = [['effekt', 'Effekt nå', 'mdi:meter-electric'], ['spot', 'Spotpris', 'mdi:lightning-bolt'], ['norge', 'Norgespris', 'mdi:piggy-bank-outline'], ['dag', 'Kostnad i dag', 'mdi:calendar-today'], ['maned', 'Regning måned', 'mdi:receipt-text-outline'], ['spart', 'Spart med Norgespris', 'mdi:hand-heart-outline'], ['forbruk', 'Forbruk i dag', 'mdi:lightning-bolt']];
+  const PAGES = { norgespris: ['Norgespris', 'mdi:piggy-bank-outline'], stromregning: ['Strømregning', 'mdi:receipt-text-outline'], innstillinger: ['Strøminnstillinger', 'mdi:tune'] };
+  const PAGE_HASH = { '#norgespris': 'norgespris', '#stromregning': 'stromregning', '#strømregning': 'stromregning', '#strominnstillinger': 'innstillinger' };
+  // «Hva koster det nå»: [id, ikon, tekst, kWh] (typiske forbruk, ikke målinger)
+  const EXALL = [['dusj', 'mdi:shower', 'Dusj, 10 min', 5], ['vask', 'mdi:washing-machine', 'Klesvask, 40 °C', 1], ['oppvask', 'mdi:dishwasher', 'Oppvaskmaskin', 1.2], ['bil', 'mdi:car-electric', 'Lade bil 0–100 %', 85.2], ['ovn', 'mdi:stove', 'Steke i ovn, 1 t', 2], ['tork', 'mdi:tumble-dryer', 'Tørketrommel', 3.5], ['tv', 'mdi:television', 'TV, 1 time', 0.1], ['pizza', 'mdi:pizza', 'Pizzaovn, 20 min', 0.44], ['laptop', 'mdi:laptop', 'Lade laptop, 1 t', 0.05], ['vvb', 'mdi:water-boiler', 'Varmtvannsbereder', 9.3], ['panel', 'mdi:radiator', 'Panelovn, 1 time', 1], ['stov', 'mdi:robot-vacuum', 'Støvsuger, 30 min', 0.3], ['2kwh', 'mdi:lightning-bolt', 'Kostnad for 2 kWh', 2]];
+  const EXDEF = ['dusj', 'vask', 'oppvask', 'bil', 'ovn'];
+  const PRS = [['norge', 'Norgespris'], ['spot', 'Spotpris'], ['total', 'Spot + nettleie og avgifter']];
+  const UC = { now: ['mdi:home-lightning-bolt-outline', 'Forbruk nå'], day: ['mdi:lightning-bolt', 'Dagens forbruk'], month: ['mdi:calendar-month', 'Denne måneden'], year: ['mdi:calendar-sync', 'I år'], cost: ['mdi:cash-multiple', 'Kostnad i dag'], peak: ['mdi:speedometer', 'Topp i dag'], step: ['mdi:stairs', 'Effekttrinn'], ev: ['mdi:ev-station', 'Elbillading'] };
+  const TOGGLES = [['nettleie', 'Nettleie', 'mdi:cash', /nettleie|grid|network/], ['selskap', 'Strømselskap', 'mdi:home-city-outline', /selskap|company|paslag|surcharge|supplier/], ['stotte', 'Strømstøtte', 'mdi:hand-coin-outline', /stotte|støtte|support|subsid/], ['moms', 'Moms', 'mdi:cash-multiple', /moms|mva|vat|tax/]];
+  const STEPS = [[0, 2], [2, 5], [5, 10], [10, 15], [15, 20], [20, 25]];
+
+  /* ------------------------------------------------------------ config-hjelpere */
+  const hidOf = (c) => ({ p_minis: true, ...(isObj(c && c.hid) ? c.hid : {}) });
+  const orderOf = (c) => { const o = (Array.isArray(c && c.order) ? c.order : []).filter((k) => TABK.includes(k)); TABK.forEach((k) => { if (!o.includes(k)) o.push(k); }); return o; };
+  const visTabs = (c) => { const h = hidOf(c), o = orderOf(c), v = o.filter((k) => !h[k]); return v.length ? v : [o[0]]; };
+  const ordIds = (saved, ids) => { const o = Array.isArray(saved) ? saved : []; return [...o.filter((x) => ids.includes(x)), ...ids.filter((x) => !o.includes(x))]; };
+  const secOrder = (c, tab) => ordIds(((c && c.ord) || {})['sec-' + tab], SECS[tab].map((s) => s[0]));
+  const ucOf = (c) => (Array.isArray(c && c.useCards) && c.useCards.length === 2 && c.useCards.every((k) => UC[k]) && c.useCards[0] !== c.useCards[1] ? c.useCards : ['now', 'day']);
+  const exPriceOf = (c) => (PRS.some((p) => p[0] === (c && c.exPrice)) ? c.exPrice : 'spot');
+  const exShowOf = (c) => (Array.isArray(c && c.exShow) ? c.exShow : EXDEF);
+  const tsOf = (c) => (['pille', 'kontur', 'ikoner', 'kompakt'].includes(c && c.tabStyle) ? c.tabStyle : 'pille');
+  const startOf = (c) => (c && (c.start_tab || c.start)) || '';
+
+  /* ------------------------------------------------------------ entiteter (Auto) */
+  const txt = (hass, id) => (id + ' ' + String((hass.states[id] && hass.states[id].attributes.friendly_name) || '')).toLowerCase();
+  const SUB_RX = /basseng|pool|spa\b|vvb|bereder|lader|charger|easee|zaptec|tesla|varmepumpe|nibe|panelovn|gulvvarme|vaskemaskin|oppvask|torketrommel|kjoleskap|server/;
+  let AM = null;
+  function autoEnts(hass) {
+    if (!hass || !hass.states) return {};
+    const pr = M.energiPrefs ? M.energiPrefs(hass) : undefined;
+    if (AM && AM.s === hass.states && AM.pr === pr) return AM.v;
+    const st = hass.states, ids = Object.keys(st).filter((id) => id.startsWith('sensor.') && st[id] && M.isNum(st[id].state));
+    const unit = (id) => String(st[id].attributes.unit_of_measurement || '');
+    const mon = ids.filter((id) => st[id].attributes.device_class === 'monetary' || /^(nok|kr|sek|eur)$/i.test(unit(id)));
+    const pick = (list, inc, exc, pref) => {
+      const L = list.filter((id) => inc.every((r) => r.test(txt(hass, id))) && !(exc && exc.test(txt(hass, id))));
+      return L.sort((a, b) => (pref && pref.test(txt(hass, b)) ? 1 : 0) - (pref && pref.test(txt(hass, a)) ? 1 : 0) || (a < b ? -1 : 1))[0] || null;
+    };
+    let R = null; try { R = M.energiSources ? M.energiSources(hass, {}) : null; } catch (e) { R = null; }
+    let P = null; try { P = M.powerPrice ? M.powerPrice(hass) : null; } catch (e) { P = null; }
+    const pw = ids.filter((id) => st[id].attributes.device_class === 'power');
+    const v = {
+      effekt: (R && R.power) || (M.kiRomId && M.kiRomId(hass, null, 'effekt')) || pick(pw, [/strommaler|strømmåler|\bams\b|_ams_|\bhan\b|pulse|hele_huset|house_power|total_effekt|effekt_total/], SUB_RX) || null,
+      spot: (P && P.entity) || null,
+      norge: (P && P.norgespris && P.norgespris.entity) || (M.norgesprisAuto && M.norgesprisAuto(hass)) || null,
+      dag: pick(mon, [/(daily|i_dag|i dag|idag|today|_dag\b|dagens)/, /(cost|kostnad)/], new RegExp(SUB_RX.source + '|mnd|maned|måned|month|year|aar|år\\b|besparelse|spart|saving'), /strom|strøm|total|nordpool|tibber|energi|strommaler/),
+      maned: pick(mon, [/(month|maned|måned|monthly|regning|mnd)/], new RegExp(SUB_RX.source + '|besparelse|spart|saving|year|aar'), /strom|strøm|regning|total/),
+      spart: pick(mon.concat(ids.filter((id) => /kr$/i.test(unit(id)))), [/(besparelse|spart|saving|saved)/, /norgespris/], null, /dag|daily|today/),
+      forbruk: pick(ids.filter((id) => st[id].attributes.device_class === 'energy'), [/(daily|i_dag|idag|today|_dag\b|dagens)/, /(forbruk|energy|energi|consumption|strommaler|import)/], SUB_RX, /strommaler|total|hele|house/),
+    };
+    AM = { s: st, pr, v };
+    return v;
+  }
+  const entOf = (hass, cfg, role) => { const o = (cfg && cfg.ent) || {}; return o[role] || autoEnts(hass)[role] || null; };
+  M.stromEnt = entOf;
+  const stOf = (hass, id) => (id && hass && hass.states[id]) || null;
+  const valOf = (hass, id) => { const s = stOf(hass, id); return s && M.isNum(s.state) ? Number(s.state) : null; };
+  const wattOf = (hass, id) => { const s = stOf(hass, id); if (!s || !M.isNum(s.state)) return null; const u = String(s.attributes.unit_of_measurement || 'W'); return Number(s.state) * (/^kW$/i.test(u) ? 1000 : /^MW$/i.test(u) ? 1e6 : 1); };
+  const kwhOf = (hass, id) => { const s = stOf(hass, id); if (!s || !M.isNum(s.state)) return null; const u = String(s.attributes.unit_of_measurement || 'kWh'); return Number(s.state) * (/^Wh$/i.test(u) ? 0.001 : /^MWh$/i.test(u) ? 1000 : 1); };
+  const priceVal = (hass, id) => { const s = stOf(hass, id); return s && M.isNum(s.state) ? Number(s.state) * (M.priceScale ? M.priceScale(s) : 1) : null; };
+  const trendOf = (hass, id) => { const s = stOf(hass, id); if (!s) return null; const a = s.attributes || {}; const v = a.endring != null ? a.endring : a.change != null ? a.change : null; if (v == null) return null; const n = parseFloat(String(v).replace(',', '.').replace('−', '-')); return isNaN(n) ? null : n; };
+  // Innebygde brytere «Inkludert i prisen» (bare input_boolean.include_* som finnes)
+  function togglesOf(hass) {
+    if (!hass) return [];
+    const ids = Object.keys(hass.states).filter((id) => /^input_boolean\.include_/.test(id));
+    return TOGGLES.map(([k, l, icon, rx]) => { const id = ids.find((x) => rx.test(x.slice(20))); return id ? { k, l, icon, id } : null; }).filter(Boolean);
+  }
+  // Popupen lages når det finnes en pris- eller effekt-/energikilde
+  M.stromHas = (hass) => {
+    if (!hass || !hass.states) return false;
+    try { if (M.powerPrice && M.powerPrice(hass).entity) return true; } catch (e) { /* */ }
+    const a = autoEnts(hass);
+    return !!(a.effekt || a.forbruk || a.norge) || Object.keys(hass.states).some((id) => id.startsWith('sensor.') && ['energy', 'power'].includes(hass.states[id].attributes.device_class) && /strom|strøm|ams|han|maler|måler|meter|effekt|import/.test(id));
+  };
+  M.popupNeeds = M.popupNeeds || {};
+  M.popupNeeds[HASH] = (hass) => M.stromHas(hass);
+  // #norgespris / #stromregning / #strominnstillinger → undersidene i #strom (aldri egne popups)
+  M.HASH_ALIAS = M.HASH_ALIAS || {};
+  Object.keys(PAGE_HASH).forEach((h) => { M.HASH_ALIAS[h] = HASH; });
+
+  /* ------------------------------------------------------------ pris */
+  function priceOf(card) {
+    const h = card.hass, spot = card.ent('spot');
+    try { return M.powerPrice(h, M.powerPriceCfg(null, { spot_entity: spot || '', mode: 'spot', unit: 'kr', source: spot ? '' : undefined }), card); } catch (e) { return null; }
+  }
+  const avgOf = (a) => { const v = (a || []).filter((x) => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+  // Nivå: prisens eget nivå-attributt, ellers forhold til dagens snitt
+  function levelOf(v, avg, attr) {
+    const t = String(attr || '').toUpperCase();
+    if (t === 'VERY_CHEAP' || t === 'CHEAP') return 0;
+    if (t === 'NORMAL') return 1;
+    if (t === 'EXPENSIVE' || t === 'VERY_EXPENSIVE') return 2;
+    if (v == null || !avg) return null;
+    const r = v / avg;
+    return r < 0.9 ? 0 : r <= 1.1 ? 1 : 2;
+  }
+  const LVL = [['Billig', GREEN_F], ['Middels', AMBER_F], ['Dyrt', RED_F]];
+
+  /* ------------------------------------------------------------ statistikk (bare mens popupen er åpen, 5 min cache) */
+  const tOf = (r) => (typeof r.start === 'number' ? r.start : Date.parse(r.start));
+  const dayStart = (off) => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate() + (off || 0)); };
+  const stats = (hass, ids, s, e, period) => (ids.length ? hass.callWS({ type: 'recorder/statistics_during_period', start_time: s.toISOString(), end_time: e.toISOString(), statistic_ids: ids, period, types: ['change'], units: { energy: 'kWh', volume: 'L' } }).catch(() => null).then((r) => r || {}) : Promise.resolve({}));
+  const uniq = (a) => [...new Set(a.filter(Boolean))];
+  const ser24 = (st, ids) => { const out = Array(24).fill(null); ids.forEach((id) => (st[id] || []).forEach((r) => { if (r.change == null) return; const i = new Date(tOf(r)).getHours(); out[i] = (out[i] || 0) + Number(r.change); })); return out; };
+  const sum = (a) => (a || []).reduce((s, v) => s + (v || 0), 0);
+  const anyV = (a) => (a || []).some((v) => v != null);
+  async function loadDay(hass, R, off, P) {
+    const s = dayStart(off), e = dayStart(off + 1);
+    const ids = uniq([...R.grid_in, ...R.grid_out, ...R.cost_in, ...R.solar, ...(R.battery || []), ...R.water, ...R.water_cost, R.ev]);
+    const st = await stats(hass, ids, s, e, 'hour');
+    const imp = ser24(st, R.grid_in), exp = ser24(st, R.grid_out), sol = ser24(st, R.solar), bat = ser24(st, R.battery || []);
+    const ev = R.ev ? ser24(st, [R.ev]) : Array(24).fill(null);
+    let cost = R.cost_in.length ? ser24(st, R.cost_in) : null;
+    if (cost && !anyV(cost)) cost = null;
+    if (!cost && off === 0 && P && anyV(P.spotToday)) cost = imp.map((v, i) => (v == null || P.today[i] == null ? null : v * P.today[i]));
+    const per = R.grid_in.map((id) => ({ id, vals: ser24(st, [id]) }));
+    const water = ser24(st, R.water);
+    let wcost = R.water_cost.length ? ser24(st, R.water_cost) : null;
+    if (wcost && !anyV(wcost)) wcost = null;
+    return { off, imp, exp, sol, bat, ev, cost, per, water, wcost, t: Date.now() };
+  }
+  async function loadMonth(hass, R) {
+    const n = new Date(), s = new Date(n.getFullYear(), n.getMonth(), 1), e = new Date(n.getTime() + HOUR);
+    const st = await stats(hass, uniq([...R.grid_in, ...R.cost_in]), s, e, 'hour');
+    const byDay = {}; let kwh = null, cost = null;
+    R.grid_in.forEach((id) => (st[id] || []).forEach((r) => { if (r.change == null) return; const t = tOf(r), d = new Date(t), k = d.getDate(); const v = Number(r.change); kwh = (kwh || 0) + v; byDay[k] = byDay[k] || {}; byDay[k][d.getHours()] = (byDay[k][d.getHours()] || 0) + v; }));
+    R.cost_in.forEach((id) => (st[id] || []).forEach((r) => { if (r.change != null) cost = (cost || 0) + Number(r.change); }));
+    const peaks = Object.keys(byDay).map((d) => { const hs = byDay[d], mx = Math.max(...Object.values(hs)); return { d: Number(d), v: mx }; }).sort((a, b) => b.v - a.v);
+    const top = peaks.slice(0, 3);
+    return { kwh, cost, peaks: top, avg3: top.length ? top.reduce((a, p) => a + p.v, 0) / top.length : null, t: Date.now() };
+  }
+  async function loadYear(hass, R) {
+    const n = new Date(), s = new Date(n.getFullYear(), 0, 1), e = new Date(n.getTime() + HOUR);
+    const st = await stats(hass, uniq(R.grid_in), s, e, 'month');
+    let kwh = null; R.grid_in.forEach((id) => (st[id] || []).forEach((r) => { if (r.change != null) kwh = (kwh || 0) + Number(r.change); }));
+    return { kwh, t: Date.now() };
+  }
+
+  /* ------------------------------------------------------------ fanelinje (4 stiler, designets TSTY) */
+  const pillS = (on, h) => `height:${h}px;padding:0 16px;white-space:nowrap;border-radius:999px;font-size:14px;font-weight:500;background:${on ? PINK : 'transparent'};color:${on ? INK : T1};transition:background .25s,color .25s,transform .18s,box-shadow .18s,flex .25s`;
+  const TSTY = {
+    pille: { name: 'Pille', sub: 'Ikon + tekst', wrap: '', bar: `display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;padding:4px;border-radius:999px;background:${SURF}`,
+      btn: (on) => `${pillS(on, 44)};padding:0 8px;display:flex;align-items:center;justify-content:center;gap:6px`, icon: () => true, label: () => true },
+    kontur: { name: 'Kontur', sub: 'Standard', wrap: 'justify-content:center', bar: `display:flex;gap:2px;padding:2px;border-radius:999px;box-shadow:inset 0 0 0 1px ${WA(0.3)}`,
+      btn: (on) => `${pillS(on, 40)};padding:0 20px;display:flex;align-items:center;justify-content:center;color:${on ? INK : 'var(--ki-text-1, rgba(255,255,255,.72))'};box-shadow:${on ? '0 1px 6px ' + KA(0.35) : 'none'}`, icon: () => false, label: () => true }, // ki-hex-ok: fallback uten tema / mørk fallback
+    ikoner: { name: 'Ikoner', sub: 'Aktiv viser tekst', wrap: '', bar: `display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px ${WA(0.05)}`,
+      btn: (on) => `flex:${on ? '1 0 auto' : '0 0 52px'};height:44px;padding:${on ? '0 16px 0 12px' : '0'};border-radius:20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;white-space:nowrap;background:${on ? PINK : 'transparent'};color:${on ? INK2 : 'var(--ki-text-2, #afafaf)'};transition:flex .25s,background .25s,transform .18s,box-shadow .18s`, icon: () => true, label: (on) => on },
+    kompakt: { name: 'Kompakt', sub: 'Lav, nøytral', wrap: '', bar: `display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:3px;border-radius:14px;background:${KA(0.25)}`,
+      btn: (on) => `height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;white-space:nowrap;background:${on ? 'var(--ki-ctrl, #545454)' : 'transparent'};color:${on ? T : 'var(--ki-text-2, #afafaf)'};transition:background .2s,transform .18s,box-shadow .18s`, icon: () => false, label: () => true },
+  };
+  // preview: spans uten roller (Tilpass → Visning)
+  function tabBarHTML(c, cur, preview, styleKey) {
+    const k = styleKey || tsOf(c), S = TSTY[k], V = visTabs(c), act = V.includes(cur) ? cur : V[0];
+    const items = V.map((l, i) => {
+      const on = preview ? i === 0 : l === act, icon = (TABDEF.find((t) => t[0] === l) || [])[1];
+      const inner = `${S.icon(on) ? ic(icon, 18) : ''}${S.label(on) ? `<span>${esc(l)}</span>` : ''}`;
+      return preview ? `<span style="${S.btn(on)}">${inner}</span>` : `<button class="tb${on ? ' on' : ''}" data-act="tab" data-v="${esc(l)}" data-haptic="selection" title="${esc(l)}" aria-selected="${on}" style="${S.btn(on)}">${inner}</button>`;
+    }).join('');
+    const bar = `${S.bar};${S.wrap ? '' : 'flex:1;min-width:0;'}`;
+    return `<div class="tbw" style="flex:1;min-width:0;display:flex;${S.wrap}"><div class="tbar" ${preview ? '' : 'data-glass-drag="x" data-tabbar'} style="${bar}">${items}</div></div>`;
+  }
+
+  /* ------------------------------------------------------------ CSS (kort) */
+  const CSS = `
+    :host{--s-card:${SURF};--s-in:${SURF2};--ln:${WA(0.08)}}
+    @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    @keyframes glowP{0%,100%{opacity:.75}50%{opacity:1}}
+    @keyframes ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.6);opacity:0}}
+    @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+    @keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+    .wrap{display:flex;flex-direction:column;gap:12px}
+    .na .wrap *{animation:none !important}
+    button{text-align:inherit}
+    .hero{position:relative;min-height:250px;border-radius:28px;overflow:hidden;background:radial-gradient(ellipse 55% 50% at 70% 55%,rgba(242,176,79,.22),transparent 70%),linear-gradient(175deg,#1f232c 0%,#272d39 55%,#313948 100%);padding:16px 18px 18px;display:flex;flex-direction:column;color:var(--ki-text, #fafafa)}
+    .hglow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 40% 38% at 72% 52%, rgba(242,176,79,.28), transparent 70%);animation:glowP 4s ease-in-out infinite}
+    .hgear{position:absolute;top:14px;right:14px;z-index:2;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;color:var(--ki-text, #fafafa);transition:transform .15s} /* ki-hex-ok: glass på mørk øy / aksentflate */
+    .hgear:active,.tgear:active,.back:active{transform:scale(.92)}
+    .hus{position:absolute;right:-6px;top:6px;width:58%;max-width:290px;height:auto;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6%);mask-image:linear-gradient(90deg,transparent 0,#000 6%)}
+    .hnow{position:relative;display:flex;flex-direction:column;gap:4px;margin-top:4px}
+    .hlab{font-size:12px;letter-spacing:.08em;color:var(--ki-text-2, #b8b8b8)}
+    .hw{display:flex;align-items:baseline;gap:6px}.hw b{font-size:64px;font-weight:300;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums}.hw span{font-size:18px;color:var(--ki-text-2, #b8b8b8)}
+    .hchip{align-self:flex-start;display:flex;align-items:center;gap:6px;height:26px;padding:0 12px;border-radius:999px;background:rgba(242,176,79,.2);font-size:12px;font-weight:500;color:rgb(246 200 130);margin-top:4px}
+    .pdot{position:relative;width:7px;height:7px;flex:none}.pdot i{position:absolute;inset:0;border-radius:50%;background:rgb(242 176 79)}.pdot i.pg{animation:ping 1.8s cubic-bezier(0,0,.2,1) infinite}
+    .htiles{position:relative;margin-top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:18px}
+    .ht{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);min-width:0} /* ki-hex-ok: glass på mørk øy / aksentflate */
+    .ht .l{font-size:11px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ht .v{font-size:18px;font-weight:500;white-space:nowrap}
+    .ht.trinn{gap:6px}.ht .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:4px}.ht .bar i{display:block;height:100%;background:#f2b04f}.ht .s{font-size:10px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* ki-hex-ok: glass på mørk øy / aksentflate */
+    .tabrow{display:flex;align-items:center;gap:8px}
+    .tbar>button{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .tgear{width:52px;height:52px;flex:none;border-radius:50%;background:${SURF};display:flex;align-items:center;justify-content:center;animation:fade .25s ease;transition:transform .15s}
+    .secs{display:flex;flex-direction:column;gap:12px}
+    .sec{display:flex;flex-direction:column;gap:12px;border-radius:26px;transition:transform .18s,box-shadow .18s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .lift{transform:scale(1.03);box-shadow:0 14px 30px ${KA(0.45)};position:relative;z-index:5}
+    .fade{animation:fade .3s ease}
+    .k2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:10px}
+    .bill{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px 16px;border-radius:26px;background:${PINK};color:${INK};text-align:left;min-height:168px}
+    .bill .bi{border-radius:50%;background:rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;flex:none} /* ki-hex-ok: glass på mørk øy / aksentflate */
+    .bill .bl{margin-top:auto;font-size:14px}.bill .bv{display:flex;align-items:baseline;gap:5px}.bill .bv small{font-size:13px;font-weight:500}.bill .bs{font-size:12px;opacity:.75;margin-top:4px}
+    .kcol{display:flex;flex-direction:column;gap:10px;min-width:0}
+    .kc{position:relative;flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:22px;background:var(--s-card);text-align:left}
+    .kc .ci{width:36px;height:36px;border-radius:50%;background:var(--s-in);display:flex;align-items:center;justify-content:center;margin-bottom:auto}
+    .kc .cl{font-size:13px;color:${T1};margin-top:10px}.kc .cs{display:flex;align-items:center;gap:6px;font-size:12px;color:${T2}}
+    .kc .cv{display:flex;align-items:baseline;gap:4px}.kc .cv small{font-size:12px;color:${T2}}
+    .exr{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px 0 16px;border-radius:999px;background:var(--s-card);text-align:left;width:100%}
+    .exr .t{flex:1;font-size:15px;font-weight:500;white-space:nowrap}.exr .h{font-size:12px;color:${T2};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .chev{transition:transform .25s;color:${T2}}.chev.up{transform:rotate(180deg)}
+    .exl{background:var(--s-card);border-radius:26px;padding:4px 16px;animation:fade .25s ease}
+    .exi{display:flex;align-items:center;gap:12px;min-height:64px}.exi+.exi{border-top:1px solid var(--ln)}
+    .ico{width:40px;height:40px;border-radius:50%;background:var(--s-in);display:flex;align-items:center;justify-content:center;flex:none}
+    .exi .n{flex:1;min-width:0;display:flex;flex-direction:column}.exi .n b{font-size:15px;font-weight:500}.exi .n span{font-size:12px;color:${T2B}}
+    .exi .v{font-size:17px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}.exi .v small{font-size:12px;font-weight:400;color:${T2B}}
+    .gc{background:var(--s-card);border-radius:26px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:14px;animation:fade .3s ease}
+    .gh{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+    .gh .sl{font-size:13px;color:${T2}}.gh .sv{display:flex;align-items:baseline;gap:5px}.gh .sv b{font-size:40px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}.gh .sv small{font-size:13px;color:${T2}}
+    .lchip{align-self:flex-start;height:22px;padding:0 10px;border-radius:999px;display:flex;align-items:center;font-size:12px;font-weight:600;color:rgba(30,24,20,.9);margin-top:4px}
+    .seg{display:flex;gap:2px;padding:3px;border-radius:999px;background:${KA(0.25)};flex:none}
+    .seg button{height:32px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap;color:${T1};transition:background .25s,color .25s}
+    .seg button.on{background:${PINK};color:${INK}}
+    .pc{position:relative;height:180px;margin:4px 0 20px 34px}
+    .pc .gl{position:absolute;left:0;right:0;border-top:1px solid ${WA(0.08)}}.pc .gl.z{border-top-color:${WA(0.3)}}
+    .pc .yl{position:absolute;right:calc(100% + 8px);transform:translateY(-50%);font-size:11px;color:${T2};font-variant-numeric:tabular-nums}
+    .pc svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+    .pc .band{position:absolute;top:0;bottom:0;background:${WA(0.07)};pointer-events:none}
+    .pc .nl{position:absolute;top:0;bottom:0;border-left:1.5px dashed rgb(242 176 110);pointer-events:none}
+    .pc .nt{position:absolute;top:-2px;transform:translateX(-50%);padding:2px 5px;border-radius:4px;background:rgb(246 190 140);color:#3a2a1e;font-size:10px;font-weight:600;pointer-events:none}
+    .pc .sd{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:${T};box-shadow:0 0 0 3px rgb(242 133 201);pointer-events:none}
+    .pc .scrub{position:absolute;inset:0;display:flex;touch-action:none;cursor:pointer}.pc .scrub>span{flex:1;min-width:0;height:100%}
+    .pc .xl{position:absolute;top:calc(100% + 6px);transform:translateX(-50%);font-size:11px;color:${T2}}
+    .pc .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;color:${T2};padding:0 12px}
+    .lg{display:flex;gap:16px;font-size:11px;color:${T2}}.lg span{display:flex;align-items:center;gap:6px}
+    .minis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .mi{background:var(--s-card);border-radius:20px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+    .mi .l{display:flex;align-items:center;gap:5px;font-size:12px;color:${T2}}.mi .v{font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}.mi .s{font-size:12px;color:${T2}}
+    .sh2{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 0}.sh2 b{font-size:15px;font-weight:600}
+    .ib{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:${T2}}
+    .tg2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .tg{display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px 0 10px;border-radius:999px;text-align:left;background:var(--ki-surface, #3a3a3a);color:${T};box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .25s,transform .15s;min-width:0}
+    .tg:active{transform:scale(.97)}
+    .tg .ti{width:52px;height:52px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:var(--ki-surface-2, #4a4a4a);color:${T1};box-shadow:inset 0 0 0 1px ${WA(0.06)};transition:background .25s,color .25s,box-shadow .25s}
+    .tg.on .ti{background:${PINK};color:${INK};box-shadow:0 4px 14px rgba(242,138,201,.28)}
+    .tg .tn{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;min-width:0}.tg .tn b{font-size:15px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tg .tn span{font-size:13px;color:${TM};transition:color .25s}.tg.on .tn span{color:var(--ki-pink-text, rgb(246 170 215))}
+    .uc2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;animation:fade .3s ease}
+    .uc{background:var(--s-card);border-radius:26px;padding:14px 16px 16px;display:flex;flex-direction:column;gap:2px;min-height:156px;transition:transform .18s,box-shadow .18s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;min-width:0}
+    .uc .ui{width:48px;height:48px;border-radius:50%;background:var(--s-in);display:flex;align-items:center;justify-content:center;margin-bottom:auto}
+    .uc .ul{font-size:14px;color:${T1};margin-top:18px}.uc .uv{display:flex;align-items:baseline;gap:5px;min-width:0}.uc .uv b{font-size:34px;font-weight:300;line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}.uc .uv small{font-size:13px;color:${T2}}
+    .fh{display:flex;align-items:center;gap:10px;padding:4px 6px 0}.fh b{font-size:15px;font-weight:600}.fh span{font-size:13px;color:${T2}}
+    .fs{background:var(--s-card);border-radius:26px;padding:4px 18px}
+    .fr{display:flex;align-items:center;gap:8px;min-height:52px;border-bottom:1px solid ${WA(0.1)};transition:transform .18s,box-shadow .18s,background .18s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .fr:last-child{border-bottom:0}.fr.lift{border-radius:14px;background:var(--ki-surface-2, #4a4a4a);padding:0 10px;margin:0 -10px}
+    .fr .l{flex:1;font-size:14px;color:${T1B}}.fr .v{font-size:32px;font-weight:300;font-variant-numeric:tabular-nums}.fr .u{width:30px;font-size:12px;color:${T2}}.fr .a{width:18px;display:flex}
+    .dh{display:flex;align-items:center;gap:6px;padding:6px 8px}.dh .dl{flex:1;font-size:20px;font-weight:500;margin-left:6px}
+    .dnow{height:32px;padding:0 12px;border-radius:999px;background:rgba(80,170,220,.2);color:var(--ki-blue-text, rgb(110 190 235));font-size:13px;font-weight:600}
+    .r40{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}.r40[disabled]{opacity:.35}
+    .bc{background:var(--s-card);border-radius:26px;padding:16px 14px 14px 10px;display:flex;flex-direction:column;gap:12px}
+    .ba{position:relative;height:230px;margin-left:24px;margin-bottom:20px}
+    .ba .gl{position:absolute;left:0;right:0;border-top:1px solid ${WA(0.1)}}.ba .gl.z{border-top-color:${WA(0.35)}}
+    .ba .yl{position:absolute;right:calc(100% + 8px);transform:translateY(-50%);font-size:11px;color:${T1B}}
+    .ba .ku{position:absolute;left:-2px;top:-14px;font-size:11px;color:${T2}}
+    .ba .cols{position:absolute;inset:0;display:flex;gap:3px;align-items:flex-end;padding:0 2px}
+    .ba .col{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
+    .ba .col i{display:block;transform-origin:bottom;box-sizing:border-box}
+    .ba .xl{position:absolute;top:calc(100% + 8px);transform:translateX(-50%);font-size:11px;color:${T1B};white-space:nowrap}
+    .ba .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:${T2}}
+    .leg{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;font-size:12px;color:${T1B}}.leg span{display:flex;align-items:center;gap:6px}
+    .src{background:var(--s-card);border-radius:26px;padding:14px 16px 8px}
+    .srh{display:grid;grid-template-columns:minmax(0,1fr) 78px 70px;gap:8px;font-size:13px;color:${T1B};padding:0 0 8px 26px}
+    .srr{display:grid;grid-template-columns:14px minmax(0,1fr) 78px 70px;gap:8px;align-items:center;min-height:40px;font-size:13px}
+    .srr.tot{font-weight:600;border-top:1px solid ${WA(0.1)}}
+    .srr .d{width:12px;height:12px;border-radius:50%}.srr .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.srr .e{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .empty2{display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:22px;background:var(--s-card);color:${T2};font-size:13px}
+    .ph{display:flex;align-items:center;gap:10px;padding:0 4px}
+    .ph .back{width:40px;height:40px;border-radius:50%;background:${SURF};display:flex;align-items:center;justify-content:center;transition:transform .15s}
+    .ph .pt{flex:1;font-size:24px;font-weight:500}.ph .pt.big{font-size:28px}
+    .ph .pi{width:40px;height:40px;border-radius:50%;background:var(--ki-pill-bg, #e8e8e8);color:var(--ki-pill-fg, #2a2a2a);display:flex;align-items:center;justify-content:center}.ph .pi.s36{width:36px;height:36px}
+    .ph .x{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  `;
+
+  /* ------------------------------------------------------------ kortet */
+  class StromCard extends M.Card {
+    static get cardName() { return 'Strøm'; }
+    static get description() { return 'Strøm-popup (#strom): toppkort, priser, forbruk, kurser og undersider'; }
+    static get defaults() { return {}; }
+    static getStubConfig() { return { card_id: M.uid() }; }
+    static getConfigElement() { return document.createElement('msh-strom-editor'); }
+    static get uiPersist() { return ['tab', 'ex', 'pday']; }
+    static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (cfg) => cfg.start }; }
+    constructor() {
+      super();
+      this._st = { day: new Map(), month: null, year: null, busy: new Set() };
+      this._onPrefs = () => { this._load(true); this.update(); };
+      this._holdInit();
+    }
+    setConfig(c) {
+      const prev = this._rawConfig && this._rawConfig.card_id;
+      super.setConfig(c);
+      const id = this._rawConfig && this._rawConfig.card_id;
+      if (id && id !== prev) { const saved = M.uiLoad(id); Object.keys(saved).forEach((k) => { if (!(k in this._ui) && !TRANSIENT.has(k)) this._ui[k] = saved[k]; }); } // B/C-nøkler (host.ui) tas også med
+    }
+    connectedCallback() { super.connectedCallback(); window.addEventListener('msh-energi-prefs', this._onPrefs); }
+    disconnectedCallback() { super.disconnectedCallback(); window.removeEventListener('msh-energi-prefs', this._onPrefs); if (this._tp && this._tp.ov) this._tp.ov.close(); }
+
+    /* ---------------- vertsgrensesnittet (modulene B og C) */
+    get root() { return this.shadowRoot; }
+    get anim() { return this.config.anim !== false; }
+    haptic(t) { M.haptic(t || 'light'); }
+    ent(role) { return entOf(this.hass, this.config, role); }
+    sec(tab) { const h = hidOf(this.config); return secOrder(this.config, tab).filter((k) => !h[k]); }
+    setCfg(patch) {
+      if (!patch) return;
+      if (M.mshPatchConfig) return M.mshPatchConfig(this, patch);
+      const old = this._rawConfig || {}, next = { ...old, ...patch };
+      Object.keys(patch).forEach((k) => { if (patch[k] == null) delete next[k]; });
+      this.setConfig(next);
+      return M.saveCardConfig && M.saveCardConfig(this.hass, old, next, { card: this });
+    }
+    // MSH.Card._render kaller render() for HTML-en; modulene (B/C) kaller host.render() for å tegne på nytt
+    _render() { this._inR = true; try { return super._render(); } finally { this._inR = false; } }
+    render() { if (this._inR) return this._html(); this._persistUI(); this.update(); return ''; }
+    go(page) {
+      const p = page && PAGES[page] ? page : null;
+      this.setUI({ page: p });
+      const cont = M.popupContainer ? M.popupContainer(this) : null;
+      try { const sc = cont && (cont.closest ? cont.closest('.bubble-pop-up') : null); [cont, sc].forEach((x) => { if (x && x.scrollTop) x.scrollTop = 0; }); } catch (e) { /* */ }
+    }
+    saveUi() { this._persistUI(); }
+    _persistUI() { const id = this._rawConfig && this._rawConfig.card_id; if (!id) return; const o = {}; Object.keys(this._ui).forEach((k) => { if (!TRANSIENT.has(k)) o[k] = this._ui[k]; }); M.uiStore(id, o); }
+    setUI(p, quiet) { super.setUI(p, quiet); this._persistUI(); }
+
+    /* ---------------- åpne/lukke: data hentes bare mens popupen er åpen */
+    onOpen() {
+      const pg = M.__stromPage;
+      if (pg && Date.now() - pg.t < 8000) { M.__stromPage = null; this._ui.page = pg.page; }
+      this._wSnap = null;
+      if (M.energiPrefs) M.energiPrefs(this.hass);
+      this._load();
+      this._schedule(true);
+    }
+    onClose() { if (this._ui.page) { this._ui.page = null; } this._ui.selH = null; }
+    _R() { const h = this.hass; if (!h || !M.energiSources || !M.energiPrefs) return null; const p = M.energiPrefs(h); if (p === undefined) return null; try { return M.energiSources(h, {}); } catch (e) { return null; } }
+    _load(force) {
+      if (!this.isOpen || !this.hass || !this.hass.callWS) return;
+      const R = this._R();
+      if (!R || !R.grid_in.length) return;
+      const sig = JSON.stringify([R.grid_in, R.cost_in, R.ev, R.grid_out]);
+      if (sig !== this._sig) { this._sig = sig; this._st.day.clear(); this._st.month = null; this._st.year = null; }
+      const P = priceOf(this), B = this._st.busy, now = Date.now();
+      const run = (key, fn, put) => { if (B.has(key)) return; B.add(key); fn().then((d) => { put(d); }).catch(() => { /* */ }).finally(() => { B.delete(key); this.update(); }); };
+      [0, this._ui.fday || 0].forEach((off) => { const d = this._st.day.get(off); if (force || !d || now - d.t > TTL) run('d' + off, () => loadDay(this.hass, R, off, P), (d2) => this._st.day.set(off, d2)); });
+      if (force || !this._st.month || now - this._st.month.t > TTL) run('m', () => loadMonth(this.hass, R), (d) => { this._st.month = d; });
+      if (force || !this._st.year || now - this._st.year.t > TTL) run('y', () => loadYear(this.hass, R), (d) => { this._st.year = d; });
+    }
+
+    /* ---------------- verdier */
+    _vals() {
+      const h = this.hass, c = this.config, V = {};
+      V.P = priceOf(this);
+      const P = V.P || {};
+      // effekt (W) – «Live effekt» av: verdien fryses ved åpning
+      const wE = this.ent('effekt'); let w = wattOf(h, wE);
+      if (c.live === false) { if (this._wSnap == null && w != null) this._wSnap = w; w = this._wSnap != null ? this._wSnap : w; }
+      V.watt = w; V.wattE = wE;
+      V.spot = P.spotNow != null ? P.spotNow : null;
+      const avg = avgOf(P.spotToday);
+      V.lvl = levelOf(V.spot, avg, P.state && (P.state.attributes.price_level || P.state.attributes.level));
+      const nE = this.ent('norge');
+      V.norge = nE ? priceVal(h, nE) : P.norgespris ? P.norgespris.v : null;
+      const d0 = this._st.day.get(0), mo = this._st.month, yr = this._st.year;
+      // kostnad i dag
+      const dE = this.ent('dag');
+      V.dag = dE ? valOf(h, dE) : d0 && d0.cost ? sum(d0.cost) : null;
+      // regning måned
+      const mE = this.ent('maned');
+      V.maned = mE ? valOf(h, mE) : mo && mo.cost != null ? mo.cost : null;
+      V.manedEst = !!mE;
+      // spart med Norgespris i dag
+      const sE = this.ent('spart');
+      if (sE) V.spart = valOf(h, sE);
+      else if (d0 && V.norge != null && anyV(P.spotToday)) { let s = null; d0.imp.forEach((k, i) => { if (k != null && P.spotToday[i] != null) s = (s || 0) + k * (P.spotToday[i] - V.norge); }); V.spart = s; } else V.spart = null;
+      // forbruk i dag / måned / år
+      const fE = this.ent('forbruk');
+      V.dayKwh = fE ? kwhOf(h, fE) : d0 && anyV(d0.imp) ? sum(d0.imp) : null;
+      const sib = (rx) => { if (!fE) return null; const id = fE.replace(/(daily|_dag|i_dag|today)(?=$|_)/, rx); return id !== fE && h.states[id] ? id : null; };
+      const fM = sib('monthly') || sib('maned'), fY = sib('yearly') || sib('aar');
+      V.monthKwh = fM ? kwhOf(h, fM) : mo ? mo.kwh : null;
+      V.yearKwh = fY ? kwhOf(h, fY) : yr ? yr.kwh : null;
+      V.trend = { day: trendOf(h, fE), month: trendOf(h, fM), year: trendOf(h, fY) };
+      V.ev = d0 && anyV(d0.ev) ? sum(d0.ev) : null;
+      V.peak = d0 && anyV(d0.imp) ? Math.max(...d0.imp.filter((x) => x != null)) : null;
+      // effekttrinn (snitt av tre døgntopper denne måneden)
+      V.avg3 = mo ? mo.avg3 : null;
+      if (V.avg3 != null) { const i = STEPS.findIndex(([a, b]) => V.avg3 < b); const S = STEPS[i < 0 ? STEPS.length - 1 : i]; V.step = { lo: S[0], hi: S[1], pct: Math.max(0, Math.min(1, (V.avg3 - S[0]) / (S[1] - S[0]))), left: Math.max(0, S[1] - V.avg3) }; } else V.step = null;
+      V.d0 = d0; V.mo = mo;
+      return V;
+    }
+
+    /* ---------------- tegning */
+    _html() {
+      const c = this.config, u = this._ui, page = u.page && PAGES[u.page] ? u.page : null;
+      const V = this._vals();
+      if (page) return `<div class="wrap${this.anim ? '' : ' na'}">${this._pageHTML(page)}</div>`;
+      const vis = visTabs(c), tab = vis.includes(u.tab) ? u.tab : vis[0];
+      const gearTab = c.gear === 'tab';
+      return `<div class="wrap${this.anim ? '' : ' na'}">
+        ${this._heroHTML(V, !gearTab)}
+        <div class="tabrow">${tabBarHTML(c, tab)}${gearTab ? `<button class="tgear" data-act="tilpass" data-tr-fixed title="Tilpass strøm">${ic('mdi:cog', 22)}</button>` : ''}</div>
+        ${this._tabHTML(tab, V)}
+      </div>`;
+    }
+    _heroHTML(V, gear) {
+      const P = V.P || {}, lv = V.lvl, st = V.step;
+      const chip = V.spot != null ? `Spotpris ${lv != null ? LVL[lv][0].toLowerCase() : ''}${lv != null ? ' · ' : ''}${nf(V.spot, 2)} kr` : 'Spotpris –';
+      const watt = V.watt != null ? Math.round(V.watt).toLocaleString('nb-NO') : '–';
+      return `<div class="hero" data-ki-island>
+        <span class="hglow"></span>
+        ${gear ? `<button class="hgear" data-act="tilpass" title="Tilpass strøm">${ic('mdi:cog', 22)}</button>` : ''}
+        <img class="hus" src="${HUS_URL}" alt="">
+        <div class="hnow"><span class="hlab">BRUKER NÅ</span>
+          <span class="hw"><b class="num" data-watt>${watt}</b><span>W</span></span>
+          <span class="hchip"><span class="pdot"><i class="pg"></i><i></i></span>${esc(chip)}</span></div>
+        <div class="htiles">
+          <span class="ht"><span class="l">I dag</span><span class="v">${V.dag != null ? nf(V.dag, 0) + ' kr' : '–'}</span></span>
+          <span class="ht"><span class="l">Norgespris</span><span class="v">${V.norge != null ? nf(V.norge, 2) + ' kr' : '–'}</span></span>
+          <span class="ht trinn"><span class="l">${st ? `Trinn ${st.lo}–${st.hi} kW` : 'Trinn –'}</span><span class="bar"><i style="width:${st ? Math.round(st.pct * 100) : 0}%"></i></span><span class="s">${st ? `${nf(st.left, 1)} kW til neste` : 'Mangler data'}</span></span>
+        </div>
+      </div>`;
+    }
+    _secWrap(tab, inner) {
+      const c = this.config, h = hidOf(c), dr = this._drag;
+      const order = dr && dr.key === 'sec-' + tab ? dr.order : secOrder(c, tab);
+      return `<div class="secs">${order.map((k) => {
+        if (h[k] || inner[k] == null) return '';
+        const lift = dr && dr.key === 'sec-' + tab && dr.id === k ? ' lift' : '';
+        return `<div class="sec${lift}" data-rk="sec-${tab}" data-rid="${k}" data-key="sec-${k}">${inner[k]}</div>`;
+      }).join('')}</div>`;
+    }
+    _tabHTML(tab, V) {
+      if (tab === 'Forbruk') return this._forbrukHTML(V);
+      if (tab === 'Kurser') return this._kurserHTML();
+      return this._priserHTML(V);
+    }
+
+    /* ---------------- Priser */
+    _priserHTML(V) {
+      const c = this.config, u = this._ui, P = V.P || {};
+      const big = c.cardSize !== 'kompakt';
+      const daysLeft = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate() - n.getDate(); })();
+      const bv = big ? 'font-size:36px;font-weight:300;line-height:1.05' : 'font-size:40px;font-weight:500;line-height:1';
+      const sv = big ? 'font-size:28px;font-weight:300;line-height:1.05' : 'font-size:26px;font-weight:400;line-height:1.1';
+      const small = (icon, l, col) => big ? `<span class="ci">${ic(icon, 19, col ? 'color:' + col : '')}</span><span class="cl">${l}</span>` : `<span class="cs">${ic(icon, 15, col ? 'color:' + col : '')}${l}</span>`;
+      const kort = `<div class="k2 fade">
+        <button class="bill" data-act="page" data-page="stromregning" data-bp="Måned"><span class="bi" style="width:${big ? 48 : 44}px;height:${big ? 48 : 44}px">${ic('mdi:receipt-text-outline', big ? 24 : 22)}</span>
+          <span class="bl">Regning ${MND[new Date().getMonth()]}</span><span class="bv"><b class="num" style="${bv}">${V.maned != null ? nf(V.maned, 0) : '–'}</b><small>kr</small></span>
+          <span class="bs">${V.manedEst ? 'Estimat' : 'Hittil'} · ${daysLeft} dager igjen</span></button>
+        <div class="kcol">
+          <button class="kc" data-act="page" data-page="stromregning" data-bp="Dag">${small('mdi:calendar-today', 'Kostnad i dag')}<span class="cv"><b class="num" style="${sv}">${V.dag != null ? nf(V.dag, 0) : '–'}</b><small>kr</small></span></button>
+          <button class="kc" data-act="page" data-page="norgespris">${small('mdi:piggy-bank-outline', 'Spart med Norgespris', GREEN)}<span class="cv"><b class="num" style="${sv};color:${GREEN}">${V.spart != null ? nf(V.spart, 0) : '–'}</b><small>kr i dag</small></span></button>
+        </div></div>`;
+      // Hva koster det nå
+      const ep = exPriceOf(c);
+      let pv = null;
+      if (ep === 'norge') pv = V.norge;
+      else if (ep === 'total') { try { const PT = M.powerPrice(this.hass, M.powerPriceCfg(null, { spot_entity: this.ent('spot') || '', mode: 'total', unit: 'kr' })); pv = PT.now; } catch (e) { pv = null; } }
+      else pv = V.spot;
+      const pl = ep === 'total' ? 'totalpris' : (PRS.find((x) => x[0] === ep) || [])[1].toLowerCase();
+      const exOn = exShowOf(c), list = EXALL.filter((x) => exOn.includes(x[0]));
+      const fx = (k) => (pv == null ? '–' : nf(k * pv, k * pv >= 10 ? 1 : 2));
+      const eks = `<button class="exr" data-act="ex">${ic('mdi:calculator', 20, 'color:' + T1B)}<span class="t">Hva koster det nå</span><span class="h">ved ${pv != null ? nf(pv, 2) : '–'} kr/kWh · ${esc(pl)}</span>${ic('mdi:chevron-down', 22, '')}</button>
+        ${u.ex ? `<div class="exl">${list.length ? list.map(([id, icon, l, kwh]) => `<div class="exi"><span class="ico">${ic(icon, 20)}</span><span class="n"><b>${esc(l)}</b><span>~${nf(kwh, kwh < 1 ? 2 : 1)} kWh</span></span><span class="v">${fx(kwh)} <small>kr</small></span></div>`).join('') : `<div class="exi"><span class="n"><span>Ingen eksempler valgt – velg i Tilpass → Visning</span></span></div>`}</div>` : ''}`;
+      // graf
+      const tom = u.pday === 1;
+      const hourly = (tom ? P.spotTomorrow : P.spotToday) || Array(24).fill(null);
+      const nowH = new Date().getHours();
+      const has = hourly.some((v) => v != null);
+      let si = u.selH != null ? u.selH : tom ? null : nowH;
+      if (si != null && hourly[si] == null) si = null;
+      const avg = avgOf(hourly), sv2 = si == null ? avg : hourly[si];
+      const lv = levelOf(sv2, avgOf(hourly), null);
+      const selLabel = !has ? (tom ? 'Spotpris i morgen' : 'Spotpris i dag') : si == null ? (tom ? 'Snitt i morgen' : 'Snitt i dag') : `${si === nowH && !tom ? 'Nå · ' : tom ? 'I morgen · ' : ''}kl. ${M.pad(si)}–${M.pad((si + 1) % 24)}`;
+      const graf = `<div class="gc">
+        <div class="gh"><span style="display:flex;flex-direction:column;gap:4px"><span class="sl">${selLabel}</span><span class="sv"><b>${sv2 != null ? nf(sv2, 2) : '–'}</b><small>kr/kWh</small></span>${lv != null ? `<span class="lchip" style="background:${LVL[lv][1]}">${LVL[lv][0]}</span>` : ''}</span>
+          <span class="seg" data-glass-drag="x">${[['I dag', 0], ['I morgen', 1]].map(([l, k]) => `<button class="${(u.pday || 0) === k ? 'on' : ''}" data-act="pday" data-v="${k}" data-haptic="selection">${l}</button>`).join('')}</span></div>
+        ${this._chartHTML(hourly, has, tom, si, nowH, V.norge)}
+        <div class="lg"><span><span style="width:14px;height:2px;background:rgb(242 133 201)"></span>Spotpris (kr/kWh)</span>${V.norge != null ? '<span><span style="width:14px;border-top:2px dashed rgb(115 165 230)"></span>Norgespris</span>' : ''}</div>
+      </div>`;
+      // lavest/høyest/snitt
+      const hv = hourly.filter((v) => v != null), mn = hv.length ? Math.min(...hv) : null, mx = hv.length ? Math.max(...hv) : null;
+      const hOf = (v) => M.pad(hourly.indexOf(v));
+      const minis = `<div class="minis">${[['mdi:arrow-down', 'Lavest', mn, mn != null ? `kl. ${hOf(mn)}` : '–', GREEN_F], ['mdi:arrow-up', 'Høyest', mx, mx != null ? `kl. ${hOf(mx)}` : '–', RED_F], ['mdi:function-variant', 'Snitt', avg, 'kr/kWh', T2]]
+        .map(([icon, l, v, s, col]) => `<div class="mi"><span class="l">${ic(icon, 15, 'color:' + col)}${l}</span><span class="v">${v != null ? nf(v, 2) : '–'}</span><span class="s">${s}</span></div>`).join('')}</div>`;
+      // inkludert i prisen
+      const TG = togglesOf(this.hass);
+      const bryt = TG.length ? `<div class="sh2"><b>Inkludert i prisen</b><button class="ib" data-act="page" data-page="innstillinger" title="Innstillinger">${ic('mdi:cog', 18)}</button></div>
+        <div class="tg2">${TG.map((t) => { const s = this.s(t.id), on = s && s.state === 'on'; return `<button class="tg${on ? ' on' : ''}" data-act="tog" data-id="${esc(t.id)}" data-haptic="selection"><span class="ti">${ic(t.icon, 22)}</span><span class="tn"><b>${esc(t.l)}</b><span>${on ? 'På' : 'Av'}</span></span></button>`; }).join('')}</div>` : null;
+      return this._secWrap('Priser', { p_kort: kort, p_eks: eks, p_graf: graf, p_minis: minis, p_bryt: bryt });
+    }
+    _chartHTML(hourly, has, tom, si, nowH, norge) {
+      const key = `pg-${tom ? 1 : 0}-${has ? 1 : 0}-${new Date().toDateString()}`;
+      if (!has) return `<div class="pc" data-key="${key}"><div class="none">${tom ? 'Prisene for i morgen kommer ca. kl. 13:00' : 'Ingen timepriser – velg pris-entitet i Tilpass → Entiteter'}</div></div>`;
+      const vals = hourly.filter((v) => v != null), ref = norge != null ? [norge] : [];
+      const lo0 = Math.min(...vals, ...ref), hi0 = Math.max(...vals, ...ref);
+      const STEPV = [0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10];
+      let step = STEPV.find((s) => (hi0 - lo0) / s <= 5) || 10;
+      const gLo = Math.floor((lo0 - step / 2) / step) * step, gHi = Math.ceil((hi0 + step / 4) / step) * step;
+      const nT = Math.max(1, Math.round((gHi - gLo) / step)), gy = (v) => 100 - ((v - gLo) / (gHi - gLo)) * 100;
+      const grid = Array.from({ length: nT + 1 }, (_, i) => { const v = gLo + i * step, t = 100 - (i / nT) * 100; return `<span class="gl${i ? '' : ' z'}" style="top:${t}%"></span><span class="yl" style="top:${t}%">${nf(v, step < 0.1 ? 2 : step < 1 ? 2 : 0)}</span>`; }).join('');
+      let d = '';
+      hourly.forEach((v, i) => { if (v == null) return; const y = gy(v).toFixed(2); d += `${d ? 'L' : 'M'}${i * 10},${y} L${i * 10 + 10},${y} `; });
+      const first = hourly.findIndex((v) => v != null), last = hourly.length - 1 - [...hourly].reverse().findIndex((v) => v != null);
+      const area = `${d}L${last * 10 + 10},100 L${first * 10},100 Z`;
+      const anim = this.anim;
+      const nrm = norge != null ? `<path d="M0,${gy(norge).toFixed(2)} L240,${gy(norge).toFixed(2)}" fill="none" stroke="rgb(115 165 230)" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></path>` : '';
+      const nowL = (nowH + 0.5) / 24 * 100;
+      return `<div class="pc" data-key="${key}">${grid}
+        ${si != null ? `<span class="band" style="left:${(si / 24 * 100).toFixed(3)}%;width:${(100 / 24).toFixed(3)}%"></span>` : ''}
+        <svg viewBox="0 0 240 100" preserveAspectRatio="none"><defs><linearGradient id="spa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb(242,133,201)" stop-opacity=".35"></stop><stop offset="1" stop-color="rgb(242,133,201)" stop-opacity="0"></stop></linearGradient></defs>
+          <path d="${area}" fill="url(#spa)" style="${anim ? 'animation:fade .9s ease' : ''}"></path>${nrm}
+          <path d="${d}" pathLength="1" fill="none" stroke="rgb(242 133 201)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" style="${anim ? 'stroke-dasharray:1;stroke-dashoffset:0;animation:draw .9s cubic-bezier(.4,0,.2,1)' : ''}"></path></svg>
+        ${!tom ? `<span class="nl" style="left:${nowL.toFixed(3)}%"></span><span class="nt" style="left:${nowL.toFixed(3)}%">Nå</span>` : ''}
+        ${si != null ? `<span class="sd" style="left:${((si + 0.5) / 24 * 100).toFixed(3)}%;top:${gy(hourly[si]).toFixed(2)}%"></span>` : ''}
+        <div class="scrub" data-scrub>${hourly.map((v, i) => `<span data-h="${i}" title="${M.pad(i)}:00 · ${v != null ? nf(v, 2) + ' kr' : '–'}"></span>`).join('')}</div>
+        ${[0, 3, 6, 9, 12, 15, 18, 21].map((hh) => `<span class="xl" style="left:${(hh / 24 * 100).toFixed(3)}%">${M.pad(hh)}</span>`).join('')}</div>`;
+    }
+
+    /* ---------------- Forbruk */
+    _ucVal(k, V) {
+      const kwh = (v) => (v == null ? '–' : nf(v, v >= 100 ? 0 : 1));
+      switch (k) {
+        case 'now': return [V.watt != null ? Math.round(V.watt).toLocaleString('nb-NO') : '–', 'W'];
+        case 'day': return [kwh(V.dayKwh), 'kWh'];
+        case 'month': return [kwh(V.monthKwh), 'kWh'];
+        case 'year': return [kwh(V.yearKwh), 'kWh'];
+        case 'cost': return [V.dag != null ? nf(V.dag, 0) : '–', 'kr'];
+        case 'peak': return [V.peak != null ? nf(V.peak, 2) : '–', 'kW'];
+        case 'step': return [V.step ? `${V.step.lo}–${V.step.hi}` : '–', 'kW'];
+        case 'ev': return [V.ev != null ? nf(V.ev, 2) : '–', 'kWh'];
+        default: return ['–', ''];
+      }
+    }
+    _forbrukHTML(V) {
+      const c = this.config, u = this._ui, dr = this._drag;
+      const uc = dr && dr.key === 'useCards' ? dr.order : ucOf(c);
+      const kort = `<div class="uc2">${uc.map((k) => { const [icon, l] = UC[k], [v, un] = this._ucVal(k, V), lift = dr && dr.key === 'useCards' && dr.id === k ? ' lift' : '';
+        return `<div class="uc${lift}" data-rk="useCards" data-rid="${k}" data-key="uc-${k}"><span class="ui">${ic(icon, 24)}</span><span class="ul">${esc(l)}</span><span class="uv"><b>${v}</b><small>${un}</small></span></div>`; }).join('')}</div>`;
+      const n = new Date();
+      const rowsDef = { dag: ['I dag:', V.dayKwh, V.trend.day], maned: ['Måned:', V.monthKwh, V.trend.month], ar: ['År:', V.yearKwh, V.trend.year] };
+      const ro = dr && dr.key === 'useStats' ? dr.order : ordIds(((c.ord || {}).useStats), Object.keys(rowsDef));
+      const stat = `<div class="fh">${ic('mdi:meter-electric', 20)}<b>Forbruk</b><span>${DAGER[n.getDay()]} ${n.getDate()}. ${MND[n.getMonth()]}</span></div>
+        <div class="fs">${ro.map((k) => { const [l, v, tr] = rowsDef[k], lift = dr && dr.key === 'useStats' && dr.id === k ? ' lift' : '';
+          const ar = tr == null || tr === 0 ? '' : ic(tr > 0 ? 'mdi:arrow-up' : 'mdi:arrow-down', 18, `color:${tr > 0 ? 'var(--ki-red-text, rgb(240 120 100))' : 'var(--ki-green-text, rgb(110 210 150))'}`);
+          return `<div class="fr${lift}" data-rk="useStats" data-rid="${k}" data-key="fr-${k}"><span class="l">${l}</span><span class="v">${v == null ? '–' : nf(v, v >= 100 ? 0 : 1)}</span><span class="u">kWh</span><span class="a">${ar}</span></div>`; }).join('')}</div>`;
+      // dag-graf
+      const off = u.fday || 0, D = this._st.day.get(off), d = dayStart(off);
+      const R = this._R();
+      const evN = R && R.ev ? M.name(this.hass, R.ev) : null;
+      let layers = [];
+      if (D) {
+        const base = D.imp.map((v, i) => (v == null ? null : Math.max(0, v - (D.ev[i] || 0))));
+        layers.push({ l: R && R.grid_in[0] ? M.name(this.hass, R.grid_in[0]) : 'Strømnett', vals: base, bg: 'rgba(170,180,205,.85)', bd: '1px solid rgba(220,225,240,.6)', dot: '#9aa3b8' });
+        if (anyV(D.ev) && sum(D.ev) > 0) layers.push({ l: evN || 'Elbillader', vals: D.ev, bg: 'rgba(200,200,200,.6)', bd: '1px solid rgba(230,230,230,.6)', dot: '#bdbdbd' });
+        if (anyV(D.sol) && sum(D.sol) > 0) layers.push({ l: 'Sol', vals: D.sol, bg: 'rgba(242,210,111,.75)', bd: '1px solid rgba(242,210,111,.9)', dot: '#f2d26f' });
+      }
+      const tot = Array.from({ length: 24 }, (_, i) => layers.reduce((s, L) => s + (L.vals[i] || 0), 0));
+      const mx = Math.max(0, ...tot), stepK = mx > 4 ? Math.ceil(mx / 4) : 1, ticks = 4, top = stepK * ticks;
+      const bkey = `fb-${off}-${D ? D.t : 0}`;
+      const anim = this.anim;
+      const bars = !D ? `<div class="none">${R && !R.grid_in.length ? 'Energi-oppsettet mangler strømnett' : R ? 'Henter …' : 'Energi-oppsettet er ikke satt opp i Home Assistant'}</div>`
+        : `${Array.from({ length: ticks + 1 }, (_, i) => `<span class="gl${i ? '' : ' z'}" style="top:${100 - (i / ticks) * 100}%"></span><span class="yl" style="top:${100 - (i / ticks) * 100}%">${nf(i * stepK, stepK < 1 ? 1 : 0)}</span>`).join('')}
+          <div class="cols">${tot.map((_, bi) => `<span class="col">${[...layers].reverse().map((L, li) => { const v = L.vals[bi] || 0, ri = layers.length - 1 - li; return v > 0 ? `<i style="height:${(v / top * 100).toFixed(2)}%;background:${L.bg};border:${L.bd};${ri ? 'border-bottom:none;' : ''}border-radius:${ri === layers.length - 1 ? '2px 2px 0 0' : ri ? '0' : layers.slice(1).some((x) => (x.vals[bi] || 0) > 0) ? '0 0 2px 2px' : '2px 2px 0 0'};${anim ? `animation:grow .55s cubic-bezier(.2,.8,.2,1) ${bi * 18 + ri * 120}ms both` : ''}"></i>` : ''; }).join('')}</span>`).join('')}</div>`;
+      const xs = [[0, `${d.getDate()}. ${MNK[d.getMonth()]}`], [4, '4:00'], [8, '8:00'], [12, '12:00'], [16, '16:00'], [20, '20:00']].map(([hh, l]) => `<span class="xl" style="left:${((hh + 0.5) / 24 * 100).toFixed(2)}%;font-weight:${hh ? 400 : 600}">${l}</span>`).join('');
+      const legend = layers.map((L) => `<span>${ic('mdi:check-circle', 16, 'color:' + L.dot)}${esc(L.l)}</span>`).join('') + (R && R.grid_out.length ? `<span>${ic('mdi:check-circle', 16, 'color:#8a7fb0')}${esc(M.name(this.hass, R.grid_out[0]))}</span>` : '');
+      const graf = `<div class="dh">${ic('mdi:calendar-today', 22)}<span class="dl">${d.getDate()}. ${MNK[d.getMonth()]}</span>
+          <button class="dnow" data-act="fday" data-v="0" data-haptic="selection">Nå</button>
+          <button class="r40" data-act="fday" data-v="${off - 1}" data-haptic="selection" title="Forrige dag">${ic('mdi:chevron-left', 22)}</button>
+          <button class="r40" data-act="fday" data-v="${off + 1}" data-haptic="selection" title="Neste dag" ${off < 0 ? '' : 'disabled'}>${ic('mdi:chevron-right', 22)}</button></div>
+        <div class="bc"><div class="ba" data-key="${bkey}"><span class="ku">kWh</span>${bars}${xs}</div>${layers.length ? `<div class="leg">${legend}</div>` : ''}</div>`;
+      // kilder
+      let kilder = null;
+      if (D) {
+        const costT = D.cost ? sum(D.cost) : null, impT = sum(D.imp);
+        const share = (kwh) => (costT != null && impT > 0 ? (costT * kwh) / impT : null);
+        const rows = [];
+        D.per.forEach((p, i) => { const k = sum(p.vals); rows.push([M.name(this.hass, p.id), `${nf(k, 2)} kWh`, share(k) != null ? `${nf(share(k), 2)} kr` : '–', i ? '#c8c8c8' : '#9aa3b8', false]); });
+        if (R && R.grid_out.length) { const k = sum(D.exp); rows.push([M.name(this.hass, R.grid_out[0]), `−${nf(k, k ? 2 : 0)} kWh`, '–', '#8a7fb0', false]); }
+        if (anyV(D.ev)) { const k = sum(D.ev); rows.push([evN || 'Elbillader', `${nf(k, 2)} kWh`, share(k) != null ? `${nf(share(k), 2)} kr` : '–', '#bdbdbd', false]); }
+        rows.push(['Strømnett totalt', `${nf(impT, 1)} kWh`, costT != null ? `${nf(costT, 2)} kr` : '–', null, true]);
+        if (R && R.water.length && anyV(D.water)) { const L = sum(D.water); rows.push([M.name(this.hass, R.water[0]), `${nf(L, 0)} L`, D.wcost ? `${nf(sum(D.wcost), 2)} kr` : '–', '#3f9aa6', false]); }
+        kilder = `<div class="src"><div class="srh"><span>Kilde</span><span style="text-align:right">Energi</span><span style="text-align:right">Kostnad</span></div>${rows.map(([l, e, k, col, t]) => `<div class="srr${t ? ' tot' : ''}"><span class="d" style="background:${col || 'transparent'}"></span><span class="n">${esc(l)}</span><span class="e">${e}</span><span class="e">${k}</span></div>`).join('')}</div>`; // ki-hex-ok: designets kildefarger
+      }
+      return this._secWrap('Forbruk', { f_kort: kort, f_stat: stat, f_graf: graf, f_kilder: kilder });
+    }
+
+    /* ---------------- Kurser (modul B) */
+    _kurserHTML() {
+      const K = M.stromKurser;
+      if (!K || typeof K.html !== 'function') return `<div class="empty2" data-sk-wait>${ic('mdi:timer-sand', 20)}<span>Kurser lastes …</span></div>`;
+      let h = ''; try { h = K.html(this); } catch (e) { console.error('msh-strom-card', 'stromKurser.html', e); h = `<div class="empty2">${ic('mdi:alert-circle-outline', 20)}<span>Kurser feilet: ${esc(e.message || e)}</span></div>`; }
+      return `<div class="skhost" data-skhost>${h}</div>`;
+    }
+    /* ---------------- undersider (modul C) */
+    _pageHTML(page) {
+      const [title, icon] = PAGES[page];
+      // C tegner selv overskriften (tilbake-pil/lukk + tittel + ikon, data-ss-act="back" → host.go(null))
+      const head = M.stromSider ? '' : `<div class="ph"><button class="back" data-act="back" title="Tilbake">${ic('mdi:arrow-left', 22)}</button><span class="pt">${title}</span><span class="pi">${ic(icon, 22)}</span></div>`;
+      const S = M.stromSider;
+      let body;
+      if (!S || typeof S.html !== 'function') body = `<div class="empty2" data-ss-wait>${ic('mdi:timer-sand', 20)}<span>${title} lastes …</span></div>`;
+      else { try { body = S.html(this, page); } catch (e) { console.error('msh-strom-card', 'stromSider.html', e); body = `<div class="empty2">${ic('mdi:alert-circle-outline', 20)}<span>${title} feilet: ${esc(e.message || e)}</span></div>`; } }
+      return `${head}<div class="sshost" data-sshost="${page}" style="display:flex;flex-direction:column;gap:12px">${body}</div>`;
+    }
+
+    get styles() {
+      const B = M.stromKurser && M.stromKurser.css ? M.stromKurser.css : '', Cs = M.stromSider && M.stromSider.css ? M.stromSider.css : '';
+      return CSS + B + Cs;
+    }
+    afterRender() {
+      const R = this.shadowRoot;
+      const row = R.querySelector('[data-tabbar]');
+      if (row && M.tabRow) {
+        M.tabRow(this, row, { active: () => { const V = visTabs(this.config); return V.includes(this._ui.tab) ? this._ui.tab : V[0]; }, order: () => orderOf(this.config), save: (full) => this.setCfg({ order: full }) });
+      }
+      if (M.glassDrag) R.querySelectorAll('.seg[data-glass-drag]').forEach((s) => M.glassDrag(s, { axis: 'x', touchAction: 'pan-y' }));
+      this._scrubInit(R.querySelector('[data-scrub]'));
+      const sk = R.querySelector('[data-skhost]');
+      if (sk && M.stromKurser && M.stromKurser.bind) { try { M.stromKurser.bind(this, sk); } catch (e) { console.error('msh-strom-card', 'stromKurser.bind', e); } }
+      const ss = R.querySelector('[data-sshost]');
+      if (ss && M.stromSider && M.stromSider.bind) { try { M.stromSider.bind(this, ss, ss.dataset.sshost); } catch (e) { console.error('msh-strom-card', 'stromSider.bind', e); } }
+      // modulene lastes etter kortet (bundel-rekkefølge / egen ressurs) → tegn på nytt når de finnes
+      if ((R.querySelector('[data-sk-wait]') || R.querySelector('[data-ss-wait]')) && !this._waitMods) {
+        this._waitMods = setTimeout(() => { this._waitMods = null; this.update(); }, 500);
+      }
+      if (this._tp && this._tp.ov && !this._tp.ov.closed) this._tpRender();
+    }
+
+    /* ---------------- handlinger */
+    onAction(name, el, e) {
+      const d = el.dataset;
+      if (name === 'tab') { if (this._ui.tab !== d.v) { this.setUI({ tab: d.v, selH: null }); if (d.v === 'Forbruk') this._load(); } return; }
+      if (name === 'tilpass') return this.customize();
+      if (name === 'page') { if (d.bp) { this._ui.billPer = d.bp; this._ui.ssBp = d.bp; } return this.go(d.page); }
+      if (name === 'back') return this.go(null);
+      if (name === 'ex') return this.setUI({ ex: !this._ui.ex });
+      if (name === 'pday') return this.setUI({ pday: Number(d.v) || 0, selH: null });
+      if (name === 'fday') { const v = Math.min(0, Number(d.v) || 0); this.setUI({ fday: v }); return this._load(); }
+      if (name === 'tog') return M.toggle(this.hass, d.id);
+      return super.onAction(name, el, e);
+    }
+    customize() { return this._openTilpass(); }
+
+    /* ---------------- scrub i prisgrafen (touch-action none + stopPropagation, fallgruve 2) */
+    _scrubInit(el) {
+      if (!el || el.__sc) return;
+      el.__sc = true;
+      el.style.touchAction = 'none'; el.__mshTA = 'none';
+      const hourAt = (x) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(23, Math.floor(((x - r.left) / Math.max(1, r.width)) * 24))); };
+      let on = null;
+      const set = (x) => { const h = hourAt(x); if (h !== this._ui.selH) { M.haptic('selection'); this.setUI({ selH: h }); } };
+      el.addEventListener('pointerdown', (e) => { if (e.button) return; e.stopPropagation(); on = e.pointerId; try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ } set(e.clientX); });
+      el.addEventListener('pointermove', (e) => { if (on !== e.pointerId) return; e.stopPropagation(); set(e.clientX); });
+      const end = (e) => { if (on !== e.pointerId) return; on = null; };
+      el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+      ['touchstart', 'touchmove'].forEach((t) => el.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+    }
+
+    /* ---------------- hold 400 ms + dra: seksjoner, Forbruk-kort og -rader (designets hold()) */
+    _holdInit() {
+      const R = this.shadowRoot;
+      let H = null;
+      const ids = (key) => {
+        const c = this.config;
+        if (key === 'useCards') return ucOf(c).slice();
+        if (key === 'useStats') return ordIds((c.ord || {}).useStats, ['dag', 'maned', 'ar']);
+        const tab = key.replace(/^sec-/, '');
+        return SECS[tab] ? secOrder(c, tab) : [];
+      };
+      const axisOf = (key) => (key === 'useCards' ? 'x' : 'y');
+      const cleanup = () => { if (!H) return; clearTimeout(H.t); window.removeEventListener('pointermove', mv, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); H = null; };
+      const mv = (ev) => {
+        if (!H || ev.pointerId !== H.pid) return;
+        if (!H.on) { if (Math.hypot(ev.clientX - H.x, ev.clientY - H.y) > 8) cleanup(); return; }
+        ev.preventDefault(); ev.stopPropagation();
+        const ax = axisOf(H.key), p = ax === 'x' ? ev.clientX : ev.clientY;
+        const hit = [...R.querySelectorAll(`[data-rk="${H.key}"]`)].find((n) => { const r = n.getBoundingClientRect(); return r.width && (ax === 'x' ? p >= r.left && p <= r.right : p >= r.top && p <= r.bottom); });
+        const rid = hit && hit.dataset.rid;
+        if (rid && rid !== H.id) { const o = this._drag.order.filter((x) => x !== H.id), ti = this._drag.order.indexOf(rid); o.splice(ti, 0, H.id); this._drag = { ...this._drag, order: o }; M.haptic('selection'); this._schedule(true); }
+      };
+      const up = () => {
+        const was = H && H.on, key = H && H.key;
+        cleanup();
+        if (!was) return;
+        const kill = (c) => { c.stopPropagation(); c.preventDefault(); };
+        window.addEventListener('click', kill, { capture: true, once: true });
+        setTimeout(() => window.removeEventListener('click', kill, true), 350);
+        setTimeout(() => { window.__tabReorder = false; }, 50);
+        const o = this._drag.order, before = ids(key);
+        this._drag = null;
+        M.haptic('light');
+        if (JSON.stringify(o) !== JSON.stringify(before)) {
+          if (key === 'useCards') this.setCfg({ useCards: o });
+          else this.setCfg({ ord: { ...(this.config.ord || {}), [key]: o } });
+        } else this._schedule(true);
+      };
+      R.addEventListener('pointerdown', (e) => {
+        if (e.button || H || this._drag) return;
+        const path = e.composedPath ? e.composedPath() : [];
+        let el = null;
+        for (const n of path) { if (n === R) break; if (n.matches && n.matches('input,textarea,select,[data-scrub],[data-tabbar],[data-glass-drag],[data-skhost],[data-sshost]')) return; /* B/C har egen hold + dra */ if (!el && n.dataset && n.dataset.rk && n.getRootNode() === R) el = n; }
+        if (!el) return;
+        H = { key: el.dataset.rk, id: el.dataset.rid, pid: e.pointerId, x: e.clientX, y: e.clientY, on: false, el };
+        H.t = setTimeout(() => {
+          if (!H) return;
+          H.on = true; window.__tabReorder = true;
+          this._drag = { key: H.key, id: H.id, order: ids(H.key) };
+          M.haptic('medium');
+          try { H.el.setPointerCapture(H.pid); } catch (x) { /* */ }
+          this._schedule(true);
+        }, 400);
+        window.addEventListener('pointermove', mv, { capture: true, passive: false });
+        window.addEventListener('pointerup', up, true);
+        window.addEventListener('pointercancel', up, true);
+      });
+      // under dra: ingen scroll og ingen sveip-for-å-lukke i Bubble (fallgruve 2)
+      R.addEventListener('touchmove', (e) => { if (this._drag) { if (e.cancelable) e.preventDefault(); e.stopPropagation(); } }, { passive: false });
+      R.addEventListener('touchstart', (e) => { if (this._drag) e.stopPropagation(); }, { passive: true });
+      window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this._drag) { cleanup(); this._drag = null; window.__tabReorder = false; this._schedule(true); } });
+    }
+
+    /* ---------------- «Tilpass strøm» (MSH.overlay tilpass, full høyde, håndtaket bytter til 58 %) */
+    _openTilpass(tab) {
+      if (this._tp && this._tp.ov && !this._tp.ov.closed) return;
+      const ov = M.overlay({ html: '', css: TP_CSS + ((M.stromKurser && M.stromKurser.css) || ''), maxWidth: 440, tall: true, tilpass: true, guard: 350, onClose: () => { this._tp = null; } });
+      this._tp = { ov, st: { tab: tab || 'faner', half: false } };
+      const sh = ov.root.querySelector('.sh'), gz = ov.root.querySelector('.gz');
+      if (gz) {
+        let y0 = null;
+        gz.addEventListener('pointerdown', (e) => { y0 = e.clientY; });
+        gz.addEventListener('click', (e) => {
+          if (y0 != null && Math.abs(e.clientY - y0) > 6) return;
+          M.haptic('selection');
+          const st = this._tp && this._tp.st; if (!st) return;
+          st.half = !st.half;
+          sh.style.transition = 'transform 280ms cubic-bezier(.2,.8,.2,1), top .3s cubic-bezier(.2,.9,.3,1), height .3s cubic-bezier(.2,.9,.3,1)';
+          sh.style.top = st.half ? '42%' : ''; sh.style.height = st.half ? '58%' : '';
+        });
+      }
+      this._tpRender();
+    }
+    _tpCtx() {
+      const self = this;
+      return { host: this, hass: this.hass, get cfg() { return self.config; }, st: this._tp.st, set: (p) => this.setCfg(p), rerender: () => this._tpRender(), close: () => this._tp && this._tp.ov.close() };
+    }
+    _tpRender() {
+      const tp = this._tp;
+      if (!tp || !tp.ov || tp.ov.closed) return;
+      const ctx = this._tpCtx();
+      M.morph(tp.ov.body, TP.html(ctx, true));
+      TP.bind(tp.ov.body, ctx, true);
+    }
+  }
+  const TRANSIENT = new Set(['page', 'selH', 'fday', 'billPer']);
+
+  /* ================================================================ Tilpass strøm (arket og GUI-editoren) */
+  const TP_CSS = `
+    @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    .tp{display:flex;flex-direction:column;gap:8px;color:var(--ki-text, #fafafa);font-family:inherit}
+    .tph{display:flex;align-items:center;gap:8px;padding:10px 4px 14px}
+    .tph .tt{flex:1;font-size:24px;font-weight:600;letter-spacing:-0.01em}
+    .tph .rs{height:40px;padding:0 16px;border-radius:20px;background:var(--ki-surface, #3a3a3a);font-size:14px;font-weight:500;transition:transform .15s}
+    .tph .dn{${M.DONE_PILL || ''}}
+    .tph button:active{transform:scale(.96)}
+    .tpt{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px ${WA(0.05)};margin-bottom:4px}
+    .tpt button{flex:0 0 52px;height:44px;padding:0;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;background:transparent;color:var(--ki-text-2, #afafaf);transition:flex .25s,background .25s;white-space:nowrap}
+    .tpt button.on{flex:1 0 auto;padding:0 16px 0 12px;background:${ACC};color:${INK2}}
+    .tpb{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;align-content:start;gap:8px;padding-bottom:48px}
+    .hint{font-size:13px;color:var(--ki-text-mid, #979797);padding:2px 8px 4px;line-height:1.4}
+    .lab{font-size:13px;font-weight:500;color:var(--ki-text-mid, #979797);padding:10px 8px 2px}
+    .info{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:24px;background:rgb(115 185 242 / 0.1);box-shadow:inset 0 0 0 1px rgb(115 185 242 / 0.22)}
+    .info span{font-size:13px;line-height:1.45;color:var(--ki-text-1, #c7c7c7)}
+    .trw{display:flex;align-items:center;gap:8px;min-height:60px;padding:0 8px 0 0;border-radius:24px;background:var(--ki-surface, #3a3a3a);transition:background .2s,box-shadow .2s,transform .2s}
+    .trw.hd{opacity:.55}.trw.dg{background:var(--ki-surface-2, #4a4a4a);box-shadow:0 10px 24px ${KA(0.4)};transform:scale(1.02)}
+    .drg{width:40px;height:52px;flex:none;display:grid;place-items:center;color:var(--ki-text-3, #7f7f7f);touch-action:none;cursor:grab}
+    .trw .tl{flex:1;align-self:stretch;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;cursor:pointer;min-width:0}
+    .trw .tl small{font-size:12px;font-weight:400;color:var(--ki-text-3, #7f7f7f)}
+    .stp{height:20px;padding:0 8px;border-radius:10px;background:rgba(242,133,201,.16);color:var(--ki-pink-text, rgb(242 133 201));font-size:10px;font-weight:600;display:flex;align-items:center}
+    .chv{width:40px;height:44px;flex:none;display:grid;place-items:center;color:var(--ki-text-mid, #979797)}.chv ha-icon{transition:transform .25s}.chv.up ha-icon{transform:rotate(180deg)}
+    .eye{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:var(--ki-text-3, #7f7f7f)}.eye.on{color:var(--ki-text-1, #e1e1e1)}.eye.s{width:40px;height:40px}
+    .subs{display:flex;flex-direction:column;gap:6px;padding:0 0 6px 24px;animation:fade .2s ease}
+    .sbr{display:flex;align-items:center;gap:8px;min-height:52px;padding:0 6px 0 0;border-radius:20px;background:var(--ki-surface-3, #333)}.sbr.hd{opacity:.55}
+    .sbr .si{width:40px;text-align:center;flex:none;color:var(--ki-text-3, #7f7f7f);display:flex;justify-content:center}.sbr .sl{flex:1;min-width:0;font-size:14px;font-weight:500}
+    .er{border-radius:24px;background:var(--ki-surface, #3a3a3a);overflow:hidden;transition:background .2s}.er.op{background:var(--ki-surface-2, #404040)}
+    .erb{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 12px 8px 8px;text-align:left}
+    .eri{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, #4a4a4a)}
+    .ern{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.ern b{font-size:15px;font-weight:500}.ern span{font-size:12px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .bdg{height:22px;padding:0 8px;border-radius:11px;flex:none;display:flex;align-items:center;font-size:11px;font-weight:600;background:var(--ki-surface-2, #4a4a4a);color:var(--ki-text-2, #afafaf)}.bdg.c{background:rgba(242,133,201,.16);color:var(--ki-pink-text, rgb(242 133 201))}
+    .erx{display:flex;flex-direction:column;gap:8px;padding:0 14px 14px;animation:fade .2s ease}
+    .srch{display:flex;align-items:center;gap:10px;height:48px;padding:0 16px;border-radius:24px;background:var(--ki-surface-3, #4a4a4a)}
+    .srch input{flex:1;min-width:0;height:100%;border:0;outline:none;background:none;color:var(--ki-text, #fafafa);font:inherit;font-size:15px}
+    .sug{display:flex;flex-direction:column;gap:2px}.sug button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:8px 12px;border-radius:14px;text-align:left}.sug button:hover{background:${WA(0.06)}}
+    .sug b{font-size:13px;font-weight:500}.sug span{font-size:11px;color:var(--ki-text-mid, #979797)}
+    .auto{height:44px;border-radius:22px;background:var(--ki-surface, #3a3a3a);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px}
+    .sg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
+    .sg.in{padding:3px;border-radius:22px;background:var(--ki-surface-3, #2a2a2a)}
+    .sg button{height:44px;border-radius:20px;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--ki-text-2, #afafaf);transition:background .25s;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .sg.in button{font-size:13px}
+    .sg button.on{background:${ACC};color:${INK2}}
+    .box{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
+    .box .bl{font-size:12px;color:var(--ki-text-mid, #979797);padding-left:4px}
+    .entc{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:var(--ki-surface-3, #2f2f2f)}
+    .entc b{font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.entc span{font-size:11px;color:var(--ki-text-mid, #979797)}
+    .swr{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 10px 6px 6px;border-radius:18px;background:var(--ki-surface-3, #333);text-align:left;width:100%}
+    .swr.big{min-height:64px;padding:8px 14px 8px 8px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
+    .swi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, #4a4a4a)}.swr.big .swi{width:44px;height:44px;border-radius:22px}
+    .swn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.swn b{font-size:14px;font-weight:500}.swr.big .swn b{font-size:15px}.swn span{font-size:12px;color:var(--ki-text-mid, #979797);line-height:1.35}
+    .trk{width:46px;height:28px;border-radius:999px;flex:none;position:relative;background:var(--ki-ctrl, #555);transition:background .25s}.trk.on{background:${ACC}}
+    .trk i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ki-knob, #fff);box-shadow:0 1px 3px ${KA(0.35)};transition:left .25s cubic-bezier(.3,1.4,.5,1)}.trk.on i{left:21px}
+    .tsc{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:var(--ki-surface, #3a3a3a);text-align:left;transition:background .2s,box-shadow .2s;width:100%}
+    .tsc.on{background:var(--ki-surface-2, #404040);box-shadow:inset 0 0 0 1.5px rgb(242 133 201)}
+    .tsc .tsh{display:flex;align-items:center;gap:8px;width:100%}.tsc .tsh b{flex:1;font-size:15px;font-weight:500}.tsc .tsh span{font-size:12px;color:var(--ki-text-mid, #979797)}
+    .tsc .ck{color:rgb(242 133 201);opacity:0;transition:opacity .2s;display:flex}.tsc.on .ck{opacity:1}
+    .tsp{display:flex;width:100%;pointer-events:none;padding:10px 8px;border-radius:18px;background:var(--ki-popup, #303030)}
+    .ucs{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
+    .ucs .uh{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500}.ucs .uh i{width:24px;height:24px;border-radius:12px;background:var(--ki-surface-2, #4a4a4a);display:grid;place-items:center;font-size:12px;font-weight:600;font-style:normal}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chips button{height:34px;padding:0 12px 0 9px;border-radius:17px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--ki-surface-3, #333);color:var(--ki-text-1, #d6d6d6);transition:background .2s,transform .15s}
+    .chips button:active{transform:scale(.96)}.chips button.on{background:${ACC};color:${INK2}}.chips button.oth{background:var(--ki-surface-2, #4a4a4a);color:var(--ki-text-3, #7f7f7f)}
+    .wait{display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:22px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-2, #afafaf);font-size:13px}
+  `;
+  const swH = (on) => `<span class="trk${on ? ' on' : ''}"><i></i></span>`;
+  const TP = {
+    // inSheet: arket (med tittel/Nullstill/Ferdig); ellers GUI-editoren (bare fanene)
+    html(ctx, inSheet) {
+      const c = ctx.cfg || {}, st = ctx.st, h = hidOf(c), tab = st.tab || 'faner';
+      const tabs = [['faner', 'Faner', 'mdi:view-agenda-outline'], ['ent', 'Entiteter', 'mdi:access-point'], ['kurs', 'Kurser', 'mdi:power-plug-outline'], ['vis', 'Visning', 'mdi:tune']];
+      let body = '';
+      if (tab === 'faner') {
+        const order = st.drag ? st.drag.order : orderOf(c), V = visTabs(c), startK = (() => { const s = startOf(c); return V.includes(s) ? s : V[0]; })();
+        body = `<span class="hint">Dra for å flytte · øyet skjuler · pilen viser seksjonene. Du kan også holde inne på faner og kort i popupen og dra.</span>
+          <div style="display:flex;flex-direction:column;gap:6px" data-tplist>${order.map((k) => {
+            const hd = !!h[k], op = st.open === k, subs = SECS[k], icon = TABDEF.find((t) => t[0] === k)[1];
+            return `<div class="trw${hd ? ' hd' : ''}${st.drag && st.drag.k === k ? ' dg' : ''}" data-tk="${k}" data-key="tr-${k}"><span class="drg" data-tdrag="${k}">${ic('mdi:drag', 22)}</span>${ic(icon, 22, `color:${hd ? 'var(--ki-text-3, #7f7f7f)' : 'var(--ki-text-1, #e1e1e1)'};width:24px`)}
+              <span class="tl" data-a="open" data-v="${k}">${k}<small>${subs.filter((x) => !h[x[0]]).length}/${subs.length} seksjoner</small>${startK === k ? '<span class="stp">Start</span>' : ''}</span>
+              <button class="chv${op ? ' up' : ''}" data-a="open" data-v="${k}" title="Seksjoner">${ic('mdi:chevron-down', 22)}</button>
+              <button class="eye${hd ? '' : ' on'}" data-a="eye" data-v="${k}" title="Vis / skjul">${ic(hd ? 'mdi:eye-off' : 'mdi:eye', 22)}</button></div>
+              ${op ? `<div class="subs">${secOrder(c, k).map((sk) => { const sd = SECS[k].find((x) => x[0] === sk), sh = !!h[sk]; return `<div class="sbr${sh ? ' hd' : ''}"><span class="si">${ic(sd[2], 20)}</span><span class="sl">${esc(sd[1])}</span><button class="eye s${sh ? '' : ' on'}" data-a="eye" data-v="${sk}" title="Vis / skjul">${ic(sh ? 'mdi:eye-off' : 'mdi:eye', 20)}</button></div>`; }).join('')}</div>` : ''}`;
+          }).join('')}</div>`;
+      } else if (tab === 'ent') {
+        const ov = c.ent || {}, A = autoEnts(ctx.hass);
+        body = `<div class="info">${ic('mdi:sync', 22, 'color:rgb(115 185 242)')}<span>Entitetene finnes automatisk i Home Assistant. Overstyr bare det som skal være annerledes.</span></div>
+          ${ROLES.map(([k, name, icon]) => {
+            const op = st.ent === k, custom = !!ov[k], cur = ov[k] || A[k];
+            const s = cur && ctx.hass && ctx.hass.states[cur];
+            const val = cur ? `${cur}${s ? ' · ' + (ctx.hass.formatEntityState ? ctx.hass.formatEntityState(s) : s.state) : ' · finnes ikke'}` : 'Ingen funnet – velg entitet';
+            let sug = '';
+            if (op) {
+              const q = String(st.q || '').toLowerCase().trim();
+              const L = ctx.hass ? Object.keys(ctx.hass.states).filter((id) => /^(sensor|input_number)\./.test(id) && (!q || txt(ctx.hass, id).includes(q))).slice(0, 8) : [];
+              sug = L.map((id) => `<button data-a="pick" data-k="${k}" data-v="${esc(id)}"><b>${esc(M.name(ctx.hass, id))}</b><span>${esc(id)}</span></button>`).join('');
+            }
+            return `<div class="er${op ? ' op' : ''}" data-key="er-${k}"><button class="erb" data-a="ent" data-v="${k}"><span class="eri">${ic(icon, 22)}</span><span class="ern"><b>${name}</b><span>${esc(val)}</span></span><span class="bdg${custom ? ' c' : ''}">${custom ? 'Valgt' : 'Auto'}</span>${ic('mdi:chevron-down', 22, `color:var(--ki-text-mid, #979797);transition:transform .25s;${op ? 'transform:rotate(180deg)' : ''}`)}</button>
+              ${op ? `<div class="erx"><div class="srch">${ic('mdi:magnify', 20, 'color:var(--ki-text-2, #afafaf)')}<input data-in="q" data-k="${k}" value="${esc(st.q != null ? st.q : ov[k] || '')}" placeholder="sensor.…" spellcheck="false"></div>${sug ? `<div class="sug">${sug}</div>` : ''}
+                ${custom ? `<button class="auto" data-a="auto" data-v="${k}">${ic('mdi:autorenew', 20)}Bruk automatisk</button>` : ''}</div>` : ''}</div>`;
+          }).join('')}`;
+      } else if (tab === 'kurs') {
+        const K = M.stromKurser;
+        body = `<div class="info">${ic('mdi:file-tree', 22, 'color:rgb(115 185 242)')}<span>Full kontroll over kategorier og kurser – samme oppsett som ki-energi-card-strom. Trykk blyanten for å redigere navn, ikon, farge og entiteter.</span></div>`;
+        if (K && typeof K.editorHtml === 'function') { let x = ''; try { x = K.editorHtml(ctx.host, c.kurs); } catch (e) { x = `<div class="wait">${ic('mdi:alert-circle-outline', 20)}Kurser-editoren feilet: ${esc(e.message || e)}</div>`; } body += `<div data-skedit style="display:flex;flex-direction:column;gap:8px">${x}</div>`; }
+        else body += `<div class="wait">${ic('mdi:timer-sand', 20)}Kurser-editoren lastes …</div>`;
+      } else {
+        const V = visTabs(c), sv = startOf(c), stK = V.includes(sv) ? sv : V[0];
+        const ep = exPriceOf(c), exOn = exShowOf(c);
+        let P = null; try { P = ctx.hass ? M.powerPrice(ctx.hass, M.powerPriceCfg(null, { spot_entity: entOf(ctx.hass, c, 'spot') || '', mode: ep === 'total' ? 'total' : 'spot', unit: 'kr' })) : null; } catch (e) { P = null; }
+        const nE = entOf(ctx.hass, c, 'norge');
+        const pv = ep === 'norge' ? (nE ? priceVal(ctx.hass, nE) : P && P.norgespris ? P.norgespris.v : null) : P ? P.now : null;
+        const pe = ep === 'norge' ? nE || 'Fast sats (strømpris-kilden)' : (P && P.entity) || 'Ingen pris-entitet';
+        const pl = PRS.find((x) => x[0] === ep)[1];
+        const uc = ucOf(c);
+        const big = c.cardSize !== 'kompakt', gear = c.gear === 'tab' ? 'tab' : 'hero';
+        const ga = M.glassAnimOn ? M.glassAnimOn() : true;
+        body = `<span class="lab">Startfane</span>
+          <div class="sg" data-glass-drag="x">${V.map((k) => `<button class="${stK === k ? 'on' : ''}" data-a="start" data-v="${k}">${k}</button>`).join('')}${M.startTab ? `<button class="${sv === 'last' ? 'on' : ''}" data-a="start" data-v="last">Sist brukte</button>` : ''}</div>
+          <span class="lab">Hva koster det nå</span>
+          <div class="box"><span class="bl">Pris som brukes</span>
+            <div class="sg in" data-glass-drag="x">${PRS.map(([k, l]) => `<button class="${ep === k ? 'on' : ''}" data-a="exp" data-v="${k}">${k === 'total' ? 'Totalpris' : l}</button>`).join('')}</div>
+            <div class="entc">${ic('mdi:access-point', 20, 'color:var(--ki-text-2, #afafaf)')}<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><b>${esc(pe)}</b><span>${esc(pl)} · ${pv != null ? nf(pv, 2) : '–'} kr/kWh nå</span></span></div>
+            <span class="bl" style="padding-top:4px">Eksempler som vises</span>
+            ${EXALL.map(([id, icon, l, kwh]) => `<button class="swr" data-a="exs" data-v="${id}"><span class="swi">${ic(icon, 20)}</span><span class="swn"><b>${esc(l)}</b><span>~${nf(kwh, kwh < 1 ? 2 : 1)} kWh · ${pv != null ? nf(kwh * pv, kwh * pv >= 10 ? 1 : 2) : '–'} kr</span></span>${swH(exOn.includes(id))}</button>`).join('')}</div>
+          <span class="lab">Fanelinje</span>
+          ${Object.keys(TSTY).map((k) => `<button class="tsc${tsOf(c) === k ? ' on' : ''}" data-a="ts" data-v="${k}"><span class="tsh"><b>${TSTY[k].name}</b><span>${TSTY[k].sub}</span><span class="ck">${ic('mdi:check-circle', 20)}</span></span><span class="tsp">${tabBarHTML(c, null, true, k)}</span></button>`).join('')}
+          <span class="lab">Forbruk-kort · hold inne på kortene i popupen for å bytte plass</span>
+          ${[0, 1].map((si) => `<div class="ucs"><span class="uh"><i>${si + 1}</i>${si ? 'Høyre kort' : 'Venstre kort'}</span><div class="chips">${Object.keys(UC).map((k) => `<button class="${uc[si] === k ? 'on' : uc[1 - si] === k ? 'oth' : ''}" data-a="uc" data-s="${si}" data-v="${k}">${ic(UC[k][0], 16)}${esc(UC[k][1])}</button>`).join('')}</div></div>`).join('')}
+          <span class="lab">Regning-kort</span>
+          <div class="sg" data-glass-drag="x"><button class="${!big ? 'on' : ''}" data-a="size" data-v="kompakt">${ic('mdi:arrow-collapse-vertical', 18)}Kompakt</button><button class="${big ? 'on' : ''}" data-a="size" data-v="stor">${ic('mdi:arrow-expand-vertical', 18)}Stor</button></div>
+          <span class="lab">Tannhjul (Tilpass)</span>
+          <div class="sg" data-glass-drag="x"><button class="${gear === 'hero' ? 'on' : ''}" data-a="gear" data-v="hero">${ic('mdi:application-outline', 18)}Toppkort</button><button class="${gear === 'tab' ? 'on' : ''}" data-a="gear" data-v="tab">${ic('mdi:tab', 18)}Fanelinje</button></div>
+          <span class="lab">Effekter</span>
+          ${[['anim', 'Animasjoner', 'mdi:animation', 'Glød i toppkortet, grafer som tegnes og søyler som vokser', c.anim !== false], ['glass', 'Liquid glass', 'mdi:blur', 'Dra over fanelinjer for glass-linse som følger fingeren', ga], ['live', 'Live effekt', 'mdi:access-point', 'Oppdater watt i toppkortet fortløpende', c.live !== false]]
+            .map(([k, l, icon, sub, on]) => `<button class="swr big" data-a="sw" data-v="${k}"><span class="swi">${ic(icon, 22)}</span><span class="swn"><b>${l}</b><span>${sub}</span></span>${swH(on)}</button>`).join('')}`;
+      }
+      const head = inSheet ? `<div class="tph" data-sheet-head><span class="tt">Tilpass strøm</span><button class="rs" data-a="reset">Nullstill</button><button class="dn" data-a="done">Ferdig</button></div>` : '';
+      return `<div class="tp">${head}<div class="tpt" data-glass-drag="x">${tabs.map(([k, l, icon]) => `<button class="${tab === k ? 'on' : ''}" data-a="tptab" data-v="${k}" title="${l}">${ic(icon, 20)}${tab === k ? `<span>${l}</span>` : ''}</button>`).join('')}</div><div class="tpb">${body}</div></div>`;
+    },
+    bind(root, ctx) {
+      if (M.glassDrag) root.querySelectorAll('[data-glass-drag]').forEach((s) => M.glassDrag(s, { axis: 'x', touchAction: 'pan-y' }));
+      const ed = root.querySelector('[data-skedit]');
+      if (ed && M.stromKurser && M.stromKurser.editorBind) { try { M.stromKurser.editorBind(ctx.host, ed, ctx.cfg.kurs, (k) => ctx.set({ kurs: k == null ? null : k })); } catch (e) { console.error('msh-strom', 'editorBind', e); } }
+      if (root.__tpb) { root.__tpb.ctx = ctx; return; }
+      const S = (root.__tpb = { ctx });
+      const C = () => S.ctx;
+      root.addEventListener('click', (e) => {
+        const el = e.target.closest && e.target.closest('[data-a]');
+        if (!el || !root.contains(el)) return;
+        const x = C(), c = x.cfg || {}, st = x.st, a = el.dataset.a, v = el.dataset.v, h = hidOf(c);
+        const hp = (t) => M.haptic(t || 'selection');
+        switch (a) {
+          case 'tptab': hp(); st.tab = v; st.q = null; return x.rerender();
+          case 'done': hp('light'); if (M.flushSaves) M.flushSaves(); return x.close && x.close();
+          case 'reset': hp('warning'); return x.set({ order: null, hid: null, ent: null, start: null, start_tab: null, anim: null, live: null, tabStyle: null, gear: null, cardSize: null, useCards: null, exPrice: null, exShow: null, ord: c.ord && (c.ord.kurs || c.ord.cat) ? { kurs: c.ord.kurs, cat: c.ord.cat } : null });
+          case 'open': hp(); st.open = st.open === v ? null : v; return x.rerender();
+          case 'eye': {
+            const isTab = TABK.includes(v);
+            if (isTab && !h[v] && visTabs(c).length < 2) { hp('warning'); return; }
+            hp(); const nh = { ...(isObj(c.hid) ? c.hid : {}) };
+            if (v === 'p_minis' && h[v]) nh[v] = false; else if (h[v]) delete nh[v]; else nh[v] = true;
+            return x.set({ hid: Object.keys(nh).length ? nh : null });
+          }
+          case 'ent': hp(); st.ent = st.ent === v ? null : v; st.q = null; return x.rerender();
+          case 'pick': hp('success'); st.q = null; return x.set({ ent: { ...(c.ent || {}), [el.dataset.k]: v } });
+          case 'auto': { hp(); const o = { ...(c.ent || {}) }; delete o[v]; st.q = null; return x.set({ ent: Object.keys(o).length ? o : null }); }
+          case 'start': hp(); return x.set({ start: v === 'last' ? null : v, start_tab: v === 'last' ? 'last' : null });
+          case 'exp': hp(); return x.set({ exPrice: v });
+          case 'exs': { hp(); const on = exShowOf(c); return x.set({ exShow: on.includes(v) ? on.filter((k) => k !== v) : EXALL.map((k) => k[0]).filter((k) => k === v || on.includes(k)) }); }
+          case 'ts': hp(); return x.set({ tabStyle: v });
+          case 'uc': { hp(); const si = Number(el.dataset.s), cur = ucOf(c), nx = cur.slice(); if (cur[1 - si] === v) nx[1 - si] = cur[si]; nx[si] = v; return x.set({ useCards: nx }); }
+          case 'size': hp(); return x.set({ cardSize: v });
+          case 'gear': hp(); return x.set({ gear: v });
+          case 'sw': {
+            hp();
+            if (v === 'glass') { if (M.setGlassAnim) M.setGlassAnim(!(M.glassAnimOn ? M.glassAnimOn() : true)); return x.rerender(); }
+            if (v === 'anim') return x.set({ anim: c.anim === false ? null : false });
+            if (v === 'live') return x.set({ live: c.live === false ? null : false });
+            return;
+          }
+          default:
+        }
+      });
+      // søk/overstyring av entitet: input viser forslag, Enter/endring lagrer
+      root.addEventListener('input', (e) => { const el = e.target; if (!el.dataset || el.dataset.in !== 'q') return; C().st.q = el.value; C().rerender(); });
+      root.addEventListener('change', (e) => {
+        const el = e.target; if (!el.dataset || el.dataset.in !== 'q') return;
+        const x = C(), v = el.value.trim(), k = el.dataset.k, o = { ...(x.cfg.ent || {}) };
+        if (!v) delete o[k]; else if (/^[a-z_]+\.[a-z0-9_]+$/.test(v)) o[k] = v; else return;
+        M.haptic('selection'); x.st.q = null; x.set({ ent: Object.keys(o).length ? o : null });
+      });
+      // Faner: dra i håndtaket (touch-action none + stopPropagation), 66 px per plass som i designet
+      root.addEventListener('pointerdown', (e) => {
+        const hd = e.target.closest && e.target.closest('[data-tdrag]');
+        if (!hd || e.button) return;
+        e.preventDefault(); e.stopPropagation();
+        const x = C(), base = orderOf(x.cfg), k = hd.dataset.tdrag, i = base.indexOf(k), y0 = e.clientY;
+        let cur = i;
+        x.st.drag = { k, order: base.slice() };
+        M.haptic('medium'); x.rerender();
+        try { hd.setPointerCapture(e.pointerId); } catch (z) { /* */ }
+        const mv = (ev) => { ev.stopPropagation(); const to = Math.max(0, Math.min(base.length - 1, i + Math.round((ev.clientY - y0) / 66))); if (to !== cur) { cur = to; const o = base.slice(); o.splice(to, 0, o.splice(i, 1)[0]); C().st.drag = { k, order: o }; M.haptic('selection'); C().rerender(); } };
+        const up = () => { window.removeEventListener('pointermove', mv, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); const y = C(), o = y.st.drag && y.st.drag.order; y.st.drag = null; if (o && JSON.stringify(o) !== JSON.stringify(base)) { M.haptic('light'); y.set({ order: o }); } else y.rerender(); };
+        window.addEventListener('pointermove', mv, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
+      });
+      ['touchstart', 'touchmove'].forEach((t) => root.addEventListener(t, (e) => { if (e.target.closest && e.target.closest('[data-tdrag]')) e.stopPropagation(); }, { passive: true }));
+    },
+  };
+  M.stromTilpass = TP;
+
+  /* ================================================================ GUI-editor (getConfigElement) – samme valg, samme nøkler */
+  class StromEditor extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); this._st = { tab: 'faner' }; this._ui = {}; }
+    setConfig(c) {
+      let eff = c || {};
+      try { eff = M.effectiveConfig ? M.effectiveConfig(c) : c; } catch (e) { eff = c; }
+      if (this._last && JSON.stringify(c) === this._last) return;
+      this._cfg = { ...eff };
+      this._r();
+    }
+    set hass(h) { const first = !this._h; this._h = h; if (first) this._r(); }
+    get hass() { return this._h || M.lastHass; }
+    _host() {
+      const ed = this;
+      return { get hass() { return ed.hass; }, get config() { return ed._cfg || {}; }, root: this.shadowRoot, ui: this._ui, anim: true,
+        setCfg: (p) => ed._set(p), render: () => ed._r(), go: () => {}, haptic: (t) => M.haptic(t), ent: (role) => entOf(ed.hass, ed._cfg, role), sec: () => [] };
+    }
+    _set(patch) {
+      const next = { ...(this._cfg || {}) };
+      Object.keys(patch || {}).forEach((k) => { if (patch[k] == null) delete next[k]; else next[k] = patch[k]; });
+      this._cfg = next;
+      try { this._last = JSON.stringify(next); } catch (e) { this._last = null; }
+      this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: next }, bubbles: true, composed: true }));
+      if (M.store && next.card_id && M.store.card && M.store.card(next.card_id)) { try { M.store.setCard(next.card_id, next); } catch (e) { /* */ } } // GUI ↔ Tilpass-arket (ki-store)
+      this._r();
+    }
+    _r() {
+      if (!this._cfg) return;
+      const host = this._host();
+      const ctx = { host, hass: this.hass, cfg: this._cfg, st: this._st, set: (p) => this._set(p), rerender: () => this._r(), close: null };
+      const html = `<style>${M.BASE_CSS}${TP_CSS}${(M.stromKurser && M.stromKurser.css) || ''}:host{display:block}.tp{padding:4px 0}</style>${TP.html(ctx, false)}`;
+      if (!this._done) { this.shadowRoot.innerHTML = html; this._done = true; } else M.morph(this.shadowRoot, html);
+      TP.bind(this.shadowRoot, ctx, false);
+    }
+  }
+  if (!customElements.get('msh-strom-editor')) customElements.define('msh-strom-editor', StromEditor);
+  customElements.define('msh-strom-card', StromCard);
+  window.customCards = window.customCards || [];
+  window.customCards.push({ type: 'msh-strom-card', name: 'MSH Strøm', description: 'Strøm-popup (#strom): toppkort, priser, forbruk, kurser og undersider' });
+  M.POPUP_CARDS = M.POPUP_CARDS || [];
+  if (Array.isArray(M.POPUP_CARDS) && !M.POPUP_CARDS.includes('msh-strom-card')) M.POPUP_CARDS.push('msh-strom-card');
+
+  /* ------------------------------------------------------------ #norgespris / #stromregning → underside i #strom */
+  const popupAt = (hash) => {
+    let found = false;
+    const w = (r, d) => { if (found || !r || d > 14 || !r.querySelectorAll) return; r.querySelectorAll('bubble-card').forEach((b) => { const c = b.config || b._config; if (c && c.card_type === 'pop-up' && c.hash === hash) found = true; }); if (!found) r.querySelectorAll('*').forEach((x) => { if (x.shadowRoot) w(x.shadowRoot, d + 1); }); };
+    w(document, 0);
+    return found;
+  };
+  M.stromRedirect = function () {
+    const hh = decodeURIComponent(location.hash || ''), page = PAGE_HASH[hh];
+    if (!page || popupAt(hh)) return false; // egen popup under den gamle hashen vinner
+    M.__stromPage = { page, t: Date.now() };
+    (M.liveCards ? [...M.liveCards.values()].flatMap((s) => [...s]) : []).forEach((card) => { if (card.localName === 'msh-strom-card' && card._ui) { card._ui.page = page; card.update(); } });
+    try {
+      const old = location.href;
+      history.replaceState(history.state, '', location.pathname + location.search + HASH);
+      window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: old, newURL: location.href }));
+      window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
+      return true;
+    } catch (x) { return false; }
+  };
+  ['hashchange', 'location-changed', 'popstate'].forEach((ev) => window.addEventListener(ev, () => M.stromRedirect(), true)); // capture: før Bubble Card leser hashen
+  setTimeout(() => M.stromRedirect(), 0);
+})();
+
+} catch (e) { console.error('[ki-msh] 61-strom.js', e); }
+
 /* ---- 61-varmepumpe.js ---- */
 try {
 /* msh-varmepumpe-card · Varmepumpe-popup #varmepumpe (fiks 26.20 / 31.2 – promptets «ki-varmepumpe-card»).
@@ -55061,6 +56161,1373 @@ try {
 })();
 
 } catch (e) { console.error('[ki-msh] 62-garasje.js', e); }
+
+/* ---- 62-strom-kurser.js ---- */
+try {
+/* KI MSH · Strøm v3 (#strom) – Kurser-fanen + Kurser-editoren (Del 45, modul B).
+ * Kilde (1:1): design/Strøm popup v3.dc.html – malen `isKurser` (k_total / k_kat / k_kurs), `KDEF`, `kursEd`, `kYaml`.
+ *
+ * M.stromKurser = { KDEF, norm, html, bind, css, editorHtml, editorBind, toYaml }
+ *   host = msh-strom-card (61-strom.js) – bruker host.hass, host.config, host.ui, host.setCfg(patch), host.render(),
+ *          host.anim, host.haptic(type). Modulen eier config-nøklene `kurs`, `ord.kurs` og `ord.cat`.
+ *   norm(kurs)                 → dyp kopi med `groups` (mangler/ugyldig/null → KDEF, brukerens nåværende YAML).
+ *   html(host)                 → markup for Kurser-fanen: <div class="sk-kroot"> med seksjonene k_total, k_kat, k_kurs
+ *                                (data-rk="sec-Kurser" data-rid=…, rekkefølge = ord['sec-Kurser'] via CSS order, hid skjuler).
+ *   bind(host, el)             → delegerte lyttere på el (idempotent): Kroner/kWh, I dag/Måneden, prisvalg (chip),
+ *                                kategori-fliser (trykk = fordeling), sikringsskap-akkordeon, hold 400 ms + dra på
+ *                                fliser (ord.cat), kurser (ord.kurs) og seksjoner (ord['sec-Kurser'] – bare hvis host
+ *                                ikke selv tilbyr host.secHold). Ren UI-tilstand i host.ui (kursUnit/kursPer/kursAlt når
+ *                                remember_view, kursCat, kursOpen) – lokal morph av roten, ingen config-lagring.
+ *   editorHtml(host, draft)    → Kurser-editoren (Tilpass → Kurser og GUI-editoren). draft = kurs-objektet (eller en
+ *                                config med `kurs`); null = standard (KDEF).
+ *   editorBind(host, el, draft, onChange) → alle endringer kaller onChange(nyKurs) (null = «Tilbakestill kurser»).
+ *                                Ren editortilstand (åpne/redigert/Avansert/YAML) ligger på host.__skEd.
+ *   toYaml(kurs)               → gyldig YAML for `custom:ki-energi-card-strom` (MSH.yaml.dump, ellers designets kYaml).
+ *   css                        → stilene for begge (legg dem i kortets shadow root OG i Tilpass-arkets rot).
+ *
+ * Datakilde = samme skjema og semantikk som ki-energi-card-strom: verdien til et punkt er egen entitet for valgt enhet/
+ * periode/pris (kr: cost_daily|cost_monthly, Norgespris: *_alt eller entitet + alt_suffix hvis den finnes; kWh:
+ * energy_daily|energy_monthly), ellers summen av underpunktene. Totalen = totals.* (samme valg), ellers summen av
+ * gruppe 1. Mangler entitet/verdi → «–». Ingen mock-verdier.
+ * Sikringsskap (gruppe 2 +): valgfrie felt per kurs `fuse` (f.eks. «K3»), `amp` (standard 16) og `power` (effekt-
+ * entitet, W/kW). Uten `power` er belastningen snitteffekt i dag = energy_daily / timer siden midnatt.
+ * Klasser har prefiks `sk-k` (07-sikring.js bruker `sk-` i sin egen shadow root), attributter `data-sk-*`.
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.stromKurser) return;
+  const esc = M.esc || ((s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
+  const ic = (n, s, st) => (M.icon ? M.icon(n, s, st) : `<ha-icon icon="${esc(n)}"></ha-icon>`);
+  const T = M.theme || null;
+  const wA = (a) => (T && T.whiteA ? T.whiteA(a) : `rgba(255,255,255,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const bA = (a) => (T && T.blackA ? T.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
+  const accTxt = (c) => (T && T.accentText ? T.accentText(c) : c);
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+
+  /* ------------------------------------------------------------ KDEF (designet, brukerens nåværende YAML) */
+  const KE = (cs, es) => ({ cost_daily: 'sensor.um_daily_cost_' + cs, cost_monthly: 'sensor.um_monthly_cost_' + cs, energy_daily: 'sensor.' + (es || cs) + '_energy_daily', energy_monthly: 'sensor.' + (es || cs) + '_energy_monthly' });
+  const KL = (name, icon, slug, es) => ({ name, ...(icon ? { icon: 'mdi:' + icon } : {}), ...KE(slug, es) });
+  const KG = (name, icon, color, children, slug, es) => ({ name, icon: 'mdi:' + icon, color: 'var(--' + color + ')', ...(slug ? KE(slug, es) : {}), ...(children ? { children } : {}) });
+  const KDEF = {
+    title: 'Energi', price_entity: 'sensor.totalpris_strompris_kroner', price_entity_alt: 'sensor.norgespris_pris_na', alt_suffix: '_norgespris',
+    default_period: 'day', default_unit: 'kr', default_price: 'alt', default_view: 'enkel', remember_view: true,
+    totals: { cost_daily: 'sensor.um_daily_cost_strommaler', cost_monthly: 'sensor.um_monthly_cost_strommaler' },
+    bereder: 'sensor.ki_bereder', laster: 'sensor.ki_laster', logg: 'sensor.ki_beslutningslogg', status: 'sensor.ki_energi_status', tau: 'sensor.ki_tidskonstanter',
+    groups: [
+      { title: 'Kategorier', subtitle: 'På tvers av rom', items: [
+        KG('Oppvarming', 'heating-coil', 'red', [
+          KG('Panelovner', 'radiator', 'red', [KL('Stue panelovn', 'radiator', 'stue_panelovn'), KL('Kjøkken panelovn', 'radiator', 'kjokken_panelovn'), KL('Cybele panelovn', 'radiator', 'cybele_panelovn'), KL('Trappegang panelovn', 'radiator', 'trappegang_panelovn'), KL('Sebastian panelovn', 'radiator', 'sebastian_panelovn')]),
+          KG('Gulvvarme', 'heating-coil', 'orange', [KL('Bad gulvvarme', 'heating-coil', 'bad_gulvvarme'), KL('Kjøkken gulvvarme', 'heating-coil', 'kjokken_gulvvarme'), KL('Vaskegang gulvvarme', 'heating-coil', 'vaskegang_gulvvarme'), KL('Do gulvvarme', 'heating-coil', 'do_gulvvarme')]),
+          KG('Håndklevarmer', 'hanger', 'pink', [KL('Håndklevarmer', 'hanger', 'hanklevarmer')]),
+          KG('Øvrig varme', 'fire', 'red', [KL('Stue oljefyr', 'fire', 'stue_oljefyr'), KL('Baderomsvifte', 'fan', 'baderomsvifte'), KL('Varmtvannsbereder', 'water-boiler', 'varmtvannsbereder_enhet')]),
+        ], 'oppvarming_kurs', 'oppvarming'),
+        KG('Belysning', 'lamp', 'yellow', null, 'lights', 'lys'),
+        KG('Hvitvarer', 'fridge', 'blue', [KL('Kjøleskap', 'fridge', 'kjoleskap'), KL('Fryseskap', 'snowflake', 'fryseskap'), KL('Komfyr', 'stove', 'komfyr'), KL('Platetopp', 'pot-steam', 'platetopp'), KL('Oppvaskmaskin', 'dishwasher', 'oppvaskmaskin_enhet'), KL('Vaskemaskin', 'washing-machine', 'vaskemaskin_enhet'), KL('Mikrobølgeovn', 'microwave', 'mikrobolgeovn'), KL('Kaffetrakter', 'coffee-maker', 'kaffetrakter'), KL('Vannkoker', 'kettle', 'vannkoker'), KL('Brødrister', 'toaster-oven', 'brodrister')], 'hvitvarer'),
+        KG('Data og nettverk', 'nas', 'gray800', [
+          KG('Servere', 'server', 'gray800', [KL('Server rack', 'server', 'server_rack'), KL('Stue server rack', 'server', 'stue_server_rack'), KL('Do server', 'server', 'do_server')]),
+          KG('3D-printere', 'printer-3d', 'blue', [KL('Creality K2', 'printer-3d', 'creality_k2')]),
+          KG('Stikkontakter', 'power-socket-de', 'purple', [['Pult stikkontakt', 'pult_stikkontakt'], ['TV stikkontakt', 'tv_stikkontakt'], ['Stue takstikkontakt', 'stue_takstikkontakt'], ['Stue piano stikkontakt', 'stue_piano_stikkontakt'], ['Spisebord stikkontakt', 'spisebord_stikkontakt'], ['Seng stikkontakt', 'seng_stikkontakt'], ['Cybele soverom stikkontakt', 'cybele_soverom_stikkontakt'], ['Rune kontor stikkontakt', 'rune_kontor_stikkontakt'], ['Rune soverom stikkontakt', 'rune_soverom_stikkontakt'], ['Verandastikkontakt', 'verandastikkontakt']].map(([n, s]) => KL(n, 'power-socket-de', s))),
+        ], 'data'),
+      ] },
+      { title: 'Kurser', subtitle: 'Per sikringskurs', items: [
+        KG('Varmtvannsbereder', 'water-boiler', 'orange', [KL('Varmtvannsbereder', 'water-boiler', 'varmtvannsbereder_enhet')], 'varmtvannsbereder_kurs'),
+        KG('Stue', 'sofa', 'orange', [KL('Stue panelovn', null, 'stue_panelovn'), KL('Stue oljefyr', null, 'stue_oljefyr'), KL('Stue takstikkontakt', null, 'stue_takstikkontakt'), KL('Stue piano stikkontakt', null, 'stue_piano_stikkontakt'), KL('TV stikkontakt', null, 'tv_stikkontakt'), KL('Stue server rack', null, 'stue_server_rack')], 'stue_kurs'),
+        KG('Kjøkken', 'knife', 'green', [['Kjøkken panelovn', 'kjokken_panelovn'], ['Kjøkken gulvvarme', 'kjokken_gulvvarme'], ['Kjøleskap', 'kjoleskap'], ['Fryseskap', 'fryseskap'], ['Komfyr', 'komfyr'], ['Platetopp', 'platetopp'], ['Mikrobølgeovn', 'mikrobolgeovn'], ['Kaffetrakter', 'kaffetrakter'], ['Vannkoker', 'vannkoker'], ['Brødrister', 'brodrister'], ['Spisebord stikkontakt', 'spisebord_stikkontakt']].map(([n, s]) => KL(n, null, s)), 'kjokken_kurs'),
+        KG('Soverom og bad', 'bed-double-outline', 'purple', [['Cybele panelovn', 'cybele_panelovn'], ['Sebastian panelovn', 'sebastian_panelovn'], ['Bad gulvvarme', 'bad_gulvvarme'], ['Baderomsvifte', 'baderomsvifte'], ['Håndklevarmer', 'hanklevarmer'], ['Seng stikkontakt', 'seng_stikkontakt'], ['Cybele soverom stikkontakt', 'cybele_soverom_stikkontakt'], ['Rune soverom stikkontakt', 'rune_soverom_stikkontakt']].map(([n, s]) => KL(n, null, s)), 'soverom_og_bad_kurs'),
+        KG('Vaskegang og do', 'shower', 'pink', [KL('Vaskegang gulvvarme', null, 'vaskegang_gulvvarme'), KL('Do gulvvarme', null, 'do_gulvvarme'), KL('Do server', null, 'do_server')], 'vaskegang_kurs', 'vaskegang_og_do_kurs'),
+        KG('Gang og bod', 'door', 'blue', [KL('Trappegang panelovn', null, 'trappegang_panelovn'), KL('Server rack', null, 'server_rack')], 'gang_og_bod_kurs'),
+        KG('Vaskemaskin', 'washing-machine', 'pink', [KL('Vaskemaskin', 'washing-machine', 'vaskemaskin_enhet')], 'vaskemaskin_kurs'),
+        KG('Oppvaskmaskin', 'dishwasher', 'green', [KL('Oppvaskmaskin', 'dishwasher', 'oppvaskmaskin_enhet')], 'oppvaskmaskin_kurs'),
+      ] },
+    ],
+  };
+  // Designets palett (KCOL) = fallback for temafargene (config lagrer var(--navn)).
+  const KCOL = { red: '#f07a6a', orange: '#f2b46f', pink: '#f28ac9', yellow: '#f2d26f', blue: '#73aef0', green: '#6fcf9c', purple: '#9a8ff0', gray800: '#c8c8c8', gray600: '#7f7f7f', teal: '#5fc4c4' }; // ki-hex-ok: fargepalett
+  const DEFCOL = 'var(--gray800, #c8c8c8)'; // ki-hex-ok: designets standardfarge
+  const kCol = (c) => {
+    if (!c) return null;
+    const s = String(c).trim(), m = /^var\(--([\w-]+)\)$/.exec(s);
+    return m ? `var(--${m[1]}, ${KCOL[m[1]] || '#c8c8c8'})` : s; // ki-hex-ok
+  };
+  const PINK = 'linear-gradient(160deg,#f28ac9,#f6c9c4)'; // ki-hex-ok: rosa aksentflate (designet)
+  const INK = 'var(--ki-on-accent, rgba(50,38,44,.95))';
+
+  /* ------------------------------------------------------------ norm */
+  function norm(k) {
+    if (k && typeof k === 'object' && !Array.isArray(k) && !Array.isArray(k.groups) && k.kurs !== undefined && !('groups' in k)) k = k.kurs; // config med kurs
+    if (!k || typeof k !== 'object' || !Array.isArray(k.groups)) return clone(KDEF);
+    const t = clone(k);
+    delete t.type;
+    const fixList = (l) => (Array.isArray(l) ? l.filter((n) => n && typeof n === 'object') : []);
+    const fix = (n) => { if (n.children != null) { n.children = fixList(n.children); n.children.forEach(fix); } return n; };
+    t.groups = t.groups.filter((g) => g && typeof g === 'object').map((g) => ({ ...g, items: fixList(g.items).map(fix) }));
+    return t;
+  }
+
+  /* ------------------------------------------------------------ verdier (samme logikk som ki-energi-card-strom) */
+  const num = (hass, id) => {
+    const st = id && hass && hass.states && hass.states[id];
+    if (!st) return null;
+    let v = parseFloat(st.state);
+    if (!isFinite(v)) return null;
+    const u = st.attributes && st.attributes.unit_of_measurement;
+    if (u === 'Wh') v /= 1000;
+    return v;
+  };
+  const finnKostnad = (hass, base, altBase, alt, suffix) => {
+    if (!alt) return base;
+    if (altBase) return altBase;
+    if (suffix && base && hass && hass.states && hass.states[base + suffix]) return base + suffix;
+    return base;
+  };
+  const entFor = (n, V) => {
+    if (!n) return null;
+    if (V.unit === 'kwh') return V.per === 'month' ? n.energy_monthly : n.energy_daily;
+    return finnKostnad(V.hass, V.per === 'month' ? n.cost_monthly : n.cost_daily, V.per === 'month' ? n.cost_monthly_alt : n.cost_daily_alt, V.alt, V.suffix);
+  };
+  const valOf = (n, V) => {
+    const own = num(V.hass, entFor(n, V));
+    if (own !== null) return own;
+    const kids = n.children || [];
+    let sum = null;
+    kids.forEach((c) => { const v = valOf(c, V); if (v !== null) sum = (sum || 0) + v; });
+    return sum;
+  };
+  const fx = (n, d) => Number(n).toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmtV = (n, V) => (n == null ? '–' : `${fx(n, n >= 100 ? 0 : n >= 10 ? 1 : 2)} ${V.unit === 'kwh' ? 'kWh' : 'kr'}`);
+  const pctS = (p) => (p == null ? '–' : `${Math.round(p)} %`);
+
+  /* ------------------------------------------------------------ tilstand */
+  const st = (host) => (host.__sk = host.__sk || { mem: {}, drag: null, swallow: 0 });
+  const uiOf = (host) => host.ui || (host.ui = {});
+  const saveUi = (host) => { try { if (typeof host.saveUi === 'function') host.saveUi(); } catch (e) { /* */ } };
+  const hp = (host, t) => { try { if (typeof host.haptic === 'function') host.haptic(t); else if (M.haptic) M.haptic(t); } catch (e) { /* */ } };
+  const harAlt = (K) => !!K.alt_suffix || !!K.price_entity_alt || (K.groups || []).some((g) => (g.items || []).some((i) => i.cost_daily_alt || i.cost_monthly_alt));
+  function view(host) {
+    const cfg = host.config || {}, K = norm(cfg.kurs), ui = uiOf(host), S = st(host);
+    const mem = K.remember_view === false ? S.mem : ui;
+    const unit = mem.kursUnit === 'kwh' || mem.kursUnit === 'kr' ? mem.kursUnit : K.default_unit === 'kwh' ? 'kwh' : 'kr';
+    const per = mem.kursPer === 'month' || mem.kursPer === 'day' ? mem.kursPer : K.default_period === 'month' ? 'month' : 'day';
+    const alt = harAlt(K) && (typeof mem.kursAlt === 'boolean' ? mem.kursAlt : (K.default_price || 'alt') === 'alt');
+    return { K, cfg, ui, S, mem, unit, per, alt, hass: host.hass, suffix: K.alt_suffix };
+  }
+  // Rekkefølge: lagret (filtrert) + nye bakerst. Under dra: midlertidig rekkefølge.
+  const ordOf = (stored, ids) => { const o = Array.isArray(stored) ? stored : []; return [...o.filter((x) => ids.includes(x)), ...ids.filter((x) => !o.includes(x))]; };
+  const curOrd = (host, key, ids) => { const S = st(host); if (S.drag && S.drag.key === key && S.drag.order.some((x) => ids.includes(x))) return ordOf(S.drag.order, ids); return ordOf(((host.config || {}).ord || {})[key], ids); };
+  const kursId = (gi, n) => (gi === 1 ? String(n.name || '') : `${gi}:${n.name || ''}`);
+
+  /* ------------------------------------------------------------ Kurser-fanen */
+  const SECS = ['k_total', 'k_kat', 'k_kurs'];
+  function inner(host) {
+    const V = view(host), K = V.K, S = V.S, ui = V.ui;
+    const hid = (V.cfg.hid || {});
+    const sOrd = curOrd(host, 'sec-Kurser', SECS);
+    const isDrag = (k, id) => !!S.drag && S.drag.key === k && S.drag.id === id;
+    const kwh = V.unit === 'kwh', unitT = kwh ? 'kWh' : 'kr';
+    const g0 = K.groups[0] || { title: 'Kategorier', subtitle: '', items: [] };
+    const rowsOf = (g) => {
+      const items = (g && g.items) || [];
+      const vals = items.map((n) => valOf(n, V));
+      const tot = vals.reduce((a, v) => a + (v || 0), 0);
+      return { items, vals, tot, any: vals.some((v) => v !== null) };
+    };
+    const R0 = rowsOf(g0);
+    const kidsOf = (n, c) => {
+      const kids = (n.children || []).map((k, i) => ({ k, i, v: valOf(k, V) }));
+      const ks = kids.reduce((a, x) => a + (x.v || 0), 0);
+      kids.sort((a, b) => (a.v === null && b.v === null ? a.i - b.i : a.v === null ? 1 : b.v === null ? -1 : b.v - a.v));
+      return kids.map(({ k, v }) => ({ l: k.name || '', icon: k.icon || n.icon || 'mdi:lightning-bolt', c: kCol(k.color) || c, v, p: ks > 0 && v !== null ? (v / ks) * 100 : null }));
+    };
+
+    /* --- k_total */
+    const totId = (() => { const t = K.totals; if (!t) return null; if (kwh) return V.per === 'month' ? t.energy_monthly : t.energy_daily; return finnKostnad(V.hass, V.per === 'month' ? t.cost_monthly : t.cost_daily, V.per === 'month' ? t.cost_monthly_alt : t.cost_daily_alt, V.alt, V.suffix); })();
+    const totS = num(V.hass, totId);
+    const sumN = totS !== null ? totS : R0.any ? R0.tot : null;
+    const month = new Date().toLocaleString('nb-NO', { month: 'long' });
+    const sumLabel = V.per === 'month' ? month.charAt(0).toUpperCase() + month.slice(1) : 'I dag';
+    const price = num(V.hass, V.alt ? K.price_entity_alt : K.price_entity);
+    const chip = `${V.alt ? 'Norgespris' : 'Spotpris'} · ${price === null ? '–' : fx(price, 2) + ' kr/kWh'}`;
+    let best = -1; R0.vals.forEach((v, i) => { if (v !== null && (best < 0 || v > R0.vals[best])) best = i; });
+    const bigTxt = best >= 0 && R0.tot > 0 ? `Størst: ${R0.items[best].name || ''} står for ${Math.round((R0.vals[best] / R0.tot) * 100)} % av forbruket` : 'Venter på sensordata';
+    const stripe = R0.tot > 0 ? R0.items.map((n, i) => (R0.vals[i] > 0 ? `<span style="flex:${+R0.vals[i].toFixed(4)};background:${esc(kCol(n.color) || DEFCOL)}"></span>` : '')).join('') : '<span class="sk-kstr0"></span>';
+    const secAttr = (id) => { const i = sOrd.indexOf(id); return `class="sk-ksec${isDrag('sec-Kurser', id) ? ' sk-klift' : ''}" data-rk="sec-Kurser" data-rid="${id}" data-sk-rk="sec-Kurser" data-sk-id="${id}" data-key="sk-${id}" style="order:${i + 1}${hid[id] ? ';display:none' : ''}"`; };
+    const tot = `<div ${secAttr('k_total')}>
+      <div class="sk-ktot">
+        <span class="sk-ktot-top"><span class="sk-k13">${esc(sumLabel)}</span>${harAlt(K) ? `<button class="sk-kchip" data-sk-act="alt" title="Bytt pris">${esc(chip)}</button>` : `<span class="sk-kchip">${esc(chip)}</span>`}</span>
+        <span class="sk-ktot-big"><span class="sk-ksum">${sumN === null ? '–' : fx(sumN, sumN >= 100 ? 0 : 2)}</span><span class="sk-kunit">${unitT}</span></span>
+        <span class="sk-k13">${esc(bigTxt)}</span>
+        <span class="sk-kstripe">${stripe}</span>
+      </div>
+    </div>`;
+
+    /* --- k_kat */
+    const seg = (act, cur, opts) => `<div class="sk-kseg" data-glass-drag="x">${opts.map(([l, v]) => `<button class="${cur === v ? 'on' : ''}" data-sk-act="${act}" data-sk-v="${v}">${l}</button>`).join('')}</div>`;
+    const catIds = R0.items.map((n) => String(n.name || ''));
+    const cOrd = curOrd(host, 'cat', catIds);
+    const firstWithKids = R0.items.find((n) => (n.children || []).length);
+    const selC = typeof ui.kursCat === 'string' ? ui.kursCat : firstWithKids ? String(firstWithKids.name || '') : '';
+    const tiles = R0.items.map((n, i) => {
+      const id = catIds[i], c = kCol(n.color) || DEFCOL, v = R0.vals[i], p = R0.tot > 0 && v !== null ? (v / R0.tot) * 100 : null, on = id === selC && (n.children || []).length > 0, drag = isDrag('cat', id);
+      return `<button class="sk-ktile${on ? ' on' : ''}${drag ? ' sk-klift' : ''}" data-sk-act="cat" data-sk-v="${esc(id)}" data-sk-rk="cat" data-sk-id="${esc(id)}" data-key="sk-cat-${esc(id)}" style="order:${cOrd.indexOf(id) + 1};--c:${esc(c)};--ct:${esc(accTxt(c))}">
+        <span class="sk-ktile-top"><span class="sk-kicw">${ic(n.icon || 'mdi:lightning-bolt', 22)}</span><span class="sk-kpct">${pctS(p)}</span></span>
+        <span class="sk-ktl">${esc(n.name || '')}</span>
+        <span class="sk-ktv">${fmtV(v, V)}</span>
+        <span class="sk-kbar"><span style="width:${p == null ? 0 : Math.max(p, 2)}%"></span></span>
+      </button>`;
+    }).join('');
+    const selN = R0.items.find((n, i) => catIds[i] === selC && (n.children || []).length);
+    const kidRow = (k, cls) => `<div class="${cls}"><span class="sk-kkic" style="color:${esc(accTxt(k.c))}">${ic(k.icon, cls === 'sk-kkid' ? 20 : 18)}</span>`
+      + (cls === 'sk-kkid'
+        ? `<span class="sk-kkmid"><span class="sk-kkln"><span class="sk-kkl">${esc(k.l)}</span><span class="sk-kkv">${fmtV(k.v, V)}</span></span><span class="sk-kbar sk-kbar-s"><span style="width:${k.p == null ? 0 : Math.max(k.p, 1.5)}%;background:${esc(k.c)}"></span></span></span><span class="sk-kkp">${pctS(k.p)}</span>`
+        : `<span class="sk-kcl">${esc(k.l)}</span><span class="sk-kcv">${fmtV(k.v, V)}</span><span class="sk-kcp">${pctS(k.p)}</span>`) + '</div>';
+    const brk = selN ? `<div class="sk-kbrk" data-key="sk-brk-${esc(selC)}">
+        <div class="sk-kbrk-hd"><span>${esc(selN.name || '')} fordelt</span><button class="sk-kx" data-sk-act="catx" title="Lukk">${ic('mdi:close', 18)}</button></div>
+        ${kidsOf(selN, kCol(selN.color) || DEFCOL).map((k) => kidRow(k, 'sk-kkid')).join('')}
+      </div>` : '';
+    const kat = `<div ${secAttr('k_kat')}>
+      <div class="sk-kgrid">${seg('unit', V.unit, [['Kroner', 'kr'], ['kWh', 'kwh']])}${seg('per', V.per, [['I dag', 'day'], ['Måneden', 'month']])}</div>
+      <div class="sk-khd"><span class="sk-kht">${esc(g0.title || 'Kategorier')}</span><span class="sk-khs">${esc([g0.subtitle, R0.any ? fmtV(R0.tot, V) : '–'].filter(Boolean).join(' · '))}</span></div>
+      <div class="sk-kgrid sk-ktiles">${tiles}</div>
+      ${brk}
+    </div>`;
+
+    /* --- k_kurs (gruppe 2 = Sikringsskap, flere grupper som egne lister) */
+    const open = ui.kursOpen && typeof ui.kursOpen === 'object' ? ui.kursOpen : null;
+    const hrs = Math.max(0.25, (Date.now() - new Date().setHours(0, 0, 0, 0)) / 3600000);
+    const cirList = (g, gi) => {
+      const R = rowsOf(g), ids = R.items.map((n) => kursId(gi, n)), o = curOrd(host, 'kurs', ids.slice());
+      const firstOpen = R.items.findIndex((n) => (n.children || []).length);
+      const list = R.items.map((n, i) => {
+        const id = ids[i], idx = o.indexOf(id), c = kCol(n.color) || DEFCOL, kids = kidsOf(n, c), v = R.vals[i];
+        const isOpen = kids.length > 0 && (open ? !!open[id] : gi === 1 && i === firstOpen);
+        const amp = +n.amp > 0 ? +n.amp : 16, cap = amp * 0.23;
+        let kw = null;
+        if (n.power) { const p = num(V.hass, n.power), stp = V.hass && V.hass.states && V.hass.states[n.power], u = stp && stp.attributes && stp.attributes.unit_of_measurement; if (p !== null) kw = u === 'kW' ? p : p / 1000; }
+        else { const e = num(V.hass, n.energy_daily); if (e !== null) kw = e / hrs; }
+        const load = kw === null ? 0 : kw / cap, lc = load > 0.7 ? 'rgb(240 120 100)' : load > 0.4 ? 'rgb(242 176 79)' : 'rgb(110 200 160)';
+        const fuse = n.fuse || 'K' + (i * 2 + 1);
+        const drag = isDrag('kurs', id);
+        return `<div class="sk-kcir${idx ? ' sk-kbt' : ''}${drag ? ' sk-klift' : ''}" data-sk-rk="kurs" data-sk-g="${gi}" data-sk-id="${esc(id)}" data-key="sk-kurs-${esc(id)}" style="order:${idx + 1};--lc:${lc}">
+          <button class="sk-kcbtn" data-sk-act="kurs" data-sk-v="${esc(id)}">
+            <span class="sk-kfuse"><span>${esc(fuse)}</span><span class="sk-klever"></span></span>
+            <span class="sk-kcmid">
+              <span class="sk-kcln"><span class="sk-kcn">${esc(n.name || '')}</span><span class="sk-kcval">${fmtV(v, V)}</span></span>
+              <span class="sk-kcld"><span class="sk-kticks">${Array.from({ length: 12 }, (_, j) => `<span${j / 12 < load ? ' class="on"' : ''}></span>`).join('')}</span><span class="sk-kload">${kw === null ? '–' : fx(kw, 1)} / ${fx(cap, 1)} kW</span></span>
+            </span>
+            <span class="sk-kchev${isOpen ? ' open' : ''}" style="opacity:${kids.length ? 1 : 0}">${ic('mdi:chevron-down', 22)}</span>
+          </button>
+          ${isOpen ? `<div class="sk-kcids">${kids.map((k) => kidRow(k, 'sk-kcid')).join('')}</div>` : ''}
+        </div>`;
+      }).join('');
+      return { R, list };
+    };
+    const cg = K.groups.slice(1).map((g, j) => ({ g, gi: j + 1, ...cirList(g, j + 1) }));
+    const kurs = `<div ${secAttr('k_kurs')}>
+      ${cg.length ? cg.map(({ g, gi, R, list }) => `<div class="sk-khd" data-key="sk-khd-${gi}"><span class="sk-kht">${gi === 1 ? 'Sikringsskap' : esc(g.title || '')}</span><span class="sk-khs">${esc([g.subtitle, R.any ? fmtV(R.tot, V) : '–'].filter(Boolean).join(' · '))}</span></div>
+      <div class="sk-kbox" data-key="sk-kbox-${gi}">${list || '<div class="sk-kempty">Ingen kurser</div>'}</div>`).join('') : `<div class="sk-khd"><span class="sk-kht">Sikringsskap</span><span class="sk-khs">–</span></div><div class="sk-kbox"><div class="sk-kempty">Ingen kurser</div></div>`}
+    </div>`;
+    return tot + kat + kurs;
+  }
+  function html(host) {
+    return `<div class="sk-kroot${host.anim === false || (host.config && host.config.anim === false) ? ' sk-knoanim' : ''}" data-sk-root>${inner(host)}</div>`;
+  }
+  const rootIn = (el) => (el && el.matches && el.matches('[data-sk-root]') ? el : el && el.querySelector ? el.querySelector('[data-sk-root]') : null);
+  const local = (host, el) => {
+    const r = rootIn(el);
+    if (!r || !M.morph) { try { host.render(); } catch (e) { /* */ } return; }
+    r.classList.toggle('sk-knoanim', host.anim === false || (host.config && host.config.anim === false));
+    M.morph(r, inner(host));
+    glass(host, r);
+  };
+  const glassOn = (host) => { if (host.glass === false || (host.config && host.config.glass === false)) return false; try { return localStorage.getItem('hjem-glass-anim') !== 'off'; } catch (e) { return true; } };
+  const glass = (host, r) => { if (!M.glassDrag || !r) return; r.querySelectorAll('[data-glass-drag]').forEach((c) => { try { M.glassDrag(c, { axis: 'x', enabled: () => glassOn(host) }); } catch (e) { /* */ } }); };
+
+  /* ------------------------------------------------------------ hold 400 ms + dra (fliser, kurser, seksjoner) */
+  function saveOrd(host, key, order) {
+    const ord = { ...(((host.config || {}).ord) || {}), [key]: order };
+    if (typeof host.setCfg === 'function') host.setCfg({ ord });
+  }
+  function startHold(host, el, it, e) {
+    const S = st(host), key = it.dataset.skRk, id = it.dataset.skId, grp = it.dataset.skG;
+    if (key === 'sec-Kurser' && typeof host.secHold === 'function') { host.secHold(e, 'Kurser', id, it); return; }
+    const sx = e.clientX, sy = e.clientY, pid = e.pointerId;
+    const sibs = () => Array.from((rootIn(el) || el).querySelectorAll(`[data-sk-rk="${key}"]`)).filter((n) => (grp == null || n.dataset.skG === grp));
+    const ids0 = sibs().sort((a, b) => (+a.style.order || 0) - (+b.style.order || 0)).map((n) => n.dataset.skId);
+    let on = false, done = false;
+    const H = {};
+    const move = (x, y) => {
+      if (!on) { if (Math.hypot(x - sx, y - sy) > 8) cleanup(false); return; }
+      const hit = sibs().find((n) => { const r = n.getBoundingClientRect(); return r.width && y >= r.top && y <= r.bottom && (key !== 'cat' || (x >= r.left && x <= r.right)); });
+      const rid = hit && hit.dataset.skId;
+      if (rid && rid !== id && S.drag) {
+        const cur = S.drag.order.slice(), ti = cur.indexOf(rid);
+        if (ti < 0) return;
+        const o = cur.filter((x2) => x2 !== id); o.splice(ti, 0, id);
+        S.drag.order = o; hp(host, 'selection'); local(host, el);
+      }
+    };
+    H.pm = (ev) => { if (ev.pointerId !== pid) return; if (on) { if (ev.cancelable) ev.preventDefault(); ev.stopPropagation(); } move(ev.clientX, ev.clientY); };
+    H.tm = (ev) => { const t = ev.touches && ev.touches[0]; if (!t) return; if (on) { if (ev.cancelable) ev.preventDefault(); ev.stopPropagation(); } move(t.clientX, t.clientY); };
+    H.up = () => cleanup(true);
+    H.cancel = () => { if (!on) cleanup(false); }; // pointercancel under aktivt dra ignoreres (touch fortsetter)
+    H.key = (ev) => { if (ev.key === 'Escape' && on) { ev.preventDefault(); cleanup(false, true); } };
+    const kill = (c) => { c.stopPropagation(); c.preventDefault(); };
+    function cleanup(commit, esc2) {
+      if (done) return; done = true;
+      clearTimeout(H.t);
+      window.removeEventListener('pointermove', H.pm, true); window.removeEventListener('pointerup', H.up, true); window.removeEventListener('pointercancel', H.cancel, true);
+      window.removeEventListener('touchmove', H.tm, { capture: true }); window.removeEventListener('touchend', H.up, true); window.removeEventListener('touchcancel', H.up, true); window.removeEventListener('keydown', H.key, true);
+      if (!on) return;
+      on = false;
+      it.style.touchAction = ''; it.__mshTA = undefined;
+      setTimeout(() => { window.__tabReorder = false; }, 50);
+      S.swallow = Date.now() + 350;
+      window.addEventListener('click', kill, { capture: true, once: true }); setTimeout(() => window.removeEventListener('click', kill, true), 350);
+      const order = S.drag ? S.drag.order : null;
+      S.drag = null;
+      if (commit && !esc2 && order && order.join('\u0001') !== ids0.join('\u0001')) {
+        hp(host, 'light');
+        // lagre hele rekkefølgen (andre grupper beholdes for ord.kurs)
+        let full = order;
+        if (key === 'kurs') { const pv = ((host.config || {}).ord || {}).kurs, prev = Array.isArray(pv) ? pv : []; full = [...order, ...prev.filter((x) => !order.includes(x))]; }
+        saveOrd(host, key, full);
+      }
+      local(host, el);
+    }
+    H.t = setTimeout(() => {
+      on = true; window.__tabReorder = true;
+      hp(host, 'medium');
+      S.drag = { key, id, order: ids0.slice() };
+      it.style.touchAction = 'none'; it.__mshTA = 'none';
+      try { it.setPointerCapture(pid); } catch (x) { /* */ }
+      local(host, el);
+    }, 400);
+    window.addEventListener('pointermove', H.pm, { capture: true, passive: false });
+    window.addEventListener('pointerup', H.up, true); window.addEventListener('pointercancel', H.cancel, true);
+    window.addEventListener('touchmove', H.tm, { capture: true, passive: false });
+    window.addEventListener('touchend', H.up, true); window.addEventListener('touchcancel', H.up, true);
+    window.addEventListener('keydown', H.key, true);
+  }
+
+  function bind(host, el) {
+    if (!el) return;
+    const r = rootIn(el);
+    glass(host, r);
+    el.__skHost = host;
+    if (el.__skBound) return;
+    el.__skBound = true;
+    const H = () => el.__skHost || host;
+    el.addEventListener('pointerdown', (e) => {
+      const it = e.target.closest && e.target.closest('[data-sk-rk]');
+      if (!it || !el.contains(it) || e.button) return;
+      if (e.target.closest('input,textarea,select,[data-glass-drag]')) return;
+      e.stopPropagation();
+      if (window.__ki_hold) return;
+      window.__ki_hold = true; setTimeout(() => { window.__ki_hold = false; }, 0);
+      startHold(H(), el, it, e);
+    });
+    el.addEventListener('touchstart', (e) => { const it = e.target.closest && e.target.closest('[data-sk-rk]'); if (it && el.contains(it)) e.stopPropagation(); }, { passive: true });
+    el.addEventListener('touchmove', (e) => { const h = H(), S = st(h); if (S.drag) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); } }, { passive: false });
+    el.addEventListener('click', (e) => {
+      const host2 = H(), S = st(host2);
+      if (S.swallow > Date.now()) { e.stopPropagation(); e.preventDefault(); return; }
+      const b = e.target.closest && e.target.closest('[data-sk-act]');
+      if (!b || !el.contains(b)) return;
+      const act = b.dataset.skAct, v = b.dataset.skV, V = view(host2), ui = V.ui;
+      if (act === 'unit' || act === 'per') {
+        const k = act === 'unit' ? 'kursUnit' : 'kursPer';
+        if (V.mem[k] === v && V[act] === v) return;
+        V.mem[k] = v; hp(host2, 'selection');
+      } else if (act === 'alt') {
+        V.mem.kursAlt = !V.alt; hp(host2, 'selection');
+      } else if (act === 'cat') {
+        const n = (V.K.groups[0] && V.K.groups[0].items || []).find((x) => String(x.name || '') === v);
+        if (!n || !(n.children || []).length) { hp(host2, 'light'); return; }
+        const firstWithKids = (V.K.groups[0].items || []).find((x) => (x.children || []).length);
+        const cur = typeof ui.kursCat === 'string' ? ui.kursCat : firstWithKids ? String(firstWithKids.name || '') : '';
+        ui.kursCat = cur === v ? '' : v; hp(host2, 'selection');
+      } else if (act === 'catx') {
+        ui.kursCat = ''; hp(host2, 'light');
+      } else if (act === 'kurs') {
+        const gi = (b.closest('[data-sk-g]') || {}).dataset ? +b.closest('[data-sk-g]').dataset.skG : 1;
+        const g = V.K.groups[gi]; if (!g) return;
+        const items = g.items || [], idx = items.findIndex((n) => kursId(gi, n) === v), n = items[idx];
+        if (!n || !(n.children || []).length) { hp(host2, 'light'); return; }
+        if (!ui.kursOpen || typeof ui.kursOpen !== 'object') { // første trykk: materialiser standard (første kurs med underpunkter åpen)
+          const fo = (V.K.groups[1] && V.K.groups[1].items || []).find((x) => (x.children || []).length);
+          ui.kursOpen = fo ? { [kursId(1, fo)]: true } : {};
+        }
+        ui.kursOpen = { ...ui.kursOpen, [v]: !ui.kursOpen[v] }; hp(host2, 'selection');
+      } else return;
+      saveUi(host2);
+      local(host2, el);
+    });
+  }
+
+  /* ------------------------------------------------------------ YAML */
+  const prune = (o) => {
+    if (Array.isArray(o)) return o.map(prune);
+    if (o && typeof o === 'object') { const r = {}; Object.entries(o).forEach(([k, v]) => { if (v === undefined || v === null || v === '') return; const p = prune(v); if (p && typeof p === 'object' && !Array.isArray(p) && !Object.keys(p).length) return; r[k] = p; }); return r; }
+    return o;
+  };
+  // Designets kYaml (reserve når MSH.yaml mangler)
+  const kYaml = (o, ind = 0) => { const p = ' '.repeat(ind), q = (v) => (typeof v === 'string' && /[:#{}[\],&*!|>'"%@`]|^\s|\s$|^$|^(true|false|null|~|yes|no|on|off|[-+]?[\d.]+)$/i.test(v) ? JSON.stringify(v) : String(v));
+    return Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => (Array.isArray(v) && !v.length ? `${p}${k}: []` : Array.isArray(v) ? `${p}${k}:\n${v.map((it) => (it && typeof it === 'object' ? p + '  - ' + kYaml(it, ind + 4).slice(ind + 4) : `${p}  - ${q(it)}`)).join('\n')}` : typeof v === 'object' ? `${p}${k}:\n${kYaml(v, ind + 2)}` : `${p}${k}: ${q(v)}`)).join('\n'); };
+  function toYaml(kurs) {
+    const obj = { type: 'custom:ki-energi-card-strom', ...prune(norm(kurs)) };
+    if (M.yaml && M.yaml.dump) { try { return String(M.yaml.dump(obj)).replace(/\n+$/, '') + '\n'; } catch (e) { /* */ } }
+    return kYaml(obj) + '\n';
+  }
+
+  /* ------------------------------------------------------------ editor */
+  const ENTF = [['cost_daily', 'Kostnad dag'], ['cost_monthly', 'Kostnad måned'], ['energy_daily', 'Energi dag'], ['energy_monthly', 'Energi måned']];
+  const COLS = Object.keys(KCOL);
+  const FIELDS = [[['title'], 'Tittel'], [['price_entity'], 'Pris-entitet'], [['price_entity_alt'], 'Alternativ pris (Norgespris)'], [['alt_suffix'], 'Suffiks for alternativ pris'], [['totals', 'cost_daily'], 'Total kostnad dag'], [['totals', 'cost_monthly'], 'Total kostnad måned']];
+  const ADV = [[['status'], 'Status'], [['laster'], 'Laster'], [['logg'], 'Beslutningslogg'], [['tau'], 'Tidskonstanter'], [['bereder'], 'Bereder'], [['totals', 'energy_daily'], 'Totalt forbruk dag (kWh)'], [['totals', 'energy_monthly'], 'Totalt forbruk måned (kWh)']];
+  const SEGS = [['default_period', 'Standard periode', [['day', 'Dag'], ['month', 'Måned']]], ['default_unit', 'Standard enhet', [['kr', 'Kroner'], ['kwh', 'kWh']]], ['default_price', 'Standard pris', [['alt', 'Norgespris'], ['main', 'Spotpris']]]];
+  const edSt = (host) => (host.__skEd = host.__skEd || { open: {}, edit: null, adv: false, yaml: false });
+  const getP = (o, p) => p.reduce((a, k) => (a || {})[k], o);
+  const nodeAt = (t, p) => { let n = t.groups[p[0]].items[p[1]]; for (let i = 2; i < p.length; i++) n = n.children[p[i]]; return n; };
+  const listAt = (t, p) => (p.length === 2 ? t.groups[p[0]].items : nodeAt(t, p.slice(0, -1)).children);
+  const draftKurs = (d) => (d && typeof d === 'object' && !Array.isArray(d.groups) && 'kurs' in d ? d.kurs : d);
+  const entList = (hass) => {
+    if (!hass || !hass.states) return [];
+    return Object.keys(hass.states).filter((id) => { if (!/^(sensor|input_number)\./.test(id)) return false; const u = (hass.states[id].attributes || {}).unit_of_measurement; return /kwh|wh|kr|nok|øre/i.test(String(u || '')) || /cost|energy|pris|price|kostnad/.test(id); }).sort().slice(0, 2000);
+  };
+  function edInner(host, draft) {
+    const T0 = norm(draftKurs(draft)), E = edSt(host);
+    const inp = (cls, path, label, v, ph, list) => `<label class="sk-kfl"><span class="sk-klb">${esc(label)}</span><input class="${cls}" data-sk-f="${esc(path)}" value="${esc(v || '')}" spellcheck="false"${ph ? ` placeholder="${esc(ph)}"` : ''}${list ? ' list="sk-kents"' : ''}></label>`;
+    const fld = ([path, label]) => inp('sk-kin', path.join('.'), label, getP(T0, path), '', /entity|totals|status|laster|logg|tau|bereder/.test(path.join('.')));
+    const segs = SEGS.map(([key, title, opts]) => { const cur = T0[key] == null ? opts[0][0] : T0[key];
+      return `<div class="sk-kfl"><span class="sk-klb">${esc(title)}</span><div class="sk-keseg" data-glass-drag="x">${opts.map(([v, l]) => `<button class="${cur === v ? 'on' : ''}" data-sk-e="seg" data-sk-k="${key}" data-sk-v="${v}">${esc(l)}</button>`).join('')}</div></div>`; }).join('');
+    const groups = T0.groups.map((g, gi) => {
+      const rows = [];
+      const walk = (list, path, depth, parentCol) => list.forEach((n, i) => {
+        const p = [...path, i], key = p.join('.'), kids = n.children || [], open = !!E.open[key], ed = E.edit === key, c = kCol(n.color) || parentCol;
+        let r = `<div class="sk-kerw" data-key="sk-e-${key}">
+          <div class="sk-kerow${ed ? ' ed' : depth ? ' sub' : ''}" style="padding-left:${6 + depth * 18}px">
+            <button class="sk-ketg" data-sk-e="toggle" data-sk-p="${key}" title="Vis underpunkter"><span class="sk-kechev${open ? ' open' : ''}" style="opacity:${kids.length ? 1 : 0}">${ic('mdi:chevron-right', 20)}</span></button>
+            <span class="sk-keic" style="--c:${esc(c)};--ct:${esc(accTxt(c))}">${ic(n.icon || 'mdi:lightning-bolt', 19)}</span>
+            <span class="sk-kenm" data-sk-e="toggle" data-sk-p="${key}"><span class="sk-ken">${esc(n.name || 'Uten navn')}</span><span class="sk-kem">${esc(kids.length ? `${kids.length} underpunkt${kids.length > 1 ? 'er' : ''}` : (n.cost_daily || 'Ingen entitet valgt'))}</span></span>
+            <button class="sk-kemv${i ? '' : ' off'}" data-sk-e="up" data-sk-p="${key}" title="Flytt opp">${ic('mdi:arrow-up', 20)}</button>
+            <button class="sk-kemv${i < list.length - 1 ? '' : ' off'}" data-sk-e="down" data-sk-p="${key}" title="Flytt ned">${ic('mdi:arrow-down', 20)}</button>
+            <button class="sk-keed${ed ? ' on' : ''}" data-sk-e="edit" data-sk-p="${key}" title="Rediger">${ic('mdi:pencil', 19)}</button>
+          </div>`;
+        if (ed) {
+          const cols = [['', 'Arv'], ...COLS.map((k) => [k, k])].map(([k, label]) => { const on = k ? n.color === `var(--${k})` : !n.color;
+            return `<button class="sk-kcol${on ? ' on' : ''}${k ? '' : ' inh'}" data-sk-e="color" data-sk-p="${key}" data-sk-v="${k}" title="${esc(label)}"${k ? ` style="background:var(--${k}, ${KCOL[k]})"` : ''}></button>`; }).join('');
+          const ninp = (f, label, ph) => `<label class="sk-kfl sk-kfl-s"><span class="sk-klb sk-klb-s">${esc(label)}</span><input class="sk-kin2" data-sk-nf="${f}" data-sk-p="${key}" value="${esc(n[f] == null ? '' : n[f])}" placeholder="${esc(ph || 'sensor.…')}" spellcheck="false"${ph ? '' : ' list="sk-kents"'}></label>`;
+          r += `<div class="sk-kepn">
+            <label class="sk-kfl"><span class="sk-klb">Navn</span><input class="sk-kin2 sk-kin2-l" data-sk-nf="name" data-sk-p="${key}" value="${esc(n.name || '')}"></label>
+            <label class="sk-kfl"><span class="sk-klb">Ikon (mdi:, hass:, phu: …)</span><span class="sk-kicr"><button class="sk-kicp" data-sk-e="icon" data-sk-p="${key}" title="Velg ikon">${ic(n.icon || 'mdi:lightning-bolt', 22)}</button><input class="sk-kin2 sk-kin2-l" data-sk-nf="icon" data-sk-p="${key}" value="${esc(n.icon || '')}" placeholder="mdi:lightning-bolt" spellcheck="false"></span></label>
+            <span class="sk-klb">Farge</span>
+            <div class="sk-kcols">${cols}</div>
+            <span class="sk-klb sk-klb-t">Entiteter</span>
+            ${ENTF.map(([f, label]) => ninp(f, label)).join('')}
+            ${gi >= 1 && depth === 0 ? `<span class="sk-klb sk-klb-t">Sikringsskap</span>${ninp('fuse', 'Kurs (f.eks. K3)', 'K' + (i * 2 + 1))}${ninp('amp', 'Sikring (A)', '16')}${ninp('power', 'Effekt-entitet (W/kW)')}` : ''}
+            <div class="sk-kebts"><button class="sk-keadd" data-sk-e="addChild" data-sk-p="${key}">${ic('mdi:subdirectory-arrow-right', 18)}Legg til underpunkt</button><button class="sk-kedel" data-sk-e="del" data-sk-p="${key}" title="Slett">${ic('mdi:delete', 20)}</button></div>
+          </div>`;
+        }
+        rows.push(r + '</div>');
+        if (open) walk(kids, p, depth + 1, c);
+      });
+      walk(g.items || [], [gi], 0, DEFCOL);
+      return `<div class="sk-kegrp" data-key="sk-g-${gi}">
+        <div class="sk-kegh">
+          <div class="sk-kegt"><input class="sk-kgti" data-sk-gf="title" data-sk-g="${gi}" value="${esc(g.title || '')}" placeholder="Gruppenavn"><input class="sk-kgsu" data-sk-gf="subtitle" data-sk-g="${gi}" value="${esc(g.subtitle || '')}" placeholder="Undertittel"></div>
+          <button class="sk-kgb${gi ? '' : ' off'}" data-sk-e="gup" data-sk-g="${gi}" title="Flytt opp">${ic('mdi:arrow-up', 22)}</button>
+          <button class="sk-kgb del" data-sk-e="gdel" data-sk-g="${gi}" title="Slett gruppe">${ic('mdi:delete', 22)}</button>
+        </div>
+        ${rows.join('')}
+        <button class="sk-kepadd" data-sk-e="add" data-sk-g="${gi}">${ic('mdi:plus', 20)}Legg til punkt</button>
+      </div>`;
+    }).join('');
+    const ents = entList(host.hass);
+    return `<div class="sk-kinfo">${ic('mdi:file-tree', 22, 'color:var(--ki-blue-text, rgb(115 185 242))')}<span>Full kontroll over kategorier og kurser – samme oppsett som ki-energi-card-strom. Trykk blyanten for å redigere navn, ikon, farge og entiteter.</span></div>
+      <span class="sk-kcap">Pris og totaler</span>
+      <div class="sk-kcard">
+        ${FIELDS.map(fld).join('')}
+        ${segs}
+        <button class="sk-kadvb" data-sk-e="adv"><span>Avansert (status, laster, logg …)</span><span class="sk-kadvc${E.adv ? ' open' : ''}">${ic('mdi:chevron-down', 22)}</span></button>
+        ${E.adv ? ADV.map(fld).join('') : ''}
+      </div>
+      ${groups}
+      <button class="sk-kaddg" data-sk-e="addGroup">${ic('mdi:playlist-plus', 22)}Legg til gruppe</button>
+      <div class="sk-kebr"><button class="sk-kebb" data-sk-e="yaml">${ic('mdi:code-tags', 20)}${E.yaml ? 'Skjul YAML' : 'Vis YAML'}</button><button class="sk-kebb" data-sk-e="reset">${ic('mdi:restart', 20)}Tilbakestill kurser</button></div>
+      ${E.yaml ? `<pre class="sk-kyaml" data-sk-yaml>${esc(toYaml(T0))}</pre>` : ''}
+      <datalist id="sk-kents" data-nomorph data-key="sk-kents">${ents.map((id) => `<option value="${esc(id)}"></option>`).join('')}</datalist>`;
+  }
+  function editorHtml(host, draft) {
+    return `<div class="sk-ked" data-sk-ed>${edInner(host, draft)}</div>`;
+  }
+  const edRoot = (el) => (el && el.matches && el.matches('[data-sk-ed]') ? el : el && el.querySelector ? el.querySelector('[data-sk-ed]') : null);
+  function editorBind(host, el, draft, onChange) {
+    if (!el) return;
+    // A sender inn sitt utkast; er det samme objekt som sist, beholdes vår nyeste versjon (A kan ligge etter).
+    if (!(el.__skIn === draft && el.__skHas)) { el.__skIn = draft; el.__skCur = draftKurs(draft); }
+    el.__skHas = true;
+    el.__skHost = host; el.__skOn = onChange;
+    const r0 = edRoot(el);
+    if (M.glassDrag && r0) r0.querySelectorAll('[data-glass-drag]').forEach((c) => { try { M.glassDrag(c, { axis: 'x', enabled: () => glassOn(host) }); } catch (e) { /* */ } });
+    if (el.__skEdBound) return;
+    el.__skEdBound = true;
+    const H = () => el.__skHost;
+    const rerender = () => { const r = edRoot(el); if (!r || !M.morph) return; M.morph(r, edInner(H(), el.__skCur)); if (M.glassDrag) r.querySelectorAll('[data-glass-drag]').forEach((c) => { try { M.glassDrag(c, { axis: 'x', enabled: () => glassOn(H()) }); } catch (e) { /* */ } }); };
+    const emit = (t) => { el.__skCur = t; rerender(); try { if (typeof el.__skOn === 'function') el.__skOn(t); } catch (e) { console.error('[ki-msh] strom-kurser onChange', e); } };
+    const mut = (fn) => { const t = norm(el.__skCur); fn(t); emit(t); };
+    const P = (s) => String(s || '').split('.').filter((x) => x !== '').map(Number);
+    const E = () => edSt(H());
+    el.addEventListener('input', (e) => {
+      const t = e.target; if (!t || !t.dataset) return;
+      const v = t.value;
+      if (t.dataset.skF) { const path = t.dataset.skF.split('.'); mut((k) => { let o = k; path.slice(0, -1).forEach((x) => { if (!o[x] || typeof o[x] !== 'object') o[x] = {}; o = o[x]; }); if (v) o[path[path.length - 1]] = v; else delete o[path[path.length - 1]]; }); }
+      else if (t.dataset.skGf) { const gi = +t.dataset.skG; mut((k) => { if (k.groups[gi]) k.groups[gi][t.dataset.skGf] = v; }); }
+      else if (t.dataset.skNf) {
+        const p = P(t.dataset.skP), f = t.dataset.skNf;
+        mut((k) => { const nd = nodeAt(k, p); if (!nd) return; if (f === 'name') nd.name = v; else if (f === 'amp') { const n = parseFloat(String(v).replace(',', '.')); if (v && isFinite(n)) nd.amp = n; else delete nd.amp; } else if (v) nd[f] = v; else delete nd[f]; });
+      }
+    });
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('[data-sk-e]');
+      if (!b || !el.contains(b)) return;
+      const host2 = H(), act = b.dataset.skE, ES = E(), key = b.dataset.skP, p = P(key), gi = +b.dataset.skG;
+      const h = (t) => hp(host2, t);
+      if (act === 'toggle') { const k = norm(el.__skCur), nd = nodeAt(k, p); if (!nd || !(nd.children || []).length) return; h('selection'); ES.open = { ...ES.open, [key]: !ES.open[key] }; rerender(); }
+      else if (act === 'edit') { h('selection'); ES.edit = ES.edit === key ? null : key; rerender(); }
+      else if (act === 'up' || act === 'down') {
+        const i = p[p.length - 1], k0 = norm(el.__skCur), L0 = listAt(k0, p), j = act === 'up' ? i - 1 : i + 1;
+        if (j < 0 || j >= L0.length) return;
+        h('selection'); ES.edit = null;
+        // åpne-tilstand følger punktene
+        const base = p.slice(0, -1).join('.'), a = base + '.' + i, c = base + '.' + j, swap = {};
+        Object.keys(ES.open).forEach((x) => { const y = x === a || x.startsWith(a + '.') ? c + x.slice(a.length) : x === c || x.startsWith(c + '.') ? a + x.slice(c.length) : x; swap[y] = ES.open[x]; });
+        ES.open = swap;
+        mut((k) => { const L = listAt(k, p); [L[j], L[i]] = [L[i], L[j]]; });
+      } else if (act === 'color') { h('selection'); const kk = b.dataset.skV; mut((k) => { const nd = nodeAt(k, p); if (kk) nd.color = `var(--${kk})`; else delete nd.color; }); }
+      else if (act === 'icon') {
+        if (!M.iconPicker || !M.iconPicker.open) return;
+        h('light');
+        const k0 = norm(el.__skCur), nd = nodeAt(k0, p);
+        try { const pr = M.iconPicker.open({ value: (nd && nd.icon) || '', title: 'Velg ikon', onPick: () => {} }); if (pr && pr.then) pr.then((v) => { if (v == null) return; mut((k) => { const n2 = nodeAt(k, p); if (!n2) return; if (v) n2.icon = v; else delete n2.icon; }); }); } catch (x) { /* */ }
+      } else if (act === 'addChild') {
+        h('success');
+        const k0 = norm(el.__skCur), n0 = nodeAt(k0, p), len = (n0.children || []).length;
+        ES.open = { ...ES.open, [key]: true }; ES.edit = key + '.' + len;
+        mut((k) => { const nd = nodeAt(k, p); nd.children = [...(nd.children || []), { name: 'Nytt punkt', icon: 'mdi:lightning-bolt' }]; });
+      } else if (act === 'del') {
+        h('warning'); ES.edit = null;
+        const pre = key, o2 = {};
+        Object.keys(ES.open).forEach((x) => { if (!(x === pre || x.startsWith(pre + '.'))) o2[x] = ES.open[x]; });
+        ES.open = o2;
+        mut((k) => { listAt(k, p).splice(p[p.length - 1], 1); });
+      } else if (act === 'add') {
+        h('success');
+        const k0 = norm(el.__skCur); ES.edit = gi + '.' + ((k0.groups[gi] && k0.groups[gi].items) || []).length;
+        mut((k) => { k.groups[gi].items.push({ name: 'Nytt punkt', icon: 'mdi:lightning-bolt', color: 'var(--blue)' }); });
+      } else if (act === 'gdel') { h('warning'); ES.edit = null; ES.open = {}; mut((k) => { k.groups.splice(gi, 1); }); }
+      else if (act === 'gup') { if (!gi) return; h('selection'); ES.edit = null; ES.open = {}; mut((k) => { [k.groups[gi - 1], k.groups[gi]] = [k.groups[gi], k.groups[gi - 1]]; }); }
+      else if (act === 'addGroup') { h('success'); mut((k) => { k.groups.push({ title: 'Ny gruppe', subtitle: '', items: [] }); }); }
+      else if (act === 'seg') { const kk = b.dataset.skK, v = b.dataset.skV, cur = norm(el.__skCur)[kk]; if (cur === v) return; h('selection'); mut((k) => { k[kk] = v; }); }
+      else if (act === 'adv') { h('selection'); ES.adv = !ES.adv; rerender(); }
+      else if (act === 'yaml') { h('selection'); ES.yaml = !ES.yaml; rerender(); }
+      else if (act === 'reset') { h('warning'); ES.edit = null; ES.open = {}; emit(null); }
+    });
+  }
+
+  /* ------------------------------------------------------------ CSS */
+  const S1 = 'var(--ki-surface, #3d3d3d)'; // ki-hex-ok: token med mørk fallback
+  const css = `
+    .sk-kroot{display:flex;flex-direction:column;gap:12px;min-width:0}
+    .sk-kroot button,.sk-ked button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .sk-ksec{display:flex;flex-direction:column;gap:12px;border-radius:26px;transition:transform .18s,box-shadow .18s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;min-width:0}
+    .sk-klift{transform:scale(1.03);box-shadow:0 14px 30px ${bA(0.45)};position:relative;z-index:5}
+    @keyframes sk-kfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    .sk-ktot{background:${PINK};color:${INK};border-radius:26px;padding:16px 18px;display:flex;flex-direction:column;gap:4px;animation:sk-kfade .3s ease}
+    .sk-ktot-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+    .sk-k13{font-size:13px}
+    .sk-kroot .sk-kchip{padding:5px 10px;border-radius:10px;background:rgba(60,40,50,.18);font-size:12px;font-weight:500;color:${INK};white-space:nowrap}
+    .sk-ktot-big{display:flex;align-items:baseline;gap:6px}
+    .sk-ksum{font-size:36px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+    .sk-kunit{font-size:16px;font-weight:500}
+    .sk-kstripe{display:flex;gap:2px;height:12px;margin-top:10px;border-radius:999px;overflow:hidden}
+    .sk-kstr0{flex:1;background:rgba(60,40,50,.18)}
+    .sk-kgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .sk-kseg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:999px;background:${S1}}
+    .sk-kroot .sk-kseg>button{height:46px;border-radius:999px;font-size:15px;font-weight:500;color:var(--ki-text-1, #d6d6d6);transition:background .25s,color .25s;min-width:0;white-space:nowrap}
+    .sk-kroot .sk-kseg>button.on{background:${PINK};color:${INK}}
+    .sk-khd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:8px 6px 0}
+    .sk-kht{font-size:15px;font-weight:600;color:var(--ki-text, #fafafa)}
+    .sk-khs{font-size:12px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .sk-kroot .sk-ktile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px;min-height:150px;box-sizing:border-box;border-radius:24px;text-align:left;min-width:0;background:${S1};color:var(--ki-text, #fafafa);transition:background .25s,box-shadow .25s,transform .18s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .sk-kroot .sk-ktile:active{transform:scale(.97)}
+    .sk-kroot .sk-ktile.on{background:color-mix(in oklab, var(--c) 22%, ${S1});box-shadow:inset 0 0 0 1.5px var(--c)}
+    .sk-kroot .sk-ktile.sk-klift{transform:scale(1.03);box-shadow:0 14px 30px ${bA(0.45)};position:relative;z-index:5}
+    .sk-kroot .sk-ktile.on.sk-klift{box-shadow:inset 0 0 0 1.5px var(--c),0 14px 30px ${bA(0.45)}}
+    .sk-ktile-top{display:flex;justify-content:space-between;align-items:flex-start;width:100%}
+    .sk-kicw{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:color-mix(in oklab, var(--c) 20%, var(--ki-surface-3, #2e2e2e));color:var(--ct)}
+    .sk-kpct{font-size:12px;font-weight:600;color:var(--ct)}
+    .sk-ktl{margin-top:auto;font-size:13px;color:var(--ki-text-1, #d6d6d6);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sk-ktv{font-size:22px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .sk-kbar{display:block;width:100%;height:4px;border-radius:2px;background:${bA(0.3)};overflow:hidden;margin-top:6px}
+    .sk-kbar>span{display:block;height:100%;background:var(--c);border-radius:2px}
+    .sk-kbar-s{margin-top:0}
+    .sk-kbar-s>span{border-radius:3px}
+    .sk-kbrk{background:${S1};border-radius:24px;padding:6px 16px;animation:sk-kfade .25s ease}
+    .sk-kbrk-hd{display:flex;align-items:center;justify-content:space-between;min-height:40px;font-size:13px;color:var(--ki-text-2, #b8b8b8)}
+    .sk-kroot .sk-kx{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ki-text, #fafafa)}
+    .sk-kroot .sk-kx:hover{background:${wA(0.08)}}
+    .sk-kkid{display:flex;align-items:center;gap:12px;min-height:54px;border-top:1px solid ${wA(0.08)}}
+    .sk-kkic{width:24px;display:flex;justify-content:center;flex:none}
+    .sk-kkmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+    .sk-kkln{display:flex;justify-content:space-between;gap:8px}
+    .sk-kkl{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    .sk-kkv{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .sk-kkp{width:34px;text-align:right;font-size:12px;color:var(--ki-text-2, #b8b8b8);flex:none}
+    .sk-kbox{display:flex;flex-direction:column;background:${S1};border-radius:26px;padding:6px 14px}
+    .sk-kempty{min-height:56px;display:flex;align-items:center;font-size:13px;color:var(--ki-text-2, #b8b8b8)}
+    .sk-kcir{border-radius:0;transition:transform .18s,box-shadow .18s,background .18s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .sk-kcir.sk-kbt{border-top:1px solid ${wA(0.08)}}
+    .sk-kcir.sk-klift{border-radius:18px;background:var(--ki-surface-2, #4a4a4a);padding:0 10px;margin:0 -10px}
+    .sk-kroot .sk-kcbtn{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;text-align:left;color:var(--ki-text, #fafafa)}
+    .sk-kfuse{width:40px;height:48px;border-radius:10px;background:var(--ki-surface-3, #2a2a2a);border:1px solid ${wA(0.08)};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;box-sizing:border-box}
+    .sk-kfuse>span:first-child{font-size:10px;font-weight:600;color:var(--ki-text-2, #b8b8b8)}
+    .sk-klever{width:12px;height:18px;border-radius:3px;background:linear-gradient(180deg,#e6e6e6 50%,#9a9a9a 50%);box-shadow:0 0 0 2px var(--lc)} /* ki-hex-ok: sikringsvippe (fysisk) */
+    .sk-kcmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+    .sk-kcln{display:flex;justify-content:space-between;gap:8px}
+    .sk-kcn{font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    .sk-kcval{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .sk-kcld{display:flex;align-items:center;gap:8px}
+    .sk-kticks{flex:1;display:flex;gap:2px;height:8px}
+    .sk-kticks>span{flex:1;border-radius:2px;background:${bA(0.3)}}
+    .sk-kticks>span.on{background:var(--lc)}
+    .sk-kload{font-size:11px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;font-variant-numeric:tabular-nums}
+    .sk-kchev{display:flex;color:var(--ki-text-2, #b8b8b8);transition:transform .25s;flex:none}
+    .sk-kchev.open{transform:rotate(180deg)}
+    .sk-kcids{display:flex;flex-direction:column;gap:2px;margin:0 0 12px 52px;animation:sk-kfade .25s ease}
+    .sk-kcid{display:flex;align-items:center;gap:10px;min-height:36px}
+    .sk-kcid .sk-kkic{width:22px}
+    .sk-kcl{flex:1;font-size:13px;color:var(--ki-text-1, #e1e1e1);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sk-kcv{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .sk-kcp{width:34px;text-align:right;font-size:11px;color:var(--ki-text-2, #b8b8b8);flex:none}
+    .sk-knoanim,.sk-knoanim *{animation:none !important}
+
+    /* ---- Kurser-editoren (Tilpass → Kurser) ---- */
+    .sk-ked{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;gap:8px;min-width:0;color:var(--ki-text, #fafafa)}
+    .sk-kinfo{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:24px;background:rgb(115 185 242 / 0.1);box-shadow:inset 0 0 0 1px rgb(115 185 242 / 0.22)}
+    .sk-kinfo>span{font-size:13px;line-height:1.45;color:var(--ki-text-1, #c7c7c7);text-wrap:pretty}
+    .sk-kcap{font-size:13px;font-weight:500;color:var(--ki-text-mid, #979797);padding:10px 8px 2px}
+    .sk-kcard{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
+    .sk-kfl{display:flex;flex-direction:column;gap:6px;min-width:0}
+    .sk-kfl-s{gap:4px}
+    .sk-klb{font-size:12px;color:var(--ki-text-mid, #979797);padding-left:4px}
+    .sk-klb-s{font-size:11px}
+    .sk-klb-t{padding:4px 4px 0}
+    .sk-ked input{height:44px;padding:0 14px;border-radius:14px;border:0;outline:none;color:var(--ki-text, #fafafa);font:inherit;font-size:14px;min-width:0;width:100%;box-sizing:border-box}
+    .sk-ked .sk-kin{background:var(--ki-surface-2, #2a2a2a)}
+    .sk-ked .sk-kin2{background:var(--ki-surface, #2a2a2a);height:40px;padding:0 12px;border-radius:12px;font-size:13px}
+    .sk-ked .sk-kin2-l{height:44px;padding:0 14px;border-radius:14px;font-size:14px}
+    .sk-keseg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;padding:3px;border-radius:20px;background:var(--ki-surface-2, #2a2a2a)}
+    .sk-ked .sk-keseg>button{height:40px;border-radius:18px;font-size:13px;font-weight:500;color:var(--ki-text-2, #afafaf);transition:background .25s}
+    .sk-ked .sk-keseg>button.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .sk-ked .sk-kadvb{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;text-align:left}
+    .sk-kadvb>span:first-child{flex:1;font-size:14px;font-weight:500}
+    .sk-kadvc{display:flex;color:var(--ki-text-mid, #979797);transition:transform .25s}
+    .sk-kadvc.open{transform:rotate(180deg)}
+    .sk-kegrp{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:28px;background:var(--ki-surface, #2f2f2f);box-shadow:inset 0 0 0 1px ${wA(0.05)};margin-top:6px}
+    .sk-kegh{display:flex;align-items:center;gap:6px;padding:2px 2px 6px}
+    .sk-kegt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+    .sk-ked .sk-kgti{height:40px;padding:0 12px;border-radius:12px;background:var(--ki-surface-2, #3a3a3a);font-size:16px;font-weight:600}
+    .sk-ked .sk-kgsu{height:34px;padding:0 12px;border-radius:10px;background:var(--ki-surface-2, #333);color:var(--ki-text-1, #c7c7c7);font-size:13px}
+    .sk-ked .sk-kgb{width:36px;height:40px;display:grid;place-items:center;color:var(--ki-text-1, #c7c7c7);flex:none}
+    .sk-ked .sk-kgb.off{color:var(--ki-text-lo, #5a5a5a)}
+    .sk-ked .sk-kgb.del{color:var(--ki-red-text, rgb(240 120 100))}
+    .sk-kerw{display:flex;flex-direction:column;gap:6px}
+    .sk-kerow{display:flex;align-items:center;gap:8px;min-height:56px;padding-right:4px;border-radius:18px;background:var(--ki-surface-2, #3a3a3a);transition:background .2s}
+    .sk-kerow.sub{background:var(--ki-surface-2, #353535)}
+    .sk-kerow.ed{background:var(--ki-surface-3, #454545)}
+    .sk-ked .sk-ketg{width:24px;height:40px;flex:none;display:grid;place-items:center}
+    .sk-kechev{display:flex;color:var(--ki-text-mid, #979797);transition:transform .2s}
+    .sk-kechev.open{transform:rotate(90deg)}
+    .sk-keic{width:34px;height:34px;border-radius:17px;flex:none;display:grid;place-items:center;background:color-mix(in oklab, var(--c) 22%, var(--ki-surface-3, #2a2a2a));color:var(--ct)}
+    .sk-kenm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;cursor:pointer}
+    .sk-ken{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-kem{font-size:11px;color:var(--ki-text-mid, #979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-ked .sk-kemv{width:36px;height:40px;flex:none;display:grid;place-items:center;color:var(--ki-text-1, #c7c7c7)}
+    .sk-ked .sk-kemv.off{color:var(--ki-text-lo, #5a5a5a)}
+    .sk-ked .sk-keed{width:40px;height:40px;flex:none;border-radius:20px;display:grid;place-items:center;color:var(--ki-text-1, #c7c7c7)}
+    .sk-ked .sk-keed.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .sk-kepn{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:20px;background:var(--ki-surface-2, #404040);animation:sk-kfade .2s ease}
+    .sk-kicr{display:flex;align-items:center;gap:8px}
+    .sk-ked .sk-kicp{width:44px;height:44px;border-radius:14px;flex:none;background:var(--ki-surface, #2a2a2a);display:grid;place-items:center}
+    .sk-kcols{display:flex;flex-wrap:wrap;gap:8px;padding:0 4px}
+    .sk-ked .sk-kcol{width:30px;height:30px;border-radius:15px;flex:none;transition:box-shadow .15s}
+    .sk-ked .sk-kcol.inh{background:repeating-linear-gradient(45deg,var(--ki-ctrl, #555) 0 4px,var(--ki-surface, #3a3a3a) 4px 8px)}
+    .sk-ked .sk-kcol.on{box-shadow:0 0 0 2px var(--ki-popup, #282828),0 0 0 4px var(--ki-text, #fafafa)}
+    .sk-kebts{display:flex;gap:8px;padding-top:4px}
+    .sk-ked .sk-keadd{flex:1;height:44px;border-radius:22px;background:var(--ki-surface, #2f2f2f);display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500}
+    .sk-ked .sk-keadd:active{transform:scale(.97)}
+    .sk-ked .sk-kedel{width:44px;height:44px;border-radius:22px;background:rgba(240,120,100,.15);color:var(--ki-red-text, rgb(240 120 100));display:grid;place-items:center;flex:none}
+    .sk-ked .sk-kedel:active{transform:scale(.94)}
+    .sk-ked .sk-kepadd{height:48px;border-radius:18px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;color:var(--ki-pink-text, rgb(242 133 201))}
+    .sk-ked .sk-kepadd:active{transform:scale(.98)}
+    .sk-ked .sk-kaddg{height:52px;border-radius:26px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500}
+    .sk-ked .sk-kaddg:active{transform:scale(.98)}
+    .sk-kebr{display:flex;gap:8px}
+    .sk-ked .sk-kebb{flex:1;height:48px;border-radius:24px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500}
+    .sk-kyaml{margin:0;max-height:360px;overflow:auto;padding:14px;border-radius:18px;background:var(--ki-surface-3, #1f1f1f);color:var(--ki-text-1, #c7c7c7);font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre;user-select:text;-webkit-user-select:text}
+    .sk-ked :is(button,span,div){-webkit-tap-highlight-color:transparent}
+  `;
+
+  M.stromKurser = { KDEF, norm, html, bind, css, editorHtml, editorBind, toYaml, _entFor: entFor, _valOf: valOf };
+})();
+
+} catch (e) { console.error('[ki-msh] 62-strom-kurser.js', e); }
+
+/* ---- 63-strom-sider.js ---- */
+try {
+/* KI MSH · Strøm-popup v3 (#strom) · undersidene Norgespris, Strømregning og Strøminnstillinger (Del 45 §6).
+ * Fasit: design/Strøm popup v3.dc.html (isNorge / isBill / isSet). Vertskortet (src/61-strom.js, msh-strom-card) kaller
+ *   M.stromSider.html(host, page) inne i sin render og M.stromSider.bind(host, el, page) etter render (delegerte lyttere,
+ *   idempotent). page = 'norgespris' | 'stromregning' | 'innstillinger'. Attributter data-ss-*, klasser ss-*.
+ * host: hass, config, ui (UI-tilstand), ent(role), setCfg(patch), render(), go(page|null), anim, haptic(type).
+ *
+ * Data (aldri mock – mangler → «–» og flate grafer):
+ *   Timeforbruk: recorder/statistics_during_period (period hour, types change+mean) for host.ent('forbruk')
+ *     (ellers Energi-oppsettets nett-import, MSH.energiSources), spotpris host.ent('spot'), Norgespris host.ent('norge')
+ *     og Nord Pool-sensoren (MSH.powerPrice). Hentes bare mens en underside er åpen. Timer (period hour) bare fra
+ *     min(mandag, 1. i måneden) – i dag, Uke, Måned og effekttrinn; År: tidligere måneder med period month (bare når År
+ *     er valgt); effektledd for en tidligere måned: timer for den ene måneden når den velges. Alt
+ *     mellomlagres 5 min. Dagens priser uten statistikk fylles fra prislistene (MSH.priceSeries); Norgespris er fast
+ *     sats → nåverdien brukes for timer uten statistikk. Inneværende time = dagssensorens tilstand − dagens timesum.
+ *   Norgespris: «Med spotpris» = Σ kWh × spot, «Med Norgespris» = Σ kWh × Norgespris for timer der begge er kjent.
+ *     Grønt toppkort når Norgespris har vært billigst, rødt når dyrest. Timegraf = spot − Norgespris per time i dag.
+ *   Strømregning (estimat): Strøm = Σ kWh × (Nord Pool + påslag), Nettleie = Σ kWh × dag-/nattsats (+ effektledd når
+ *     config sider.effektledd = [kr/mnd for trinn 0–2, 2–5, 5–10, 10–15, 15–20 kW] finnes), Norgespris-fratrekk =
+ *     Σ kWh × (Norgespris − spot), Avgifter = moms. Total = «Kostnad i dag»/«Regning måned»-sensoren for Dag/Måned
+ *     når den finnes, ellers summen. Effekttrinn = snitt av de 3 høyeste døgnmaksimumene (kWh/t) denne måneden.
+ *   Strøminnstillinger: verdiene (øre/kWh uten moms, %) leses fra input_number/number som finnes (config sider.ent.<k>
+ *     eller funnet på navn), ellers config sider.<k>. Trykk → rediger tallet → input_number/number.set_value eller
+ *     host.setCfg({ sider }). Terskel 77 øre, 90 % og moms 25 % er satsene fra myndighetene (standard), resten «–».
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.stromSider) return;
+  const esc = M.esc, TH = M.theme || {};
+  const AT = (c) => (TH.accentText ? TH.accentText(c) : c);
+  const WA = (a) => (TH.whiteA ? TH.whiteA(a) : `rgb(255 255 255 / ${a})`);
+  const KA = (a) => (TH.blackA ? TH.blackA(a) : `rgb(0 0 0 / ${a})`);
+  const ic = (n, s, st) => M.icon(n, s, st);
+  const TTL = 300000, HR = 3600000;
+  // Aksentene i designet (flater/fyll beholder aksenten; tekst/ikon via AT)
+  const PINK = 'linear-gradient(160deg,#f28ac9,#f6c9c4)';
+  const INK = 'var(--ki-on-accent, rgba(50,38,44,.95))';
+  const BLUE = '#73b8f2', ORANGE = '#f2b46f', PURPLE = '#a98ff0', GREENF = 'rgb(110 200 160)', AMBER = '#f2b04f';
+  const GREEN = 'rgb(120 210 165)', RED = 'rgb(240 120 100)';
+  const GREEN_T = 'var(--ki-green-text, rgb(140 225 180))', RED_T = 'var(--ki-red-text, rgb(240 120 100))';
+  const MN = ['Januar', 'Februar', 'Mars', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Desember'];
+  const ML = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+  const MS = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
+  const STEPS = [['0–2', 0, 2], ['2–5', 2, 5], ['5–10', 5, 10], ['10–15', 10, 15], ['15–20', 15, 20]];
+  const NP_PER = [['I dag', 'i dag'], ['Uke', 'denne uken'], ['Måned', 'denne måneden'], ['År', 'i år']];
+  const BP_PER = ['Dag', 'Uke', 'Måned', 'År'];
+
+  const fx = (n, d) => (n == null || isNaN(n) ? '–' : (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d }));
+  const nb = (n, d) => (n == null || isNaN(n) ? '–' : (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('nb-NO', { maximumFractionDigits: d }));
+  const fmt1 = (v) => fx(v, Math.abs(v) >= 100 ? 0 : 1);
+  const isNum = (v) => v != null && v !== '' && !isNaN(Number(v));
+  const st = (h, id) => (h && id && h.states && h.states[id]) || null;
+  const numOf = (h, id) => { const s = st(h, id); return s && isNum(s.state) ? Number(s.state) : null; };
+  const priceOf = (h, id) => { const s = st(h, id); return s && isNum(s.state) ? Number(s.state) * (M.priceScale ? M.priceScale(s) : 1) : null; };
+  const hk = (t) => Math.floor(t / HR); // timenøkkel (hele timer – norsk tidssone har hele-time-forskyvning)
+  const d0 = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const isoWeek = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const n = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - n); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - y0) / 86400000 + 1) / 7); };
+  const monday = (d) => { const x = d0(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+  const S = new WeakMap(); // ren, ikke-persistert tilstand per vert: { edit, draft, scrub, focused }
+  const sOf = (host) => { let s = S.get(host); if (!s) S.set(host, (s = { edit: null, draft: null, scrub: null, focused: null })); return s; };
+  const hp = (host, t) => { try { if (host && host.haptic) host.haptic(t || 'light'); else M.haptic(t || 'light'); } catch (e) { /* */ } };
+  const ui = (host) => host.ui || (host.ui = {});
+  const ent = (host, r) => { try { return host.ent ? host.ent(r) : null; } catch (e) { return null; } };
+  const cfgS = (host) => ((host.config && host.config.sider) || {});
+
+  /* ------------------------------------------------------------ statistikk (hentes når undersiden åpnes, 5 min) */
+  const CACHE = new Map(); // key → { t, busy, data, hosts:Set }
+  const tsOf = (v) => (typeof v === 'number' ? v : Date.parse(v));
+  function srcIds(host) {
+    const h = host.hass;
+    let pp = null; try { pp = M.powerPrice ? M.powerPrice(h) : null; } catch (e) { /* */ }
+    let gin = [];
+    try { if (M.energiPrefs) M.energiPrefs(h); const R = M.energiSources ? M.energiSources(h, {}) : null; gin = (R && R.grid_in) || []; } catch (e) { /* */ }
+    const forbruk = ent(host, 'forbruk');
+    return { energy: [forbruk, ...gin].filter((x, i, a) => x && a.indexOf(x) === i), spot: ent(host, 'spot'), norge: ent(host, 'norge') || (pp && pp.norgespris && pp.norgespris.entity) || null, nord: (pp && pp.entity) || null, pp, forbruk };
+  }
+  // Felles WS-hent med 5 min mellomlager; vertene tegnes på nytt når svaret kommer
+  function ws(host, key, req) {
+    const h = host.hass;
+    if (!h || !h.callWS) return null;
+    let c = CACHE.get(key);
+    if (!c) CACHE.set(key, (c = { t: 0, busy: false, data: null, hosts: new Set() }));
+    c.hosts.add(host);
+    if (!c.busy && Date.now() - c.t > TTL) {
+      c.busy = true;
+      Promise.resolve().then(() => h.callWS({ type: 'recorder/statistics_during_period', ...req }))
+        .then((r) => { c.data = r || {}; }).catch(() => { c.data = c.data || {}; })
+        .finally(() => { c.busy = false; c.t = Date.now(); c.hosts.forEach((x) => { if (x.isConnected !== false) { try { x.render(); } catch (e) { /* */ } } }); c.hosts.clear(); });
+    }
+    return c.data;
+  }
+  const allIds = (ids) => [...ids.energy, ids.spot, ids.norge, ids.nord].filter((x, i, a) => x && a.indexOf(x) === i);
+  // Timedata bare for det som trenger timer: i dag, denne uken og denne måneden (effekttrinn) → fra min(mandag, 1. i mnd)
+  function fetchHourly(host, ids) {
+    const all = allIds(ids);
+    if (!all.length) return null;
+    const now = new Date(), start = new Date(Math.min(new Date(now.getFullYear(), now.getMonth(), 1).getTime(), monday(now).getTime()));
+    return ws(host, 'h|' + all.join(',') + '|' + start.getTime(), { start_time: start.toISOString(), end_time: new Date(now.getTime() + HR).toISOString(), statistic_ids: all, period: 'hour', types: ['change', 'mean'], units: { energy: 'kWh' } });
+  }
+  // År: tidligere måneder i år som månedsstatistikk (period month) – hentes bare når År er valgt
+  function fetchMonths(host, ids) {
+    const all = allIds(ids), now = new Date(), y0 = new Date(now.getFullYear(), 0, 1), m0 = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (!all.length || m0 <= y0) return {};
+    return ws(host, 'm|' + all.join(',') + '|' + y0.getTime() + '|' + m0.getTime(), { start_time: y0.toISOString(), end_time: m0.toISOString(), statistic_ids: all, period: 'month', types: ['change', 'mean'], units: { energy: 'kWh' } });
+  }
+  // Effektledd for en tidligere måned: timeforbruk for den ene måneden, hentes når måneden velges
+  function fetchMonthHours(host, id, y, m) {
+    if (!id) return null;
+    const a = new Date(y, m, 1), b = new Date(y, m + 1, 1);
+    return ws(host, 'p|' + id + '|' + a.getTime(), { start_time: a.toISOString(), end_time: b.toISOString(), statistic_ids: [id], period: 'hour', types: ['change'], units: { energy: 'kWh' } });
+  }
+  // Timeserier: E (kWh), SP (spot kr/kWh), NG (Norgespris), NP (Nord Pool) – nøkkel = hk(ts)
+  function dataOf(host, o) {
+    const h = host.hass, ids = srcIds(host), raw = fetchHourly(host, ids);
+    const D = { loaded: raw != null, ids, E: new Map(), SP: new Map(), NG: new Map(), NP: new Map(), eId: null };
+    const now = new Date(), kNow = hk(now.getTime()), kDay = hk(d0(now).getTime());
+    const rows = (id) => (raw && id && Array.isArray(raw[id]) ? raw[id] : []);
+    for (const id of ids.energy) {
+      const L = rows(id).filter((r) => r && isNum(r.change));
+      if (!L.length) continue;
+      D.eId = id; L.forEach((r) => D.E.set(hk(tsOf(r.start)), Number(r.change)));
+      break;
+    }
+    const fill = (map, id) => { const sc = M.priceScale ? M.priceScale(st(h, id)) : 1; rows(id).forEach((r) => { if (r && isNum(r.mean)) map.set(hk(tsOf(r.start)), Number(r.mean) * sc); }); };
+    fill(D.SP, ids.spot); fill(D.NG, ids.norge); fill(D.NP, ids.nord);
+    // Dagens priser fra prislisten (attributter) der statistikk mangler
+    const series = (map, id) => { if (!id || !M.priceSeries) return; M.priceSeries(h, id).slice(0, 24).forEach((v, i) => { if (v != null && !map.has(kDay + i)) map.set(kDay + i, v); }); };
+    series(D.SP, ids.spot); series(D.NP, ids.nord);
+    const spNow = priceOf(h, ids.spot); if (spNow != null) D.SP.set(kNow, spNow);
+    const npNow = priceOf(h, ids.nord); if (npNow != null) D.NP.set(kNow, npNow);
+    D.norgeNow = priceOf(h, ids.norge);
+    if (D.norgeNow == null && ids.pp && ids.pp.norgespris && ids.pp.norgespris.entity) D.norgeNow = ids.pp.norgespris.v;
+    if (D.norgeNow != null) D.NG.set(kNow, D.norgeNow);
+    // Inneværende time: dagssensoren (kWh) − dagens timesum (bare når det gir et rimelig tall)
+    if (D.eId && D.eId === ids.forbruk) {
+      const s = st(h, ids.forbruk), u = String((s && s.attributes && s.attributes.unit_of_measurement) || 'kWh');
+      const v = s && isNum(s.state) ? Number(s.state) * (/^Wh$/i.test(u) ? 0.001 : /^MWh$/i.test(u) ? 1000 : 1) : null;
+      if (v != null) { let sum = 0; D.E.forEach((x, k) => { if (k >= kDay && k < kNow) sum += x; }); const rem = v - sum; if (rem >= 0 && rem < 60 && !D.E.has(kNow)) D.E.set(kNow, rem); }
+    }
+    D.kNow = kNow; D.kDay = kDay; D.kMon = hk(new Date(now.getFullYear(), now.getMonth(), 1).getTime());
+    // År: tidligere måneder (månedsstatistikk) → D.Mo[m] = { kwh, sp, ng, np }
+    D.Mo = []; D.moLoaded = true;
+    if (o && o.year) {
+      const mr = fetchMonths(host, ids); D.moLoaded = mr != null;
+      const rowsM = (id) => (mr && id && Array.isArray(mr[id]) ? mr[id] : []);
+      const mOf = (r) => new Date(tsOf(r.start)).getMonth();
+      const eM = rowsM(D.eId || ids.energy[0]);
+      eM.forEach((r) => { if (r && isNum(r.change)) D.Mo[mOf(r)] = { kwh: Number(r.change), sp: null, ng: null, np: null }; });
+      const put = (id, f) => { const sc = M.priceScale ? M.priceScale(st(h, id)) : 1; rowsM(id).forEach((r) => { const x = D.Mo[mOf(r)]; if (x && r && isNum(r.mean)) x[f] = Number(r.mean) * sc; }); };
+      put(ids.spot, 'sp'); put(ids.norge, 'ng'); put(ids.nord, 'np');
+      D.Mo.forEach((x) => { if (x && x.ng == null) x.ng = D.norgeNow; });
+    }
+    return D;
+  }
+  const ng = (D, k) => (D.NG.has(k) ? D.NG.get(k) : D.norgeNow);
+  // Sum for [from, to) (timenøkler): kWh, kostnad med spot og med Norgespris (timer der begge er kjent)
+  function cmpSum(D, from, to) {
+    let sp = 0, n = 0, g = 0;
+    D.E.forEach((kwh, k) => { if (k < from || k >= to) return; const s = D.SP.get(k), q = ng(D, k); if (s == null || q == null) return; sp += kwh * s; g += kwh * q; n++; });
+    return n ? { sp, ng: g, n } : null;
+  }
+  // År = denne måneden (timer) + tidligere måneder (månedssnitt × månedsforbruk)
+  function yearSum(D) {
+    const R = cmpSum(D, D.kMon, D.kNow + 1) || { sp: 0, ng: 0, n: 0 };
+    D.Mo.forEach((x) => { if (x && x.sp != null && x.ng != null) { R.sp += x.kwh * x.sp; R.ng += x.kwh * x.ng; R.n++; } });
+    return R.n ? R : null;
+  }
+  const rangeOf = (key, now) => {
+    const n = now || new Date(); let a;
+    if (key === 'I dag' || key === 'Dag') a = d0(n);
+    else if (key === 'Uke') a = monday(n);
+    else if (key === 'Måned') a = new Date(n.getFullYear(), n.getMonth(), 1);
+    else a = new Date(n.getFullYear(), 0, 1);
+    return [hk(a.getTime()), hk(n.getTime()) + 1, a];
+  };
+
+  /* ------------------------------------------------------------ innstillinger (verdier + bakenforliggende entitet) */
+  const SET = [
+    ['nord', 'bolt', 'Nordpool', 'øre/kWh', false],
+    ['total', 'visibility', 'Totalpris', 'øre/kWh', false],
+    ['grid', 'home_work', 'Nettleie dag', 'øre/kWh', true],
+    ['night', 'home_work', 'Nettleie natt', 'øre/kWh', true],
+    ['surch', 'home_work', 'Påslag strømselskap', 'øre/kWh', true],
+    ['gov', 'show_chart', 'Terskel strømstøtte', 'øre/kWh', true],
+    ['govPct', 'percent', 'Strømstøtte dekker', '%', true],
+    ['vat', 'percent', 'Moms', '%', true],
+  ];
+  const STD = { gov: 77, govPct: 90, vat: 25 }; // offentlige satser (strømstøtte-terskel uten moms, dekning, moms)
+  const RX = {
+    govPct: /(andel|prosent|dekning|dekker|percent|pct).*st(o|ø|oe)tte|st(o|ø|oe)tte.*(andel|prosent|dekning|dekker|percent|pct)/i,
+    gov: /terskel|threshold|st(o|ø|oe)tte.*grense|grense.*st(o|ø|oe)tte/i,
+    night: /nettleie.*natt|natt.*nettleie|grid.*night|night.*grid|energiledd.*natt/i,
+    grid: /nettleie.*dag|dag.*nettleie|grid.*day|day.*grid|energiledd.*dag/i,
+    surch: /p(a|å|aa)slag|surcharge|markup/i,
+    vat: /(^|[^a-z])(moms|mva|vat)([^a-z]|$)/i,
+  };
+  function backing(h, k, sider) {
+    const o = (sider && sider.ent && sider.ent[k]) || null;
+    if (o) return st(h, o) ? o : null;
+    if (!h || !h.states) return null;
+    const cand = Object.keys(h.states).filter((id) => /^(input_number|number)\./.test(id) && isNum(h.states[id].state)).sort();
+    const txt = (id) => id + ' ' + ((h.states[id].attributes || {}).friendly_name || '');
+    return cand.find((id) => RX[k].test(txt(id)) && !(k === 'gov' && RX.govPct.test(txt(id)))) || null;
+  }
+  function settings(host) {
+    const h = host.hass, sider = cfgS(host), V = {};
+    ['grid', 'night', 'surch', 'gov', 'govPct', 'vat'].forEach((k) => {
+      const e = backing(h, k, sider), ev = e ? numOf(h, e) : null;
+      V[k] = { v: ev != null ? ev : isNum(sider[k]) ? Number(sider[k]) : STD[k] != null ? STD[k] : null, ent: e };
+    });
+    let pp = null; try { pp = M.powerPrice ? M.powerPrice(h) : null; } catch (e) { /* */ }
+    const nord = pp && pp.spotNow != null ? pp.spotNow * 100 : null;
+    const now = new Date(), day = now.getDay() % 6 !== 0 && now.getHours() >= 6 && now.getHours() < 22;
+    const g = day ? V.grid.v : V.night.v;
+    const support = nord != null && V.gov.v != null && V.govPct.v != null ? Math.max(0, nord - V.gov.v) * V.govPct.v / 100 : null;
+    const total = nord != null && g != null && V.surch.v != null && support != null && V.vat.v != null ? (nord + g + V.surch.v - support) * (1 + V.vat.v / 100) : null;
+    V.nord = { v: nord, ent: null }; V.total = { v: total, ent: null };
+    return V;
+  }
+  const isDayH = (t) => { const d = new Date(t); return d.getDay() % 6 !== 0 && d.getHours() >= 6 && d.getHours() < 22; };
+
+  /* ------------------------------------------------------------ felles markup */
+  const head = (title, icon) => `<div class="ss-head"><button class="ss-back" data-ss-act="back" title="Tilbake" aria-label="Tilbake">${ic('arrow_back', 22)}</button><span class="ss-title">${esc(title)}</span><span class="ss-badge">${ic(icon, 22)}</span></div>`;
+  const pills = (list, cur, cls, act) => `<div class="ss-seg ${cls}" data-glass-drag="x">${list.map((l) => `<button class="ss-pill${l === cur ? ' on' : ''}" data-ss-act="${act}:${esc(l)}">${esc(l)}</button>`).join('')}</div>`;
+
+  /* ------------------------------------------------------------ Norgespris */
+  function norgespris(host) {
+    const u = ui(host);
+    const np = NP_PER.some((p) => p[0] === u.ssNp) ? u.ssNp : 'Måned', nWhen = NP_PER.find((p) => p[0] === np)[1];
+    const D = dataOf(host, { year: np === 'År' });
+    const [a, b] = rangeOf(np), R = np === 'År' ? yearSum(D) : cmpSum(D, a, b);
+    const sp = R ? R.sp : null, g = R ? R.ng : null;
+    const has = sp != null && g != null, won = has && sp >= g, diff = has ? Math.abs(sp - g) : null;
+    const state = !has ? 'none' : won ? 'won' : 'lost';
+    const npTxt = D.norgeNow != null ? fx(D.norgeNow, 2) + ' kr/kWh' : 'Norgespris';
+    const title = has ? `${won ? 'Spart' : 'Tapt'} med Norgespris · ${nWhen}` : `Norgespris · ${nWhen}`;
+    const pct = has && Math.max(sp, g) > 0 ? `${Math.round(diff / Math.max(sp, g) * 100)} % ${won ? 'billigere' : 'dyrere'}` : '–';
+    const big = has ? (won ? '' : '−') + fmt1(diff) : '–';
+    const sub = !has ? (D.loaded && D.moLoaded ? 'Mangler forbruk eller spotpris for perioden' : 'Henter statistikk …') : won ? `Fast ${npTxt} var billigere enn spotpris ${nWhen}` : `Spotpris var billigere enn ${npTxt} ${nWhen}`;
+    const nmax = has ? Math.max(sp, g, 1e-9) : 1;
+    const cmp = [['Med spotpris', sp, ORANGE], ['Med Norgespris', g, BLUE]].map(([l, v, c]) => `<div class="ss-cmp"><span class="ss-cmp-h"><span class="ss-cmp-l"><span class="ss-dot" style="background:${c}"></span>${l}</span><span class="ss-cmp-v">${v == null ? '–' : fmt1(v)} kr</span></span><span class="ss-track"><span class="ss-bar" style="width:${v == null ? 0 : (v / nmax * 100).toFixed(2)}%;background:${c}"></span></span></div>`).join('');
+    // Timegraf i dag: spot − Norgespris per time (opp = Norgespris billigst)
+    const hrs = Array.from({ length: 24 }, (_, i) => { const k = D.kDay + i, s = D.SP.get(k), q = ng(D, k); return s == null || q == null ? null : s - q; });
+    const dmax = Math.max(1e-9, ...hrs.filter((x) => x != null).map(Math.abs));
+    let saved = 0, nS = 0; hrs.forEach((d, i) => { const e = D.E.get(D.kDay + i); if (d != null && e != null) { saved += d * e; nS++; } });
+    const hNow = new Date().getHours(), sc = sOf(host).scrub;
+    const hrsSum = nS ? `${saved >= 0 ? 'spart' : 'tapt'} ${fx(Math.abs(saved), 0)} kr i dag` : '–';
+    const bars = hrs.map((d, i) => { const hgt = d == null ? 0 : (Math.abs(d) / dmax * 100).toFixed(1); return `<span class="ss-hcol${i > hNow ? ' fut' : ''}${sc === i ? ' sel' : ''}" data-h="${i}" data-d="${d == null ? '' : d}"><span class="ss-hup"><span style="height:${d != null && d > 0 ? hgt : 0}%;background:${GREEN}"></span></span><span class="ss-hdn"><span style="height:${d != null && d < 0 ? hgt : 0}%;background:${RED}"></span></span></span>`; }).join('');
+    // Fliser: denne timen · i dag · denne uken (positiv = spart)
+    const dNow = hrs[hNow], eNow = D.E.get(D.kNow);
+    const tNow = dNow != null && eNow != null ? dNow * eNow : null;
+    const [da, db] = rangeOf('I dag'), [wa, wb] = rangeOf('Uke');
+    const rd = cmpSum(D, da, db), rw = cmpSum(D, wa, wb);
+    const tiles = [['Denne timen', tNow], ['I dag', rd ? rd.sp - rd.ng : null], ['Denne uken', rw ? rw.sp - rw.ng : null]].map(([l, v]) => `<span class="ss-tile"><span class="ss-tile-l">${l}</span><span class="ss-tile-v${v != null && v < 0 ? ' neg' : ''}">${v == null ? '–' : fx(v, Math.abs(v) < 1 ? 2 : 0) + ' kr'}</span></span>`).join('');
+    return `${head('Norgespris', 'savings')}
+<div class="ss-nx ${state}" data-ss-hero="${state}"><span class="ss-nx-glow"></span>
+  <span class="ss-row"><span class="ss-nx-title">${esc(title)}</span><span class="ss-nx-chip">${esc(pct)}</span></span>
+  <span class="ss-big-row"><span class="ss-nx-big">${big}</span><span class="ss-nx-kr">kr</span></span>
+  <span class="ss-nx-sub">${esc(sub)}</span>
+  ${pills(NP_PER.map((p) => p[0]), np, 'ss-seg-n', 'np')}
+</div>
+<div class="ss-card ss-gap14"><span class="ss-h">${ic('balance', 18, 'color:var(--ki-text-2, #b8b8b8)')}Hva du hadde betalt</span>${cmp}</div>
+<div class="ss-card ss-gap12"><span class="ss-row"><span class="ss-h">${ic('schedule', 18, 'color:var(--ki-text-2, #b8b8b8)')}Time for time i dag</span><span class="ss-sm ss-hrs-sum" data-sum="${esc(hrsSum)}">${esc(sc != null ? scrubTxt(sc, hrs[sc]) : hrsSum)}</span></span>
+  <div class="ss-hrs" data-ss-scrub><span class="ss-mid"></span>${bars}</div>
+  <div class="ss-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+  <div class="ss-legend"><span><i style="background:${GREEN}"></i>Norgespris billigst</span><span><i style="background:${RED}"></i>Spot billigst</span></div>
+</div>
+<div class="ss-tiles">${tiles}</div>`;
+  }
+  const scrubTxt = (h, d) => `kl. ${String(h).padStart(2, '0')} · ${d == null ? '–' : (d >= 0 ? '+' : '') + fx(d, 2) + ' kr/kWh'}`;
+
+  /* ------------------------------------------------------------ Strømregning */
+  function stromregning(host) {
+    const u = ui(host), h = host.hass, V = settings(host), sider = cfgS(host);
+    const bp = BP_PER.includes(u.ssBp) ? u.ssBp : 'Måned', now = new Date();
+    const D = dataOf(host, { year: bp === 'År' });
+    const [a, b, aD] = rangeOf(bp, now);
+    const vat = V.vat.v != null ? V.vat.v / 100 : null;
+    let kwh = 0, nE = 0, strom = 0, nStrom = 0, grid = 0, gridOk = V.grid.v != null && V.night.v != null, fr = 0, nFr = 0, eDay = 0, eNight = 0;
+    D.E.forEach((e, k) => {
+      if (k < a || k >= b) return;
+      kwh += e; nE++;
+      const day = isDayH(k * HR); if (day) eDay += e; else eNight += e;
+      const p = D.NP.has(k) ? D.NP.get(k) : D.SP.get(k);
+      if (p != null) { strom += e * (p + (V.surch.v || 0) / 100); nStrom++; }
+      if (gridOk) grid += e * (day ? V.grid.v : V.night.v) / 100;
+      const s = D.SP.get(k), q = ng(D, k);
+      if (s != null && q != null) { fr += e * (q - s); nFr++; }
+    });
+    // År: tidligere måneder fra månedsstatistikken (nettleie med denne månedens dag-/nattandel)
+    const dayShare = eDay + eNight > 0 ? eDay / (eDay + eNight) : 0.5;
+    if (bp === 'År') D.Mo.forEach((x) => {
+      if (!x) return;
+      kwh += x.kwh; nE++;
+      const pr = x.np != null ? x.np : x.sp;
+      if (pr != null) { strom += x.kwh * (pr + (V.surch.v || 0) / 100); nStrom++; }
+      if (gridOk) grid += x.kwh * (dayShare * V.grid.v + (1 - dayShare) * V.night.v) / 100;
+      if (x.sp != null && x.ng != null) { fr += x.kwh * (x.ng - x.sp); nFr++; }
+    });
+    // Effekttrinn: døgnmaks (kWh/t ≈ kW) per måned
+    // Tidligere måneder: timedata hentes bare for valgt måned (eller ligger i mellomlageret fra før)
+    const em0 = isNum(u.ssEm) && u.ssEm >= 0 && u.ssEm < 12 ? Number(u.ssEm) : now.getMonth();
+    const eId = D.eId || D.ids.energy[0];
+    const pastE = (m) => {
+      if (!eId) return null;
+      const c = m === em0 ? fetchMonthHours(host, eId, now.getFullYear(), m) : (CACHE.get('p|' + eId + '|' + new Date(now.getFullYear(), m, 1).getTime()) || {}).data;
+      const L = c && Array.isArray(c[eId]) ? c[eId] : null;
+      if (!L) return null;
+      const mp = new Map(); L.forEach((r) => { if (r && isNum(r.change)) mp.set(hk(tsOf(r.start)), Number(r.change)); });
+      return mp;
+    };
+    const peaksOf = (y, m) => { const md = new Map(); (m === now.getMonth() ? D.E : pastE(m) || new Map()).forEach((e, k) => { const d = new Date(k * HR); if (d.getFullYear() !== y || d.getMonth() !== m || k === D.kNow) return; const key = d.getDate(); if (!md.has(key) || md.get(key) < e) md.set(key, e); }); return [...md.entries()].sort((x, y2) => y2[1] - x[1]).slice(0, 3); };
+    const stepOf = (kw) => (kw == null ? -1 : Math.min(STEPS.length - 1, STEPS.findIndex((s) => kw < s[2]) < 0 ? STEPS.length - 1 : STEPS.findIndex((s) => kw < s[2])));
+    const EL = Array.isArray(sider.effektledd) && sider.effektledd.length >= STEPS.length && sider.effektledd.every(isNum) ? sider.effektledd.map(Number) : null;
+    const monthAvg = Array.from({ length: 12 }, (_, m) => { if (m > now.getMonth()) return null; const p = peaksOf(now.getFullYear(), m); return p.length ? p.reduce((s, x) => s + x[1], 0) / p.length : null; });
+    const monthKr = monthAvg.map((v) => (v == null || !EL ? null : EL[stepOf(v)]));
+    // Effektledd i perioden (andel av måned for Dag/Uke)
+    let eff = null;
+    if (EL) {
+      eff = 0;
+      for (let t = d0(aD); t <= now; t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)) { const m = t.getMonth(), dim = new Date(t.getFullYear(), m + 1, 0).getDate(); if (t.getFullYear() === now.getFullYear() && monthKr[m] != null) eff += monthKr[m] / dim; }
+    }
+    const gridT = gridOk ? grid + (eff || 0) : null;
+    const stromT = nStrom ? strom : null, frT = nFr ? fr : null;
+    const avg = vat != null && stromT != null ? (stromT + (gridT || 0) + (frT || 0)) * vat : null;
+    const sumParts = stromT != null ? stromT + (gridT || 0) + (frT || 0) + (avg || 0) : null;
+    const entTot = bp === 'Dag' ? numOf(h, ent(host, 'dag')) : bp === 'Måned' ? numOf(h, ent(host, 'maned')) : null;
+    const total = entTot != null ? entTot : sumParts;
+    const dagKr = numOf(h, ent(host, 'dag'));
+    const period = { Dag: 'i dag', Uke: `uke ${isoWeek(now)}`, Måned: MN[now.getMonth()].toLowerCase(), År: String(now.getFullYear()) }[bp];
+    const when = { Dag: 'i dag', Uke: 'denne uken', Måned: 'denne måneden', År: 'i år' }[bp];
+    const sub = { Dag: 'I dag, så langt', Uke: `Uke ${isoWeek(now)}, så langt`, Måned: `Hittil i ${MN[now.getMonth()].toLowerCase()}${dagKr != null ? ` · i dag ${fx(dagKr, 0)} kr` : ''}`, År: 'Hittil i år' }[bp];
+    const s1 = stromT || 0, s2 = gridT || 0, s3 = avg || 0, ssum = s1 + s2 + s3;
+    const stripe = ssum > 0 ? [[s1, BLUE], [s2, ORANGE], [s3, PURPLE]].map(([v, c]) => `<span style="flex:${(v / ssum).toFixed(4)};background:${c}"></span>`).join('') : '';
+    const parts = [['Strøm', 'bolt', stromT, BLUE, 'Energi etter Norgespris'], ['Nettleie', 'home_work', gridT, ORANGE, EL ? 'Energiledd + effektledd' : 'Energiledd'], ['Avgifter', 'account_balance', avg, PURPLE, vat != null ? `Moms ${nb(V.vat.v, 1)} %` : 'Moms'], ['Norgespris', 'savings', frT, GREENF, 'Fratrekk mot spotpris']]
+      .map(([l, icon, v, c, s]) => `<div class="ss-part" data-ss-part="${l}"><span class="ss-part-ic" style="background:color-mix(in oklab, ${c} 22%, var(--ki-surface-2, #2e2e2e));color:${AT(c)}">${ic(icon, 20)}</span><span class="ss-part-t"><span class="ss-part-l">${l}</span><span class="ss-part-s">${esc(s)}</span></span><span class="ss-part-v${v != null && v < 0 ? ' neg' : ''}">${v == null ? '–' : fx(v, 0)} kr</span></div>`).join('');
+    const savedV = frT != null ? -frT : null;
+    const savedTxt = savedV == null ? `Norgespris · ${D.loaded ? 'mangler spotpris eller forbruk' : 'henter statistikk …'}` : savedV >= 0 ? `Norgespris har spart deg ${fx(savedV, 0)} kr ${when}` : `Norgespris har kostet deg ${fx(-savedV, 0)} kr mer ${when}`;
+    const dn = eDay + eNight, pDay = dn > 0 && bp !== 'År' ? Math.round(eDay / dn * 100) : null; // År: bare månedsstatistikk → ingen dag/natt
+    // Effekttrinn (denne måneden)
+    const pk = peaksOf(now.getFullYear(), now.getMonth()), cur = monthAvg[now.getMonth()], ci = stepOf(cur);
+    const steps = STEPS.map(([l], i) => `<span class="ss-step"><span class="ss-step-b${i === ci ? ' on' : i < ci ? ' past' : ''}" style="height:${14 + i * 9}px"></span><span class="ss-step-l${i === ci ? ' on' : ''}">${l}</span></span>`).join('');
+    const stepTxt = cur == null ? 'Ingen timeforbruk denne måneden ennå.' : ci === STEPS.length - 1 && cur >= STEPS[ci][2] ? `Du er over trinn ${STEPS[ci][0]} kW.` : `Du er på trinn ${STEPS[ci][0]} kW. ${fx(STEPS[ci][2] - cur, 1)} kW margin før neste trinn${EL && EL[ci + 1] != null ? ` (+${fx(EL[ci + 1] - EL[ci], 0)} kr/mnd)` : ''}.`;
+    const PC = [RED_T, `var(--ki-orange-text, ${ORANGE})`, `var(--ki-blue-text, ${BLUE})`];
+    const peaks = [0, 1, 2].map((i) => { const p = pk[i]; return `<span class="ss-peak"><span class="ss-peak-n" style="color:${PC[i]}">#${i + 1} · ${p ? `${p[0]}. ${MS[now.getMonth()]}` : '–'}</span><span class="ss-peak-v">${p ? fx(p[1], 2) : '–'} kW</span></span>`; }).join('');
+    // Effektledd per måned
+    const em = isNum(u.ssEm) && u.ssEm >= 0 && u.ssEm < 12 ? Number(u.ssEm) : now.getMonth();
+    const colV = EL ? monthKr : monthAvg, unit = EL ? 'kr' : 'kW';
+    const known = colV.filter((v) => v != null), cmax = Math.max(1e-9, ...known), snitt = known.length ? known.reduce((s, v) => s + v, 0) / known.length : null;
+    const ev = colV[em];
+    const effV = ev == null ? '–' : EL ? fx(ev, 0) : fx(ev, 2);
+    const effSub = ev == null ? `${MN[em]} · ${em > now.getMonth() ? 'ikke startet' : 'ingen data'}` : `${MN[em]}${em === now.getMonth() ? ' (nå)' : ''}${snitt != null && known.length > 1 ? ` · ${EL ? fx(Math.abs(snitt - ev), 0) : fx(Math.abs(snitt - ev), 2)} ${unit} ${ev < snitt ? 'under' : 'over'} snittet` : ''}`;
+    const effHead = EL ? `i år ${known.length ? fx(known.reduce((s, v) => s + v, 0), 0) : '–'} kr` : 'snitt av 3 topper';
+    const cols = colV.map((v, i) => `<button class="ss-ecol" data-ss-act="em:${i}" title="${MN[i]}"><span class="ss-ebar${i === em ? ' on' : v == null ? ' nil' : ''}" style="height:${v == null ? '2px' : v === 0 ? '3px' : (v / cmax * 70).toFixed(1) + 'px'}"></span><span class="ss-el${i === em ? ' on' : ''}">${ML[i]}</span></button>`).join('');
+    return `${head('Strømregning', 'receipt_long')}
+<div class="ss-bill">
+  <span class="ss-row"><span class="ss-bill-p">Strømregning · ${esc(period)}</span><span class="ss-est">estimat</span></span>
+  <span class="ss-big-row"><span class="ss-bill-big">${total == null ? '–' : Math.round(total).toLocaleString('nb-NO')}</span><span class="ss-bill-kr">kr</span></span>
+  <span class="ss-bill-sub">${esc(sub)}</span>
+  <span class="ss-stripe">${stripe}</span>
+  ${pills(BP_PER, bp, 'ss-seg-b', 'bp')}
+</div>
+<div class="ss-card ss-parts">${parts}</div>
+<div class="ss-saved${savedV != null && savedV < 0 ? ' lost' : ''}">${ic('savings', 22, `color:${savedV != null && savedV < 0 ? RED_T : `var(--ki-green-text, ${GREEN})`}`)}<span>${esc(savedTxt)}</span></div>
+<div class="ss-card ss-gap10"><span class="ss-row ss-base"><span class="ss-h">${ic('bolt', 18, 'color:var(--ki-text-2, #b8b8b8)')}Forbruk ${esc(when)}</span><span class="ss-v17">${nE ? fx(kwh, 1) : '–'} kWh</span></span>
+  <span class="ss-dn">${pDay == null ? '' : `<span style="flex:${pDay};background:#f2d26f"></span><span style="flex:${100 - pDay};background:rgb(100 150 200)"></span>`}</span>
+  <span class="ss-dn-l"><span>${ic('light_mode', 15, `color:${AT('#f2d26f')}`)}Dag · ${pDay == null ? '–' : pDay} %</span><span>${ic('bedtime', 15, `color:${AT('#73b9f2')}`)}Natt/helg · ${pDay == null ? '–' : 100 - pDay} %</span></span>
+</div>
+<div class="ss-card ss-gap14"><span class="ss-row"><span class="ss-h">${ic('stairs', 18, 'color:var(--ki-text-2, #b8b8b8)')}Effekttrinn</span><span class="ss-sm">snitt av 3 topper · ${cur == null ? '–' : fx(cur, 2)} kW</span></span>
+  <div class="ss-steps">${steps}</div>
+  <span class="ss-step-t">${esc(stepTxt)}</span>
+  <div class="ss-peaks">${peaks}</div>
+</div>
+<div class="ss-card ss-gap10"><span class="ss-row"><span class="ss-h">${ic('bar_chart', 18, 'color:var(--ki-text-2, #b8b8b8)')}Effektledd per måned</span><span class="ss-sm">${esc(effHead)}</span></span>
+  <div class="ss-row ss-base"><span class="ss-big-row"><span class="ss-eff-v">${effV}</span><span class="ss-sm">${unit}</span></span><span class="ss-eff-s">${esc(effSub)}</span></div>
+  <div class="ss-ecols">${cols}</div>
+</div>`;
+  }
+
+  /* ------------------------------------------------------------ Strøminnstillinger */
+  function innstillinger(host) {
+    const V = settings(host), s = sOf(host);
+    const tiles = SET.map(([k, icon, l, unit, ed]) => {
+      const v = V[k].v, editing = s.edit === k;
+      const raw = s.draft != null && editing ? s.draft : v == null ? '' : String(+v.toFixed(4)).replace('.', ',');
+      const val = v == null ? '–' : unit === '%' ? `${nb(v, 2)} %` : `${nb(v, 2)} ${unit}`;
+      const inner = editing
+        ? `<span class="ss-in-row"><input class="ss-in" data-ss-in="${k}" value="${esc(raw)}" inputmode="decimal" enterkeyhint="done" aria-label="${esc(l)}"><span class="ss-in-u">${esc(unit)}</span></span>`
+        : `<span class="ss-set-v">${esc(val)}</span>`;
+      return `<div class="ss-set${editing ? ' editing' : ''}${ed ? ' ed' : ''}" data-ss-set="${k}" ${ed ? `data-ss-act="edit:${k}" role="button" tabindex="0"` : ''} title="${esc(V[k].ent || l)}"><span class="ss-set-ic">${ic(icon, 22)}</span><span class="ss-set-t">${inner}<span class="ss-set-l">${esc(l)}</span></span></div>`;
+    }).join('');
+    return `<div class="ss-head"><span class="ss-badge ss-b36">${ic('tune', 22)}</span><span class="ss-title ss-t28">Strøminnstillinger</span><button class="ss-close" data-ss-act="back" title="Lukk" aria-label="Lukk">${ic('close', 24)}</button></div>
+<div class="ss-intro"><span class="ss-intro-h">Oppsett for strøm</span><span class="ss-intro-t">Sett inn verdier for kalkulering av total pris for strøm. Alle verdier skal være uten moms (MVA). Moms regnes ut til slutt.</span></div>
+<div class="ss-sets">${tiles}</div>`;
+  }
+
+  function commit(host, k) {
+    const s = sOf(host);
+    if (s.edit !== k) return;
+    const txt = s.draft; s.edit = null; s.draft = null; s.focused = null;
+    const n = txt == null ? NaN : parseFloat(String(txt).replace(/\s/g, '').replace(',', '.'));
+    if (!isNaN(n)) {
+      const h = host.hass, e = backing(h, k, cfgS(host));
+      if (e && h && h.callService) {
+        const dom = e.split('.')[0], a = (st(h, e) || {}).attributes || {};
+        const v = Math.max(isNum(a.min) ? Number(a.min) : -Infinity, Math.min(isNum(a.max) ? Number(a.max) : Infinity, n));
+        try { const r = h.callService(dom, 'set_value', { entity_id: e, value: v }); if (r && r.catch) r.catch(() => {}); } catch (err) { /* */ }
+      } else if (host.setCfg) {
+        host.setCfg({ sider: { ...cfgS(host), [k]: n } });
+      }
+      hp(host, 'success');
+    }
+    try { host.render(); } catch (err) { /* */ }
+  }
+
+  /* ------------------------------------------------------------ bind (delegert, idempotent) */
+  function bind(host, el) {
+    if (!el) return;
+    el.__ssHost = host;
+    const s = sOf(host);
+    if (s.edit) { // fokus på feltet én gang per redigering
+      const inp = el.querySelector(`input[data-ss-in="${s.edit}"]`);
+      const rn = inp && inp.getRootNode && inp.getRootNode();
+      if (inp && (!rn || rn.activeElement !== inp)) {
+        const first = s.focused !== s.edit; s.focused = s.edit;
+        try { inp.focus(); if (first) inp.select(); else inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) { /* */ }
+      }
+    }
+    if (el.__ssBound) return;
+    el.__ssBound = true;
+    const H = () => el.__ssHost;
+    el.addEventListener('click', (ev) => {
+      const host2 = H(), t = ev.target.closest && ev.target.closest('[data-ss-act]');
+      if (!t || !el.contains(t) || (ev.target.closest && ev.target.closest('input'))) return;
+      const [act, arg] = String(t.getAttribute('data-ss-act')).split(/:(.*)/);
+      const u = ui(host2), s2 = sOf(host2);
+      if (act === 'back') { hp(host2, 'light'); s2.edit = null; s2.scrub = null; host2.go && host2.go(null); return; }
+      if (act === 'np') { if (u.ssNp === arg) return; hp(host2, 'selection'); u.ssNp = arg; host2.render(); return; }
+      if (act === 'bp') { if (u.ssBp === arg) return; hp(host2, 'selection'); u.ssBp = arg; host2.render(); return; }
+      if (act === 'em') { hp(host2, 'selection'); u.ssEm = Number(arg); host2.render(); return; }
+      if (act === 'edit') {
+        if (s2.edit === arg) return;
+        if (s2.edit) commit(host2, s2.edit);
+        hp(host2, 'light'); s2.edit = arg; s2.draft = null; s2.focused = null; host2.render(); return;
+      }
+    });
+    el.addEventListener('keydown', (ev) => {
+      const host2 = H(), inp = ev.target.closest && ev.target.closest('input[data-ss-in]');
+      if (inp) {
+        ev.stopPropagation();
+        if (ev.key === 'Enter') { ev.preventDefault(); sOf(host2).draft = inp.value; commit(host2, inp.getAttribute('data-ss-in')); }
+        else if (ev.key === 'Escape') { ev.preventDefault(); const s2 = sOf(host2); s2.edit = null; s2.draft = null; s2.focused = null; host2.render(); }
+        return;
+      }
+      const t = ev.target.closest && ev.target.closest('[data-ss-act^="edit:"]');
+      if (t && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); t.click(); }
+    });
+    el.addEventListener('input', (ev) => { const inp = ev.target.closest && ev.target.closest('input[data-ss-in]'); if (inp) sOf(H()).draft = inp.value; });
+    el.addEventListener('focusout', (ev) => {
+      const inp = ev.target.closest && ev.target.closest('input[data-ss-in]');
+      if (!inp) return;
+      const host2 = H(), k = inp.getAttribute('data-ss-in');
+      sOf(host2).draft = inp.value;
+      // Ny render (feltet byttes ut) → ingen lagring, bind() gir det nye feltet fokus; ellers = brukeren gikk ut av feltet
+      setTimeout(() => { if (sOf(host2).edit === k && inp.isConnected && !inp.matches(':focus')) commit(host2, k); }, 0);
+    });
+    // Scrub i timegrafen (fallgruve 2: touch-action none + stopPropagation)
+    const pick = (ev) => {
+      const g = el.querySelector('[data-ss-scrub]');
+      if (!g) return;
+      const cols = [...g.querySelectorAll('.ss-hcol')], r = g.getBoundingClientRect();
+      if (!cols.length || !r.width) return;
+      const i = Math.max(0, Math.min(cols.length - 1, Math.floor((ev.clientX - r.left) / r.width * cols.length)));
+      const s2 = sOf(H());
+      if (s2.scrub === i) return;
+      s2.scrub = i; hp(H(), 'selection');
+      cols.forEach((c, j) => c.classList.toggle('sel', j === i));
+      const lab = el.querySelector('.ss-hrs-sum'), d = cols[i].getAttribute('data-d');
+      if (lab) lab.textContent = scrubTxt(i, d === '' ? null : Number(d));
+    };
+    const stop = (ev) => { if (ev.target.closest && ev.target.closest('[data-ss-scrub]')) ev.stopPropagation(); };
+    el.addEventListener('pointerdown', (ev) => {
+      const g = ev.target.closest && ev.target.closest('[data-ss-scrub]');
+      if (!g) return;
+      ev.stopPropagation();
+      try { g.setPointerCapture(ev.pointerId); } catch (e) { /* */ }
+      pick(ev);
+      const mv = (e2) => { e2.stopPropagation(); pick(e2); };
+      const up = () => { g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up); };
+      g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+    });
+    el.addEventListener('touchstart', stop, { passive: true });
+    el.addEventListener('touchmove', stop, { passive: true });
+  }
+
+  function html(host, page) {
+    if (!host) return '';
+    let body = '';
+    try {
+      body = page === 'norgespris' ? norgespris(host) : page === 'stromregning' ? stromregning(host) : page === 'innstillinger' ? innstillinger(host) : '';
+    } catch (e) { console.error('[ki-msh] strøm-underside', e); body = `${head('Strøm', 'bolt')}<div class="ss-card">–</div>`; }
+    return `<div class="ss-page ss-p-${esc(page)}${host.anim === false ? ' ss-noanim' : ''}" data-ss-page="${esc(page)}">${body}</div>`;
+  }
+
+  const css = `
+.ss-page{display:flex;flex-direction:column;gap:12px;color:var(--ki-text, #fafafa);font-family:inherit}
+.ss-page button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ss-page ha-icon{color:inherit}
+.ss-head{display:flex;align-items:center;gap:10px;padding:0 4px}
+.ss-back{width:40px;height:40px;border-radius:50%;background:var(--ki-surface, #3d3d3d)!important;display:flex;align-items:center;justify-content:center;flex:none;transition:transform .15s}
+.ss-back:active,.ss-close:active{transform:scale(.92)}
+.ss-close{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+@media (hover:hover){.ss-close:hover{background:${WA(0.08)}!important}}
+.ss-title{flex:1;min-width:0;font-size:24px;font-weight:500}
+.ss-t28{font-size:28px}
+.ss-badge{width:40px;height:40px;border-radius:50%;background:var(--ki-pill-bg, #e8e8e8);color:var(--ki-pill-fg, #2a2a2a);display:flex;align-items:center;justify-content:center;flex:none}
+.ss-b36{width:36px;height:36px}
+.ss-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ss-row.ss-base{align-items:baseline}
+.ss-big-row{display:flex;align-items:baseline;gap:6px}
+.ss-card{background:var(--ki-surface, #3d3d3d);border-radius:26px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.ss-gap14{gap:14px}.ss-gap10{gap:10px}
+.ss-h{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500}
+.ss-sm{font-size:12px;color:var(--ki-text-2, #b8b8b8)}
+.ss-v17{font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}
+.ss-seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:3px;margin-top:10px;border-radius:999px;position:relative}
+.ss-pill{white-space:nowrap;border-radius:999px;font-size:13px!important;font-weight:500!important;transition:background .25s,color .25s}
+.ss-pill.on{background:${PINK}!important;color:${INK}!important}
+/* Norgespris-toppkort: grønt (spart) / rødt (tapt); lys modus: tonet flate (--ss-l* bare gyldige når --ki-surface finnes) */
+.ss-nx{position:relative;overflow:hidden;border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:6px;animation:ss-fade .3s ease;transition:background .4s;
+  --ss-c:120,210,165;background:linear-gradient(160deg,var(--ss-l0, #2f4a3f) 0%,var(--ss-l1, #26332e) 60%,var(--ss-l2, #2a2a2a) 100%);box-shadow:inset 0 0 0 1px rgba(var(--ss-c),.2);
+  --ss-l0:color-mix(in srgb,rgb(var(--ss-c)) 16%,var(--ki-surface));--ss-l1:color-mix(in srgb,rgb(var(--ss-c)) 8%,var(--ki-surface));--ss-l2:var(--ki-surface)}
+.ss-nx.lost{--ss-c:240,120,100;background:linear-gradient(160deg,var(--ss-l0, #4a3230) 0%,var(--ss-l1, #33292a) 60%,var(--ss-l2, #2a2a2a) 100%)}
+.ss-nx.none{--ss-c:160,160,160;background:linear-gradient(160deg,var(--ss-l0, #3d3d3d) 0%,var(--ss-l1, #333) 60%,var(--ss-l2, #2a2a2a) 100%)}
+.ss-nx-glow{position:absolute;right:-30px;top:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(var(--ss-c),.28),transparent 70%);pointer-events:none}
+.ss-nx-title{font-size:13px;color:var(--ki-text-1, #e6e6e6);position:relative}
+.ss-nx-chip{height:24px;padding:0 10px;border-radius:12px;background:rgba(var(--ss-c),.2);color:${GREEN_T};font-size:12px;font-weight:600;display:flex;align-items:center;white-space:nowrap;position:relative}
+.ss-nx.lost .ss-nx-chip{color:var(--ki-red-text, rgb(250 160 145))}
+.ss-nx.none .ss-nx-chip{color:var(--ki-text-2, #b8b8b8)}
+.ss-nx-big{font-size:52px;font-weight:300;line-height:1;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:${GREEN_T}}
+.ss-nx.lost .ss-nx-big{color:${RED_T}}
+.ss-nx.none .ss-nx-big{color:var(--ki-text, #fafafa)}
+.ss-nx-kr{font-size:15px;color:var(--ki-text-2, #c9e9d9)}
+.ss-nx-sub{font-size:13px;color:var(--ki-text-2, #b5cfc2)}
+.ss-seg-n{background:${KA(0.25)}}
+.ss-seg-n .ss-pill{height:36px;padding:0 14px;color:var(--ki-text-1, #e1e1e1)}
+.ss-cmp{display:flex;flex-direction:column;gap:6px}
+.ss-cmp-h{display:flex;justify-content:space-between;align-items:baseline;font-size:13px}
+.ss-cmp-l{display:flex;align-items:center;gap:8px;color:var(--ki-text-1, #d6d6d6)}
+.ss-cmp-v{font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}
+.ss-dot{width:8px;height:8px;border-radius:2px;flex:none}
+.ss-track{height:10px;border-radius:5px;background:var(--ki-surface-3, #2f2f2f);overflow:hidden;display:block}
+.ss-bar{display:block;height:100%;border-radius:5px;transition:width .4s cubic-bezier(.2,.8,.2,1)}
+.ss-hrs{position:relative;height:110px;display:flex;align-items:center;gap:2px;touch-action:none;cursor:crosshair;user-select:none}
+.ss-mid{position:absolute;left:0;right:0;top:50%;border-top:1px solid ${WA(0.25)};pointer-events:none}
+.ss-hcol{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;border-radius:3px}
+.ss-hcol.sel{background:${WA(0.08)}}
+.ss-hup,.ss-hdn{flex:1;display:flex}
+.ss-hup{align-items:flex-end}.ss-hdn{align-items:flex-start}
+.ss-hup>span,.ss-hdn>span{display:block;width:100%;border-radius:3px;transform-origin:50% 100%;animation:ss-grow .5s cubic-bezier(.2,.8,.2,1) both}
+.ss-hdn>span{transform-origin:50% 0}
+.ss-hcol.fut .ss-hup>span,.ss-hcol.fut .ss-hdn>span{opacity:.4}
+.ss-axis{display:flex;justify-content:space-between;font-size:10px;color:var(--ki-text-mid, #979797);font-variant-numeric:tabular-nums}
+.ss-legend{display:flex;gap:14px;font-size:11px;color:var(--ki-text-2, #b8b8b8)}
+.ss-legend span{display:flex;align-items:center;gap:6px}
+.ss-legend i{width:8px;height:8px;border-radius:2px;display:block}
+.ss-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ss-tile{display:flex;flex-direction:column;gap:6px;padding:14px 12px;border-radius:20px;background:var(--ki-surface, #3d3d3d);min-width:0}
+.ss-tile-l{font-size:12px;color:var(--ki-text-2, #b8b8b8)}
+.ss-tile-v{font-size:15px;font-weight:500;color:var(--ki-text, #fafafa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-tile-v.neg{color:${RED_T}}
+/* Strømregning */
+.ss-bill{border-radius:28px;padding:18px;background:${PINK};color:${INK};display:flex;flex-direction:column;gap:6px;animation:ss-fade .3s ease}
+.ss-bill-p{font-size:13px}
+.ss-est{height:24px;padding:0 10px;border-radius:12px;background:rgba(60,40,50,.16);font-size:12px;font-weight:600;display:flex;align-items:center}
+.ss-bill-big{font-size:46px;font-weight:300;line-height:1.05;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.ss-bill-kr{font-size:15px;font-weight:500}
+.ss-bill-sub{font-size:13px;opacity:.8}
+.ss-stripe{display:flex;gap:2px;height:12px;border-radius:999px;overflow:hidden;margin-top:10px;background:rgba(60,40,50,.12)}
+.ss-seg-b{background:rgba(60,40,50,.14)}
+.ss-seg-b .ss-pill{height:38px;padding:0 6px;color:rgba(50,38,44,.72)}
+.ss-seg-b .ss-pill.on{color:${INK}!important;box-shadow:0 1px 4px rgba(60,40,50,.18)}
+.ss-parts{padding:6px 16px;gap:0}
+.ss-part{display:flex;align-items:center;gap:12px;min-height:62px}
+.ss-part+.ss-part{border-top:1px solid ${WA(0.08)}}
+.ss-part-ic{width:40px;height:40px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}
+.ss-part-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ss-part-l{font-size:15px;font-weight:500}
+.ss-part-s{font-size:12px;color:var(--ki-text-2, #a8a8a8)}
+.ss-part-v{font-size:17px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ki-text, #fafafa)}
+.ss-part-v.neg{color:var(--ki-green-text, ${GREEN})}
+.ss-saved{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:22px;background:rgba(110,200,160,.12);box-shadow:inset 0 0 0 1px rgba(110,200,160,.22);font-size:14px;color:var(--ki-text-1, #d8efe3)}
+.ss-saved>span{flex:1}
+.ss-saved.lost{background:rgba(240,120,100,.12);box-shadow:inset 0 0 0 1px rgba(240,120,100,.22);color:var(--ki-text-1, #f2dcd8)}
+.ss-dn{display:flex;gap:2px;height:10px;border-radius:999px;overflow:hidden;background:var(--ki-surface-3, #2f2f2f)}
+.ss-dn-l{display:flex;justify-content:space-between;font-size:12px;color:var(--ki-text-1, #d6d6d6)}
+.ss-dn-l>span{display:flex;align-items:center;gap:4px}
+.ss-steps{display:flex;align-items:flex-end;gap:4px;height:70px}
+.ss-step{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.ss-step-b{width:100%;flex:none;border-radius:6px;background:var(--ki-surface-3, #4a4a4a)}
+.ss-step-b.past{background:rgba(242,176,79,.35)}
+.ss-step-b.on{background:${AMBER};box-shadow:0 0 0 2px rgba(242,176,79,.35)}
+.ss-step-l{font-size:11px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap}
+.ss-step-l.on{color:var(--ki-orange-text, ${AMBER});font-weight:600}
+.ss-step-t{font-size:13px;color:var(--ki-text-1, #d6d6d6)}
+.ss-peaks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.ss-peak{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:14px;background:var(--ki-surface-2, #333);min-width:0}
+.ss-peak-n{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-peak-v{font-size:16px;font-weight:500}
+.ss-eff-v{font-size:30px;font-weight:300;line-height:1.1}
+.ss-eff-s{font-size:12px;color:var(--ki-text-1, #d6d6d6);text-align:right}
+.ss-ecols{display:flex;gap:6px;align-items:flex-end;height:90px;margin-top:6px}
+.ss-ecol{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px}
+.ss-ebar{width:100%;max-width:22px;border-radius:4px;background:var(--ki-ctrl, #7a7a7a);transition:background .2s,height .4s cubic-bezier(.2,.8,.2,1)}
+.ss-ebar.nil{background:var(--ki-surface-3, #555)}
+.ss-ebar.on{background:${ORANGE}}
+.ss-el{font-size:11px;color:var(--ki-text-2, #b8b8b8)}
+.ss-el.on{color:var(--ki-orange-text, ${ORANGE});font-weight:600}
+/* Strøminnstillinger */
+.ss-intro{display:flex;flex-direction:column;gap:6px;padding:8px 8px 4px;animation:ss-fade .3s ease}
+.ss-intro-h{font-size:22px;font-weight:500}
+.ss-intro-t{font-size:14px;line-height:1.5;color:var(--ki-text-2, #a8a8a8);text-wrap:pretty}
+.ss-sets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ss-set{display:flex;align-items:center;gap:12px;min-height:66px;padding:0 14px 0 8px;border-radius:999px;text-align:left;background:var(--ki-surface, #3d3d3d);cursor:default;min-width:0;box-sizing:border-box;transition:background .2s,transform .15s;-webkit-tap-highlight-color:transparent;outline:none}
+.ss-set.ed{cursor:pointer}
+.ss-set.ed:active{transform:scale(.97)}
+.ss-set.editing{background:var(--ki-surface-2, #4a4a4a)}
+.ss-set:focus-visible{box-shadow:0 0 0 2px rgb(242 133 201)}
+.ss-set-ic{width:50px;height:50px;border-radius:50%;background:var(--ki-surface-2, #4f4f4f);display:flex;align-items:center;justify-content:center;flex:none}
+.ss-set-t{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;line-height:1.3}
+.ss-set-v{font-size:15px;font-weight:500;white-space:nowrap}
+.ss-set-l{font-size:13px;color:var(--ki-text-2, #b8b8b8);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-in-row{display:flex;align-items:baseline;gap:4px;width:100%}
+.ss-in{width:70px;min-width:0;background:var(--ki-surface-3, #2a2a2a);border:1px solid rgb(242 133 201);border-radius:8px;color:var(--ki-text, #fafafa);font:inherit;font-size:15px;font-weight:500;padding:2px 6px;outline:none;box-sizing:border-box}
+.ss-in-u{font-size:13px;color:var(--ki-text-2, #b8b8b8)}
+@keyframes ss-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes ss-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.ss-noanim *,.ss-noanim{animation:none!important;transition:none!important}
+`;
+
+  M.stromSider = { css, html, bind, _settings: settings, _backing: backing };
+})();
+
+} catch (e) { console.error('[ki-msh] 63-strom-sider.js', e); }
 
 /* ---- 99-ui-persist.js ---- */
 try {
