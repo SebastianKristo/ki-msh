@@ -125,7 +125,7 @@
         { type: 'boolean', name: 'header_icon', label: 'Rommets ikon i popup-headeren', default: true },
         { type: 'section', label: 'Graf', icon: 'mdi:chart-line', fields: [
           { type: 'color', name: 'graph_t', label: 'Linje · temperatur', auto: () => 'var(--red, #f28073)', help: 'Tomt = rød (standard)' },
-          { type: 'color', name: 'graph_h', label: 'Linje · fukt' },
+          { type: 'color', name: 'graph_h', label: 'Linje · fukt', auto: () => 'var(--blue, #73b9f2)', help: 'Tomt = blå (standard)' },
           { type: 'select', name: 'graph_fill', label: 'Fyll', options: [[0, 'Av'], [0.2, 'Svak'], [0.4, 'Sterk']], default: 0.2 },
           { type: 'select', name: 'graph_width', label: 'Linje', options: [[1.5, 'Tynn'], [2, 'Normal'], [3, 'Tykk']], default: 2 },
         ] },

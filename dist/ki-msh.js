@@ -8786,6 +8786,401 @@ try {
 
 } catch (e) { console.error('[ki-msh] 06-appliance-icons.js', e); }
 
+/* ---- 06-server.js ---- */
+try {
+/* MSH.servervelger · felles servervelger («Bytt sted») – Fiks 37 (erstatter Fiks 31.7/34.2).
+ * Logikken er portet 1:1 fra family-status-card (ki-cards: _servere, _serverNavn, _serverBytt, _serverPlass,
+ * _serverGest/_greetingGest/_onGreetingClick, _renderServerMeny); designet (menyen) fra Hjem v3.
+ * (MSH.server er Server-kortets hjelper i 58-server.js – derfor eget navn.)
+ *
+ * Config (kortets, f.eks. msh-hjem-header-card):
+ *   servere: "Oslo, Strömstad=Strømstad, Toten"      # tekst: etter = er navnet serveren har i Companion-appen
+ *   servere: [{ navn, server?, ikon?, farge?, sti? }]  # eller liste (strenger i listen → { navn, server })
+ *   server_sti: lovelace     # siden som åpnes på den andre serveren (ellers samme dashbord som nå)
+ *   server_navn: Oslo        # overstyrer gjenkjenningen (hass.config.location_name)
+ *   server_plass: tittel     # tittel | under | navn
+ *   server_meny_med: tap     # tap | double_tap | hold | ingen
+ *   greeting_tap_action / greeting_double_tap_action / greeting_hold_action   # HA-handlinger på hilsenen
+ *
+ * Eldre config (Fiks 31.7/34.2: servers [{ name, icon, color, path, navigation_path, url }], this_server/place_name,
+ * title_actions) leses fortsatt (V.cfg) og skrives om til de nye nøklene én gang av kortet (V.migrer).
+ */
+(function () {
+  const M = window.MSH;
+  if (!M) return;
+  const V = {};
+  V.DOBBEL_MS = 320; // fristen for andre trykk i et dobbelttrykk
+  V.HOLD_MS = 500;
+
+  /* ------------------------------------------------------------ servere (_servere) */
+  // Streng splittes på , og =; strenger i listen → { navn, server }; rader uten navn droppes.
+  V.parse = function (liste) {
+    if (liste == null) liste = [];
+    if (typeof liste === 'string') {
+      liste = liste.split(',').map((d) => d.trim()).filter(Boolean).map((d) => {
+        const [navn, server] = d.split('=').map((x) => x.trim());
+        return { navn, server: server || navn };
+      });
+    }
+    return (Array.isArray(liste) ? liste : []).map((s) => {
+      if (typeof s === 'string') return { navn: s.trim(), server: s.trim() };
+      if (!s || typeof s !== 'object') return {};
+      const o = { navn: s.navn || s.server, server: s.server || s.navn };
+      ['ikon', 'farge', 'sti'].forEach((k) => { if (s[k] != null && s[k] !== '') o[k] = s[k]; });
+      return o;
+    }).filter((s) => s.navn);
+  };
+
+  /* ------------------------------------------------------------ migrering fra 31.7/34.2 (les begge) */
+  const TRIM = (v) => String(v == null ? '' : v).trim().replace(/^\/+/, '');
+  // De gamle standardstedene (21.4/31.7) hadde egne ikoner/farger – de byttes mot standardstilen (V.stil)
+  const OLD_STD = { oslo: ['mdi:office-building', 'mdi:city'], toten: ['mdi:tractor', 'mdi:barn'], 'strømstad': ['mdi:sail-boat'] };
+  const OLD_COL = { oslo: 'var(--green)', toten: 'var(--yellow)', 'strømstad': 'var(--blue)' };
+  const gammelRad = (r) => {
+    if (typeof r === 'string') return { navn: r };
+    if (!r || typeof r !== 'object' || !String(r.name || '').trim()) return null;
+    const navn = String(r.name).trim(), o = { navn };
+    let sti = r.path != null ? TRIM(r.path) : '';
+    if (!sti) {
+      const deep = [r.navigation_path, r.url_path, r.url].map((x) => String(x || '').trim()).find((x) => /^homeassistant:\/\//i.test(x));
+      const m = deep && /^homeassistant:\/\/navigate\/([^?#]*)/i.exec(deep);
+      if (m && m[1] && m[1] !== 'lovelace') sti = TRIM(m[1]);
+    }
+    if (sti) o.sti = sti;
+    const k = V.vask(navn).replace(/stromstad/, 'strømstad');
+    if (r.icon && !(OLD_STD[k] || []).includes(r.icon)) o.ikon = r.icon;
+    if (r.color && r.color !== OLD_COL[k]) o.farge = r.color;
+    return o;
+  };
+  // title_actions (Fiks 9) → greeting_*_action
+  const PRESET = {
+    kiosk: () => ({ action: 'kiosk' }),
+    config: () => ({ action: 'navigate', navigation_path: '/config' }),
+    edit: () => ({ action: 'edit' }),
+    header: () => ({ action: 'tilpass' }),
+    vaer: (c) => ({ action: 'navigate', navigation_path: (c && c.weather_hash) || '#vaer' }),
+    none: () => ({ action: 'none' }),
+  };
+  V.PRESET = PRESET;
+  V.GESTER = ['tap', 'double_tap', 'hold'];
+  const OLD_KEYS = ['servers', 'servers_init', 'this_server', 'place_name', 'title_actions'];
+  V.OLD_KEYS = OLD_KEYS;
+  // Nye nøkler avledet av de gamle – bare for nøkler som ikke er satt fra før. {} = ingenting å migrere.
+  V.fraGammel = function (c) {
+    c = c || {};
+    const out = {};
+    if (c.servere == null && Array.isArray(c.servers)) out.servere = c.servers.map(gammelRad).filter(Boolean);
+    const ts = c.this_server && typeof c.this_server === 'object' ? c.this_server : {};
+    const her = String(ts.name || c.place_name || '').trim();
+    if (c.server_navn == null && her) out.server_navn = her;
+    const ta = c.title_actions && typeof c.title_actions === 'object' ? c.title_actions : null;
+    if (ta) {
+      let meny = '';
+      V.GESTER.forEach((g) => {
+        const v = ta[g];
+        if (v === 'server') { if (!meny) meny = g; return; }
+        if (v && PRESET[v] && c['greeting_' + g + '_action'] == null) out['greeting_' + g + '_action'] = PRESET[v](c);
+      });
+      if (c.server_meny_med == null) out.server_meny_med = meny || 'ingen';
+    }
+    return out;
+  };
+  V.harGammel = (c) => !!c && OLD_KEYS.some((k) => c[k] !== undefined);
+  // Effektiv config: kortets config + nye nøkler avledet av de gamle (gamle nøkler fjernes fra resultatet)
+  V.cfg = function (c) {
+    c = c || {};
+    if (!V.harGammel(c)) return c;
+    const out = { ...c, ...V.fraGammel(c) };
+    OLD_KEYS.forEach((k) => delete out[k]);
+    return out;
+  };
+  // Skriv de nye nøklene til ki-store én gang og fjern de gamle (kalles fra kortets afterRender).
+  // set(path, value) = M.store.set med kortets nøkkel foran. → true når noe ble skrevet.
+  V.migrer = function (raw, set) {
+    if (!V.harGammel(raw) || typeof set !== 'function') return false;
+    const ny = V.fraGammel(raw);
+    try {
+      Object.keys(ny).forEach((k) => set(k, ny[k]));
+      OLD_KEYS.forEach((k) => { if (raw[k] !== undefined) set(k, undefined); });
+    } catch (e) { return false; }
+    return true;
+  };
+
+  V.list = (c) => V.parse(V.cfg(c).servere);
+
+  /* ------------------------------------------------------------ hvor er jeg (_serverNavn) */
+  V.vask = (t) => String(t == null ? '' : t).toLowerCase().replace(/ö/g, 'ø').replace(/ä/g, 'æ').trim();
+  V.navn = function (c, hass) {
+    c = V.cfg(c);
+    if (c.server_navn) return String(c.server_navn);
+    const her = String((hass && hass.config && hass.config.location_name) || '');
+    const treff = V.parse(c.servere).find((s) => V.vask(s.navn) === V.vask(her) || V.vask(s.server) === V.vask(her));
+    return treff ? treff.navn : her;
+  };
+
+  /* ------------------------------------------------------------ hvor navnet står (_serverPlass) */
+  // tittel – stedsnavnet ER den store linja · under – hilsen som før, stedsnavnet på linja under · navn – ingen stedsnavn
+  // std = kortets standard når server_plass ikke er satt (f.eks. fra oppsettet).
+  V.plass = function (c, std) {
+    const v = String(V.cfg(c).server_plass || std || 'tittel').toLowerCase();
+    if (v.startsWith('u')) return 'under';
+    if (v.startsWith('n')) return 'navn';
+    return 'tittel';
+  };
+  // Er det den store linja som er knappen for menyen? (bare med servere)
+  V.storLinjeErMeny = (c, std) => V.list(c).length > 0 && V.plass(c, std) !== 'under';
+  // Hilsenteksten for den store linja (_greetingText): tittel → «{server}» med mindre hilsenen har {server}
+  V.tittelMal = (c, std, hilsen) => (V.plass(c, std) === 'tittel' && !/\{server\}/.test(hilsen || '') ? '{server}' : (hilsen || ''));
+
+  /* ------------------------------------------------------------ plassholdere */
+  const VAER_NB = { 'clear-night': 'Klar himmel', sunny: 'Sol', partlycloudy: 'Delvis skyet', cloudy: 'Skyet', fog: 'Tåke', rainy: 'Regn', pouring: 'Kraftig regn', snowy: 'Snø', 'snowy-rainy': 'Sludd', hail: 'Hagl', lightning: 'Torden', 'lightning-rainy': 'Torden og regn', windy: 'Vind', 'windy-variant': 'Vind og skyer', exceptional: 'Ekstremvær' };
+  V.vaer = function (hass, id) {
+    const st = id && hass && hass.states && hass.states[id];
+    const a = (st && st.attributes) || {};
+    const temp = a.temperature !== undefined && a.temperature !== null && a.temperature !== '' && isFinite(Number(a.temperature)) ? `${Math.round(Number(a.temperature))} ${a.temperature_unit || '°C'}` : '';
+    return { temp, vaer: st && !/^(unavailable|unknown)$/.test(st.state) ? (VAER_NB[st.state] || st.state) : '' };
+  };
+  // {server}, {name}/{first_name}/{user}, {temp}, {vaer}; ledende/etterfølgende skilletegn fjernes (som _underTekst)
+  V.fyll = function (mal, o) {
+    o = o || {};
+    return String(mal == null ? '' : mal)
+      .replace(/\{temp\}/g, o.temp || '')
+      .replace(/\{vaer\}/g, o.vaer || '')
+      .replace(/\{(name|user|first_name)\}/g, o.name || '')
+      .replace(/\{server\}/g, o.server || '');
+  };
+  V.rydd = (t) => String(t || '').replace(/^\s*[•·|,-]\s*|\s*[•·|,-]\s*$/g, '').trim();
+
+  /* ------------------------------------------------------------ bytte server (_serverBytt) */
+  // sti = s.sti || server_sti || første segment av location.pathname || 'lovelace' (ledende / fjernes).
+  // Navnet kodes KUN for & ? # % og mellomrom – ø/ö står ukodet (som i mushroom-kortet).
+  V.url = function (s, c) {
+    c = V.cfg(c);
+    let naa = '';
+    try { naa = String((window.location && window.location.pathname) || '').split('/').filter(Boolean)[0] || ''; } catch (e) { /* */ }
+    const sti = String((s && s.sti) || c.server_sti || naa || 'lovelace').replace(/^\/+/, '');
+    const navn = String((s && (s.server || s.navn)) || '').replace(/[&?#%\s]/g, (t) => encodeURIComponent(t));
+    return `homeassistant://navigate/${sti}?server=${navn}`;
+  };
+  // Byttet MÅ gå gjennom window.open – appen fanger det opp som «bytt server». location.href ignoreres stille av appen.
+  V.bytt = function (s, c) {
+    M.haptic('selection');
+    const url = V.url(s, c);
+    window.open(url);
+    return url;
+  };
+
+  /* ------------------------------------------------------------ standardstil (_serverStil) */
+  const KJENT = [
+    [/oslo/, 'mdi:home-city-outline', 'var(--green, #66d19e)'],
+    [/str[øo]mstad/, 'mdi:lighthouse', 'var(--blue, #73b9f2)'],
+    [/toten/, 'mdi:tractor-variant', 'var(--yellow, #f2d26f)'],
+  ];
+  const RESERVE = ['var(--active-big, #f285c9)', 'var(--purple, #ad99e6)', 'var(--teal, #40c8e0)'];
+  V.stil = function (srv, i) {
+    const n = String((srv && srv.navn) || '').toLowerCase().replace(/ö/g, 'ø');
+    const kjent = KJENT.find(([m]) => m.test(n));
+    return {
+      ikon: (srv && srv.ikon) || (kjent ? kjent[1] : 'mdi:home-variant-outline'),
+      farge: (srv && srv.farge) ? M.color(srv.farge, srv.farge) : (kjent ? kjent[2] : RESERVE[(i || 0) % RESERVE.length]),
+    };
+  };
+
+  /* ------------------------------------------------------------ handlinger og gester */
+  // server_meny_med normalisert (uten hensyn til om det finnes servere): 'tap' | 'double_tap' | 'hold' | ''
+  V.menyMed = function (c) {
+    const v = String(V.cfg(c).server_meny_med || 'tap').toLowerCase();
+    if (v.startsWith('d')) return 'double_tap';
+    if (v.startsWith('h') || v.startsWith('l')) return 'hold';
+    if (v.startsWith('n') || v === 'ingen') return '';
+    return 'tap';
+  };
+  // Gesten som åpner menyen fra den store linja (_serverGest): '' uten servere / med server_plass under
+  V.gest = (c, std) => (V.storLinjeErMeny(c, std) ? V.menyMed(c) : '');
+  // Handling for en gest (_greetingHandling): greeting_<gest>_action → eldre felt → kortets standard (std[gest])
+  V.handling = function (c, gest, std) {
+    c = V.cfg(c);
+    const satt = c['greeting_' + gest + '_action'];
+    if (satt && satt.action) return satt;
+    if (gest === 'tap' && c.greeting_navigation_path) return { action: 'navigate', navigation_path: c.greeting_navigation_path };
+    if (gest === 'hold' && c.greeting_hold_entity) return { action: 'toggle', entity: c.greeting_hold_entity };
+    const d = std && std[gest];
+    return d && d.action ? d : { action: 'none' };
+  };
+  // Kjør en HA-handling (_kjorHandling). extra: { kiosk(), edit(), tilpass() } for kortets egne handlinger.
+  V.kjor = function (card, h, extra) {
+    const a = h && h.action, hass = (card && (card.hass || card._hass)) || M.lastHass;
+    const fire = (type, detail) => (card || window).dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+    if (!a || a === 'none') return;
+    if (extra && typeof extra[a] === 'function') return extra[a](h);
+    if (a === 'navigate') { const p = String(h.navigation_path || ''); return M.navigate(p[0] === '?' ? location.pathname + p : p); }
+    if (a === 'url') { if (h.url_path) window.open(h.url_path); return; }
+    if (a === 'toggle') { const id = h.entity || (h.target && h.target.entity_id); if (id && hass) M.toggle(hass, id); return; }
+    if (a === 'more-info') { const id = h.entity || (h.target && h.target.entity_id); if (id) M.moreInfo(card, id); return; }
+    if (a === 'perform-action' || a === 'call-service') {
+      const [d, n] = String(h.perform_action || h.service || '').split('.');
+      if (d && n && hass) hass.callService(d, n, h.data || h.service_data || {}, h.target);
+      return;
+    }
+    fire('hass-action', { config: { tap_action: h }, action: 'tap' }); // assist o.l. – HA kjenner resten
+  };
+
+  /* Gestene på hilsenen/stedsnavnet (port av _onGreetingPointerDown/_onGreetingClick/_greetingGest/_erAndreTrykk).
+   * o: { meny() → 'tap'|'double_tap'|'hold'|'', handling(gest), apen(), veksle(), lukk(uten), kjor(h, gest), tilpass() }
+   * Vanlig trykk håndteres i click (ikke pointerup): pointerup → click; åpnet menyen seg i pointerup, ville klikket som
+   * kom etterpå truffet laget som lukker ved trykk utenfor. */
+  V.gester = function (o) {
+    const g = { holdt: false, timer: null, dobbel: null, forste: 0 };
+    const tom = (h) => !h || h.action === 'none';
+    g.gest = (gest) => {
+      if (o.meny() === gest) { M.haptic('light'); o.veksle(); return; }
+      const h = o.handling(gest);
+      if (tom(h) && gest === 'hold' && o.tilpass) { M.haptic('medium'); o.tilpass(); return; } // langt trykk uten handling → Tilpass
+      if (tom(h)) return;
+      M.haptic(gest === 'hold' ? 'medium' : 'light');
+      o.kjor(h, gest);
+    };
+    g.down = (e) => {
+      if (e && e.button) return;
+      g.holdt = false;
+      clearTimeout(g.timer);
+      g.x = e ? e.clientX : 0; g.y = e ? e.clientY : 0;
+      g.timer = setTimeout(() => { g.timer = null; g.holdt = true; g.gest('hold'); }, V.HOLD_MS);
+    };
+    g.up = () => { if (g.timer) { clearTimeout(g.timer); g.timer = null; } };
+    g.cancel = g.up;
+    g.move = (e) => { if (g.timer && e && (Math.abs(e.clientX - g.x) > 8 || Math.abs(e.clientY - g.y) > 8)) g.up(); };
+    g.erAndreTrykk = () => !!g.forste && Date.now() - g.forste < V.DOBBEL_MS;
+    // Andre trykk i et dobbelttrykk der det første åpnet menyen: menyen fjernes straks (uten utgangsanimasjon)
+    g.fraMeny = () => { g.forste = 0; o.lukk(true); if (o.meny() === 'double_tap') return; g.gest('double_tap'); };
+    g.click = (e) => {
+      if (g.holdt) { g.holdt = false; return; } // langt trykk er allerede håndtert
+      if (e) e.stopPropagation();
+      const harDobbel = o.meny() === 'double_tap' || !tom(o.handling('double_tap'));
+      if (!harDobbel) { g.gest('tap'); return; } // ingen dobbelttrykk-handling → trykket kjøres med en gang
+      if (g.dobbel) { clearTimeout(g.dobbel); g.dobbel = null; g.gest('double_tap'); return; }
+      if (g.erAndreTrykk()) { g.fraMeny(); return; }
+      // Trykk åpner menyen: MED EN GANG. Andre trykk innen fristen lander på menyens bakgrunn (g.bakgrunn).
+      if (o.meny() === 'tap') { const apner = !o.apen(); g.gest('tap'); g.forste = apner ? Date.now() : 0; return; }
+      g.dobbel = setTimeout(() => { g.dobbel = null; g.gest('tap'); }, 280);
+    };
+    // Trykk på menyens usynlige bakgrunn
+    g.bakgrunn = () => {
+      if (g.dobbel) { clearTimeout(g.dobbel); g.dobbel = null; o.lukk(true); g.gest('double_tap'); return; }
+      if (g.erAndreTrykk()) { g.fraMeny(); return; }
+      o.lukk();
+    };
+    // Trykk på selve menyarket (ikke en rad)
+    g.ark = () => { if (g.erAndreTrykk()) g.fraMeny(); };
+    g.stopp = () => { clearTimeout(g.timer); clearTimeout(g.dobbel); g.timer = g.dobbel = null; g.forste = 0; };
+    return g;
+  };
+
+  /* ------------------------------------------------------------ menyen (_renderServerMeny, design Hjem v3) */
+  // Portales til ki-overlay-root (document.body) og legges over dashbord-containeren (ikke vinduet, aldri over HA-
+  // sidebaren) – også når kortet ligger i en Bubble-popup (transform → fixed ville blitt relativt til popupen).
+  const W = M.theme ? M.theme.whiteA : (a) => `rgb(255 255 255 / ${a})`;
+  const K = M.theme ? M.theme.blackA : (a) => `rgb(0 0 0 / ${a})`;
+  const AT = (c) => (M.theme ? M.theme.accentText(c) : c);
+  const CSS = () => `:host{all:initial}
+    .vern{position:absolute;inset:0;background:transparent;-webkit-tap-highlight-color:transparent}
+    .meny{position:absolute;box-sizing:border-box;width:260px;max-width:calc(100% - 24px);padding:8px;border-radius:22px;display:grid;gap:4px;
+      background:var(--ki-surface, var(--gray200, #3a3a3a));border:1px solid ${W(0.08)};
+      box-shadow:0 18px 48px ${K(0.5)},0 2px 8px ${K(0.3)};font-family:${M.FONT};color:var(--ki-text, #fafafa);
+      animation:kimeny 260ms cubic-bezier(.2,1.25,.3,1);transform-origin:var(--ki-spiss-x,28px) -8px;transition:opacity .14s ease-out,transform .14s ease-out}
+    .meny.ut{opacity:0;transform:scale(.96)}
+    .meny::before{content:"";position:absolute;top:-6px;left:var(--ki-spiss,22px);width:12px;height:12px;transform:rotate(45deg);background:inherit;
+      border-left:1px solid ${W(0.08)};border-top:1px solid ${W(0.08)};border-radius:3px 0 0 0}
+    .topp{padding:6px 10px 4px;font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ki-text-2, var(--gray800, #afafaf))}
+    .rad{display:flex;align-items:center;gap:12px;padding:8px 10px;border:0;border-radius:14px;background:none;color:inherit;font:inherit;font-size:16px;text-align:left;cursor:pointer;
+      -webkit-tap-highlight-color:transparent;transition:background .15s ease,transform .14s cubic-bezier(.2,1.3,.3,1);animation:kirad 320ms cubic-bezier(.2,1.2,.3,1) backwards;animation-delay:var(--forsink,0ms)}
+    .rad:active{transform:scale(.96);background:${W(0.08)}}
+    .rad.na{background:${W(0.06)}}
+    .flis{width:36px;height:36px;border-radius:11px;flex:none;display:flex;align-items:center;justify-content:center;
+      background:color-mix(in srgb, var(--rad-farge) calc(22% * var(--ki-tone-k, 1)), transparent);color:var(--rad-fg, var(--rad-farge))}
+    .rad.na .flis{background:var(--rad-farge);color:var(--ki-on-accent, rgb(20 20 24 / .85))}
+    .flis ha-icon{--mdc-icon-size:20px;display:flex}
+    .navn{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .her{font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--rad-farge);color:var(--ki-on-accent, rgb(20 20 24 / .85));white-space:nowrap}
+    .gaa{--mdc-icon-size:20px;opacity:.45;flex:none;display:flex}
+    .skille{height:1px;margin:2px 10px;background:${W(0.08)}}
+    .tilpass .flis{background:${W(0.1)};color:var(--ki-text, #fafafa)}
+    .tilpass .navn{opacity:.85}
+    @keyframes kirad{from{opacity:0;transform:translateY(-6px)}}
+    @keyframes kimeny{from{opacity:0;transform:scale(.92) translateY(-6px)}}
+    @media (prefers-reduced-motion: reduce){.meny,.rad{animation:none}}`;
+  const esc = M.esc;
+  // o: { anchor (element), liste, her (navn), tilpass: bool, onVelg(srv), onTilpass(), onBakgrunn(), onArk(), onLukk() }
+  // → { host, root, lukk(uten), oppdater(her) }
+  V.meny = function (o) {
+    const liste = o.liste || [];
+    const host = document.createElement('div');
+    host.className = 'msh-portal msh-servermeny';
+    const R = M.dashRect();
+    Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto', zIndex: '44' });
+    const sr = host.attachShadow({ mode: 'open' });
+    const rader = liste.map((srv, i) => {
+      const na = srv.navn === o.her, st = V.stil(srv, i);
+      return `<button class="rad${na ? ' na' : ''}" role="menuitem" data-i="${i}" ${na ? 'aria-current="location"' : ''} style="--rad-farge:${esc(st.farge)};--rad-fg:${esc(AT(st.farge))};--forsink:${i * 45}ms">
+        <span class="flis">${M.icon(st.ikon, 20)}</span><span class="navn">${esc(srv.navn)}</span>${na ? '<span class="her">Du er her</span>' : `<span class="gaa">${M.icon('mdi:chevron-right', 20)}</span>`}</button>`;
+    }).join('');
+    const tp = o.tilpass ? `<div class="skille"></div><button class="rad tilpass" role="menuitem" data-t="1" style="--forsink:${liste.length * 45}ms"><span class="flis">${M.icon('mdi:tune-variant', 20)}</span><span class="navn">Tilpass …</span></button>` : '';
+    sr.innerHTML = `<style>${M.BASE_CSS || ''}${CSS()}</style><div class="vern"></div><div class="meny" role="menu" aria-label="Bytt sted"><div class="topp">Bytt sted</div>${rader}${tp}</div>`;
+    const meny = sr.querySelector('.meny');
+    // Plassering: under ankeret (navnet), spissen peker på navnet; holdes innenfor dashbordflaten
+    const plasser = () => {
+      const D = M.dashRect();
+      host.style.left = D.left + 'px'; host.style.width = D.width + 'px';
+      const a = o.anchor && o.anchor.getBoundingClientRect ? o.anchor.getBoundingClientRect() : { left: D.left + 16, bottom: 80, width: 0 };
+      const bw = Math.min(260, D.width - 24);
+      const ax = a.left - D.left;
+      const left = Math.max(12, Math.min(ax, D.width - bw - 12));
+      meny.style.left = left + 'px';
+      meny.style.top = Math.round(a.bottom + 8) + 'px';
+      const sp = Math.max(14, Math.min(bw - 26, ax + 22 - left));
+      meny.style.setProperty('--ki-spiss', sp + 'px');
+      meny.style.setProperty('--ki-spiss-x', (sp + 6) + 'px');
+    };
+    plasser();
+    // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – menyen er ikke «utenfor»
+    const stop = (e) => e.stopPropagation();
+    ['click', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove', 'wheel'].forEach((t) => host.addEventListener(t, stop, { passive: true }));
+    const api = { host, root: sr, closed: false };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); api.lukk(); } };
+    const onHash = () => api.lukk(true);
+    api.lukk = (uten) => {
+      if (api.closed) return;
+      api.closed = true;
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('hashchange', onHash);
+      window.removeEventListener('resize', plasser);
+      if (uten || (M.reducedMotion && M.reducedMotion())) host.remove();
+      else { host.style.pointerEvents = 'none'; meny.classList.add('ut'); setTimeout(() => host.remove(), 150); }
+      if (o.onLukk) o.onLukk(uten);
+    };
+    sr.querySelector('.vern').addEventListener('click', () => { if (o.onBakgrunn) o.onBakgrunn(); else api.lukk(); });
+    meny.addEventListener('click', (e) => {
+      const b = e.composedPath().find((n) => n && n.classList && n.classList.contains('rad'));
+      if (!b) { if (o.onArk) o.onArk(); return; }
+      if (b.dataset.t) { M.haptic('light'); api.lukk(); if (o.onTilpass) o.onTilpass(); return; }
+      const srv = liste[Number(b.dataset.i)];
+      if (!srv) return;
+      if (srv.navn === o.her) { api.lukk(); return; } // raden du allerede er på → bare lukk
+      api.lukk();
+      if (o.onVelg) o.onVelg(srv);
+    });
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('hashchange', onHash);
+    window.addEventListener('resize', plasser);
+    M.overlayRoot().appendChild(host);
+    return api;
+  };
+
+  M.servervelger = V;
+})();
+
+} catch (e) { console.error('[ki-msh] 06-server.js', e); }
+
 /* ---- 06-varsling-kilde.js ---- */
 try {
 /* KI MSH · varslingskilden (fiks 29.1) – bryterne fra KI Varslinger og sikkerhet + KI Energi, funnet i entitetsregisteret.
@@ -9843,28 +10238,38 @@ try {
 
 /* ---- 08-light-row.js ---- */
 try {
-/* KI MSH · felles lys-rad for Rom → Lys (31-rom.js) og Lys-popupen (43-lys.js).
- * Bruker mysmart-light-control (norsk kopi, src/vendor/mysmart-light-control-no.js) i «msh»-modus, så alle lys får
- * nøyaktig samme rad: navn 15/500 #e1e1e1 til venstre, verdi 13 #979797 til høyre («45 %» / «Av» / «På»), 8 px ned til
- * sporet, spor 40 px (slider_height 32–56) radius 14, håndtak 4 × 28 inni sporet, alltid 32 px chevron-kolonne til høyre.
- * Farger: av = spor #545454 uten fyll, håndtak #979797 helt til venstre. På = lampens farge (19.2, M.lampColor): farge-
- * modus → rgb_color, color_temp → Kelvin-tone, ellers temagul; overrides.<id>.color / lights.<id>.color går foran. Fyll =
- * fargen under en 22→50 %-maske (mørke farger 30→60 %), overgang 300 ms. Aldri romfarge/adaptiv/localStorage.
- * Av/på-lys: samme spor, trykk veksler. Dra = lysstyrke (touch-action pan-y + stopPropagation), én haptic ved slipp.
+/* KI MSH · felles lysslider `msh-light-slider` (Fiks 39 – «ki-light-slider») for Rom → Lys (31-rom.js) og Lys-popupen
+ * (43-lys.js, også gruppe-radene). Erstatter mysmart-light-control i begge kortene (vendor-filen ligger igjen, ubrukt).
+ * Spesifikasjonen (fiks39) overstyrer lyspillene i Rom v4 / Lys v5:
+ *   Rad (dimbart lys): topplinje navn 15/500 (--ki-text) + verdi 12 (--ki-text-2, «0%», «100%», tabular-nums), 8 px ned
+ *   til baren. Bar 52 px (slider_height), radius 14, full bredde. Spor = lysfargen 35 % over --ki-surface-3 (#3a3a3a i
+ *   mørk), fyll = lysfargen i full opasitet (rgb/hs → farge, fargetemp → Kelvin-farge, kun dimbar = varmhvit #ffc896).
+ *   Håndtak 4 × (bar + 22) px radius 2, lysfargen × 0,6, 11 px over/under baren, 6 px luft mot fyll og spor.
+ *   Chevron (mdi:chevron-down 20 px, 44 × 44) bare for lys med farge/fargetemperatur → farge-/temperaturvelger under raden.
+ *   Rad (kun av/på): pille 52 px r14 med samme spor; bryterknapp (bar − 8) px r10, 55 % bredde, lysere tone, mdi:power 18;
+ *   av = knappen til venstre + prikk 6 px i lysfargen til høyre; på = fyll i lysfargen, knappen glir til høyre.
+ * Interaksjon: dra hvor som helst = lysstyrke 1–100 % (0 = av), trykk = av/på. touch-action pan-y + stopPropagation på
+ *   pointerdown/touchstart/touchmove (fallgruve 2). Lokalt live mens man drar; light.turn_on {brightness_pct} throttlet
+ *   150 ms + ved slipp. Haptic selection ved start, light ved 0/100 % (M.haptic: maks én per 40 ms). Ekstern endring:
+ *   fyll og håndtak animeres 250 ms. Lyst tema: spor/fyll fra lysfargen, tekst med --ki-*-tokens.
+ *
  *   M.lightType(state)                          → 'color' | 'ct' | 'dim' | 'onoff' (fra supported_color_modes)
- *   M.lightRowCfg(id, { name, type, user, height, color, kelvin }) → config til mysmart-light-control
- *       color = fast farge (Lys «Farge på lys»: Én farge / Temperatur), kelvin = «45 % · 2700 K» (Lys show_kelvin)
- *       user = lights.<objekt-id> (brightness_min/max, color_control, hide_*, color_presets, live_update)
- *   M.lightRowHeight(cfg)                       → slider_height (32–80, std 40; size compact 32 / large 48)
- *   M.mountLightRows(card, cfgOf(id, wrap))     → monter/oppdater i plassholdere [data-lc] (gjenbrukes per entity)
+ *   M.lightRowCfg(id, { name, type, user, height, color, kelvin }) → config til msh-light-slider
+ *       color = fast farge (Lys «Farge på lys»: Én farge / Temperatur), kelvin = «45% · 2700 K» (Lys show_kelvin)
+ *       user = lights.<objekt-id> (brightness_min/max, color_control, hide_*, color_presets)
+ *   M.lightRowHeight(cfg)                       → barhøyde (32–80, std 52; size compact 44 / large 60)
+ *   M.sliderColor(state, override, preview)     → lysfargen (css) for slideren
+ *   M.mountLightRows(card, cfgOf(id, wrap))     → monter/oppdater i plassholdere [data-lc] (gjenbrukes per nøkkel)
  *   M.lightRowsHass(card, hass)                 → gi nye hass til monterte rader
  *   M.LIGHT_ROW_CSS                             → CSS for plassholderne (.lsl; høyden fra --lr-h på en forelder)
+ * Gruppe (Lys 36.8): config { entities: [...], dim_ids, name, icon, suffix: ' · 3 lys' } – slideren styrer alle.
  */
 (function () {
   const M = window.MSH;
   if (!M || M.lightRowCfg) return;
   const esc = M.esc;
   const COLOR = ['hs', 'rgb', 'rgbw', 'rgbww', 'xy'];
+  const TAG = 'msh-light-slider';
 
   M.lightType = function (s) {
     const m = (s && s.attributes.supported_color_modes) || [];
@@ -9873,21 +10278,19 @@ try {
     if (m.some((x) => x !== 'onoff') || (!m.length && s && s.attributes.brightness != null)) return 'dim';
     return 'onoff';
   };
-  // Slider-høyde: slider_height (32–80, Lys v5 40–80), ellers eldre tile_height (56 → 40, 64 → 48, 72 → 56) /
-  // size: compact → 32, large → 48
+  // Barhøyde (Fiks 39: 52 px): slider_height (32–80) går foran, ellers size compact 44 / large 60, eldre tile_height
+  // (56 → 52, 64 → 60, 72 → 68)
   M.lightRowHeight = function (c) {
     c = c || {};
     const v = Number(c.slider_height);
     if (c.slider_height != null && c.slider_height !== '' && !isNaN(v)) return Math.max(32, Math.min(80, Math.round(v)));
-    if (c.size === 'compact') return 32;
-    if (c.size === 'large') return 48;
+    if (c.size === 'compact') return 44;
+    if (c.size === 'large') return 60;
     const th = Number(c.tile_height);
-    if (!c.size && th >= 56) return Math.max(32, Math.min(56, 40 + (th - 56)));
-    return 40;
+    if (!c.size && th >= 56) return Math.max(32, Math.min(80, 52 + (th - 56)));
+    return 52;
   };
-  // 19.2 · Lampens egen farge når den er på (Lys v4 → LC(k)/KEL()): farge-modus → rgb_color, color_temp → Kelvin-tone
-  // (≤2400 oransje · ≤3000 gul · ≤4200 krem · ellers kald hvit), ellers temagul. override (config) går foran, preview
-  // (rgb-streng mens man drar i farge/temperatur) går foran lampen. → { css, lum } (lum 0–1, relativ luminans)
+  // 19.2 · Lampens egen farge (Lys v4 → LC(k)/KEL()) – brukes fortsatt av «Lys på»-sirklene og fargeprikkene i arket.
   const KEL = [[2400, [242, 181, 115]], [3000, [242, 210, 111]], [4200, [242, 228, 185]], [Infinity, [222, 232, 245]]];
   const YEL = [242, 210, 111];
   const lumOf = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
@@ -9918,38 +10321,54 @@ try {
     }
     return out(YEL, `var(--yellow, rgb(${YEL.join(' ')}))`);
   };
-  // Fyll (maske over lampefargen): 22 % → 50 %, mørke/mettede farger (lum < 0,35) løftes til 30 % → 60 %
+  // Fyll-maske (19.2) – brukes ikke lenger av lys-radene (Fiks 39: full opasitet), beholdt for eldre kall
   M.lampMask = (lum) => (lum < 0.35 ? 'linear-gradient(90deg, rgb(0 0 0 / .3), rgb(0 0 0 / .6))' : 'linear-gradient(90deg, rgb(0 0 0 / .22), rgb(0 0 0 / .5))');
 
+  /* ------------------------------------------------------------ Fiks 39 · lysfargen */
+  const WARM = [255, 200, 150]; // varmhvit #ffc896 – kun dimbare lys (og lys som er av uten kjent farge)
+  // Kelvin → farge (Tanner Helland), mykt mot hvitt (30 %) så 2700 K ≈ varmhvit og 6500 K ≈ kald hvit
+  const kelvinRgb = (k) => {
+    const t = Math.max(1000, Math.min(40000, Number(k) || 2700)) / 100;
+    const r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
+    const g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+    const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+    return [r, g, b].map((v) => Math.round(Math.max(0, Math.min(255, v)) * 0.7 + 255 * 0.3));
+  };
+  M.kelvinRgb = kelvinRgb;
+  const css = (rgb) => `rgb(${rgb.join(' ')})`;
+  const kOf = (a) => Number(a.color_temp_kelvin) || (Number(a.color_temp) ? 1e6 / Number(a.color_temp) : 0);
+  const last = new Map(); // sist sette farge per lys (i minnet) – sporet beholder lysets farge når det er av
+  M.sliderColor = function (s, override, preview) {
+    if (preview) return preview;
+    if (override) return M.color(override, override);
+    const id = s && s.entity_id, a = (s && s.attributes) || {}, mode = a.color_mode;
+    let c = null;
+    if (s && s.state === 'on') {
+      if (COLOR.includes(mode)) { const x = rgbOf(a.rgb_color) || hsRgb(a.hs_color); if (x) c = css(x); }
+      if (!c && (mode === 'color_temp' || (!COLOR.includes(mode) && kOf(a) > 0))) { const k = kOf(a); if (k > 0) c = css(kelvinRgb(k)); }
+      if (!c) c = css(WARM);
+      if (id) last.set(id, c);
+      return c;
+    }
+    return (id && last.get(id)) || css(WARM);
+  };
+
+  const pctOf = (s) => (!s || s.state !== 'on' ? 0 : s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : 100);
   const B = (v) => (v === true || v === 'true' ? true : v === false || v === 'false' ? false : undefined);
   M.lightRowCfg = function (id, { name, type, user, height, color, kelvin } = {}) {
     const u = user || {};
-    const T = type || 'dim';
-    const out = {
-      entity: id, msh: true, msh_type: T, msh_height: height || 40, size: 'large', show_name: true, show_icon: false, show_brightness: true,
-      live_update: false, adaptive_slider_color: false, card_background: 'transparent', show_expand_toggle: true,
-      // lystype styrer ekstra-kontrollene (chevron): bare lys som faktisk har farge/temperatur
-      force_toggle_mode: T === 'onoff',
-      hide_temperature_slider: !(T === 'ct' || T === 'color'),
-      hide_color_controls: T !== 'color',
-      hide_color_presets: T !== 'color',
-      color_control: 'both',
-    };
+    const out = { entity: id, type: type || 'dim', height: height || 52 };
     if (name) out.name = name;
-    if (color) out.msh_color = color;
-    if (kelvin) out.msh_kelvin = true;
+    if (color) out.color = String(color);
+    if (kelvin) out.kelvin = true;
     Object.keys(u).forEach((k) => {
       let v = u[k];
       if (v == null || v === '') return;
-      if (k === 'color') { if (!out.msh_color) out.msh_color = String(v); return; }
-      if (k === 'brightness_min' || k === 'brightness_max') { v = Number(v); if (!isNaN(v)) out[k] = v; return; }
+      if (k === 'color') { if (!out.color) out.color = String(v); return; }
+      if (k === 'brightness_min' || k === 'brightness_max') { v = Number(v); if (!isNaN(v)) out[k] = M.clamp(Math.round(v), 0, 100); return; }
       if (k === 'color_control' && ['spectrum', 'presets', 'both'].includes(v)) { out[k] = v; return; }
-      if (k === 'live_update' || k === 'hide_temperature_slider' || k === 'hide_color_controls' || k === 'hide_color_presets') {
-        v = B(v);
-        // «skjul» kan bare skjule – aldri vise farge/temperatur for et lys som ikke har det
-        if (v === true || (v === false && k === 'live_update')) out[k] = v;
-        return;
-      }
+      // «skjul» kan bare skjule – aldri vise farge/temperatur for et lys som ikke har det
+      if (k === 'hide_temperature_slider' || k === 'hide_color_controls' || k === 'hide_color_presets') { if (B(v) === true) out[k] = true; return; }
       if (k === 'color_presets') {
         const a = (Array.isArray(v) ? v : String(v).split(/,(?![^(]*\))/)).map((x) => String(x).trim()).filter(Boolean);
         if (a.length) out[k] = a;
@@ -9958,78 +10377,362 @@ try {
     return out;
   };
 
+  /* ------------------------------------------------------------ msh-light-slider */
+  const PRESETS = ['#ffc896', '#fff4e0', '#e8f0ff', '#ff4d4d', '#ff9a3c', '#ffd84d', '#5fd36b', '#3fd0d4', '#4d8dff', '#9d6bff', '#ff6bcb']; // ki-hex-ok fargepalett
+  const HUES = [[15, 'Rød'], [45, 'Oransje'], [70, 'Gul'], [160, 'Grønn'], [195, 'Turkis'], [255, 'Blå'], [290, 'Lilla'], [340, 'Rosa'], [361, 'Rød']];
+  const hueName = (h) => (HUES.find(([t]) => h < t) || HUES[0])[1];
+  const hueOf = (a) => { if (Array.isArray(a.hs_color)) return Number(a.hs_color[0]) || 0; const c = rgbOf(a.rgb_color); if (!c) return 30; const [r, g, b] = c.map((v) => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return 0; let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; return h < 0 ? h + 360 : h; };
+  const CSS = `
+    :host{display:block;min-width:0;--lh:var(--lr-h,52px);-webkit-tap-highlight-color:transparent;font-family:${M.FONT}}
+    .r{display:flex;flex-direction:column;min-width:0}
+    .hd{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px;padding:0 2px;min-width:0}
+    .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--msh-nf,15px);font-weight:500;line-height:20px;color:var(--ki-text, #e1e1e1);display:flex;align-items:center;gap:6px}
+    .n span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .v{flex:none;font-size:12px;line-height:20px;color:var(--ki-text-2, var(--gray800,#afafaf));font-variant-numeric:tabular-nums;white-space:nowrap}
+    .ln{display:flex;align-items:center;gap:2px;min-width:0}
+    .bar{position:relative;flex:1;min-width:0;height:var(--lh);border-radius:14px;touch-action:pan-y;cursor:pointer;outline:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+      --base:var(--ki-surface-3, var(--gray200, #3a3a3a));--tr:color-mix(in srgb, var(--c) 35%, var(--base))}
+    .bar:focus-visible{box-shadow:0 0 0 2px var(--ki-text-2, var(--gray800,#afafaf))}
+    .fl,.tk,.hh{position:absolute;top:0;bottom:0}
+    .fl{left:0;border-radius:14px 4px 4px 14px;background:var(--c);transition:width .25s ease,background-color .25s ease}
+    .tk{right:0;border-radius:4px 14px 14px 4px;background:var(--tr);transition:left .25s ease,background-color .25s ease}
+    .hh{top:-11px;bottom:-11px;width:4px;border-radius:2px;background:color-mix(in srgb, var(--c) 60%, black);transition:left .25s ease,background-color .25s ease;pointer-events:none}
+    .p0 .fl{width:0!important}
+    /* av/på-pille */
+    .oo{background:var(--tr);overflow:hidden;transition:background-color .25s ease}
+    .oo .ofl{position:absolute;inset:0;background:var(--c);opacity:0;transition:opacity .25s ease}
+    .oo .kn{position:absolute;top:4px;bottom:4px;left:4px;width:calc(55% - 4px);border-radius:10px;display:flex;align-items:center;padding-left:12px;box-sizing:border-box;
+      background:color-mix(in srgb, var(--c) 55%, var(--base));color:var(--ki-text, #fafafa);transition:left .25s cubic-bezier(.3,.9,.3,1),background-color .25s ease,color .25s ease}
+    .oo .dot{position:absolute;top:50%;right:calc(22.5% - 3px);width:6px;height:6px;margin-top:-3px;border-radius:3px;background:var(--c);transition:opacity .2s ease}
+    .oo.on .ofl{opacity:1}
+    .oo.on .kn{left:calc(45%);background:color-mix(in srgb, var(--c) 65%, white);color:var(--ki-on-accent, #2a1720)}
+    .oo.on .dot{opacity:0}
+    .drag .fl,.drag .tk,.drag .hh,.drag .kn{transition:none}
+    .cv{flex:none;width:44px;height:44px;margin-right:-8px;border:0;padding:0;background:none;display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf));cursor:pointer;border-radius:22px;font:inherit}
+    .cv ha-icon{transition:transform .25s ease}
+    .cv.open ha-icon{transform:rotate(180deg)}
+    .dis{opacity:.5}
+    .dis .bar,.dis .cv{pointer-events:none}
+    /* farge-/temperaturvelger under raden */
+    .x{display:flex;flex-direction:column;gap:14px;padding:16px 2px 4px;animation:xin .22s cubic-bezier(.3,.9,.3,1)}
+    @keyframes xin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+    .xl{display:flex;justify-content:space-between;font-size:12px;line-height:16px;margin-bottom:8px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    .xs{position:relative;height:36px;border-radius:12px;touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none}
+    .xh{position:absolute;top:-6px;bottom:-6px;width:4px;margin-left:-2px;border-radius:2px;background:var(--ki-knob, #fff);box-shadow:0 0 0 1px rgb(0 0 0 / .25),0 1px 4px rgb(0 0 0 / .3);pointer-events:none}
+    .pr{display:flex;flex-wrap:wrap;gap:10px}
+    .pc{width:32px;height:32px;border-radius:16px;border:0;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .12);transition:transform .15s}
+    .pc:active{transform:scale(.9)}
+    @media (prefers-reduced-motion:reduce){.fl,.tk,.hh,.kn,.x{transition:none;animation:none}}
+  `;
+  const hue = 'linear-gradient(90deg,' + [0, 60, 120, 180, 240, 300, 360].map((h) => `hsl(${h} 100% 50%)`).join(',') + ')';
+
+  class LightSlider extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this._cfg = null; this._h = null; this._open = false; this._pend = null; this._drag = null; this._shape = ''; this._xprev = null;
+      this._sentAt = 0; this._tm = null; this._lastSent = null;
+    }
+    setConfig(c) {
+      if (!c || (!c.entity && !(Array.isArray(c.entities) && c.entities.length))) throw new Error('msh-light-slider: entity mangler');
+      this._cfg = { ...c };
+      this._upd();
+    }
+    get config() { return this._cfg; }
+    set hass(h) { this._h = h; this._upd(); }
+    get hass() { return this._h; }
+    connectedCallback() { this._upd(); }
+    disconnectedCallback() { if (this._tm) { clearTimeout(this._tm); this._tm = null; if (this._q != null) this._fire(this._q, this._qk); } }
+
+    _ids() { const c = this._cfg; return Array.isArray(c.entities) && c.entities.length ? c.entities.slice() : [c.entity]; }
+    _grp() { return Array.isArray(this._cfg.entities); }
+    _st() {
+      const c = this._cfg, h = this._h, ids = this._ids(), S = ids.map((id) => (h && h.states[id]) || null);
+      const grp = this._grp(), have = S.filter(Boolean), onS = have.filter((s) => s.state === 'on');
+      const missing = !have.length, unav = !missing && have.every((s) => M.unavailable(s));
+      const type = c.type || (grp ? (have.some((s) => M.lightType(s) !== 'onoff') ? 'dim' : 'onoff') : M.lightType(S[0]));
+      const onoff = type === 'onoff';
+      let p = onoff ? (onS.length ? 100 : 0) : grp ? (onS.length ? Math.max(1, Math.round(S.reduce((t, s) => t + pctOf(s), 0) / ids.length)) : 0) : pctOf(S[0]);
+      const now = Date.now();
+      if (this._pend) { if (now - this._pend.t > 3000 || Math.abs(this._pend.p - p) <= 1) this._pend = null; else p = this._pend.p; }
+      if (this._drag && this._drag.p != null) p = this._drag.p;
+      if (this._xprev && now > this._xprev.until) this._xprev = null;
+      const ref = onS[0] || S[0];
+      const col = M.sliderColor(ref, c.color, this._xprev && this._xprev.css);
+      const a = (ref && ref.attributes) || {}, modes = a.supported_color_modes || [];
+      const hasCt = !grp && (type === 'ct' || (type === 'color' && modes.includes('color_temp'))) && !c.hide_temperature_slider;
+      const hasHue = !grp && type === 'color' && !c.hide_color_controls && c.color_control !== 'presets';
+      const hasPre = !grp && type === 'color' && !c.hide_color_presets && c.color_control !== 'spectrum';
+      const chev = !grp && (type === 'ct' || type === 'color') && (hasCt || hasHue || hasPre);
+      const K = onS.length ? Math.round(kOf((onS[0] || {}).attributes || {})) : 0;
+      const name = c.name || (S[0] ? M.name(h, ids[0]) : ids[0]);
+      const val = missing ? 'Finnes ikke' : unav ? 'Utilgjengelig' : (onoff ? (p ? 'On' : 'Off') : `${p}%${c.kelvin && p && K > 0 ? ` · ${K} K` : ''}`) + (c.suffix || '');
+      return { ids, S, ref, grp, type, onoff, p, col, chev, hasCt, hasHue, hasPre, name, val, dis: missing || unav, on: onS.length > 0 };
+    }
+    _upd() {
+      if (!this._cfg || !this.isConnected) return;
+      const st = this._st();
+      const shape = `${st.onoff ? 'o' : 'd'}${st.chev ? 'c' : ''}`;
+      const R = this.shadowRoot;
+      if (shape !== this._shape) {
+        this._shape = shape;
+        R.innerHTML = `<style>${CSS}</style><div class="r">
+          <div class="hd"><span class="n"></span><span class="v"></span></div>
+          <div class="ln"><div class="bar${st.onoff ? ' oo' : ''}" tabindex="0" role="${st.onoff ? 'switch' : 'slider'}" aria-valuemin="0" aria-valuemax="100">
+            ${st.onoff ? `<span class="ofl"></span><span class="kn">${M.icon('mdi:power', 18)}</span><span class="dot"></span>` : '<span class="fl"></span><span class="tk"></span><span class="hh"></span>'}</div>
+            ${st.chev ? `<button class="cv" type="button" aria-label="Farge og temperatur">${M.icon('mdi:chevron-down', 20)}</button>` : ''}</div>
+          <div class="xw"></div></div>`;
+        this._bind();
+        this._nameKey = null;
+      }
+      const r = R.querySelector('.r'), bar = R.querySelector('.bar');
+      r.classList.toggle('dis', st.dis);
+      this.style.setProperty('--c', st.col);
+      const c = this._cfg, nk = `${c.icon || ''}|${st.name}|${st.on}`;
+      if (this._nameKey !== nk) {
+        this._nameKey = nk;
+        R.querySelector('.n').innerHTML = `${c.icon ? M.icon(c.icon, 18, `color:${st.on ? (c.icon_on || 'var(--ki-text, #e1e1e1)') : 'var(--ki-text-mid, var(--gray700,#979797))'}`) : ''}<span>${esc(st.name)}</span>`;
+      }
+      R.querySelector('.v').textContent = st.val;
+      bar.setAttribute('aria-label', st.name);
+      if (c.height) this.style.setProperty('--lh', `${Number(c.height)}px`); else this.style.removeProperty('--lh');
+      if (st.onoff) {
+        bar.classList.toggle('on', st.p > 0);
+        bar.setAttribute('aria-checked', String(st.p > 0));
+      } else {
+        const f = st.p / 100;
+        bar.classList.toggle('p0', st.p <= 0);
+        R.querySelector('.fl').style.width = `max(0px, calc((100% - 4px) * ${f} - 6px))`;
+        R.querySelector('.tk').style.left = `calc((100% - 4px) * ${f} + 10px)`;
+        R.querySelector('.hh').style.left = `calc((100% - 4px) * ${f})`;
+        bar.setAttribute('aria-valuenow', String(st.p));
+        bar.setAttribute('aria-valuetext', st.val);
+      }
+      const cv = R.querySelector('.cv');
+      if (cv) { cv.classList.toggle('open', this._open); cv.setAttribute('aria-expanded', String(this._open)); }
+      this._drawX(st);
+    }
+
+    /* ---------- farge-/temperaturvelger (eksisterende valg: Temperatur · Farge · Forhåndsvalg) */
+    _drawX(st) {
+      const w = this.shadowRoot.querySelector('.xw');
+      if (!w) return;
+      if (!this._open || !st.chev) { if (w.firstChild) w.textContent = ''; return; }
+      const a = (st.ref && st.ref.attributes) || {};
+      const kmin = Number(a.min_color_temp_kelvin) || 2000, kmax = Number(a.max_color_temp_kelvin) || 6500;
+      const xd = this._xd || {};
+      const k = xd.kind === 'ct' ? xd.v : Math.round(kOf(a)) || Math.round((kmin + kmax) / 2);
+      const hh = xd.kind === 'hue' ? xd.v : hueOf(a);
+      const key = `${st.hasCt}|${st.hasHue}|${st.hasPre}|${kmin}|${kmax}|${(this._cfg.color_presets || []).join()}`;
+      if (w.dataset.k !== key || !w.firstChild) {
+        w.dataset.k = key;
+        const pre = (this._cfg.color_presets && this._cfg.color_presets.length ? this._cfg.color_presets : PRESETS);
+        w.innerHTML = `<div class="x">
+          ${st.hasCt ? `<div><div class="xl"><span>Temperatur</span><span class="xv" data-v="ct"></span></div><div class="xs" data-s="ct" role="slider" aria-label="Temperatur" style="background:linear-gradient(90deg,${css(kelvinRgb(kmin))},${css(kelvinRgb((kmin + kmax) / 2))},${css(kelvinRgb(kmax))})"><span class="xh"></span></div></div>` : ''}
+          ${st.hasHue ? `<div><div class="xl"><span>Farge</span><span class="xv" data-v="hue"></span></div><div class="xs" data-s="hue" role="slider" aria-label="Farge" style="background:${hue}"><span class="xh"></span></div></div>` : ''}
+          ${st.hasPre ? `<div><div class="xl"><span>Forhåndsvalg</span></div><div class="pr">${pre.map((p) => { const rgb = rgbOf(M.color(p, p)); return `<button class="pc" type="button" data-pc="${esc(rgb ? rgb.join(',') : '')}" data-css="${esc(M.color(p, p))}" aria-label="Farge ${esc(p)}" style="background:${esc(M.color(p, p))}"></button>`; }).join('')}</div></div>` : ''}
+        </div>`;
+      }
+      const ct = w.querySelector('[data-s="ct"] .xh'), hu = w.querySelector('[data-s="hue"] .xh');
+      if (ct) { ct.style.left = `${M.clamp(((k - kmin) / Math.max(1, kmax - kmin)) * 100, 0, 100)}%`; w.querySelector('[data-v="ct"]').textContent = `${k} K`; }
+      if (hu) { hu.style.left = `${M.clamp((hh / 360) * 100, 0, 100)}%`; w.querySelector('[data-v="hue"]').textContent = hueName(hh); }
+      this._kr = [kmin, kmax];
+    }
+
+    /* ---------- interaksjon */
+    _bind() {
+      const R = this.shadowRoot, bar = R.querySelector('.bar'), stop = (e) => e.stopPropagation();
+      // fallgruve 2: Bubble Cards swipe-to-close / scroll skal aldri se dragene
+      ['touchstart', 'touchmove'].forEach((t) => R.addEventListener(t, stop, { passive: true }));
+      R.addEventListener('pointerdown', stop);
+      bar.addEventListener('pointerdown', (e) => this._down(e, bar, 'main'));
+      bar.addEventListener('keydown', (e) => this._key(e));
+      const cv = R.querySelector('.cv');
+      if (cv) cv.addEventListener('click', (e) => { e.stopPropagation(); this._open = !this._open; M.haptic('selection'); this._upd(); });
+      R.querySelector('.xw').addEventListener('pointerdown', (e) => { const s = e.target.closest && e.target.closest('.xs'); if (s) this._down(e, s, s.dataset.s); });
+      R.querySelector('.xw').addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('.pc');
+        if (!b || !b.dataset.pc) return;
+        e.stopPropagation();
+        M.haptic('selection');
+        this._xprev = { css: b.dataset.css, until: Date.now() + 2500 };
+        this._svc({ rgb_color: b.dataset.pc.split(',').map(Number) });
+        this._upd();
+      });
+    }
+    _pos(d, x) { return M.clamp((x - d.left - (d.kind === 'main' ? 2 : 0)) / Math.max(1, d.w - (d.kind === 'main' ? 4 : 0)), 0, 1); }
+    _down(e, el, kind) {
+      e.stopPropagation();
+      if (e.button || (this._drag && this._drag.id !== e.pointerId)) return;
+      const st = this._st();
+      if (st.dis) return;
+      const r = el.getBoundingClientRect();
+      const d = (this._drag = { id: e.pointerId, el, kind, x0: e.clientX, y0: e.clientY, left: r.left, w: r.width, moved: false, p: null, onoff: st.onoff, p0: st.p });
+      const mv = (ev) => {
+        if (ev.pointerId !== d.id) return;
+        ev.stopPropagation();
+        const dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
+        if (!d.moved) {
+          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) return end(ev, true); // vertikal = scroll
+          if (Math.abs(dx) < 6) return undefined;
+          d.moved = true;
+          try { el.setPointerCapture(d.id); } catch (x) { /* */ }
+          this.shadowRoot.querySelector('.r').classList.add('drag');
+          M.haptic('selection');
+        }
+        if (ev.cancelable) ev.preventDefault();
+        this._move(d, ev.clientX);
+        return undefined;
+      };
+      const end = (ev, abort) => {
+        if (ev && ev.pointerId !== d.id) return;
+        window.removeEventListener('pointermove', mv, true);
+        window.removeEventListener('pointerup', up, true);
+        window.removeEventListener('pointercancel', cn, true);
+        const R = this.shadowRoot.querySelector('.r'); if (R) R.classList.remove('drag');
+        if (this._drag === d) this._drag = null;
+        if (d.moved) this._commit(d, true);
+        else if (!abort && ev && ev.type === 'pointerup') this._tap(d, ev.clientX);
+        this._upd();
+      };
+      const up = (ev) => end(ev, false), cn = (ev) => end(ev, !d.moved);
+      window.addEventListener('pointermove', mv, true);
+      window.addEventListener('pointerup', up, true);
+      window.addEventListener('pointercancel', cn, true);
+    }
+    _move(d, x) {
+      const f = this._pos(d, x);
+      if (d.kind === 'main') {
+        if (d.onoff) { const on = f > 0.5; if (on !== (d.p != null ? d.p > 0 : d.p0 > 0)) M.haptic('light'); d.p = on ? 100 : 0; this._upd(); return; }
+        let p = Math.round(f * 100);
+        const c = this._cfg, lo = Math.max(1, Number(c.brightness_min) || 1), hi = Math.max(lo, Number(c.brightness_max) || 100);
+        if (p > 0) p = M.clamp(p, lo, hi);
+        if (p !== d.p) {
+          if ((p === 0 || p === 100) && d.p != null) M.haptic('light');
+          d.p = p;
+          this._upd();
+          this._send(p, false);
+        }
+        return;
+      }
+      const [kmin, kmax] = this._kr || [2000, 6500];
+      if (d.kind === 'ct') {
+        const k = Math.round((kmin + f * (kmax - kmin)) / 50) * 50;
+        if (k === d.p) return;
+        d.p = k; this._xd = { kind: 'ct', v: k };
+        this._xprev = { css: css(kelvinRgb(k)), until: Date.now() + 2500 };
+      } else {
+        const h = Math.round(f * 360);
+        if (h === d.p) return;
+        d.p = h; this._xd = { kind: 'hue', v: h };
+        this._xprev = { css: css(hsRgb([h, 100])), until: Date.now() + 2500 };
+      }
+      this._upd();
+      this._send(d.p, false, d.kind);
+    }
+    _commit(d) {
+      if (d.kind === 'main' && d.onoff) { if (d.p != null && (d.p > 0) !== (d.p0 > 0)) { this._pend = { p: d.p, t: Date.now() }; this._call(d.p); } return; }
+      if (d.p == null) return;
+      if (d.kind === 'main') this._pend = { p: d.p, t: Date.now() };
+      this._send(d.p, true, d.kind);
+      if (d.kind !== 'main') setTimeout(() => { this._xd = null; }, 2500);
+    }
+    _tap(d, x) {
+      if (d.kind !== 'main') { this._move(d, x); this._commit(d); return; }
+      const st = this._st();
+      M.haptic('light');
+      if (st.p > 0) { this._pend = { p: 0, t: Date.now() }; this._call(0); return; }
+      if (st.onoff) this._pend = { p: 100, t: Date.now() }; // dimbart: nivået kommer fra HA (forrige nivå)
+      this._call(-1);
+    }
+    _key(e) {
+      const st = this._st();
+      if (st.dis) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._call(st.p > 0 ? 0 : -1); return; }
+      if (st.onoff) return;
+      const dlt = { ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5 }[e.key];
+      if (!dlt) return;
+      e.preventDefault();
+      const p = M.clamp(st.p + dlt, 0, 100);
+      this._pend = { p, t: Date.now() };
+      this._send(p, true);
+      this._upd();
+    }
+    // light.turn_on {brightness_pct} throttlet 150 ms mens man drar, alltid én gang ved slipp
+    _send(v, final, kind = 'main') {
+      const now = Date.now();
+      this._q = v; this._qk = kind;
+      const fire = () => { this._sentAt = Date.now(); const q = this._q, k = this._qk; this._q = null; if (this._lastSent && this._lastSent[0] === k && this._lastSent[1] === q) return; this._lastSent = [k, q]; this._fire(q, k); };
+      if (final) { if (this._tm) { clearTimeout(this._tm); this._tm = null; } this._lastSent = null; fire(); return; }
+      if (now - this._sentAt >= 150) { if (this._tm) { clearTimeout(this._tm); this._tm = null; } fire(); return; }
+      if (!this._tm) this._tm = setTimeout(() => { this._tm = null; if (this._q != null) fire(); }, 150 - (now - this._sentAt));
+    }
+    _fire(v, kind) {
+      if (kind === 'ct') return this._svc({ color_temp_kelvin: v });
+      if (kind === 'hue') return this._svc({ hs_color: [v, 100] });
+      return this._call(v);
+    }
+    _svc(data) {
+      const ids = this._ids(), id = ids[0], dom = String(id).split('.')[0];
+      if (dom !== 'light') return undefined;
+      return M.call(this._h, 'light', 'turn_on', { entity_id: id, ...data });
+    }
+    // p: 0 = av, -1 = på (forrige nivå), 1–100 = lysstyrke. Utelamper (switch/input_boolean …) går via homeassistant.*
+    _call(p) {
+      const h = this._h, ids = this._ids(), grp = this._grp();
+      if (!h || !ids.length) return undefined;
+      const D = (id) => (String(id).startsWith('light.') ? 'light' : 'homeassistant');
+      const by = (list, svc, extra) => {
+        const L = list.filter((id) => D(id) === 'light'), O = list.filter((id) => D(id) !== 'light');
+        if (L.length) M.call(h, 'light', svc, { entity_id: grp ? L : L[0], ...(extra || {}) });
+        if (O.length) M.call(h, 'homeassistant', svc, { entity_id: grp ? O : O[0] });
+      };
+      if (!p) return by(ids, 'turn_off');
+      const st = this._st();
+      if (p < 0 || st.onoff) return by(ids, 'turn_on');
+      if (!grp) return by(ids, 'turn_on', { brightness_pct: p });
+      const dim = Array.isArray(this._cfg.dim_ids) ? ids.filter((id) => this._cfg.dim_ids.includes(id)) : ids.filter((id) => h.states[id] && M.lightType(h.states[id]) !== 'onoff');
+      if (dim.length) M.call(h, 'light', 'turn_on', { entity_id: dim, brightness_pct: p });
+      const plain = ids.filter((id) => !dim.includes(id));
+      if (plain.length) by(plain, 'turn_on');
+      return undefined;
+    }
+  }
+  if (!customElements.get(TAG)) customElements.define(TAG, LightSlider);
+  M.LightSlider = LightSlider;
+
+  /* ------------------------------------------------------------ montering i kortene */
   // Egen farge i kortets config: overrides: { 'light.x': { color } } (går foran lampens farge)
   const ov = (card, id) => { const o = card && card.config && card.config.overrides; const v = o && o[id]; return v && typeof v === 'object' && v.color ? String(v.color) : null; };
-  // Reserverad (lys uten mysmart-light-control / finnes ikke): samme mål som den ekte raden
-  const fallback = (card, id, name) => {
-    const h = card.hass, s = h && h.states[id], on = s && s.state === 'on';
-    const p = on && s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : null;
-    const lc = on ? M.lampColor(s, ov(card, id)) : null;
-    const k = on && card && card.config && card.config.show_kelvin ? Number(s.attributes.color_temp_kelvin) : 0;
-    const val = !s ? 'Finnes ikke' : M.unavailable && M.unavailable(s) ? 'Utilgjengelig' : on ? (p != null ? `${p} %` : 'På') + (k > 0 ? ` · ${Math.round(k)} K` : '') : 'Av';
-    return `<div class="lrf"><div class="lrf-hd"><span class="lrf-n">${esc(name || (s ? M.name(h, id) : id))}</span><span class="lrf-v">${esc(val)}</span></div>
-      <div class="lrf-t"><span class="lrf-f" style="width:${on ? (p != null ? p : 100) : 0}%${on ? `;background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span></div></div>`;
-  };
-
-  // Utelamper kan være switch/input_boolean/group/script: raden kaller light.turn_on/off → send via homeassistant.*
-  const proxies = new WeakMap();
-  const hassFor = (id, h) => {
-    if (!h || String(id).startsWith('light.')) return h;
-    let p = proxies.get(h);
-    if (!p) { p = Object.create(h); p.callService = (d, s, data, ...r) => h.callService(d === 'light' ? 'homeassistant' : d, s, data, ...r); proxies.set(h, p); }
-    return p;
-  };
   M.mountLightRows = function (card, cfgOf) {
     const R = card.shadowRoot, h = card.hass;
     if (!R || !h) return;
     const map = (card._lc = card._lc || new Map());
-    const ok = !!customElements.get('mysmart-light-control');
     R.querySelectorAll('[data-lc]').forEach((wrap) => {
       const id = wrap.dataset.lc;
       if (!wrap.__lcGuard) {
         wrap.__lcGuard = true;
-        // Drag-vern mot Bubble Cards swipe-to-close; én haptic «light» ved slipp (ikke per trinn)
-        const stop = (e) => e.stopPropagation();
-        wrap.addEventListener('pointerdown', (e) => {
-          stop(e);
-          if (e.button) return;
-          const done = (ev) => {
-            window.removeEventListener('pointerup', done, true);
-            window.removeEventListener('pointercancel', done, true);
-            if (ev.type === 'pointerup') M.haptic('light');
-          };
-          window.addEventListener('pointerup', done, true);
-          window.addEventListener('pointercancel', done, true);
-        });
+        const stop = (e) => e.stopPropagation(); // fallgruve 2 (slideren stopper også selv)
+        wrap.addEventListener('pointerdown', stop);
         wrap.addEventListener('touchstart', stop, { passive: true });
         wrap.addEventListener('touchmove', stop, { passive: true });
       }
-      const s = h.states[id];
-      if (!ok || !s) { const html = fallback(card, id, wrap.dataset.name); if (wrap.__fb !== html) { wrap.innerHTML = html; wrap.__fb = html; } return; }
-      wrap.__fb = null;
       let rec = map.get(id);
-      if (!rec) { rec = { el: document.createElement('mysmart-light-control'), json: '' }; map.set(id, rec); }
+      if (!rec) { rec = { el: document.createElement(TAG), json: '' }; map.set(id, rec); }
       const cfg = cfgOf(id, wrap), oc = ov(card, id);
-      if (oc && !cfg.msh_color) cfg.msh_color = oc;
+      if (oc && !cfg.color) cfg.color = oc;
       const json = JSON.stringify(cfg);
-      if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
-      const hh = hassFor(id, h);
-      if (rec.el.hass !== hh) rec.el.hass = hh;
       if (rec.el.parentNode !== wrap) { wrap.textContent = ''; wrap.appendChild(rec.el); }
+      if (rec.json !== json) { try { rec.el.setConfig(cfg); rec.json = json; } catch (e) { console.warn('[ki-msh] lys', id, e); } }
+      if (rec.el.hass !== h) rec.el.hass = h;
     });
   };
   M.lightRowsHass = function (card, h) {
-    if (card._lc) card._lc.forEach((rec, id) => { const hh = hassFor(id, h); if (rec.el.isConnected && rec.el.hass !== hh) rec.el.hass = hh; });
+    if (card._lc) card._lc.forEach((rec) => { if (rec.el.isConnected && rec.el.hass !== h) rec.el.hass = h; });
   };
   M.LIGHT_ROW_CSS = `
-    .lsl{display:block;min-width:0;min-height:calc(var(--lr-h,40px) + 28px)}
-    .lsl mysmart-light-control{--gray1000:var(--ki-text-1, #e1e1e1);--gray700:var(--ki-text-mid, #979797);--gray400:var(--ki-surface-3, #545454);display:block;--ha-card-background:transparent;--ha-card-box-shadow:none;--ha-card-border-width:0;--primary-text-color:var(--ki-text-1, var(--gray1000,#e1e1e1));--secondary-text-color:var(--ki-text-mid, var(--gray700,#979797))}
-    .lrf{display:grid;grid-template-columns:minmax(0,1fr) 32px;column-gap:8px;row-gap:8px}
-    .lrf-hd{grid-column:1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 2px;min-width:0}
-    .lrf-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--msh-nf,15px);font-weight:500;line-height:20px;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
-    .lrf-v{flex:none;font-size:13px;line-height:20px;color:var(--ki-text-mid, var(--gray700,#979797))}
-    .lrf-t{grid-column:1;position:relative;height:var(--lr-h,40px);border-radius:14px;background:var(--ki-ctrl, var(--gray400,#545454));overflow:hidden}
-    .lrf-f{position:absolute;left:0;top:0;bottom:0;background-color:transparent;transition:background-color .3s ease}
+    .lsl{display:block;min-width:0;min-height:calc(var(--lr-h,52px) + 28px)}
+    .lsl ${TAG}{display:block}
   `;
 })();
 
@@ -14624,79 +15327,43 @@ try {
     return v === '' || v == null || !isFinite(n) ? G.def : Math.max(G.min, Math.min(G.max, n));
   };
 
-  /* ------------------------------------------------------------ «Bytt sted» (fiks 16.3 / 31.7 / 34.2) */
-  // servers: [{ name, icon, color, path? }] (34.2). Trykk i HA Companion-appen → window.location.href =
-  // homeassistant://navigate/<path>?server=<navn URL-kodet> (path = serverens egen, ellers location.pathname uten ledende /).
-  // I nettleser: toast «Bytt server i appen», ingen navigering. Eldre nøkler (31.7: navigation_path/url, eldre url_path/
-  // fallback_url) leses: en homeassistant://navigate/<p>?server=…-lenke gir path = p (ikke standarden «lovelace»); url ignoreres.
-  const OLD_ICON = { oslo: 'mdi:city', toten: 'mdi:barn' };
-  const trimPath = (v) => String(v == null ? '' : v).trim().replace(/^\/+/, '');
-  M.hjemServerNorm = function (r) {
-    if (!r || typeof r !== 'object') return r;
-    const { url_path: up, fallback_url: fb, url, navigation_path: np, encode, ...o } = r; // eslint-disable-line no-unused-vars
-    const deep = [np, up, url].map((x) => String(x || '').trim()).find((x) => /^homeassistant:\/\//i.test(x));
-    if (o.path == null && deep) {
-      const m = /^homeassistant:\/\/navigate\/([^?#]*)/i.exec(deep);
-      if (m && m[1] && m[1] !== 'lovelace') o.path = m[1];
-    }
-    if (o.path != null) { o.path = trimPath(o.path); if (!o.path) delete o.path; }
-    // 31.7: standardstedene fra 21.4 (seedet med gamle ikoner) får de nye ikonene
-    const k = M.hjemPlaceKey ? M.hjemPlaceKey(o.name) : '';
-    if (OLD_ICON[k] && o.icon === OLD_ICON[k]) o.icon = (DEFAULT_SERVERS.find((x) => M.hjemPlaceKey(x.name) === k) || {}).icon || o.icon;
-    return o;
-  };
-  // Nåværende dashbord-path (location.pathname uten ledende /), f.eks. «ki-dashboard/hjem»
-  M.hjemCurPath = () => { try { return trimPath(decodeURI(location.pathname || '')) || 'lovelace'; } catch (e) { return trimPath(location.pathname) || 'lovelace'; } };
-  M.hjemServerNav = (n, path) => 'homeassistant://navigate/' + (trimPath(path) || M.hjemCurPath()) + '?server=' + encodeURIComponent(String(n || '').trim());
-  // Lenken HA-appen åpner for et sted ('' uten navn)
-  M.hjemServerUrl = function (r) {
-    r = M.hjemServerNorm(r) || {};
-    const n = String(r.name || '').trim();
-    return n ? M.hjemServerNav(n, r.path) : '';
-  };
-  // 31.7 · standard steder (Oslo, Toten, Strømstad – samme navn som i HA Companion-appens serverliste). Virker uten oppsett:
-  // trykk bytter server i appen og åpner samme dashbord. Skrives til config ÉN gang (servers + servers_init) ved
-  // første lasting – etter det er config sannheten (slettede kommer ikke tilbake); «Tilbakestill» gir de tre igjen.
-  const DEFAULT_SERVERS = [
-    { name: 'Oslo', icon: 'mdi:office-building', color: 'var(--green)' },
-    { name: 'Toten', icon: 'mdi:tractor', color: 'var(--yellow)' },
-    { name: 'Strømstad', icon: 'mdi:sail-boat', color: 'var(--blue)' },
-  ];
-  M.HJEM_DEFAULT_SERVERS = DEFAULT_SERVERS;
-  M.hjemDefaultServers = () => DEFAULT_SERVERS.map((x) => ({ ...x }));
-  // Stedslisten fra config: mangler/tom og aldri initialisert → standardlisten
-  M.hjemServers = function (c) {
-    c = c || {};
-    const l = Array.isArray(c.servers) ? c.servers : [];
-    return !l.length && !c.servers_init ? M.hjemDefaultServers() : l;
-  };
-  // Navigering (egen hjelper så testene kan fange den): window.location.href = lenken
-  M.hjemNavigate = M.hjemNavigate || ((u) => { window.location.href = u; });
-  // Navn-sammenligning uten store/små bokstaver og uten aksenter (Strømstad = stromstad)
-  M.hjemPlaceKey = (v) => String(v || '').trim().toLowerCase().replace(/ø/g, 'o').replace(/æ/g, 'ae').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  M.hjemServerHasUrl = (r) => !!M.hjemServerUrl(r);
-  // Kjører vi i Home Assistant Companion-appen? (bare der virker homeassistant://-lenker)
-  M.hjemIsApp = function () {
-    try {
-      if (window.externalApp) return true;
-      const mh = window.webkit && window.webkit.messageHandlers;
-      if (mh && mh.externalBus) return true;
-      return /Home ?Assistant/i.test(navigator.userAgent || '');
-    } catch (e) { return false; }
-  };
+  /* ------------------------------------------------------------ «Bytt sted» (Fiks 37 – erstatter 16.3 / 31.7 / 34.2) */
+  // Felles servervelger: MSH.servervelger (src/06-server.js) – servere, server_sti, server_navn, server_plass,
+  // server_meny_med, greeting_*_action. Eldre servers/this_server/place_name/title_actions leses (SV.cfg) og skrives om
+  // til de nye nøklene én gang (_migrateServers).
+  const SV = M.servervelger;
+  // server_plass når den ikke er satt: Sted/Hjem/Profil = stedsnavnet som tittel, ellers hilsenen/navnet (navn)
+  M.hjemServerPlassStd = (mode) => (['sted', 'hjem', 'profil'].includes(mode) ? 'tittel' : 'navn');
 
-  /* ------------------------------------------------------------ handlinger på tittelen (Fiks 9) */
-  // title_actions: { tap, double_tap, hold } – hver er én av TACTS. kiosk_entity: input_boolean (standard input_boolean.kiosk_mode).
-  const TACTS = [['server', 'Bytt sted', 'mdi:swap-horizontal'], ['kiosk', 'Kiosk-modus av/på', 'mdi:fullscreen'], ['config', 'Innstillinger', 'mdi:cog'], ['edit', 'Rediger dashbord', 'mdi:pencil'], ['header', 'Tilpass header', 'mdi:page-layout-header'], ['vaer', 'Åpne Vær', 'mdi:weather-partly-cloudy'], ['none', 'Ingen', 'mdi:cancel']];
+  /* ------------------------------------------------------------ handlinger på tittelen (Fiks 9 → Fiks 37) */
+  // server_meny_med = gesten som åpner «Bytt sted»; de andre gestene kjører greeting_<gest>_action (HA-handling).
+  // Kortets egne handlinger: { action: 'kiosk' } (kiosk_entity av/på), { action: 'edit' } (rediger dashbord),
+  // { action: 'tilpass' } (Tilpass header). Standard: trykk = meny, dobbelttrykk = /config, hold = kiosk-modus.
+  const TACTS = [['server', 'Bytt sted', 'mdi:swap-horizontal'], ['kiosk', 'Kiosk-modus av/på', 'mdi:fullscreen'], ['config', 'Innstillinger', 'mdi:cog'], ['edit', 'Rediger dashbord', 'mdi:pencil'], ['header', 'Tilpass header', 'mdi:page-layout-header'], ['vaer', 'Åpne Vær', 'mdi:weather-partly-cloudy'], ['none', 'Ingen', 'mdi:cancel'], ['egen', 'Egen handling (YAML)', 'mdi:code-braces']];
   const TACT_L = Object.fromEntries(TACTS.map(([k, l]) => [k, l]));
   const TGESTS = [['tap', 'Trykk', 'mdi:gesture-tap'], ['double_tap', 'Dobbelttrykk', 'mdi:gesture-double-tap'], ['hold', 'Hold', 'mdi:gesture-tap-hold']];
-  const TACT_DEF = { tap: 'server', double_tap: 'config', hold: 'kiosk' };
+  const GSTD = { double_tap: { action: 'navigate', navigation_path: '/config' }, hold: { action: 'kiosk' } };
+  M.HJEM_GREET_STD = GSTD;
   const KIOSK_DEF = 'input_boolean.kiosk_mode';
   M.HJEM_TITLE_ACTIONS = TACTS;
-  // Effektive handlinger (ukjente/manglende verdier → standard). Ren funksjon.
+  // Nedtrekksverdien for en handling
+  const presetOf = (h, c) => {
+    const a = h && h.action;
+    if (!a || a === 'none') return 'none';
+    if (a === 'kiosk') return 'kiosk';
+    if (a === 'edit') return 'edit';
+    if (a === 'tilpass') return 'header';
+    if (a === 'navigate') {
+      const p = String(h.navigation_path || '');
+      if (p === '/config') return 'config';
+      if (p === ((c && c.weather_hash) || '#vaer') || p === '#vaer') return 'vaer';
+    }
+    return 'egen';
+  };
+  // Effektive valg per gest: { tap, double_tap, hold } → 'server' | preset | 'egen'. Ren funksjon.
   M.hjemTitleActions = function (c) {
-    const t = (c && c.title_actions) || {}, out = {};
-    Object.keys(TACT_DEF).forEach((k) => { out[k] = TACT_L[t[k]] ? t[k] : TACT_DEF[k]; });
+    const cc = SV.cfg(c || {}), meny = SV.menyMed(cc), out = {};
+    TGESTS.forEach(([g]) => { out[g] = meny === g ? 'server' : presetOf(SV.handling(cc, g, GSTD), cc); });
     return out;
   };
   /* ------------------------------------------------------------ handlinger på personbildene (Fiks 22.7) */
@@ -14856,7 +15523,11 @@ try {
     class HjemEditor extends Base {
       constructor() {
         super(); this._ropen = {}; this._btns = {};
-        this.shadowRoot.addEventListener('change', (e) => { if (e.target && e.target.dataset && (e.target.dataset.tact || e.target.dataset.pact || e.target.dataset.np)) M.haptic('selection'); });
+        this.shadowRoot.addEventListener('change', (e) => {
+          const d = e.target && e.target.dataset;
+          if (d && (d.tact || d.pact || d.np)) M.haptic('selection');
+          if (d && d.tact && !d.name) this._setGest(d.tact, e.target.value); // Fiks 37
+        });
         this.shadowRoot.addEventListener('focusout', (e) => { if (this._pend && e.target && e.target.tagName === 'SELECT') { this._pend = false; setTimeout(() => this._render(), 0); } });
         // Fiks 20.9: live forhåndsvisning (prosa) per tastetrykk – bare forhåndsvisningen tegnes, lagring skjer på change
         this.shadowRoot.addEventListener('input', (e) => {
@@ -14899,6 +15570,8 @@ try {
         this._css();
         this._btns = {};
         this._scHold = null; this._rendering = true;
+        // Fiks 37: header-config med eldre steder/tittel-handlinger vises (og lagres) med de nye nøklene
+        if (this._config && this.cardClass && this.cardClass.cardName === 'Hjem · header' && SV.harGammel(this._config)) this._config = SV.cfg(this._config);
         // Fiks 19.13: feltene i PROF_KEYS viser verdien for valgt bruker × enhet (med arv); resten = kortets config
         const base = this._config;
         if (base && this._profOn()) { const P = M.hjemHeaderProfile(this._psel()), o = { ...base }; PROF_KEYS.forEach((k) => { if (P[k] != null) o[k] = k === 'status' ? mergeStatus(base.status, P.status) : P[k]; }); this._config = o; }
@@ -15130,15 +15803,28 @@ try {
       // Fiks 22.7: pers = «Handlinger på personbilder» (person_actions, data-pact), samme UI.
       _titleActs(pers) {
         const A = pers ? M.hjemPersonActions(this._config || {}) : M.hjemTitleActions(this._config || {});
-        const [ACTS, GESTS, L, DEF, key, dk, rk] = pers ? [PACTS, PGESTS, PACT_L, PACT_DEF, 'person_actions', 'data-pact', 'pa'] : [TACTS, TGESTS, TACT_L, TACT_DEF, 'title_actions', 'data-tact', 'ta'];
-        if (!this._inline && customElements.get('ha-selector')) {
-          const sel = JSON.stringify({ select: { mode: 'dropdown', options: ACTS.map(([v, l]) => ({ value: v, label: l })) } });
+        const [ACTS0, GESTS, L, DEF, key, dk, rk] = pers ? [PACTS, PGESTS, PACT_L, PACT_DEF, 'person_actions', 'data-pact', 'pa'] : [TACTS, TGESTS, TACT_L, { tap: 'server', double_tap: 'config', hold: 'kiosk' }, 'title_actions', 'data-tact', 'ta'];
+        // Fiks 37: tittelen lagrer server_meny_med + greeting_*_action (ingen data-name – _setGest skriver begge)
+        const ACTS = (g) => (pers ? ACTS0 : ACTS0.filter(([k]) => k !== 'egen' || A[g] === 'egen'));
+        const nm = (g) => (pers ? `data-name="${key}.${g}"` : '');
+        if (pers && !this._inline && customElements.get('ha-selector')) {
+          const sel = JSON.stringify({ select: { mode: 'dropdown', options: ACTS0.map(([v, l]) => ({ value: v, label: l })) } });
           return `<div class="xtsel">${GESTS.map(([g, l]) => `<div class="f"><ha-selector data-name="${key}.${g}" ${dk}="${g}" data-nomorph data-selector="${esc(sel)}" data-label="${esc(l)}" data-helper="Standard: ${esc(L[DEF[g]])}"></ha-selector></div>`).join('')}</div>`;
         }
         return `<div class="xta">${GESTS.map(([g, l, ic]) => {
           const v = A[g];
-          return `<div class="xtr" data-key="${rk}-${g}"><span class="ti">${M.icon(ic, 20)}</span><b>${esc(l)}</b><label class="xpill ${v === 'none' ? 'none' : ''}"><span>${esc(L[v])}</span>${M.icon('mdi:unfold-more-horizontal', 16, 'color:var(--ki-text-2, #afafaf);flex:none')}<select data-name="${key}.${g}" ${dk}="${g}" aria-label="${esc(l)}">${ACTS.map(([k, kl]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${esc(kl)}</option>`).join('')}</select></label></div>`;
+          return `<div class="xtr" data-key="${rk}-${g}"><span class="ti">${M.icon(ic, 20)}</span><b>${esc(l)}</b><label class="xpill ${v === 'none' ? 'none' : ''}"><span>${esc(L[v])}</span>${M.icon('mdi:unfold-more-horizontal', 16, 'color:var(--ki-text-2, #afafaf);flex:none')}<select ${nm(g)} ${dk}="${g}" aria-label="${esc(l)}">${ACTS(g).map(([k, kl]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${esc(kl)}</option>`).join('')}</select></label></div>`;
         }).join('')}</div>`;
+      }
+      // Fiks 37: valg i «Handlinger på tittelen» → server_meny_med / greeting_<gest>_action (eldre nøkler skrives om først)
+      _setGest(g, v) {
+        if (!g || !v || v === 'egen') return;
+        const c = SV.cfg(this._config || {});
+        this._config = c;
+        if (v === 'server') return this._set('server_meny_med', g);
+        if (SV.menyMed(c) === g) this._config = { ...c, server_meny_med: 'ingen' };
+        const P = SV.PRESET[v];
+        this._set('greeting_' + g + '_action', P ? P(c) : { action: 'none' });
       }
       _field(f, key) {
         // Felt med rad-sti (people.0.home) utenfor radene («Bytt entiteter»): les fra radlisten (også standardradene)
@@ -15848,7 +16534,7 @@ try {
           { type: 'section', id: 'title_actions', label: 'Handlinger på tittelen', icon: 'mdi:gesture-tap', meta: (h, cc) => { const A = M.hjemTitleActions(cc); return TACT_L[A.tap]; }, fields: [
             { type: 'titleacts' },
             { type: 'entity', name: 'kiosk_entity', label: 'Kiosk-modus-entitet', domain: 'input_boolean', auto: (h, cc) => ((cc.overrides || {}).kiosk) || KIOSK_DEF },
-            { type: 'info', label: 'Standard: trykk åpner «Bytt sted», hold slår kiosk-modus av/på, dobbelttrykk åpner innstillinger.' },
+            { type: 'info', label: 'Standard: trykk åpner «Bytt sted», dobbelttrykk åpner innstillinger, hold slår kiosk-modus av/på. Hold uten handling åpner Tilpass header. Uten steder (Steder) åpnes ingen meny.' },
             { type: 'button', label: 'Kiosk-innstillinger', icon: 'mdi:fullscreen', run: () => M.kioskSheet && M.kioskSheet() }, // Fiks 22.9 (bryter-entiteten i arket vinner over kiosk_entity)
           ] },
           // Fiks 22.7: rett under «Handlinger på tittelen»
@@ -15918,8 +16604,9 @@ try {
           ] },
           { type: 'section', label: 'Hilsen', icon: 'mdi:hand-wave', fields: [
             { type: 'text', name: 'greeting', label: 'Hilsen', placeholder: D.greeting },
-            { type: 'tokens', target: 'greeting', tokens: [['+ Fornavn', '{name}'], ['+ Sted', '{server}'], ['+ 👋', '👋 ', true]] },
-            { type: 'info', label: '{name} blir fornavnet ditt, {server} stedet du er på.' },
+            { type: 'tokens', target: 'greeting', tokens: [['+ Fornavn', '{name}'], ['+ Sted', '{server}'], ['+ Temp', '{temp}'], ['+ Vær', '{vaer}'], ['+ 👋', '👋 ', true]] },
+            { type: 'text', name: 'undertekst', label: 'Undertekst (valgfri)', placeholder: '{temp} • {vaer}', help: 'Linja under tittelen. Tom = været i «Hjem» og «Profil», ingen linje ellers.' },
+            { type: 'info', label: '{name} blir fornavnet ditt, {server} stedet du er på, {temp} og {vaer} været.' },
           ] },
           { type: 'section', label: 'Bilder', icon: 'mdi:account-circle', fields: [
             { type: 'select', name: 'size', label: 'Størrelse', options: [['S', 'Liten'], ['M', 'Middels'], ['L', 'Stor']], default: D.size },
@@ -15930,24 +16617,25 @@ try {
             { type: 'boolean', name: 'weather_tap', label: 'Trykk på været åpner Vær · gjelder «Hjem» og «Profil»', default: true },
             { type: 'hash', name: 'weather_hash', label: 'Vær-popup', placeholder: D.weather_hash },
           ] },
-          { type: 'section', id: 'servers', label: 'Steder', icon: 'mdi:swap-horizontal', fields: [
-            // Fiks 16.3: «Du er her» = dette stedet (this_server); de andre stedene åpnes med HA-appens egen URL-handling
-            { type: 'text', name: 'this_server.name', label: 'Navn på dette stedet', auto: (h, cc) => (cc && cc.place_name) || (h && h.config && h.config.location_name) || 'Hjem', help: 'Vises øverst i «Bytt sted» som «Du er her», og som tittel i «Sted»-oppsettet. Står samme navn i listen under, skjules det der.' },
-            { type: 'icon', name: 'this_server.icon', label: 'Ikon for dette stedet', auto: () => 'mdi:home' },
-            { type: 'color', name: 'this_server.color', label: 'Farge for dette stedet', auto: () => C.green },
-            { type: 'rows', name: 'servers', label: 'Bytt sted – Home Assistant-servere', defaults: (h, cc) => M.hjemServers(cc), addLabel: 'Legg til sted',
-              help: 'Trykk i Home Assistant-appen bytter server: homeassistant://navigate/<dashbord>?server=<navn>. Navnet må være NØYAKTIG som i appens Innstillinger → Servere (det URL-kodes: Strømstad → Str%C3%B8mstad). Dashbordet er det du står på, eller stedets egen sti. I nettleser vises «Bytt server i appen». Stedet som matcher Home Assistant-navnet (location_name) vises øverst som «Du er her».',
-              norm: (list, cc) => (list.length ? list : M.hjemServers(cc)).map((r) => M.hjemServerNorm(r)),
-              title: (r) => r.name || 'Nytt sted', sub: (r) => (!r.name ? 'Mangler navn' : r.path ? '/' + r.path : 'Samme dashbord'),
-              chip: (r) => `<span class="xchip" style="border-radius:12px;background:${M.alpha(M.color(r.color, C.blue), 0.35)};color:${M.theme ? M.theme.accentText(M.color(r.color, C.blue)) : M.color(r.color, C.blue)}">${M.icon(r.icon || 'mdi:home', 18)}</span>`,
-              newRow: (h, cc, list) => ({ name: '', icon: 'mdi:home', color: ZCOLS[(list.length + 2) % ZCOLS.length] }),
+          // Fiks 37: servere / server_navn / server_sti / server_plass / server_meny_med (MSH.servervelger, 06-server.js)
+          { type: 'section', id: 'servers', label: 'Steder', icon: 'mdi:swap-horizontal', meta: (h, cc) => { const n = SV.list(cc).length; return n ? n + ' steder' : 'Ingen'; }, fields: [
+            { type: 'rows', name: 'servere', label: 'Bytt sted – Home Assistant-servere', defaults: (h, cc) => SV.list(cc), addLabel: 'Legg til sted',
+              help: 'Trykk i Companion-appen bytter server med homeassistant://navigate/<dashbord>?server=<navn>. «Navn i appen» må være NØYAKTIG som i appens serverliste (ø/ö skrives som de er). Uten steder vises ingen meny og ingen pil.',
+              norm: (list) => SV.parse(list).map((r) => { const o = { navn: r.navn }; if (r.server && r.server !== r.navn) o.server = r.server; ['ikon', 'farge', 'sti'].forEach((k) => { if (r[k]) o[k] = r[k]; }); return o; }),
+              title: (r) => r.navn || 'Nytt sted', sub: (r) => (!r.navn ? 'Mangler navn' : [r.server && r.server !== r.navn ? 'I appen: ' + r.server : '', r.sti ? '/' + String(r.sti).replace(/^\/+/, '') : 'Samme dashbord'].filter(Boolean).join(' · ')),
+              chip: (r, i) => { const st = SV.stil(r, i); return `<span class="xchip" style="border-radius:11px;background:${M.alpha(st.farge, 0.22)};color:${M.theme ? M.theme.accentText(st.farge) : st.farge}">${M.icon(st.ikon, 18)}</span>`; },
+              newRow: () => ({ navn: '' }),
               fields: [
-                { type: 'text', name: 'name', label: 'Navn (nøyaktig som i appens serverliste)' },
-                { type: 'icon', name: 'icon', label: 'Ikon' },
-                { type: 'color', name: 'color', label: 'Farge' },
-                { type: 'text', name: 'path', label: 'Dashbord-sti (valgfri)', auto: () => M.hjemCurPath(), help: 'Tom = samme dashbord som du står på nå. Eks. «ki-dashboard/hjem» (uten ledende /).' },
+                { type: 'text', name: 'navn', label: 'Navn' },
+                { type: 'text', name: 'server', label: 'Navn i appen (valgfri)', help: 'Tom = samme som navnet. F.eks. Strömstad → Strømstad.' },
+                { type: 'icon', name: 'ikon', label: 'Ikon', auto: (r) => SV.stil(r, 0).ikon },
+                { type: 'color', name: 'farge', label: 'Farge' },
+                { type: 'text', name: 'sti', label: 'Dashbord-sti (valgfri)', help: 'Tom = server_sti, ellers samme dashbord som du står på. Eks. «dashboard-mysmarthome».' },
               ] },
-            { type: 'button', icon: 'mdi:restore', label: 'Tilbakestill steder (Oslo, Toten, Strømstad)', run: (h, cc, ed) => { if (ed && ed._set) { M.haptic('light'); ed._set('servers', M.hjemDefaultServers()); } } },
+            { type: 'text', name: 'server_navn', label: 'Denne serverens navn (valgfri)', auto: (h, cc) => SV.navn({ ...SV.cfg(cc), server_navn: undefined }, h) || 'fant ingen', help: 'Tom = gjenkjennes fra navnet på Home Assistant-installasjonen (store/små bokstaver og ø/ö spiller ingen rolle).' },
+            { type: 'text', name: 'server_sti', label: 'Side som åpnes (valgfri)', placeholder: 'lovelace', help: 'Tom = samme dashbord som du står på nå.' },
+            { type: 'select', name: 'server_plass', label: 'Hvor stedsnavnet står', options: [['tittel', 'Tittel – stedet er den store linja'], ['under', 'Under – på linja under hilsenen'], ['navn', 'Navn – ingen stedsnavn, trykk på hilsenen']], default: M.hjemServerPlassStd(modeOf(c || {})) },
+            { type: 'select', name: 'server_meny_med', label: 'Menyen åpnes med', options: [['tap', 'Trykk'], ['double_tap', 'Dobbelttrykk'], ['hold', 'Langt trykk'], ['ingen', 'Ingen']], default: 'tap' },
           ] },
           // «Bytt entiteter»: vær + per person «· hjemme», «· søvn» og «Sone når borte» (samme people[]-felt som Personer).
           { type: 'section', id: 'overrides', label: 'Bytt entiteter', icon: 'mdi:swap-horizontal', fields: [
@@ -15967,36 +16655,20 @@ try {
     }
     get cardSize() { return 2; }
     customize(focus) { return M.hjemCustomize(this, focus); }
-    // Dette stedet (fiks 16.3): this_server { name, icon, color } (eldre place_name) → ellers stedet i listen med samme
-    // navn → hass.config.location_name (31.7) → samme adresse (url-origin = location.origin / hassUrl, ?server=).
-    // cur = indeksen til dette stedet i listen (skjules i menyen), -1 = ikke i listen.
+    // Fiks 37: effektiv steds-config (eldre nøkler lest som nye) og stedet vi står på (SV.navn, som _serverNavn)
+    _sc() { return SV.cfg(this.config); }
+    _plassStd() { return M.hjemServerPlassStd(modeOf(this.config)); }
     _server() {
-      const c = this.config, h = this.hass;
-      const ts = c.this_server && typeof c.this_server === 'object' ? c.this_server : {};
-      const list = M.hjemServers(c).map((x) => M.hjemServerNorm(x)).filter((x) => x && x.name);
-      const org = (u) => { try { return new URL(u).origin; } catch (e) { return null; } };
-      const hu = h && h.auth && h.auth.data && h.auth.data.hassUrl;
-      const mine = [location.origin, org(hu)].filter(Boolean);
-      const same = (x, y) => M.hjemPlaceKey(x) === M.hjemPlaceKey(y);
-      let name = String(this._hereName || ts.name || c.place_name || '').trim();
-      let cur = name ? list.findIndex((x) => same(x.name, name)) : -1;
-      // 31.7: «Du er her» automatisk – hass.config.location_name (uten case, æ/ø/å normalisert), ellers URL-en
-      // (url-origin = location.origin / hassUrl, eller ?server=<navn> i adressen); ingen treff → ingen markering
-      if (cur < 0 && !name && h && h.config && h.config.location_name) cur = list.findIndex((x) => same(x.name, h.config.location_name));
-      if (cur < 0 && !name) cur = list.findIndex((x) => x.url && mine.includes(org(x.url)));
-      if (cur < 0 && !name) { const m = /[?&]server=([^&#]*)/.exec(location.search || ''); if (m) { let v = m[1]; try { v = decodeURIComponent(v); } catch (e) { /* */ } cur = list.findIndex((x) => same(x.name, v)); } }
-      if (!name) name = cur >= 0 ? list[cur].name : (h && h.config && h.config.location_name) || 'Hjem';
-      const cs = cur >= 0 ? list[cur] : {};
-      let host = location.hostname || '';
-      if (!host && hu) { try { host = new URL(hu).hostname; } catch (e) { /* */ } }
-      return { name, icon: ts.icon || cs.icon || 'mdi:home', color: ts.color || cs.color || C.green, list, cur, host: host || name };
+      const c = this._sc(), list = SV.parse(c.servere), name = SV.navn(c, this.hass);
+      return { name: name || 'Hjem', list, cur: list.findIndex((x) => x.navn === name), plass: SV.plass(c, this._plassStd()), meny: SV.gest(c, this._plassStd()) };
     }
     _weather() {
       const id = M.pick(this.config, 'weather', M.all(this.hass, 'weather')[0]);
       const s = this.s(id);
-      if (!s || M.unavailable(s)) return { id, text: '' };
+      const v = SV.vaer(this.hass, id);
+      if (!s || M.unavailable(s)) return { id, text: '', temp: '', vaer: '' };
       const t = s.attributes.temperature;
-      return { id, text: `${t != null ? M.nf(Number(t), 0) + ' °C · ' : ''}${M.hjemCond(s.state)}` };
+      return { id, text: `${t != null ? M.nf(Number(t), 0) + ' °C · ' : ''}${M.hjemCond(s.state)}`, temp: v.temp, vaer: v.vaer };
     }
     // Fiks 18.4/18.7: Fold-oppsett? Satt av msh-hjem-card (mshFold); frittstående header måler dashbordflaten selv.
     _isFold() { return this.mshFold != null ? !!this.mshFold : !!(M.isFold && M.isFold()); }
@@ -16008,20 +16680,28 @@ try {
       const meP = people.find((p) => p.me);
       if (isHil(Md) && meP) people = [meP, ...people.filter((p) => p !== meP)]; // 26.22: den innloggede først
       const userFirst = firstName((h.user && h.user.name) || (meP && meP.name) || '');
-      const srv = this._server();
-      const fill = (t) => String(t || '').replace(/\{name\}/g, userFirst).replace(/\{server\}/g, srv.name);
-      const greet = fill(c.greeting != null ? c.greeting : '👋 {name}!');
-      const title = ['sted', 'hjem', 'profil'].includes(Md) ? srv.name : Md === 'navn' ? userFirst || greet : greet;
+      // Fiks 37 (37.4): stedsnavnets plass (tittel | under | navn), plassholdere {server} {name}/{first_name} {temp} {vaer}
+      const srv = this._server(), sc = this._sc(), plass = srv.plass;
       const W = this._weather();
-      const sub = (Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '';
+      const fill = (t) => SV.fyll(t, { server: srv.name, name: userFirst, temp: W.temp, vaer: W.vaer });
+      const hilsen = c.greeting != null ? c.greeting : '👋 {name}!';
+      const greet = fill(hilsen);
+      const title = plass === 'tittel' ? fill(SV.tittelMal(sc, this._plassStd(), hilsen)) : Md === 'navn' ? userFirst || greet : greet;
+      const ut = c.undertekst ? SV.rydd(fill(c.undertekst)) : '';
+      const sub = ut || ((Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '');
+      // Pil på den store linja bare når den åpner menyen (servere + tittel/navn); uten servere: ingen meny, ingen pil
+      const pilOn = srv.list.length > 0 && plass !== 'under';
+      const under = plass === 'under', underMeny = under && srv.list.length > 0, apen = !!this._srv;
       const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c, this._isFold());
       // 26.22: smal dashbordflate (< 420 px) → 56 px bilder og 26 px merke
       const narrow = hil && (M.dashRect ? M.dashRect().width : window.innerWidth) < HIL_NARROW.w;
       // Fiks 17.20: målt tilpasning (tittel, bilder, mellomrom) gjelder bare samme tittel/antall/størrelser
-      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap, narrow].join('|') : '';
+      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap, narrow, pilOn].join('|') : '';
       if (this._hSig !== hSig) { this._hSig = hSig; this._hFit = null; this._hN = 0; }
       // Fiks 19.12: målt tilpasning (_hFitNow); før første måling et estimat fra radens bredde (tegnvekt-estimat)
-      const HF = hil ? this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, 28, people.length, HS, narrow) : {};
+      const HF = hil ? this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, pilOn ? HIL_ARR : 0, people.length, HS, narrow) : {};
+      // 37.4: får ikke navn + pil plass – pila skjules først (trykk virker fortsatt)
+      const uPil = pilOn && (hil ? HF.pil === false : !!(this._tFit && this._tFit.upil));
       this._hNarrow = narrow;
       const hGapN = HF.gap != null ? HF.gap : HS.gap;
       const hAvN = HF.av || HS.av, hSZ = hAvN + 'px', hBs = HF.bs || hilBadge(HS, hAvN, narrow), hK = HF.k != null ? HF.k : Math.min(people.length, HIL_MAX);
@@ -16084,13 +16764,20 @@ try {
       this._sheets && this._sheets.forEach((sh) => sh.update());
       const TA = M.hjemTitleActions(c);
       const tTip = TGESTS.filter(([g]) => TA[g] !== 'none').map(([g, l]) => `${l}: ${TACT_L[TA[g]]}`).join(' · ') || esc(title);
-      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}${hil && HF.wrap ? ' hwrap' : ''}" data-ent="__tilpass">
+      const arrow = big ? M.icon('arrow_drop_down', 26, 'color:var(--ki-text-2, #afafaf);--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--ki-text-2, var(--gray800,#afafaf));flex:none') : hil ? M.icon('mdi:menu-down', 24, 'color:var(--ki-text-2, #afafaf);flex:none') : M.icon('mdi:menu-down', 26, 'color:var(--ki-text-2, #afafaf)');
+      const wBtn = (t) => `<button class="sub" ${c.weather_tap !== false ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false ? 'pointer' : 'default'}">${esc(t)}</button>`;
+      const subT = under && sub === '–' ? '' : sub;
+      // 37.4 «under»: stedsnavn + liten pil (20 px) på linja under, «•» før evt. værtekst; uten servere ren tekst
+      const subHTML = under
+        ? `<div class="sub2">${underMeny ? `<button class="svv" data-act="srvmenu" data-haptic="off" aria-haspopup="menu" aria-expanded="${apen}">${esc(srv.name)}<span class="pil liten${apen ? ' apen' : ''}">${M.icon('mdi:menu-down', 20)}</span></button>` : `<span class="svn">${esc(srv.name)}</span>`}${subT ? `<span class="sk">•</span>${wBtn(subT)}` : ''}</div>`
+        : sub ? wBtn(sub) : '';
+      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}${hil && HF.wrap ? ' hwrap' : ''}${uPil ? ' upil' : ''}" data-ent="__tilpass">
         <div class="top" ${hil ? `style="gap:${HS.tgap}px"` : ''}>
           <div class="lc" data-gcol="1">
-            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}" data-haptic="off" ${TA.tap === 'server' ? 'aria-haspopup="menu"' : ''} title="${esc(tTip)}">
-              <span class="tx">${esc(title)}</span>${big ? M.icon('arrow_drop_down', 26, 'color:var(--ki-text-2, #afafaf);--mdc-icon-size:.62em;width:.5em;height:.62em;margin-left:-.06em;overflow:visible') : prof ? M.icon('mdi:chevron-down', 14, 'color:var(--ki-text-2, var(--gray800,#afafaf));flex:none') : hil ? M.icon('mdi:menu-down', 24, 'color:var(--ki-text-2, #afafaf);align-self:center;flex:none') : M.icon('arrow_drop_down', 26, 'color:var(--ki-text-2, #afafaf)')}
+            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}${this._tFit && this._tFit.fs && !hil && !big ? `;font-size:${this._tFit.fs}px` : ''}" data-haptic="off" ${srv.meny ? `aria-haspopup="menu" aria-expanded="${apen}"` : ''} title="${esc(tTip)}">
+              <span class="tx">${esc(title)}</span>${pilOn ? `<span class="pil${apen ? ' apen' : ''}">${arrow}</span>` : ''}
             </button>
-            ${sub ? `<button class="sub" ${c.weather_tap !== false ? `data-act="popup" data-hash="${esc(c.weather_hash || '#vaer')}"` : ''} ${W.id ? `data-ent="${esc(W.id)}"` : ''} style="cursor:${c.weather_tap !== false ? 'pointer' : 'default'}">${esc(sub)}</button>` : ''}
+            ${subHTML}
           </div>
           <div class="faces">${facesHTML}${empty}</div>
         </div>
@@ -23957,7 +24644,7 @@ try {
         { type: 'boolean', name: 'header_icon', label: 'Rommets ikon i popup-headeren', default: true },
         { type: 'section', label: 'Graf', icon: 'mdi:chart-line', fields: [
           { type: 'color', name: 'graph_t', label: 'Linje · temperatur', auto: () => 'var(--red, #f28073)', help: 'Tomt = rød (standard)' },
-          { type: 'color', name: 'graph_h', label: 'Linje · fukt' },
+          { type: 'color', name: 'graph_h', label: 'Linje · fukt', auto: () => 'var(--blue, #73b9f2)', help: 'Tomt = blå (standard)' },
           { type: 'select', name: 'graph_fill', label: 'Fyll', options: [[0, 'Av'], [0.2, 'Svak'], [0.4, 'Sterk']], default: 0.2 },
           { type: 'select', name: 'graph_width', label: 'Linje', options: [[1.5, 'Tynn'], [2, 'Normal'], [3, 'Tykk']], default: 2 },
         ] },
@@ -24154,8 +24841,8 @@ try {
  * klimakortene med −/+; klima_order ['cards','fans'] + klima_hidden. Topplinjen = sum W.
  * Scener: KI Rom-lysscener (button.*, fra sensor med integrasjon ki_lys + ki_type oversikt, attributes.scener)
  * først, så rommets scene- og script-entiteter. include.scenes (alias include.scener), exclude, order.scenes [ids].
- * Lys: felles lys-rad (08-light-row.js, samme som Lys-popupen) per lys, gjenbrukt per entity. slider_height (32–56,
- * std 40) gjelder alle rader. lights.<object_id> {brightness_min/max, color_control, hide_temperature_slider,
+ * Lys: felles lysslider msh-light-slider (08-light-row.js, Fiks 39 – samme som Lys-popupen) per lys, gjenbrukt per
+ * entity, 14 px mellom radene. slider_height (40–72, std 52) gjelder alle rader. lights.<object_id> {brightness_min/max, color_control, hide_temperature_slider,
  * hide_color_controls, hide_color_presets, color_presets ("a, b" eller [..])}. Eldre utseende-nøkler (size, label_layout,
  * show_…, slider_color_mode, bar-, håndtak-, ikon- og pilfarger) ignoreres. Objekt-id som nøkkel fordi entity_id har punktum.
  */
@@ -24171,6 +24858,18 @@ try {
   // Regel 4 · gjennomsiktig hvit (flate/kant) → svart i lys modus; mørk uendret
   const wa = (a) => (TH && TH.whiteA ? TH.whiteA(a) : `rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(${a}*var(--ki-wa-k,1)),var(--ki-wa-max,1)))`);
   const ON_ACC = 'var(--ki-on-accent, var(--gray000, #232323))';
+  // 38: tekst/ikon på aksentflater i Enheter (Rom v4 devices: #1f1f1f)
+  const DEV_ON_ACC = 'var(--ki-on-accent, #1f1f1f)';
+  // 38: første egne tilstandsregel (1..3) som treffer → { bg } (samme regel som M.universal), ellers null
+  const ruleHit = (o, st) => {
+    for (let i = 1; i <= 3; i++) {
+      const p = 'state_rule_' + i + '_', v = o[p + 'value'];
+      const hit = v != null && String(v).trim() !== '' ? !!st && (Array.isArray(v) ? v.map(String) : String(v).split('|').map((x) => x.trim())).includes(String(st.state))
+        : o[p + 'condition'] != null ? (M.uTruthy ? M.uTruthy(o[p + 'condition'], st) : !!o[p + 'condition']) : false;
+      if (hit) return { bg: o[p + 'background_color'] };
+    }
+    return null;
+  };
 
   // Seksjoner (design-rekkefølge; toppkortet er eget kort: msh-rom-klima-card)
   const SECS = [['curtain', 'Rullegardin', 'blinds'], ['scenes', 'Scener', 'auto_awesome'], ['lys', 'Lys', 'floor_lamp'], ['dev', 'Enheter', 'radio'], ['klima', 'Klima', 'thermostat'], ['media', 'Media', 'speaker'], ['sens', 'Sensorer', 'directions_walk']];
@@ -24518,8 +25217,8 @@ try {
       if (L && L.lists.lys.length) {
         // Felles lys-rad (08-light-row.js): samme utseende for alle lys – bare høyden (slider_height) og funksjon per lys
         const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
-        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: (hh, cc) => `${L.lists.lys.length} lys · ${M.lightRowHeight ? M.lightRowHeight(cc) : 40} px`, fields: [
-          { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 32, max: 56, default: 40, presets: [[32, 'Kompakt 32'], [40, 'Standard 40'], [48, 'Stor 48'], [56, 'Ekstra stor 56']] },
+        out.push({ type: 'section', id: 'lys', label: 'Lys', icon: 'mdi:lightbulb', meta: (hh, cc) => `${L.lists.lys.length} lys · ${M.lightRowHeight ? M.lightRowHeight(cc) : 52} px`, fields: [
+          { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 40, max: 72, default: 52, presets: [[44, 'Kompakt 44'], [52, 'Standard 52'], [60, 'Stor 60'], [68, 'Ekstra stor 68']] },
           { type: 'info', label: 'Per lys (lagres under lights.<objekt-id>, f.eks. lights.stue_tak). Tomt = auto. «Kun av/på» tvinger en dimbar lampe til bryter. Farge/temperatur vises bare for lys som støtter det.' },
           ...L.lists.lys.map((id) => {
             const p = 'lights.' + obj(id), st = h.states[id];
@@ -24791,7 +25490,7 @@ try {
     /* ------------ lys: felles lys-rad (08-light-row.js, samme som Lys-popupen), gjenbrukt per entity */
     // Innstillinger per lys: config.lights.<object_id> (objekt-id-en – entity_id har punktum som ellers
     // ville blitt en ekstra nivå i editorens dotted names). lights.<entity_id> godtas også (YAML).
-    // Utseendet er felles for alle rader (ingen romfarge/egne farger); høyden fra slider_height (32–56, std 40).
+    // Utseendet er felles for alle rader (ingen romfarge/egne farger); høyden fra slider_height (40–72, std 52).
     _lightCfg(id) {
       const c = this.config, L = c.lights || {}, s = this.hass.states[id];
       const u = { ...(L[id] || {}), ...(L[obj(id)] || {}) };
@@ -24875,20 +25574,25 @@ try {
         const kindA = P && ANIM[P.anim] ? P.anim : null;
         const anim = act && kindA && lvl !== 'off' ? `animation:${kindA} ${lvl === 'calm' ? ANIM[kindA].replace(/^[\d.]+/, (x) => String(Number(x) * 2)) : ANIM[kindA]} infinite` : '';
         const icon = lk.icon || (P && P.icon) || icon0;
-        const mc = multi && isOn && !unav && !P && !ownRule && !(lk.background_color || lk.bg) ? MULTI[ci++ % MULTI.length] : null;
+        const ownBg = !!(lk.background_color || lk.bg);
+        const mc = multi && isOn && !unav && !P && !ownRule && !ownBg ? MULTI[ci++ % MULTI.length] : null;
         // 20.15: av (eller hvitevare som hviler under terskelen) → pille --ki-surface-3, ikon-sirkel --ki-surface, ikon --ki-text-1
-        const off = !unav && !ownRule && !(lk.background_color || lk.bg) && !(P ? act : isOn);
+        const off = !unav && !ownRule && !ownBg && !(P ? act : isOn);
+        // 38: aksentflate (på-farge, hvitevare aktiv, egen regel som treffer med farge, egen bakgrunn fra «Utseende på kort»)
+        // → mørk tekst/ikon (--ki-on-accent), ikon-sirkel rgba(0,0,0,.12) uten kant
+        const hitR = ownRule ? ruleHit(lk, s) : null;
+        const acc = !unav && (ownRule ? (hitR ? !!hitR.bg : ownBg) : (P ? act : isOn) || ownBg);
         return M.universal({
           // Tilstandsregel 1 (som sensorene): på → grønn; hvitevare aktiv → profilfargen. Hvitevare på men hviler = vanlig rad.
-          state_rule_1_condition: ownRule ? undefined : P ? act : isOn && !unav, state_rule_1_background_color: P ? P.col : mc || 'var(--green)', state_rule_1_text_color: 'var(--ki-on-accent, var(--gray000))',
+          state_rule_1_condition: ownRule ? undefined : P ? act : isOn && !unav, state_rule_1_background_color: P ? P.col : mc || 'var(--green)', state_rule_1_text_color: DEV_ON_ACC,
           ...lk, mode: lk.mode || 'sensor', size: lk.size || 'small', entity: id, st: s, key: 'd-' + id,
           act: unav ? null : lk.mode && lk.mode !== 'sensor' ? undefined : 'dtoggle', id, haptic: 'success',
-          cls: `msh-inner${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}${mc ? ' d-on' : ''}${off ? ' d-off' : ''}`,
+          cls: `msh-inner d-row${act ? ' u-act' : ''}${unav ? ' d-unav' : ''}${mc ? ' d-on' : ''}${off ? ' d-off' : ''}${acc ? ' d-acc' : ''}`,
           icon_html: M.icon(icon, 30, anim ? anim + ';' : ''),
           main_text: lk.main_text || lk.label || (lk.mode === 'bar' ? null : status),
           sub_text: lk.sub_text || lk.name || nm, alt_text: lk.alt_text != null ? lk.alt_text : '', ...(this._tag(id) && !lk.alt_text ? { sub_html: esc(lk.sub_text || lk.name || nm) + this._tag(id) } : {}),
-          background_color: lk.background_color || lk.bg || (off ? 'var(--ki-surface-3, var(--gray100, #2f2f2f))' : undefined), text_color: lk.text_color || (off ? 'var(--ki-text, var(--white, #fafafa))' : undefined),
-          circle_color: lk.cell || (mc ? 'rgb(255 255 255 / 0.18)' : act ? 'rgb(0 0 0 / 0.12)' : off ? 'var(--ki-surface, var(--gray200, #3a3a3a))' : undefined),
+          background_color: lk.background_color || lk.bg || (off ? 'var(--ki-surface-3, var(--gray100, #2f2f2f))' : undefined), text_color: lk.text_color || (off ? 'var(--ki-text, var(--white, #fafafa))' : acc ? DEV_ON_ACC : undefined),
+          circle_color: lk.cell || (acc ? 'rgb(0 0 0 / 0.12)' : off ? 'var(--ki-surface, var(--gray200, #3a3a3a))' : undefined),
           icon_color: lk.icon_color || (off ? 'var(--ki-text-1, var(--gray1000, #e1e1e1))' : P && !act && P.col ? P.col : undefined) });
       })(id); });
       const rows = open ? this._grp(ids, (id) => DH[id]) : '';
@@ -25319,8 +26023,8 @@ try {
         .box>.bd,.box>.cw,.cvo{animation:accin .22s cubic-bezier(.3,.9,.3,1)}
         @keyframes accin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
         @media (prefers-reduced-motion:reduce){.box>.bd,.box>.cw,.cvo{animation:none}}
-        /* lys (mysmart-light-control inni radens --ki-surface-flate – ingen egen bakgrunn/padding) */
-        .lts{display:flex;flex-direction:column;gap:12px;padding:0 8px 6px}
+        /* lys (Fiks 39: msh-light-slider inni radens --ki-surface-flate – 14 px mellom radene, håndtaket stikker 11 px ut) */
+        .lts{display:flex;flex-direction:column;gap:14px;padding:4px 8px 14px}
         .lt{display:flex;flex-direction:column;gap:8px}
         .lth{display:flex;align-items:center;gap:12px}
         .ltn{flex:1;min-width:0;font-size:14px;font-weight:500}
@@ -25344,16 +26048,20 @@ try {
         /* enheter (16.5) / vifter (16.8) */
         .u-act .u-l{font-weight:600}
         .d-unav{opacity:.55}
-        /* 17.6: flere enheter på – fargerekkefølge, navn øverst (17/500), status under (15, .65), ikon-sirkel .18 + lys kant */
+        /* 38 (Rom v4 devices): navn øverst 15/500, status under 12 – alle enhetsrader (sensor-/small-varianten) */
+        .u-small.u-m-sensor.d-row .u-n{grid-area:l;align-self:end;padding-top:0;font-size:15px;font-weight:500;opacity:1;color:var(--u-fg)}
+        .u-small.u-m-sensor.d-row .u-l{grid-area:n;align-self:start;padding-top:2px;font-size:12px;font-weight:400;line-height:1.3;opacity:1;color:${G.g700}}
+        /* 38: aksentflate – undertekst 12/600 rgba(31,31,31,.8), ikon-sirkel rgba(0,0,0,.12) uten kant, mørkt ikon */
+        .u-small.u-m-sensor.d-row.d-acc .u-l{font-weight:600;color:var(--u-fg);opacity:.8}
+        .u.d-acc.d-acc{box-shadow:none}
+        .d-acc .u-i{border:none;box-shadow:none}
+        /* 17.6: flere enheter på – fargerekkefølge */
         .u.d-on.d-on{box-shadow:none;transition:background .3s,transform .2s}
-        .d-on .u-i{border:none;box-shadow:inset 0 0 0 1px rgb(255 255 255 / 0.25)}
-        .u-small.d-on .u-l{grid-area:n;align-self:start;padding-top:2px;font-size:15px;font-weight:400;opacity:.65}
-        .u-small.d-on .u-n{grid-area:l;align-self:end;padding-top:0;font-size:17px;font-weight:500;opacity:1}
         .d-unav .u-l,.d-unav .u-i{opacity:1}
-        /* 20.15: av – pille --ki-surface-3, tekst --ki-text, undertekst --ki-text-mid, ikon-sirkel --ki-surface med svak kant, 250 ms */
+        /* 20.15: av – pille --ki-surface-3, tekst --ki-text, undertekst --ki-text-mid 12/400, ikon-sirkel --ki-surface med svak kant, 250 ms */
         .u.d-off{transition:background .25s,transform .2s}
         .d-off .u-i{border:none;box-shadow:inset 0 0 0 1px ${wa(0.06)}}
-        .d-off .u-n{color:${G.g700};opacity:1}
+        .d-off .u-n{opacity:1}
         .fbtn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:var(--ki-text-1, var(--gray1000, #e1e1e1));flex:none;transition:transform .15s,background .25s}
         .fbtn:active{transform:scale(.92)}
         .fbtn[disabled]{opacity:.35}
@@ -32831,9 +33539,10 @@ try {
  * på Hjem): Utelys · én per etasje (kortnavn som på Hjem) · Lys på; hold + dra = omorganiser (MSH.tabRow → tab_order),
  * tannhjulet = fanehøyden + 8 (56 × 56 ved 48). 36.8 · Design: tab_style pill (= variant gear, standard) | icon (pop/aktiv) |
  * iconText (pop/begge) | underline | segment, tab_label short|long, tab_count, gear_position right|left, tab_height (MSH.tabH).
- * Tannhjulet åpner «Tilpass lys» (36.8, Lys v5 «Tilpass lys»): halvhøyt ark (58 % av dashbordflaten, håndtaket bytter
- * halv ⇄ full), helt dekkende --ki-popup, radius 38 øverst, INGEN bakteppe – popupen er synlig og scrollbar bak arket
- * (live forhåndsvisning; popupen får arkets høyde ekstra i bunnluft mens arket er halvt). Portalet ut av popupen (MSH.overlay
+ * Tannhjulet åpner «Tilpass lys» (36.8/38.2, Lys v5 «Tilpass lys»): FULL høyde som de andre Tilpass-arkene (dashbord-
+ * containeren − 52 px, bunnforankret, maks 440 px sentrert, glir opp nedenfra); håndtaket bytter full ⇄ halv (58 %), og
+ * arket åpner alltid i full høyde (huskes ikke). Helt dekkende --ki-popup, radius 38 øverst, INGEN bakteppe – popupen er
+ * synlig og scrollbar bak arket (live forhåndsvisning; popupen får arkets høyde ekstra i bunnluft mens arket er halvt). Portalet ut av popupen (MSH.overlay
  * tilpass, fallgruve 1). Header «Tilpass lys» / «Endringer vises live bak arket», Nullstill + rosa Ferdig. Faner i arket:
  * Faner · Rom · Scener · Utelys · Design · Visning. Dra-håndtak: touch-action none + stopPropagation (fallgruve 2).
  * Utkastflyten er den felles MSH.draftEditor (fiks 15.13): utkastet vises live, ingen autolagring; Ferdig lagrer én gang
@@ -32841,10 +33550,11 @@ try {
  * Endret et annet sted mens arket er åpent → banner «Last inn». getConfigElement() bruker samme nøkler (static schema).
  * Config-nøkler (arket ⇄ GUI-editoren; eldre v4-nøkler leses fortsatt og flyttes ved Ferdig – se migrateV4):
  *   Visning:  gap (8 Tett / 12 Standard / 18 Luftig, også mellom lys-radene når tile_gap mangler), tile_gap, cols (1–3;
- *             eldre columns), size (compact|standard|large → slider 32|40|48 px), slider_height (32–80, overstyrer size),
+ *             eldre columns), size (compact|standard|large → slider 44|52|60 px), slider_height (32–80, overstyrer size),
  *             color_mode (lamp|kelvin|single), on_color, off_color (bakgrunnen bak lys-radene), show_kelvin,
  *             top / bottom (Mellomrom: fra headeren / luft i bunnen; eldre pad_top / pad_bottom)
- *             Eldre tile_height (56|64|72) → slider 40|48|56 når size/slider_height mangler.
+ *             Eldre tile_height (56|64|72) → slider 52|60|68 når size/slider_height mangler. tile_gap = mellom lys-radene
+ *             (std 14, Fiks 39).
  *   Faner:    tab_order (fane-id), hide_tabs (eldre hidden_tabs; minst én fane vises), tab_names.<fane>, start_tab,
  *             floor_tabs.<floor_id>
  *   Design:   tab_style, tab_label (short|long), tab_count, gear_position, tab_height, scene_style (bubble|pill|grid),
@@ -32864,16 +33574,16 @@ try {
  *             outdoor.exclude (prompt-formen) leses også, og flyttes til include.utelys / exclude når arket lagres.
  *             «Tilpass lys» → Utelys: «Finner du ikke lampen?» søker i hass.states (MSH.entitySearch: navn, entity_id,
  *             område, æøå-normalisert, maks 8 treff, debounce 150 ms) med «Legg til» / «Lagt til».
- * Lys: felles lys-rad (08-light-row.js, samme som Rom → Lys) per lys, gjenbrukt per entity i data-nomorph-plassholdere.
- *   19.2: fyll og «Lys på»-sirkelen i lampens egen farge (MSH.lampColor: rgb_color / Kelvin-tone / temagul);
- *   overrides.<entity>.color eller lights.<objekt-id>.color går foran.
+ * Lys: felles lysslider msh-light-slider (08-light-row.js, Fiks 39 – samme som Rom → Lys) per lys og per gruppe, gjenbrukt
+ *   per nøkkel i data-nomorph-plassholdere. Fyll i lysets farge (MSH.sliderColor: rgb / Kelvin / varmhvit); «Lys på»-
+ *   sirkelen bruker fortsatt MSH.lampColor (19.2). overrides.<entity>.color / lights.<objekt-id>.color / color_mode går foran.
  * Utelys-fanen: Utelys-kortet først (status, av/på, tidslinje for neste 24 t fra «nå» med natt fra sun.sun og periode med
  * lys på, Tennes/Slukkes-fliser), så lampene, Styring og Sola.
  * Autokonfig: alle light.* gruppert per etasje/område (M.areaOf + hass.areas/hass.floors, pluss KI Rom `lys`).
  * Utelys = lys i utendørs etasje/område (Ute, Hage, Terrasse …) eller med «ute» i navnet.
  * Scener: KI Rom-lysscenene (button.*_lys_*) for rommene i etasjen, gruppert per scene; ellers egne (lysnivåer +
  * scene.* i etasjen) + extra_scenes. Scener er engangshandlinger – aldri aktiv-tilstand (#3a3a3a, bare scale + haptic).
- * Grupper (36.8): ≥ 2 lenkede lys i et rom vises som ÉN rad («Stue · alle · 3 lys», gul kant), slideren styrer alle.
+ * Grupper (36.8): ≥ 2 lenkede lys i et rom vises som ÉN rad («Stue · alle · 45% · 3 lys», gul kant), slideren styrer alle.
  * Totaler fra sensor.hele_huset_lys (KI Rom) når den finnes. Rot og ha-card er transparente – Bubble Card tegner flaten.
  */
 (function () {
@@ -32933,8 +33643,8 @@ try {
   };
   const num = (v, d) => (v != null && v !== '' && !isNaN(Number(v)) ? Number(v) : d);
   const gapOf = (c) => num(c && c.gap, 12);
-  const rowGapOf = (c) => num(c && c.tile_gap, gapOf(c));
-  const sizeOf = (c) => (c && ['compact', 'standard', 'large'].includes(c.size) ? c.size : M.lightRowHeight && M.lightRowHeight(c) <= 32 ? 'compact' : 'standard');
+  const rowGapOf = (c) => num(c && c.tile_gap, 14); // Fiks 39: 14 px mellom lys-radene
+  const sizeOf = (c) => (c && ['compact', 'standard', 'large'].includes(c.size) ? c.size : M.lightRowHeight && M.lightRowHeight(c) <= 44 ? 'compact' : 'standard');
   const LC = [['', 'Auto'], ['spectrum', 'Spekter'], ['presets', 'Forhåndsvalg'], ['both', 'Begge']];
 
   /* ------------------------------------------------------------ 36.8 · config (nye nøkler + eldre v4-nøkler) */
@@ -33124,13 +33834,9 @@ try {
     .scxi{width:28px;height:28px;display:grid;place-items:center;flex:none}
     .scxl{font-size:13px;font-weight:500;color:var(--ki-text-1, var(--gray1000,#e1e1e1));max-width:100%}
   `;
-  // 36.8 · gruppe-rad (samme mål som felles lys-rad + gul kant)
+  // 36.8 · gruppe-rad: felles msh-light-slider (Fiks 39) med alle lysene + gul kant rundt
   const LG_CSS = `
-    .lgr{position:relative;margin:-6px -6px;padding:6px;border-radius:18px;box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.25)};touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:pointer}
-    .lgr .lrf-n{display:flex;align-items:center}
-    .lgr .lgt{border-radius:14px}
-    .lgr .lgf{transition:width .3s ease,background-color .3s ease}
-    .lgr.drag .lgf{transition:none}
+    .lgr{position:relative;margin:-6px -6px;padding:6px 6px 12px;border-radius:18px;box-shadow:inset 0 0 0 1px ${M.alpha(Y, 0.25)}}
   `;
 
   // 36.8 · fanelinja i valgt Fanestil (felles MSH.tabBar): pill = variant gear (som før), icon = pop/aktiv (ikoner, aktiv
@@ -33201,7 +33907,7 @@ try {
           { type: 'section', id: 'look', label: 'Visning', icon: 'mdi:view-dashboard-outline', meta: (hh, cc) => `${V.cols(cc)} kolonne${V.cols(cc) > 1 ? 'r' : ''} · ${{ compact: 'Kompakt', large: 'Stor' }[sizeOf(cc)] || 'Standard'} · ${M.lightRowHeight(cc)} px`, fields: [
             sel('cols', 'Kolonner', [[1, '1'], [2, '2'], [3, '3']], 1),
             sel('size', 'Kortstørrelse', [['compact', 'Kompakt'], ['standard', 'Standard'], ['large', 'Stor']], 'standard'),
-            { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 40, max: 80, step: 2, default: 40, presets: [[48, 'Lav 48'], [56, 'Standard 56'], [64, 'Høy 64'], [72, 'Ekstra 72']], help: 'Gjelder alle lys-radene (overstyrer kortstørrelsen)' },
+            { type: 'range', name: 'slider_height', label: 'Slider-høyde', icon: 'mdi:arrow-expand-vertical', min: 40, max: 80, step: 2, default: 52, presets: [[44, 'Lav 44'], [52, 'Standard 52'], [64, 'Høy 64'], [72, 'Ekstra 72']], help: 'Gjelder alle lys-radene (overstyrer kortstørrelsen)' },
             sel('color_mode', 'Farge på lys', [['lamp', 'Lampens'], ['kelvin', 'Temperatur'], ['single', 'Én farge']], 'lamp', 'Lampens = rgb_color fra HA · Temperatur = varm oransje → kald blåhvit · Én farge = på-fargen under'),
             { type: 'color', name: 'on_color', label: 'På-farge (Én farge)' },
             sel('off_color', 'Av-farge (bakgrunn bak lysene)', OFF_SW.map(([v, l]) => [v, l]), ''),
@@ -33368,7 +34074,7 @@ try {
       const c = this.config, s = this.hass.states[id];
       return M.lightRowCfg(id, { name: name || lcfg(c, id).name || cap(M.name(this.hass, id)), type: ltype(c, id, s), user: lcfg(c, id), height: M.lightRowHeight(c), color: this._modeColor(id, s) || undefined, kelvin: !!c.show_kelvin });
     }
-    _mountLights() { M.mountLightRows(this, (id, wrap) => this._lightCfg(id, wrap.dataset.name)); }
+    _mountLights() { M.mountLightRows(this, (id, wrap) => (id.startsWith('grp:') ? this._groupCfg(wrap) : this._lightCfg(id, wrap.dataset.name))); }
     set hass(h) {
       super.hass = h;
       M.lightRowsHass(this, h);
@@ -33578,17 +34284,20 @@ try {
       if (!rooms.length) out += M.emptyState('Alle rom i etasjen er skjult', 'rooms');
       return out;
     }
-    // 36.8 · gruppe-rad: samme mål som den felles lys-raden (08), gul kant + gruppeikon, «45 % · 3 lys». Dra = lysstyrke
-    // for alle (touch-action pan-y + stopPropagation), trykk = av/på for alle (_bindGroups).
+    // 36.8 · gruppe-rad: felles msh-light-slider (08, Fiks 39) med alle lysene, gul kant + gruppeikon, «45% · 3 lys».
+    // Dra = lysstyrke for alle, trykk = av/på for alle (slideren: pan-y + stopPropagation, throttlet 150 ms + ved slipp).
     _group(rk, ids, name) {
-      const st = ids.map((id) => this.s(id)), on = st.filter((s) => s && s.state === 'on'), dimA = ids.filter((id) => dimmable(this.s(id), this.config, id));
-      const pct = on.length ? Math.round(st.reduce((t, s) => t + pctOf(s), 0) / ids.length) : 0;
-      const col = on.length ? this._modeColor(ids.find((id) => M.isOn(this.s(id))), this.s(ids.find((id) => M.isOn(this.s(id))))) : null;
-      const lc = on.length && M.lampColor ? M.lampColor(on[0], col || undefined) : null, K = this.config.show_kelvin && on.length ? kelOf(on[0]) : null;
-      const val = (on.length ? `${pct} %` : 'Av') + ` · ${ids.length} lys` + (K ? ` · ${K} K` : '');
-      return `<div class="lgr" data-grp="${esc(rk)}" data-ids="${esc(ids.join(','))}" data-pct="${pct}" data-dim="${dimA.length ? 1 : 0}" data-key="lg-${esc(rk)}" role="group" aria-label="${esc(name)}">
-        <div class="lrf"><div class="lrf-hd"><span class="lrf-n">${M.icon('mdi:lightbulb-group', 18, `color:${on.length ? YT : 'var(--ki-text-mid, var(--gray700,#979797))'};margin-right:6px;vertical-align:-3px`)}${esc(name)}</span><span class="lrf-v lgv">${esc(val)}</span></div>
-          <div class="lrf-t lgt"><span class="lrf-f lgf" style="width:${pct}%${lc ? `;background-color:${lc.css};-webkit-mask-image:${M.lampMask(lc.lum)};mask-image:${M.lampMask(lc.lum)}` : ''}"></span></div></div></div>`;
+      return `<div class="lgr" data-grp="${esc(rk)}" data-ids="${esc(ids.join(','))}" data-key="lg-${esc(rk)}" role="group" aria-label="${esc(name)}">
+        <div class="lsl" data-lc="grp:${esc(rk)}" data-ids="${esc(ids.join(','))}" data-name="${esc(name)}" data-nomorph></div></div>`;
+    }
+    _groupCfg(wrap) {
+      const c = this.config, ids = (wrap.dataset.ids || '').split(',').filter(Boolean), st = ids.map((id) => this.s(id));
+      const dim = ids.filter((id) => dimmable(this.s(id), c, id)), first = ids.find((id) => M.isOn(this.s(id))) || ids[0];
+      const col = this._modeColor(first, this.s(first));
+      const out = { entities: ids, dim_ids: dim, name: wrap.dataset.name || '', icon: 'mdi:lightbulb-group', icon_on: YT, type: dim.length ? 'dim' : 'onoff', height: M.lightRowHeight(c), suffix: ` · ${ids.length} lys` };
+      if (col) out.color = col;
+      if (c.show_kelvin && st.some((s) => s && s.state === 'on')) out.kelvin = true;
+      return out;
     }
     // 36.8 · Farge på lys (color_mode): lamp = lampens egen (MSH.lampColor), kelvin = Kelvin-tone, single = on_color.
     // Egen farge per lys (overrides.<id>.color / lights.<objekt-id>.color) går alltid foran.
@@ -33721,7 +34430,6 @@ try {
       if (sc && !sc.__b) { sc.__b = true; const st = (e) => e.stopPropagation(); sc.addEventListener('touchstart', st, { passive: true }); sc.addEventListener('touchmove', st, { passive: true }); }
       this._mountLights();
       this._bindLamps();
-      this._bindGroups();
       if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this);
     }
     // 22.10: døgnringen oppdateres hvert minutt, bare mens popupen er åpen (onOpen/onClose fra MSH.Card)
@@ -33731,67 +34439,6 @@ try {
     }
     onClose() { clearInterval(this._utT); this._utT = null; }
     // Utelampe-pillene: trykk = av/på, dra sidelengs = dimming (pan-y + stopPropagation, fallgruve 2), hold = more-info
-    // 36.8 · gruppe-radene: trykk = av/på for alle, dra sidelengs = lysstyrke for alle (pan-y + stopPropagation – fallgruve 2)
-    _bindGroups() {
-      const R = this.shadowRoot;
-      if (!R || R.__lgr) return;
-      R.__lgr = true;
-      let g = null;
-      const stop = (e) => { if (e.target.closest && e.target.closest('.lgr')) e.stopPropagation(); };
-      R.addEventListener('touchstart', stop, { passive: true });
-      R.addEventListener('touchmove', stop, { passive: true });
-      R.addEventListener('pointerdown', (e) => {
-        const el = e.target.closest && e.target.closest('.lgr');
-        if (!el || e.button) return;
-        e.stopPropagation();
-        const t = el.querySelector('.lgt') || el, r = t.getBoundingClientRect();
-        g = { el, x: e.clientX, y: e.clientY, t: Date.now(), left: r.left, w: r.width || 1, drag: false, pct: null, id: e.pointerId };
-      });
-      R.addEventListener('pointermove', (e) => {
-        if (!g) return;
-        const dx = e.clientX - g.x, dy = e.clientY - g.y;
-        if (!g.drag) {
-          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g = null; return; }
-          if (Math.abs(dx) < 8 || g.el.dataset.dim !== '1') return;
-          g.drag = true;
-          try { g.el.setPointerCapture(g.id); } catch (x) { /* */ }
-          g.el.classList.add('drag');
-        }
-        e.stopPropagation();
-        const p = Math.max(0, Math.min(100, Math.round(((e.clientX - g.left) / g.w) * 100)));
-        if (p !== g.pct) {
-          g.pct = p;
-          const f = g.el.querySelector('.lgf'), v = g.el.querySelector('.lgv'), n = (g.el.dataset.ids || '').split(',').filter(Boolean).length;
-          if (f) { f.style.width = p + '%'; if (!f.style.backgroundColor) f.style.backgroundColor = Y; }
-          if (v) v.textContent = `${p ? p + ' %' : 'Av'} · ${n} lys`;
-        }
-      });
-      const end = (e) => {
-        if (!g) return;
-        const G0 = g; g = null;
-        G0.el.classList.remove('drag');
-        const ids = (G0.el.dataset.ids || '').split(',').filter(Boolean);
-        if (!ids.length) return;
-        if (G0.drag) {
-          if (e.type !== 'pointerup' || G0.pct == null) return this._schedule(true);
-          M.haptic('light');
-          this._swallow = true; setTimeout(() => { this._swallow = false; }, 400);
-          const dim = ids.filter((id) => dimmable(this.s(id), this.config, id)), plain = ids.filter((id) => !dim.includes(id));
-          if (!G0.pct) return M.call(this.hass, 'light', 'turn_off', { entity_id: ids });
-          if (dim.length) M.call(this.hass, 'light', 'turn_on', { entity_id: dim, brightness_pct: G0.pct });
-          if (plain.length) M.call(this.hass, 'light', 'turn_on', { entity_id: plain });
-          return undefined;
-        }
-        if (e.type === 'pointerup' && Date.now() - G0.t < 500) {
-          M.haptic('light');
-          const any = ids.some((id) => M.isOn(this.s(id)));
-          return M.call(this.hass, 'light', any ? 'turn_off' : 'turn_on', { entity_id: ids });
-        }
-        return undefined;
-      };
-      R.addEventListener('pointerup', end);
-      R.addEventListener('pointercancel', end);
-    }
     _bindLamps() {
       const R = this.shadowRoot;
       if (!R || R.__utLp) return;
@@ -33858,12 +34505,11 @@ try {
            bredde etter teksten, tannhjul 56 × 56 */
         ${M.tabBar ? M.tabBar.CSS : ''}
         ${TS_CSS}
-        /* lys-rader (felles rad, 12 px mellom); vendor-lyskontrollens --gray1000/700/400 → tokens i M.LIGHT_ROW_CSS (08) */
-        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,12px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--lys-off,var(--ki-surface, var(--gray200,#3a3a3a)))}
-        /* 36.8 · Kortstørrelse: navnet i lys-raden (--msh-nf, 08/vendor) og luft i kortet */
+        /* lys-rader (Fiks 39: felles msh-light-slider, 14 px mellom; håndtaket stikker 11 px ut under baren) */
+        .lbox{display:grid;grid-template-columns:repeat(var(--lt-cols,1),minmax(0,1fr));gap:var(--lt-gap,14px);padding:14px 12px 14px 16px;border-radius:28px;background:var(--lys-off,var(--ki-surface, var(--gray200,#3a3a3a)))}
+        /* 36.8 · Kortstørrelse: navnet i lys-raden (--msh-nf, 08) og luft i kortet */
         .lys-sz-compact .lbox{padding:10px 10px 10px 12px;border-radius:24px;--msh-nf:13px}
         .lys-sz-large .lbox{padding:18px 14px 18px 18px;border-radius:30px;--msh-nf:17px}
-        .lys-sz-compact .lrf-n{font-size:13px} .lys-sz-large .lrf-n{font-size:17px}
         ${LG_CSS}
         /* Utelys-kortet */
         .uc{display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .4s}
@@ -34009,7 +34655,7 @@ try {
     if (card._sheet && !card._sheet.ov.closed) { if (focus && TAB_OF[focus]) card._sheet.go(TAB_OF[focus]); return card._sheet; }
     const orig = card._rawConfig || card.config;
     const prep = (d) => migrateV4(migrateOutdoor(clone(d)));
-    const st = { tab: TAB_OF[focus] || 'tabs', full: false, room: null, sc: null, busy: false, adding: false, q: '' };
+    const st = { tab: TAB_OF[focus] || 'tabs', full: true /* 38.2: alltid full høyde ved åpning */, room: null, sc: null, busy: false, adding: false, q: '' };
     let ov = null, box = null;
     // Felles utkast (MSH.draftEditor): st.draft er utkastet, «Last inn» bytter det ut. Eldre nøkler flyttes (migrateV4).
     const ctl = M.draftEditor(card, {
@@ -34187,7 +34833,7 @@ try {
       return `<section class="card sls" data-key="vis-kort"><div class="vh">${M.icon('mdi:view-grid-outline', 20, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}Kort</div>
           ${seg5('Kolonner', 'cols', [[1, '1'], [2, '2'], [3, '3']], V.cols(d))}
           ${seg5('Kortstørrelse', 'size', [['compact', 'Kompakt'], ['standard', 'Standard'], ['large', 'Stor']], sizeOf(d))}
-          ${slider('mdi:arrow-expand-vertical', 'Slider-høyde', 'slider_height', H, 40, 80, 2, [[48, 'Lav'], [56, 'Standard'], [64, 'Høy'], [72, 'Ekstra']])}</section>
+          ${slider('mdi:arrow-expand-vertical', 'Slider-høyde', 'slider_height', H, 40, 80, 2, [[44, 'Lav'], [52, 'Standard'], [64, 'Høy'], [72, 'Ekstra']])}</section>
         <section class="card sls fc" data-key="vis-farger"><div class="vh">${M.icon('mdi:palette-outline', 20, 'color:var(--ki-text-2, var(--gray800,#afafaf))')}Farger</div>
           ${seg5('Farge på lys', 'color_mode', [['lamp', 'Lampens'], ['kelvin', 'Temperatur'], ['single', 'Én farge']], cm)}
           <span class="hint" style="padding:0">${esc(hint)}</span>
@@ -34201,8 +34847,8 @@ try {
     };
     const PAGES = { tabs: pageTabs, rooms: pageRooms, scenes: pageScenes, out: pageOut, design: pageDesign, vis: pageVis };
 
-    // ---------- skall: håndtak (halv ⇄ full), header, faner, innhold
-    const shell = () => `<button class="hdl" data-a="height" aria-label="${st.full ? 'Halv høyde – se endringene bak' : 'Full høyde'}"><span></span></button>
+    // ---------- skall: håndtak (full ⇄ halv), header, faner, innhold
+    const shell = () => `<button class="hdl" data-a="height" aria-label="${st.full ? 'Halv høyde – se endringene bak' : 'Full høyde'}" aria-pressed="${!st.full}"><span></span></button>
       <div class="hdr" data-sheet-head><span class="ttl"><span class="tt">Tilpass lys</span><span class="ts">Endringer vises live bak arket</span></span>
         <button class="hb" data-a="reset">Nullstill</button><button class="nd5" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
       <div class="etw"><div class="et" role="tablist">${ETABS.map(([k, l, ic]) => `<button class="${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="page" data-p="${k}" title="${esc(l)}">${M.icon(ic, 20)}${k === st.tab ? `<span>${esc(l)}</span>` : ''}</button>`).join('')}</div></div>
@@ -34221,18 +34867,18 @@ try {
     const setFull = (on) => {
       st.full = !!on;
       const sh = ov.root.querySelector('.sh');
-      if (sh) sh.classList.toggle('full', st.full);
-      const b = box.querySelector('.hdl'); if (b) b.setAttribute('aria-label', st.full ? 'Halv høyde – se endringene bak' : 'Full høyde');
+      if (sh) { sh.classList.toggle('full', st.full); sh.classList.toggle('half', !st.full); }
+      const b = box.querySelector('.hdl'); if (b) { b.setAttribute('aria-label', st.full ? 'Halv høyde – se endringene bak' : 'Full høyde'); b.setAttribute('aria-pressed', String(!st.full)); }
       if (card._applySpacing) card._applySpacing();
     };
 
-    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + (M.tabBar ? M.tabBar.CSS : '') + TS_CSS + SC_CSS + SHEET_CSS + FIND_CSS + V5_CSS, maxWidth: 520, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; if (card._applySpacing) card._applySpacing(); } });
+    ov = M.overlay({ html: '', css: (M.STEPPER_CSS || '') + (M.tabBar ? M.tabBar.CSS : '') + TS_CSS + SC_CSS + SHEET_CSS + FIND_CSS + V5_CSS, maxWidth: 440, tilpass: true, tpTop: 52, tpMaxW: 440 /* 38.2: som de andre Tilpass-arkene (Hjem v3 sheetPanel) */, onClose: () => { ctl.dispose(); card._sheet = null; if (card._applySpacing) card._applySpacing(); } });
     // Ingen bakteppe: bare arket tar imot trykk – popupen bak er synlig, trykkbar og scrollbar (live forhåndsvisning)
     ov.host.style.pointerEvents = 'none';
     ov.host.setAttribute('data-lys-sheet', '');
     const R = ov.root;
     const shEl = R.querySelector('.sh');
-    if (shEl) shEl.classList.add('lys5');
+    if (shEl) shEl.classList.add('lys5', 'full'); // 38.2: åpner alltid i full høyde (tilstanden huskes ikke)
     if (M.bindSteppers) M.bindSteppers(R, card); // −/+ og native velgere i Utelys (lokal modus → 'change' under)
     // Fanehøyde (Design): tab_height i utkastet, live i popupen bak (MSH.tabH-variabler); slider uten ny tegning
     if (M.tabH) M.tabH.bindEditor(R, { set: (v, commit) => { if (v == null) delete st.draft.tab_height; else st.draft.tab_height = M.clamp(v, 28, 64); preview(); if (commit) draw(); else { const pv = R.querySelector('[data-key="pvbar"]'); if (pv && v != null) pv.setAttribute('style', M.tabH.vars(v)); } } });
@@ -34454,15 +35100,15 @@ try {
     requestAnimationFrame(() => { if (card._applySpacing) card._applySpacing(); });
     return card._sheet;
   }
-  // 36.8 · «Tilpass lys» (Lys v5): halvhøyt ark uten bakteppe, helt dekkende --ki-popup (aldri gjennomsiktig, 36.7),
-  // radius 38 øverst; kort --ki-surface r24 + innerkant, rader inni --ki-surface-2; aktiv = rosa gradient + mørk tekst.
+  // 36.8/38.2 · «Tilpass lys» (Lys v5): full høyde (dashbordflaten − 52 px, maks 440 px sentrert, inn nedenfra som de andre
+  // Tilpass-arkene), håndtaket → halv (58 %); uten bakteppe, helt dekkende --ki-popup (aldri gjennomsiktig, 36.7), radius 38 øverst; kort --ki-surface r24 + innerkant, rader inni --ki-surface-2; aktiv = rosa gradient + mørk tekst.
   const V5_CSS = `
     :host{pointer-events:none}
     .bg{display:none!important}
-    .sh.tp.lys5{pointer-events:auto;top:auto;bottom:0;height:58%;max-height:calc(100% - var(--ki-tp-top,50px));padding:0;overflow:hidden;display:flex;flex-direction:column;border-radius:38px 38px 0 0;
+    .sh.tp.lys5{pointer-events:auto;top:auto;bottom:0;height:calc(100% - var(--ki-tp-top,52px));max-height:calc(100% - var(--ki-tp-top,52px));padding:0;overflow:hidden;display:flex;flex-direction:column;border-radius:38px 38px 0 0;
       background:var(--ki-popup, #282828)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
       box-shadow:inset 0 1px 0 ${WA(0.06)},0 -12px 40px ${KA(0.55)};transition:transform 280ms cubic-bezier(.2,.8,.2,1),height .3s cubic-bezier(.3,.9,.3,1)}
-    .sh.tp.lys5.full{height:calc(100% - var(--ki-tp-top,50px))}
+    .sh.tp.lys5.half{height:58%}
     .sh.lys5>.gz{display:none}
     .sh.lys5>.body{flex:1;min-height:0;display:flex;flex-direction:column}
     .lys-sheet{flex:1;min-height:0;display:flex;flex-direction:column;color:var(--ki-text, #fafafa)}
