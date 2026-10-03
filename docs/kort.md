@@ -823,8 +823,6 @@ KI Energi: hero med ring og timebudsjett, moduser, 8 faner (Oversikt, Soner, Ene
 | `layout.show_modes` | Modus-bobler · boolean | Visning |
 | `layout.tab_look` | Fanestil (fylt \| kontur \| linje) | Visning |
 | `layout.tab_style` | Faner viser (both \| text \| icon) | Visning |
-| `layout.default_tab` | Åpne med (oversikt \| soner \| energi \| vann \| lading \| tanker \| oppsett \| avansert) | Faner |
-| `layout.remember_tab` | Husk siste fane · boolean | Faner |
 | `layout.tab_order · layout.hidden_tabs` | rekkefølge/synlighet: oversikt, soner, energi, vann, lading, tanker, oppsett, avansert | Faner |
 | `layout.block_order.oversikt · layout.hidden_blocks.oversikt` | rekkefølge/synlighet: siste12, forventet, leggetid, styrer, tiltak, budsjett, varmtvann, borte | Blokker |
 | `layout.block_order.soner · layout.hidden_blocks.soner` | rekkefølge/synlighet: soner | Blokker |
@@ -845,27 +843,70 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `columns` | Kolonner (1 \| 2) | Visning |
-| `size` | Størrelse (standard \| compact) | Visning |
+| `cols` | Kolonner (1 \| 2 \| 3) | Visning |
+| `size` | Kortstørrelse (compact \| standard \| large) | Visning |
 | `slider_height` | Slider-høyde · range | Visning |
+| `color_mode` | Farge på lys (lamp \| kelvin \| single) | Visning |
+| `on_color` | På-farge (Én farge) · color | Visning |
+| `off_color` | Av-farge (bakgrunn bak lysene) ( \| var(--gray300) \| var(--gray100) \| var(--gray400)) | Visning |
+| `show_kelvin` | Vis fargetemperatur («70 % · 2700 K») · boolean | Visning |
 | `toasts` | Bekreftelsesmeldinger · boolean | Visning |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `tile_gap` | Mellom lys-radene · range | Mellomrom |
-| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
-| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
-| `tab_order · hidden_tabs` | rekkefølge/synlighet: out, f:forste, f:andre, on | Faner |
-| `start_tab` | Startfane ( \| out \| f:forste \| f:andre \| on) | Faner |
+| `top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+| `tab_order · hide_tabs` | rekkefølge/synlighet: out, f:forste, f:andre, on | Faner |
 | `tab_names.out` | Utelys | Faner › Navn på fanene |
 | `tab_names.f:forste` | 1. etg | Faner › Navn på fanene |
 | `tab_names.f:andre` | 2. etg | Faner › Navn på fanene |
 | `tab_names.on` | Lys på | Faner › Navn på fanene |
 | `floor_tabs.forste` | 1. etg · boolean | Faner › Fane per etasje |
 | `floor_tabs.andre` | 2. etg · boolean | Faner › Fane per etasje |
+| `tab_style` | Fanestil (pill \| icon \| iconText \| underline \| segment) | Design |
+| `tab_label` | Faneetiketter (short \| long) | Design |
+| `gear_position` | Tannhjul (right \| left) | Design |
+| `scene_style` | Scenestil (bubble \| pill \| grid) | Design |
+| `room_header` | Romoverskrift (icon \| text \| hidden) | Design |
+| `tab_count` | Antall lys på i fanene («1. etg · 3») · boolean | Design |
+| `show_scenes` | Vis scener · boolean | Design |
+| `room_toggle` | «Av / På»-knapp per rom · boolean | Design |
 | `scene_source` | Kilde (auto \| ki \| egne \| begge) | Scener |
-| `scene_order · hidden_scenes` | rekkefølge/synlighet: ki:maks, ki:natt, ki:av, ki:komfort, ki:middag, ki:tv, ki:mindre, p:max, p:kveld, p:dim, p:natt, p:av, scene.bad_morgen, scene.soverom_natt | Scener |
-| `include.scener_lys` | Egne scener · entities | Scener |
-| `room_order.forste · hidden_rooms` | rekkefølge/synlighet: gang, kjokken, stue | Rom og lys › 1. etg |
-| `light_order.gang · exclude` | rekkefølge/synlighet: light.gang_speil, light.gang_tak | Rom og lys › 1. etg › Gang |
+| `scene_order · hide_scenes` | rekkefølge/synlighet: ki:maks, ki:natt, ki:av, ki:komfort, ki:middag, ki:tv, ki:mindre, p:max, p:kveld, p:dim, p:natt, p:av, scene.bad_morgen, scene.soverom_natt | Scener |
+| `extra_scenes` | Egne scener · entities | Scener |
+| `scene_icon.ki_maks` | Ikon · icon | Scener › Maks lys |
+| `scene_color.ki_maks` | Farge (ikonet) · color | Scener › Maks lys |
+| `scene_icon.ki_natt` | Ikon · icon | Scener › Nattmodus |
+| `scene_color.ki_natt` | Farge (ikonet) · color | Scener › Nattmodus |
+| `scene_icon.ki_av` | Ikon · icon | Scener › Alt av |
+| `scene_color.ki_av` | Farge (ikonet) · color | Scener › Alt av |
+| `scene_icon.ki_komfort` | Ikon · icon | Scener › Komfort |
+| `scene_color.ki_komfort` | Farge (ikonet) · color | Scener › Komfort |
+| `scene_icon.ki_middag` | Ikon · icon | Scener › Middag |
+| `scene_color.ki_middag` | Farge (ikonet) · color | Scener › Middag |
+| `scene_icon.ki_tv` | Ikon · icon | Scener › TV-kveld |
+| `scene_color.ki_tv` | Farge (ikonet) · color | Scener › TV-kveld |
+| `scene_icon.ki_mindre` | Ikon · icon | Scener › Mindre lys |
+| `scene_color.ki_mindre` | Farge (ikonet) · color | Scener › Mindre lys |
+| `scene_icon.p_max` | Ikon · icon | Scener › Maks |
+| `scene_color.p_max` | Farge (ikonet) · color | Scener › Maks |
+| `scene_icon.p_kveld` | Ikon · icon | Scener › Kveld |
+| `scene_color.p_kveld` | Farge (ikonet) · color | Scener › Kveld |
+| `scene_icon.p_dim` | Ikon · icon | Scener › Dempet |
+| `scene_color.p_dim` | Farge (ikonet) · color | Scener › Dempet |
+| `scene_icon.p_natt` | Ikon · icon | Scener › Natt |
+| `scene_color.p_natt` | Farge (ikonet) · color | Scener › Natt |
+| `scene_icon.p_av` | Ikon · icon | Scener › Alt av |
+| `scene_color.p_av` | Farge (ikonet) · color | Scener › Alt av |
+| `scene_icon.scene_bad_morgen` | Ikon · icon | Scener › Bad Morgen |
+| `scene_color.scene_bad_morgen` | Farge (ikonet) · color | Scener › Bad Morgen |
+| `scene_icon.scene_soverom_natt` | Ikon · icon | Scener › Soverom natt |
+| `scene_color.scene_soverom_natt` | Farge (ikonet) · color | Scener › Soverom natt |
+| `room_order.forste · hide_rooms` | rekkefølge/synlighet: gang, kjokken, stue | Rom og lys › 1. etg |
+| `room_names.gang` | Navn på rommet | Rom og lys › 1. etg › Gang |
+| `light_order.gang · hide_lights` | rekkefølge/synlighet: light.gang_speil, light.gang_tak | Rom og lys › 1. etg › Gang |
+| `groups.gang.name` | Gruppenavn | Rom og lys › 1. etg › Gang › Gruppe (én rad i popupen) |
+| `groups.gang.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 1. etg › Gang › Gruppe (én rad i popupen) |
+| `light_room.gang_speil` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Gang › Speil |
 | `lights.gang_speil.name` | Navn | Rom og lys › 1. etg › Gang › Speil |
 | `lights.gang_speil.icon` | Ikon · icon | Rom og lys › 1. etg › Gang › Speil |
 | `light_types.gang_speil` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Gang › Speil |
@@ -876,6 +917,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.gang_speil.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
+| `light_room.gang_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Gang › Tak |
 | `lights.gang_tak.name` | Navn | Rom og lys › 1. etg › Gang › Tak |
 | `lights.gang_tak.icon` | Ikon · icon | Rom og lys › 1. etg › Gang › Tak |
 | `light_types.gang_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Gang › Tak |
@@ -886,7 +928,11 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.gang_tak.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
 | `lights.gang_tak.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Gang › Tak › Slider (avansert) |
-| `light_order.kjokken · exclude` | rekkefølge/synlighet: light.kjokken_spot | Rom og lys › 1. etg › Kjøkken |
+| `room_names.kjokken` | Navn på rommet | Rom og lys › 1. etg › Kjøkken |
+| `light_order.kjokken · hide_lights` | rekkefølge/synlighet: light.kjokken_spot | Rom og lys › 1. etg › Kjøkken |
+| `groups.kjokken.name` | Gruppenavn | Rom og lys › 1. etg › Kjøkken › Gruppe (én rad i popupen) |
+| `groups.kjokken.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 1. etg › Kjøkken › Gruppe (én rad i popupen) |
+| `light_room.kjokken_spot` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Kjøkken › Spot |
 | `lights.kjokken_spot.name` | Navn | Rom og lys › 1. etg › Kjøkken › Spot |
 | `lights.kjokken_spot.icon` | Ikon · icon | Rom og lys › 1. etg › Kjøkken › Spot |
 | `light_types.kjokken_spot` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Kjøkken › Spot |
@@ -897,7 +943,11 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.kjokken_spot.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
 | `lights.kjokken_spot.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Kjøkken › Spot › Slider (avansert) |
-| `light_order.stue · exclude` | rekkefølge/synlighet: light.stue_lampe, light.stue_led, light.stue_tak | Rom og lys › 1. etg › Stue |
+| `room_names.stue` | Navn på rommet | Rom og lys › 1. etg › Stue |
+| `light_order.stue · hide_lights` | rekkefølge/synlighet: light.stue_lampe, light.stue_led, light.stue_tak | Rom og lys › 1. etg › Stue |
+| `groups.stue.name` | Gruppenavn | Rom og lys › 1. etg › Stue › Gruppe (én rad i popupen) |
+| `groups.stue.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 1. etg › Stue › Gruppe (én rad i popupen) |
+| `light_room.stue_lampe` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Stue › Lampe |
 | `lights.stue_lampe.name` | Navn | Rom og lys › 1. etg › Stue › Lampe |
 | `lights.stue_lampe.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › Lampe |
 | `light_types.stue_lampe` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › Lampe |
@@ -908,6 +958,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.stue_lampe.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
+| `light_room.stue_led` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Stue › LED |
 | `lights.stue_led.name` | Navn | Rom og lys › 1. etg › Stue › LED |
 | `lights.stue_led.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › LED |
 | `light_types.stue_led` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › LED |
@@ -918,6 +969,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.stue_led.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
+| `light_room.stue_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Stue › Tak |
 | `lights.stue_tak.name` | Navn | Rom og lys › 1. etg › Stue › Tak |
 | `lights.stue_tak.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › Tak |
 | `light_types.stue_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › Tak |
@@ -928,8 +980,12 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.stue_tak.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
 | `lights.stue_tak.color_presets` | Fargeforhåndsvalg | Rom og lys › 1. etg › Stue › Tak › Slider (avansert) |
-| `room_order.andre · hidden_rooms` | rekkefølge/synlighet: bad, soverom | Rom og lys › 2. etg |
-| `light_order.bad · exclude` | rekkefølge/synlighet: light.bad_tak | Rom og lys › 2. etg › Bad |
+| `room_order.andre · hide_rooms` | rekkefølge/synlighet: bad, soverom | Rom og lys › 2. etg |
+| `room_names.bad` | Navn på rommet | Rom og lys › 2. etg › Bad |
+| `light_order.bad · hide_lights` | rekkefølge/synlighet: light.bad_tak | Rom og lys › 2. etg › Bad |
+| `groups.bad.name` | Gruppenavn | Rom og lys › 2. etg › Bad › Gruppe (én rad i popupen) |
+| `groups.bad.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 2. etg › Bad › Gruppe (én rad i popupen) |
+| `light_room.bad_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 2. etg › Bad › Tak |
 | `lights.bad_tak.name` | Navn | Rom og lys › 2. etg › Bad › Tak |
 | `lights.bad_tak.icon` | Ikon · icon | Rom og lys › 2. etg › Bad › Tak |
 | `light_types.bad_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Bad › Tak |
@@ -940,7 +996,11 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.bad_tak.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
 | `lights.bad_tak.color_presets` | Fargeforhåndsvalg | Rom og lys › 2. etg › Bad › Tak › Slider (avansert) |
-| `light_order.soverom · exclude` | rekkefølge/synlighet: light.soverom_nattbord, light.soverom_tak | Rom og lys › 2. etg › Soverom |
+| `room_names.soverom` | Navn på rommet | Rom og lys › 2. etg › Soverom |
+| `light_order.soverom · hide_lights` | rekkefølge/synlighet: light.soverom_nattbord, light.soverom_tak | Rom og lys › 2. etg › Soverom |
+| `groups.soverom.name` | Gruppenavn | Rom og lys › 2. etg › Soverom › Gruppe (én rad i popupen) |
+| `groups.soverom.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 2. etg › Soverom › Gruppe (én rad i popupen) |
+| `light_room.soverom_nattbord` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 2. etg › Soverom › Nattbord |
 | `lights.soverom_nattbord.name` | Navn | Rom og lys › 2. etg › Soverom › Nattbord |
 | `lights.soverom_nattbord.icon` | Ikon · icon | Rom og lys › 2. etg › Soverom › Nattbord |
 | `light_types.soverom_nattbord` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Soverom › Nattbord |
@@ -951,6 +1011,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.soverom_nattbord.hide_color_controls` | Skjul fargespekter · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.hide_color_presets` | Skjul fargeforhåndsvalg · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.color_presets` | Fargeforhåndsvalg | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
+| `light_room.soverom_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 2. etg › Soverom › Tak |
 | `lights.soverom_tak.name` | Navn | Rom og lys › 2. etg › Soverom › Tak |
 | `lights.soverom_tak.icon` | Ikon · icon | Rom og lys › 2. etg › Soverom › Tak |
 | `light_types.soverom_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Soverom › Tak |
@@ -1212,7 +1273,6 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 | `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
 | `watch_time.prosjektor.maned` | Seertid denne måneden (Album-kortet) · entity | Prosjektor · TV |
 | `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk | Faner |
-| `default_tab` | Fane ved åpning (tv \| musikk \| last) | Faner |
 | `exclude · include.{spillere}` | skjul / legg til |  |
 | `area` | Begrens til område · area |  |
 | `now_playing.style` | Spilles nå-kort (album \| detailed) |  |
@@ -1238,7 +1298,6 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `fill_screen` | Fyll skjermen (flere kolonner på bred skjerm) · boolean | Profil |
 | `fill_breakpoint` | Bredde for flere kolonner (px) · number | Profil |
 | `layout` | Oppsett (mosaic \| main \| grid \| list \| masonry \| overview \| focus \| 2x2 \| 3col) | Visning |
-| `mode` | Startmodus (live \| frigate) | Visning |
 | `tab_order · tab_hidden` | rekkefølge/synlighet: live, frigate | Visning |
 | `view` | Startvisning (alle \| events) | Visning |
 | `refresh` | Oppdater stillbilder (sekunder) · number | Visning |
