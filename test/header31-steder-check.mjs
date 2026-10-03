@@ -28,6 +28,8 @@ const r = await p.evaluate(async () => {
   const menu = () => deepAll('.msh-servermeny')[0] || null;
   const opened = []; window.open = (u) => { opened.push(u); return null; };
   const out = {};
+  // første segment av sidens sti (avhenger av hvor repoet ligger når harness åpnes via file://)
+  out.seg = location.pathname.split('/').filter(Boolean)[0] || 'lovelace';
   const mk = async (cfg, loc) => {
     if (menu()) menu().remove();
     document.getElementById('dash').innerHTML = '';
@@ -92,7 +94,7 @@ ok(r.tomList === 0 && !r.tomPil && !r.tomMenu, '40: servere: [] ingen steder, in
 ok(r.here1 === 'Strömstad' && r.here2 === 'Toten', 'Du er her fra location_name (ö/ø, case) ' + JSON.stringify([r.here1, r.here2]));
 ok(JSON.stringify(r.rows.map((x) => x.n)) === JSON.stringify(['Oslo', 'Toten', 'Strömstad']) && r.rows[1].her && !r.rows[1].chev && r.rows[0].chev && r.rows.every((x) => !x.srv), 'rader (ikon + navn + Du er her/chevron, ingen server=) ' + JSON.stringify(r.rows));
 ok(r.rows[0].ic === 'mdi:office-building' && r.rows[1].ic === 'mdi:tractor' && r.rows[2].ic === 'mdi:sail-boat', 'gamle standardikoner → standardstil (Hjem v3) ' + JSON.stringify(r.rows.map((x) => x.ic)));
-ok(r.opened[0] === 'homeassistant://navigate/home?server=Oslo' && r.opened[1] === 'homeassistant://navigate/home?server=Strömstad', 'bytte: samme dashbord (første segment av pathname), ö ukodet, eldre navigation_path …/lovelace gir ingen sti ' + JSON.stringify(r.opened));
+ok(r.opened[0] === `homeassistant://navigate/${r.seg}?server=Oslo` && r.opened[1] === `homeassistant://navigate/${r.seg}?server=Strömstad`, 'bytte: samme dashbord (første segment av pathname), ö ukodet, eldre navigation_path …/lovelace gir ingen sti ' + JSON.stringify(r.opened));
 ok(r.opened.length === 3 && r.opened[2] === 'homeassistant://navigate/gard?server=Toten', 'eldre url_path → sti, window.open ' + JSON.stringify(r.opened));
 ok(!r.toasts.length, 'ingen toast i nettleser (window.open) ' + JSON.stringify(r.toasts));
 ok(r.edRows.join() === 'Bergen,Strömstad' && !r.hasReset, 'editor: rader fra servere-streng, ingen Tilbakestill ' + JSON.stringify([r.edRows, r.hasReset]));
