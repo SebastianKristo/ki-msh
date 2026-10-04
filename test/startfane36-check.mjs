@@ -206,7 +206,7 @@ for (const [name, tag, hash, extra, hideP, legP] of list) {
     e.remove();
     return out;
   }, { X, Y });
-  if (name === 'Media') { // 47 G: Media v4 har «Startfane» som segment (TV · Musikk) i Tilpass → Faner – samme i GUI og ark, skriver start_tab
+  if (name === 'Media') { // 47 G: Media v4 har «Startfane» som segment (TV · Musikk · Sist brukte) i Tilpass → Faner – samme i GUI og ark, skriver start_tab
     const md = await page.evaluate(async ({ X, Y }) => {
       const cls = card().constructor, out = {};
       for (const inl of [false, true]) {
@@ -225,7 +225,7 @@ for (const [name, tag, hash, extra, hideP, legP] of list) {
       }
       return out;
     }, { X, Y });
-    ok(`${name}: GUI-editor · «Startfane»-segment (${md.gui.opts.join('|')}), verdi ${X}, valg → config-changed start_tab`, md.gui.opts.includes(X) && md.gui.opts.includes(Y) && md.gui.on === X && md.gui.out === Y, md);
+    ok(`${name}: GUI-editor · «Startfane»-segment (${md.gui.opts.join('|')}), verdi ${X}, valg → config-changed start_tab`, md.gui.opts.includes(X) && md.gui.opts.includes(Y) && md.gui.opts.includes('last') && md.gui.on === X && md.gui.out === Y, md);
     ok(`${name}: Tilpass → Faner · «Startfane»-segment, ${X} aktiv (rosa), valg → start_tab`, md.inl.on === X && md.inl.out === Y && /gradient/.test(md.inl.bg || ''), md);
   } else {
   ok(`${name}: GUI-editor · ha-selector «Startfane» (${ed.guiOpts ? ed.guiOpts.join('|') : '–'}), verdi ${X}, valg → config-changed`, ed.gui && ed.guiOpts && ed.guiOpts.includes(X) && ed.guiOpts.includes('last') && ed.guiVal === X && ed.guiOut === 'last', ed);

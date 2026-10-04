@@ -1,7 +1,7 @@
 // Fiks 47 G · Media (#media) mot ekte Bubble Card, mobil 390 px med TOUCH (CDP), mørk og lys modus.
 //  · «Tilpass media»-arket (Media v4 cfgOpen): felles Tilpass-størrelse (top 52 / maks 440 / radius 38, håndtak 40×5),
 //    tittel 24/600, «Nullstill» (#3a3a3a) + rosa «Ferdig», ikonfaner Faner · TV · Musikk (aktiv viser navnet)
-//  · Faner: forhåndsvisning (live, på --ki-bg) + kort med segmentene Fanestil (5) · Faner viser (4) · Startfane (2), haptic
+//  · Faner: forhåndsvisning (live, på --ki-bg) + kort med segmentene Fanestil (5) · Faner viser (4) · Startfane (3: TV · Musikk · Sist brukte), haptic
 //  · alle 5 fanestiler i kortets fanelinje (beregnede stiler) + 4 visninger + startfane (start_tab + tabs.start)
 //  · TV/Musikk: «Rekkefølge» først, så spillerne; Nullstill gjelder bare aktiv fane
 //  · GUI-editoren (getConfigElement) har samme faner/segmenter og lagrer samme nøkler (tabs.style/mode/start, start_tab)
@@ -108,10 +108,10 @@ const S2 = await p.evaluate(() => {
 });
 await shot('47g-ark-faner');
 ok('Faner: forhåndsvisning på --ki-bg (#232323) med TV · Musikk, TV aktiv', S2.pv && S2.pvBg === 'rgb(35, 35, 35)' && S2.pvRow.join() === 'TV,Musikk' && S2.pvOn === 'TV', S2);
-ok('Faner: segmentkort Fanestil (5) · Faner viser (4) · Startfane (2), #3a3a3a r24, boks #2f2f2f, maks 3 kolonner, 40 px', S2.segs.length === 3
+ok('Faner: segmentkort Fanestil (5) · Faner viser (4) · Startfane (3), #3a3a3a r24, boks #2f2f2f, maks 3 kolonner, 40 px', S2.segs.length === 3
   && S2.segs[0].title === 'Fanestil' && S2.segs[0].opts.join() === 'Kontur,Fylt,Glass,Understrek,Chips' && S2.segs[0].on === 'Kontur' && S2.segs[0].cols === 3
   && S2.segs[1].title === 'Faner viser' && S2.segs[1].opts.join() === 'Tekst,Ikoner,Ikon + aktiv,Begge' && S2.segs[1].on === 'Tekst' && S2.segs[1].cols === 3
-  && S2.segs[2].title === 'Startfane' && S2.segs[2].opts.join() === 'TV,Musikk' && S2.segs[2].on === 'TV' && S2.segs[2].cols === 2
+  && S2.segs[2].title === 'Startfane' && S2.segs[2].opts.join() === 'TV,Musikk,Sist brukte' && S2.segs[2].on === 'TV' && S2.segs[2].cols === 3
   && S2.segs.every((s) => s.bg === 'rgb(58, 58, 58)' && s.rad === '24px' && s.boxBg === 'rgb(47, 47, 47)' && s.h === 40), S2.segs);
 ok('Faner: rekkefølgen i arket = ikonfaner → tekst → forhåndsvisning → segmentkort', S2.order[0] === 'mmt' && S2.order[1] === 'mtp-i' && S2.order[2] === 'mtp' && S2.order[3] === 'mseg-style', S2.order);
 
@@ -190,6 +190,30 @@ await tap(P0.x, P0.y);
 const S6 = await p.evaluate(() => ({ on: (window.__M().shadowRoot.querySelector('.seg .tab.on') || {}).dataset.t, hap: window.__hap.slice() }));
 ok('Fylt: kort trykk på TV bytter fane, én haptic', S6.on === 'tv' && S6.hap.length === 1, S6);
 
+// ---------- 6b · Startfane «Sist brukte» → start_tab 'last' (felles MSH.startTab): popupen åpner med fanen brukt sist
+const S6b = await p.evaluate(async () => {
+  const wait2 = (ms) => new Promise((q) => setTimeout(q, ms));
+  window.__M().customize(); await wait2(600);
+  const E = window.__ed(), ER = E.shadowRoot, o = {};
+  const ft = ER.querySelector('.mmt [data-t="faner"]'); if (ft.getAttribute('aria-selected') !== 'true') { ft.click(); await wait2(250); }
+  window.__hap.length = 0;
+  ER.querySelector('.mso[data-g="start"][data-v="last"]').click(); await wait2(300);
+  o.hap = window.__hap.slice();
+  o.draft = { st: E._config.start_tab, tabs: E._config.tabs };
+  o.segOn = (ER.querySelector('.mso[data-g="start"].on') || {}).textContent;
+  o.pvOn = (ER.querySelector('.mtpv .mtp-t.on') || {}).textContent;
+  ER.querySelector('.ttl .done').click(); await wait2(1200);
+  o.saved = window.__M().config.start_tab;
+  const reopen = async () => { location.hash = ''; await wait2(900); location.hash = '#media'; await wait2(1400); return (window.__M().shadowRoot.querySelector('.seg .tab.on') || {}).dataset.t; };
+  window.__M().shadowRoot.querySelector('.seg .tab[data-t="musikk"]').click(); await wait2(400);
+  o.r1 = await reopen();
+  window.__M().shadowRoot.querySelector('.seg .tab[data-t="tv"]').click(); await wait2(400);
+  o.r2 = await reopen();
+  return o;
+});
+ok('Startfane «Sist brukte»: segmentet er rosa, utkastet får start_tab = last (+ tabs.start), én haptic', S6b.segOn === 'Sist brukte' && S6b.draft.st === 'last' && S6b.draft.tabs && S6b.draft.tabs.start === 'last' && S6b.hap.length === 1, S6b);
+ok('Startfane «Sist brukte»: lagret, popupen åpner med fanen brukt sist (Musikk, så TV)', S6b.saved === 'last' && S6b.r1 === 'musikk' && S6b.r2 === 'tv', S6b);
+
 // ---------- 7 · TV/Musikk-fanene i arket + Nullstill per fane
 const S7 = await p.evaluate(async () => {
   const wait2 = (ms) => new Promise((q) => setTimeout(q, ms));
@@ -249,6 +273,9 @@ const S8 = await p.evaluate(async () => {
   R.querySelector('.mso[data-g="mode"][data-v="ikon"]').click(); await wait2(100);
   R.querySelector('.mso[data-g="start"][data-v="tv"]').click(); await wait2(100);
   out.last = out.changes[out.changes.length - 1];
+  R.querySelector('.mso[data-g="start"][data-v="last"]').click(); await wait2(100);
+  out.lastSt = (out.changes[out.changes.length - 1] || {}).start_tab;
+  out.lastOn = (R.querySelector('.mso[data-g="start"].on') || {}).textContent;
   R.querySelector('[data-key="mreset"]').click(); await wait2(100);
   out.afterReset = out.changes[out.changes.length - 1];
   ed.remove();
@@ -256,6 +283,7 @@ const S8 = await p.evaluate(async () => {
 });
 ok('GUI-editor: samme ikonfaner, segmentene viser config (Glass · Ikon + aktiv · Musikk), Nullstill-knapp', S8.tabs.join() === 'Faner,TV,Musikk' && S8.on.join() === 'Glass,Ikon + aktiv,Musikk' && /ts-glass/.test(S8.pv) && S8.reset, S8);
 ok('GUI-editor: valg lagres i samme nøkler (tabs.style/mode/start + start_tab) via config-changed', S8.last && S8.last.tabs && S8.last.tabs.style === 'chips' && S8.last.tabs.mode === 'ikon' && S8.last.tabs.start === 'tv' && S8.last.start_tab === 'tv', S8.last);
+ok('GUI-editor: «Sist brukte» → start_tab last', S8.lastSt === 'last' && S8.lastOn === 'Sist brukte', S8);
 ok('GUI-editor: Nullstill (Faner) fjerner tabs/start_tab', S8.afterReset && !S8.afterReset.tabs && !S8.afterReset.start_tab, S8.afterReset);
 
 // ---------- 9 · lys modus: kontrast i alle fanestiler + segmentene i arket
