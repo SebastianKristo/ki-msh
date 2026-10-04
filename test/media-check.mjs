@@ -187,7 +187,7 @@ const shot = async (p, n) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/$
     out.last = out.changes[out.changes.length - 1];
     return out;
   });
-  ok(r.seg.join('|') === 'TV|Musikk', 'editor: fanesegment ' + r.seg);
+  ok(r.seg.join('|') === 'Faner|TV|Musikk', 'editor: ikonfaner (47 G) ' + r.seg);
   ok(r.tv.length >= 2 && r.tv2[0] === r.tv[1] && r.tv2[1] === r.tv[0], 'editor: ↓ bytter rekkefølge ' + JSON.stringify([r.tv, r.tv2]));
   ok(r.last && r.last.order && r.last.order.tv && r.last.order.tv[0] === r.tv[1] && r.last.hidden && r.last.hidden[r.tv[1]] === true, 'editor: config order/hidden ' + JSON.stringify(r.last && { order: r.last.order, hidden: r.last.hidden }));
   ok(r.mus.length >= 2 && !r.mus.some((x) => r.tv.includes(x)), 'editor: musikk-fanen viser bare musikk ' + r.mus);

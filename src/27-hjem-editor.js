@@ -46,7 +46,7 @@
   const TILE_DEF = { hjem: { lock: 'L-top', garage: 'L-top', alarm: 'L-bottom', cam: 'R-bottom', ruter: 'R-bottom', todo: 'R-bottom' }, aktuelt: {} };
   const DYN = ['dish', 'vacr', 'tv', 'wash', 'dry']; // Aktuelt: dynamisk etter tabs.aktuelt.types (fiks 15.10)
   const STACK_DEF = { hjem: { cam: true, ruter: true } };
-  const SLIDE_L = { cal: ['calendar_month', 'Kalender'], vaer: ['partly_cloudy_day', 'Vær'], strom: ['bolt', 'Strøm'], trash: ['delete', 'Søppel'] };
+  const SLIDE_L = { cal: ['calendar_month', 'Kalender'], arr: ['mdi:television-play', 'Kommer i dag'], vaer: ['partly_cloudy_day', 'Vær'], strom: ['bolt', 'Strøm'], trash: ['delete', 'Søppel'] }; // 47 D: + arr
   const VIEWS = [['karusell', 'Karusell'], ['liste', 'Kortliste'], ['batterier', 'Batterier']];
   // Fiks 17.10: sonene i «Snarveier» (fast rekkefølge) og typene i +-rutenettet
   const ZONES = [['L-top', 'Venstre · over rommene'], ['R-top', 'Høyre · over rommene'], ['L-bottom', 'Venstre · under rommene'], ['R-bottom', 'Høyre · under rommene']];
@@ -936,8 +936,24 @@
           <div class="fld"><span class="fl">Undertekst</span><input class="in" data-in="tesub" data-k="${esc(k)}" value="${esc(cfg.sub || '')}" placeholder="${esc(kd === 'lock' ? 'Dørlås / Inngang' : K[1])}"></div></div>
         <div class="fld"><span class="fl">Ikon · mdi:, phu:, hue: …</span>${icf}</div>
         ${kd === 'lock' || kd === 'garage' ? `<div class="fld"><span class="fl">Popup (popup_hash) · trykk på kortet</span><input class="in" data-in="tepop" data-k="${esc(k)}" value="${esc(cfg.popup_hash || '')}" placeholder="${kd === 'lock' ? '#dorlas' : '#garasje'}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>` : ''}
+        ${k === 'lock' && kd === 'lock' ? this._lockSwipeEd(c, m) : ''}
         ${taps}
         ${cfg.entity || cfg.name || cfg.icon || cfg.sub || cfg.popup_hash || H.TAP_FIELDS.some(([w]) => cur(w)) ? `<button class="o34 press" style="align-self:flex-start" data-a="tereset" data-k="${esc(k)}">${ic('mdi:restore', 16)} Standard for flisen</button>` : ''}`;
+    }
+    /* Fiks 47 B · «Dørlåser · sveip» (Hjem v3 · t.ed.isLock): rekkefølge (lock_sort) og standard-lås (lock_default, chips med
+     * låsene fra Dørlås-popupen) – lagres i tile_cfg.lock (samme nøkler som GUI-editoren, msh-hjem-faner-card). */
+    _lockSwipeEd(c, m) {
+      const L = M.hjemLockList ? M.hjemLockList(this.hass) : [], T = (c.tile_cfg || {}).lock || {};
+      const mode = (M.HJEM_LOCK_SORTS || []).some(([v]) => v === T.lock_sort) ? T.lock_sort : 'unlocked';
+      const ent = T.entity || (m.E || {}).lock, def = L.includes(T.lock_default) ? T.lock_default : L.includes(ent) ? ent : L[0];
+      const note = L.length < 2 ? 'Bare én lås i Dørlås-popupen – vanlig kort uten sveip.' : mode === 'unlocked' ? 'Ulåste dører vises først. Når alle er låst, vises standard først.' : mode === 'default' ? 'Standard vises alltid først, deretter ulåste.' : 'Samme rekkefølge som i Dørlås-popupen.';
+      const nm = (id) => (M.hjemLockName ? M.hjemLockName(this.hass, id) : M.name(this.hass, id));
+      return `<div class="lksw" data-key="lksw" style="display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">
+          <span style="display:flex;align-items:center;gap:8px">${ic('mdi:gesture-swipe-left', 20, 'color:var(--ki-text-2, #afafaf)')}<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:600">Dørlåser · sveip</span><span style="font-size:11px;color:var(--ki-text-3, #7f7f7f);text-wrap:pretty">${esc(note)}</span></span></span>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">${(M.HJEM_LOCK_SORTS || []).map(([v, l]) => `<button class="press ${v === mode ? 'on-pk' : ''}" data-a="locksort" data-v="${v}" data-h="selection" aria-pressed="${v === mode}" style="height:40px;border-radius:14px;font-size:13px;font-weight:500;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, #afafaf)">${esc(l)}</button>`).join('')}</div>
+          ${L.length ? `<span style="font-size:12px;color:var(--ki-text-mid, #979797)">Standard dørlås</span>
+          <div class="chs">${L.map((id) => `<button class="press ${id === def ? 'on-pk' : ''}" data-a="lockdef" data-v="${esc(id)}" data-h="selection" aria-pressed="${id === def}" style="height:34px;padding:0 12px;border-radius:17px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-2, #afafaf)">${esc(nm(id))}</button>`).join('')}</div>` : ''}
+        </div>`;
     }
     // «+ Legg til» → velg type → velg entitet («Automatisk» = autokonfig). Flere av samme type er lov (lock_2 …).
     _tileAdd(m) {
@@ -981,13 +997,15 @@
       return `<button class="ac ${o ? 'open' : ''}" data-a="acc" data-v="${key}" data-key="ac-${key}">${ic(icon, 20, 'color:var(--ki-text-2, #afafaf)')}<span class="at">${esc(title)}</span><span class="am">${esc(meta)}</span>${ic('expand_more', 22, 'color:var(--ki-text-mid, #979797)')}</button>`;
     }
     _accSwipe(m) {
-      const S = get(m.c, `slides.${m.t.id}`) || {}, n = ['L', 'R'].reduce((a, sd) => a + Object.keys(S[sd] || {}).filter((k) => S[sd][k]).length, 0);
+      const HS = M.hjemSlides, onL = (sd) => (HS ? HS.list(m.c, m.t.id, sd, this.hass) : Object.keys(SLIDE_L).filter((k) => get(m.c, `slides.${m.t.id}.${sd}.${k}`)));
+      const n = onL('L').length + onL('R').length;
       let body = '';
       if (this.u.acc.swipe) {
         body = `<div class="box" data-key="acb-swipe"><span style="display:flex;flex-direction:column;gap:2px"><span class="lb">Swipe-kort</span><span class="sub">Ekstra kort du sveiper til etter rommene</span></span>
-          ${[['L', 'Venstre karusell'], ['R', 'Høyre karusell']].map(([sd, l]) => { const cur = Object.keys(SLIDE_L).filter((k) => (S[sd] || {})[k]);
+          ${[['L', 'Venstre karusell'], ['R', 'Høyre karusell']].map(([sd, l]) => { const cur = onL(sd).filter((k) => SLIDE_L[k]);
+            // 47 D: ‹ flytter sveip-kortet ett steg fram (slide_order), × fjerner
             return `<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--ki-text-mid, #979797)">${l}</span><div class="chs">
-              ${cur.map((k) => `<button class="c34 press" data-a="slide" data-s="${sd}" data-v="${k}" title="Fjern">${ic(SLIDE_L[k][0], 18)}${SLIDE_L[k][1]}${ic('close', 16, 'color:var(--ki-text-mid, #979797)')}</button>`).join('')}
+              ${cur.map((k, i) => `<span style="display:inline-flex;align-items:center;gap:2px">${i ? `<button class="press" data-a="slidemv" data-s="${sd}" data-v="${k}" title="Flytt fram" aria-label="Flytt ${esc(SLIDE_L[k][1])} fram" style="width:28px;height:34px;display:grid;place-items:center;color:var(--ki-text-mid, #979797)">${ic('chevron_left', 18)}</button>` : ''}<button class="c34 press" data-a="slide" data-s="${sd}" data-v="${k}" title="Fjern">${ic(SLIDE_L[k][0], 18)}${SLIDE_L[k][1]}${ic('close', 16, 'color:var(--ki-text-mid, #979797)')}</button></span>`).join('')}
               ${Object.keys(SLIDE_L).filter((k) => !cur.includes(k)).map((k) => `<button class="o34 press" data-a="slide" data-s="${sd}" data-v="${k}">+ ${SLIDE_L[k][1]}</button>`).join('')}</div>${this._carRules(m, sd)}</div>`; }).join('')}
           ${this._calRow(m)}</div>`;
       }
@@ -1342,6 +1360,10 @@
       // Fiks 17.18: én global bryter for Liquid Glass-animasjonen (ki-store ui.glass_anim, MSH.glassAnimOn) – øverst
       const ga = M.glassAnimOn ? M.glassAnimOn() : true;
       const gaRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="glassanim" data-h="selection" role="switch" aria-checked="${ga}" data-key="glassanim"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:blur', 20, `color:${ga ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Liquid Glass-animasjon</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Glass-linse når du drar eller trykker i faner og segmenter · hele dashbordet</span></span></span>${this._sw(ga)}</button>`;
+      // Fiks 47 F: «Bekreftelsespille» rett under Liquid Glass-animasjon (faner-kortets config toasts, standard på; samme
+      // nøkkel som GUI-editoren). Av → ingen toast-pille noe sted (MSH.toastsOn i MSH.toast).
+      const toOn = c.toasts !== false;
+      const toRow = `<button class="tgl" style="height:auto;min-height:56px;padding:10px 10px 10px 16px" data-a="toasts" data-h="selection" role="switch" aria-checked="${toOn}" data-key="toasts"><span style="display:flex;align-items:center;gap:12px;min-width:0">${ic('mdi:message-badge-outline', 20, `color:${toOn ? 'var(--ki-text, #fafafa)' : 'var(--ki-text-lo, #696969)'}`)}<span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span>Bekreftelsespille</span><span style="font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797)">Hvit pille ved handlinger (f.eks. «Garasjeporten åpnes») · hele dashbordet</span></span></span>${this._sw(toOn)}</button>`;
       // Fiks 33.4: «Fanehøyde i popups» – global standard (ki-store ui.popup_tab_height) for alle popups på «Følg global»
       const ptRow = M.tabH ? `<div class="fld" data-key="ptabh">${M.tabH.editorHTML(M.tabH.global(), { global: true, label: 'Fanehøyde i popups', items: ['Oversikt', 'Varme', 'Logg'], native: 38, gear: true })}</div>` : '';
       // Fiks 18.5: haptisk feedback per enhet (localStorage ki-haptic-off + ki-store haptic_off_devices) – lagres straks
@@ -1363,7 +1385,7 @@
           <div class="fld"><span class="fl">Bredde per fane${pl}</span><div class="chs">${[['std', 'Standard'], ['kompakt', 'Kompakt'], ['full', 'Full'], ['custom', 'Egendefinert']].map(([v, l]) => opt('tab_width', v, l, wC)).join('')}</div>${wC === 'custom' ? custom('tab_width', 'tab_width_px', 48, 200, 88) : ''}</div>
           ${ptRow}
         </div>
-        ${gaRow}${hapRow}${rows}
+        ${gaRow}${toRow}${hapRow}${rows}
         <button class="big52 press" data-a="tabnew">${ic('add', 22)}Ny fane</button>
         <span class="hint">Dra fanene for å endre rekkefølgen. Etasjer fra Home Assistant dukker opp automatisk.</span>`;
     }
@@ -1681,6 +1703,8 @@
       if (a === 'rkpill' && M.romkortPillPanel) return M.romkortPillPanel.act(this, d); // 20.12 (32-romkort.js)
       if (a === 'rkdef') return this.saveF({ [d.k]: d.v === (d.k === 'icon_tap' ? 'toggle_lights' : 'lights') ? undefined : d.v });
       if (/^cb/.test(a)) return this._actComb(a, d); // 36.1
+      if (a === 'locksort') return this.saveF({ 'tile_cfg.lock.lock_sort': d.v === 'unlocked' ? undefined : d.v }); // 47 B
+      if (a === 'lockdef') return this.saveF({ 'tile_cfg.lock.lock_default': d.v || undefined }); // 47 B
       if (u.sec === 'kort') return this._actKort(a, d);
       if (u.sec === 'faner') return this._actFaner(a, d);
       if (u.sec === 'pop') return this._actPop(a, d);
@@ -1857,7 +1881,19 @@
           u.pick = null; u.sel = { t: 'tile', id: nx };
           return this._moveTile(this._model(), nx, side + '-bottom', null);
         }
-        case 'slide': { const p = `slides.${t.id}.${d.s}.${d.v}`; return this.saveF({ [p]: get(c, p) ? undefined : true }); }
+        case 'slide': { // 47 D: «Kommer i dag» er på som standard (autokonfig) → fjern = false; slide_hidden (GUI-øyet) nullstilles ved «+»
+          const p = `slides.${t.id}.${d.s}.${d.v}`, HS = M.hjemSlides, on = HS ? HS.on(c, t.id, d.s, d.v, this.hass) : !!get(c, p);
+          const dflt = HS ? HS.on({}, t.id, d.s, d.v, this.hass) : false, hp = `slide_hidden.${t.id}.${d.s}`, hid = get(c, hp);
+          const patch = { [p]: on ? (dflt ? false : undefined) : (dflt ? undefined : true) };
+          if (!on && Array.isArray(hid) && hid.includes(d.v)) patch[hp] = hid.filter((x) => x !== d.v).length ? hid.filter((x) => x !== d.v) : undefined;
+          return this.saveF(patch);
+        }
+        case 'slidemv': { // 47 D: flytt sveip-kortet ett steg fram
+          const HS = M.hjemSlides; if (!HS) return;
+          const L = HS.list(c, t.id, d.s, this.hass, true), i = L.indexOf(d.v); if (i < 1) return;
+          const nL = L.slice(); nL.splice(i - 1, 0, nL.splice(i, 1)[0]);
+          return this.saveF({ [`slide_order.${t.id}.${d.s}`]: nL });
+        }
         // Fiks 20.4: «Vis prikker» og «Vis først når …»-regler per karusell
         case 'cardots': { const p = `carousel.${t.id}.${d.s}.dots`; return this.saveF({ [p]: get(c, p) === false ? undefined : false }); }
         case 'cradd': case 'crdel': case 'crup': case 'crslide': case 'crpre': {
@@ -1961,6 +1997,7 @@
           if (Array.isArray(c.tab_hidden)) p.tab_hidden = c.tab_hidden.filter((x) => x !== t.id);
           return this.saveF(p);
         }
+        case 'toasts': return this.saveF({ toasts: this.F().toasts === false ? undefined : false }); // 47 F
         case 'hapticdev': { this._saving = true; try { M.setHapticOff(!M.hapticOff()); } finally { this._saving = false; } return this.render(); } // Fiks 18.5: per enhet, lagres straks
         case 'glassanim': { if (M.setGlassAnim) { this._saving = true; try { M.setGlassAnim(!(M.glassAnimOn && M.glassAnimOn())); } finally { this._saving = false; } } return this.render(); } // ki-store ui.glass_anim (Fiks 17.18)
         case 'tabview': return this.saveF({ ['tab_views.' + d.k]: d.v });

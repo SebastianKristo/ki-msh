@@ -15,7 +15,10 @@
  *   felles strømpris-kilden (M.powerPrice, 15-strompris-kilde.js). Aldri mock: mangler → «–».
  * Config (A): order, hid, ent{effekt,spot,norge,dag,maned,spart,forbruk}, start, tabStyle (pille|kontur|ikoner|kompakt),
  *   gear (hero|tab), cardSize (stor|kompakt), useCards [2], exPrice (norge|spot|total), exShow [], ord{sec-*, useStats},
- *   anim, live. B: kurs, ord.kurs, ord.cat. C: sider.*. «Tilpass strøm» (MSH.overlay tilpass) og getConfigElement
+ *   anim, live, spot_chip (Fiks 47 M, standard på). Fiks 47: ent{trinn,margin,bil,tg_nettleie,tg_selskap,tg_stotte,tg_moms}
+ *   (autokonfig via søkemønstre, aldri faste ID-er); toppkortets deler er more-info-trykkflater (T), «Inkludert i prisen»
+ *   = hele pillen rosa + hold 500 ms → more-info (N), lange Visning-seksjoner som akkordeon (O, ren visning).
+ *   B: kurs, ord.kurs, ord.cat. C: sider.*. «Tilpass strøm» (MSH.overlay tilpass) og getConfigElement
  *   (msh-strom-editor) viser de samme valgene og skriver de samme nøklene (config er sannheten, ki-store – fallgruve 3).
  */
 (function () {
@@ -31,6 +34,7 @@
   const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
   const PINK = 'linear-gradient(160deg,#f28ac9,#f6c9c4)';
   const ACC = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+  const TG_ON = 'linear-gradient(145deg, #f285c9 -10%, #f5cdc6 100%)'; // ki-hex-ok: aksentflate (Fiks 47 N)
   const INK = 'var(--ki-on-accent, rgba(50,38,44,.95))';
   const INK2 = 'var(--ki-on-accent, #2f2f2f)';
   const GREEN = 'var(--ki-green-text, rgb(120 210 165))', RED = 'var(--ki-red-text, rgb(240 120 100))';
@@ -56,7 +60,11 @@
     Forbruk: [['f_kort', 'Forbruk nå og i dag', 'mdi:lightning-bolt'], ['f_stat', 'Dag · måned · år', 'mdi:meter-electric'], ['f_graf', 'Forbruk per time', 'mdi:chart-bar'], ['f_kilder', 'Kilder', 'mdi:table-large']],
     Kurser: [['k_total', 'Totalkort', 'mdi:cash-multiple'], ['k_kat', 'Kategorier', 'mdi:shape-outline'], ['k_kurs', 'Sikringsskap', 'mdi:power-plug-outline']],
   };
-  const ROLES = [['effekt', 'Effekt nå', 'mdi:meter-electric'], ['spot', 'Spotpris', 'mdi:lightning-bolt'], ['norge', 'Norgespris', 'mdi:piggy-bank-outline'], ['dag', 'Kostnad i dag', 'mdi:calendar-today'], ['maned', 'Regning måned', 'mdi:receipt-text-outline'], ['spart', 'Spart med Norgespris', 'mdi:hand-heart-outline'], ['forbruk', 'Forbruk i dag', 'mdi:lightning-bolt']];
+  // Fiks 47 T/N: roller gruppert (Tilpass → Entiteter = «Kilder»). [rolle, navn, ikon, domene-regex for søk]
+  const ROLES = [['effekt', 'Effekt nå', 'mdi:meter-electric'], ['spot', 'Spotpris', 'mdi:lightning-bolt'], ['norge', 'Norgespris', 'mdi:piggy-bank-outline'], ['dag', 'Kostnad i dag', 'mdi:calendar-today'], ['maned', 'Regning måned', 'mdi:receipt-text-outline'], ['spart', 'Spart med Norgespris', 'mdi:hand-heart-outline'], ['forbruk', 'Forbruk i dag', 'mdi:lightning-bolt'],
+    ['trinn', 'Effekttrinn (intervall)', 'mdi:stairs'], ['margin', 'Margin til neste trinn', 'mdi:arrow-collapse-up'], ['bil', 'Elbil / lader (bilen i toppkortet)', 'mdi:ev-station'],
+    ['tg_nettleie', 'Nettleie', 'mdi:cash', /^(input_boolean|switch)\./], ['tg_selskap', 'Strømselskap', 'mdi:home-city-outline', /^(input_boolean|switch)\./], ['tg_stotte', 'Strømstøtte', 'mdi:hand-coin-outline', /^(input_boolean|switch)\./], ['tg_moms', 'Moms', 'mdi:cash-multiple', /^(input_boolean|switch)\./]];
+  const ROLE_GROUPS = [['Toppkort', 'Trykk på delene i toppkortet åpner disse', ['effekt', 'spot', 'dag', 'norge', 'trinn', 'margin', 'bil']], ['Priser og forbruk', '', ['maned', 'spart', 'forbruk']], ['Inkludert i prisen', 'Brytere som styrer prisberegningen · hold inne for detaljer', ['tg_nettleie', 'tg_selskap', 'tg_stotte', 'tg_moms']]];
   const PAGES = { norgespris: ['Norgespris', 'mdi:piggy-bank-outline'], stromregning: ['Strømregning', 'mdi:receipt-text-outline'], innstillinger: ['Strøminnstillinger', 'mdi:tune'] };
   const PAGE_HASH = { '#norgespris': 'norgespris', '#stromregning': 'stromregning', '#strømregning': 'stromregning', '#strominnstillinger': 'innstillinger' };
   // «Hva koster det nå»: [id, ikon, tekst, kWh] (typiske forbruk, ikke målinger)
@@ -96,16 +104,31 @@
     };
     let R = null; try { R = M.energiSources ? M.energiSources(hass, {}) : null; } catch (e) { R = null; }
     let P = null; try { P = M.powerPrice ? M.powerPrice(hass) : null; } catch (e) { P = null; }
-    const pw = ids.filter((id) => st[id].attributes.device_class === 'power');
+    const pw = ids.filter((id) => st[id].attributes.device_class === 'power' || /^(k|M)?W$/.test(unit(id)));
+    const sens = Object.keys(st).filter((id) => id.startsWith('sensor.') && st[id]);
     const v = {
       effekt: (R && R.power) || (M.kiRomId && M.kiRomId(hass, null, 'effekt')) || pick(pw, [/strommaler|strømmåler|\bams\b|_ams_|\bhan\b|pulse|hele_huset|house_power|total_effekt|effekt_total/], SUB_RX) || null,
       spot: (P && P.entity) || null,
       norge: (P && P.norgespris && P.norgespris.entity) || (M.norgesprisAuto && M.norgesprisAuto(hass)) || null,
-      dag: pick(mon, [/(daily|i_dag|i dag|idag|today|_dag\b|dagens)/, /(cost|kostnad)/], new RegExp(SUB_RX.source + '|mnd|maned|måned|month|year|aar|år\\b|besparelse|spart|saving'), /strom|strøm|total|nordpool|tibber|energi|strommaler/),
+      dag: pick(mon, [/(dagens_kostnad|daily_cost|cost_today|kostnad_i_dag|kostnad_idag|dagens kostnad)/], new RegExp(SUB_RX.source + '|besparelse|spart|saving|norgespris'), /strom|strøm|forbruk|total|strommaler/)
+        || pick(mon, [/(daily|i_dag|i dag|idag|today|_dag\b|dagens)/, /(cost|kostnad)/], new RegExp(SUB_RX.source + '|mnd|maned|måned|month|year|aar|år\\b|besparelse|spart|saving'), /strom|strøm|total|nordpool|tibber|energi|strommaler/),
       maned: pick(mon, [/(month|maned|måned|monthly|regning|mnd)/], new RegExp(SUB_RX.source + '|besparelse|spart|saving|year|aar'), /strom|strøm|regning|total/),
       spart: pick(mon.concat(ids.filter((id) => /kr$/i.test(unit(id)))), [/(besparelse|spart|saving|saved)/, /norgespris/], null, /dag|daily|today/),
       forbruk: pick(ids.filter((id) => st[id].attributes.device_class === 'energy'), [/(daily|i_dag|idag|today|_dag\b|dagens)/, /(forbruk|energy|energi|consumption|strommaler|import)/], SUB_RX, /strommaler|total|hele|house/),
+      // Fiks 47 T: søkemønstre (ingen faste ID-er) – kapasitetstrinn (intervall, ofte tekst-tilstand), margin, lader
+      trinn: pick(sens, [/(kapasitetstrinn|kapasitetsledd|effekttrinn|capacity_step|capacity_tier)/], /margin|neste|next|pris|price|cost|kostnad/, /intervall|interval/),
+      margin: pick(sens, [/(margin|igjen|remaining)/, /(trinn|step|tier|kapasitet)/], null, /neste|next/),
+      bil: pick(pw, [/(charger_power|charging_power|easee|zaptec|wallbox|ev_charg|elbil|billader|bil_lader|tesla_.*(power|effekt))/], /solar|sol\b|battery_power|batteri|mobil|telefon|phone/, /charger_power|charging_power/),
     };
+    if (!v.norge) v.norge = pick(ids, [/norgespris/, /(pris|price)/], /besparelse|spart|saving|cost|kostnad|total|forbruk|energy/, /(_na\b|_naa\b|_now|nå)/);
+    if (!v.effekt) v.effekt = pick(pw, [/(_effekt\b|_effekt$|power)/], SUB_RX, /strommaler|maler|måler|meter|hus|house|total/);
+    // «Inkludert i prisen»: input_boolean/switch som styrer prisberegningen (navn + pris-kontekst)
+    const tgs = Object.keys(st).filter((id) => /^(input_boolean|switch)\./.test(id));
+    TOGGLES.forEach(([k, , , rx]) => {
+      const L = tgs.filter((id) => { const t = txt(hass, id); return rx.test(id.split('.')[1]) && /(include|inkluder|strompris|strømpris|strom_|pris|price|kalk|calc)/.test(t); });
+      L.sort((a, b) => (/^input_boolean/.test(b) ? 1 : 0) - (/^input_boolean/.test(a) ? 1 : 0) || (/include|inkluder|strompris/.test(b) ? 1 : 0) - (/include|inkluder|strompris/.test(a) ? 1 : 0) || (a < b ? -1 : 1));
+      v['tg_' + k] = L[0] || null;
+    });
     AM = { s: st, pr, v };
     return v;
   }
@@ -118,10 +141,10 @@
   const priceVal = (hass, id) => { const s = stOf(hass, id); return s && M.isNum(s.state) ? Number(s.state) * (M.priceScale ? M.priceScale(s) : 1) : null; };
   const trendOf = (hass, id) => { const s = stOf(hass, id); if (!s) return null; const a = s.attributes || {}; const v = a.endring != null ? a.endring : a.change != null ? a.change : null; if (v == null) return null; const n = parseFloat(String(v).replace(',', '.').replace('−', '-')); return isNaN(n) ? null : n; };
   // Innebygde brytere «Inkludert i prisen» (bare input_boolean.include_* som finnes)
-  function togglesOf(hass) {
+  // Fiks 47 N: entitet per bryter = config.ent.tg_<k> (Tilpass → Entiteter) ellers autokonfig (input_boolean/switch)
+  function togglesOf(hass, cfg) {
     if (!hass) return [];
-    const ids = Object.keys(hass.states).filter((id) => /^input_boolean\.include_/.test(id));
-    return TOGGLES.map(([k, l, icon, rx]) => { const id = ids.find((x) => rx.test(x.slice(20))); return id ? { k, l, icon, id } : null; }).filter(Boolean);
+    return TOGGLES.map(([k, l, icon]) => { const id = entOf(hass, cfg, 'tg_' + k); return id && hass.states[id] ? { k, l, icon, id } : null; }).filter(Boolean);
   }
   // Popupen lages når det finnes en pris- eller effekt-/energikilde
   M.stromHas = (hass) => {
@@ -233,12 +256,18 @@
     .hglow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 40% 38% at 72% 52%, rgba(242,176,79,.28), transparent 70%);animation:glowP 4s ease-in-out infinite}
     .hgear{position:absolute;top:14px;right:14px;z-index:2;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;color:var(--ki-text, #fafafa);transition:transform .15s} /* ki-hex-ok: glass på mørk øy / aksentflate */
     .hgear:active,.tgear:active,.back:active{transform:scale(.92)}
-    .hus{position:absolute;right:-6px;top:6px;width:58%;max-width:290px;height:auto;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6%);mask-image:linear-gradient(90deg,transparent 0,#000 6%)}
+    .hus{position:absolute;right:-6px;top:6px;height:calc(100% - 96px);width:auto;max-width:58%;object-fit:contain;object-position:right bottom;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6%);mask-image:linear-gradient(90deg,transparent 0,#000 6%)}
+    .hhit{-webkit-mask-image:none;mask-image:none;overflow:visible;z-index:1}.hhit foreignObject{overflow:visible}
+    .hhit .hz{display:block;width:100%;height:100%;padding:0;margin:0;border:0;background:transparent;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;outline:none;border-radius:16px}
+    .hhit .hz-hus{border-radius:0;clip-path:polygon(0% 40.23%,9.06% 32.76%,40.35% 0%,85.96% 22.99%,100% 41.38%,97.66% 77.01%,69.59% 100%,30.41% 86.78%,0% 71.26%)}
+    .hero .hmi{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;outline:none}.hero .hmi:active{transform:scale(.97)}.hero .hmi:focus-visible{outline:2px solid rgb(255 255 255 / .6);outline-offset:2px}
+    .hw.hmi,.hchip.hmi{position:relative;z-index:2}.htiles .ht.hmi{position:relative;z-index:2}
+    .hchip.ph{visibility:hidden;pointer-events:none}
     .hnow{position:relative;display:flex;flex-direction:column;gap:4px;margin-top:4px}
     .hlab{font-size:12px;letter-spacing:.08em;color:var(--ki-text-2, #b8b8b8)}
-    .hw{display:flex;align-items:baseline;gap:6px}.hw b{font-size:64px;font-weight:300;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums}.hw span{font-size:18px;color:var(--ki-text-2, #b8b8b8)}
-    .hchip{align-self:flex-start;display:flex;align-items:center;gap:6px;height:26px;padding:0 12px;border-radius:999px;background:rgba(242,176,79,.2);font-size:12px;font-weight:500;color:rgb(246 200 130);margin-top:4px}
-    .pdot{position:relative;width:7px;height:7px;flex:none}.pdot i{position:absolute;inset:0;border-radius:50%;background:rgb(242 176 79)}.pdot i.pg{animation:ping 1.8s cubic-bezier(0,0,.2,1) infinite}
+    .hw{align-self:flex-start;display:flex;align-items:baseline;gap:6px}.hw b{font-size:64px;font-weight:300;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums}.hw span{font-size:18px;color:var(--ki-text-2, #b8b8b8)}
+    .hchip{align-self:flex-start;display:flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;background:rgba(242,176,79,.18);font-size:11px;font-weight:500;color:rgb(246 200 130);margin-top:4px;white-space:nowrap}
+    .pdot{position:relative;width:6px;height:6px;flex:none}.pdot i{position:absolute;inset:0;border-radius:50%;background:rgb(242 176 79)}.pdot i.pg{animation:ping 1.8s cubic-bezier(0,0,.2,1) infinite}
     .htiles{position:relative;margin-top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:18px}
     .ht{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);min-width:0} /* ki-hex-ok: glass på mørk øy / aksentflate */
     .ht .l{font-size:11px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ht .v{font-size:18px;font-weight:500;white-space:nowrap}
@@ -272,7 +301,7 @@
     .gh .sl{font-size:13px;color:${T2}}.gh .sv{display:flex;align-items:baseline;gap:5px}.gh .sv b{font-size:40px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}.gh .sv small{font-size:13px;color:${T2}}
     .lchip{align-self:flex-start;height:22px;padding:0 10px;border-radius:999px;display:flex;align-items:center;font-size:12px;font-weight:600;color:rgba(30,24,20,.9);margin-top:4px}
     .seg{display:flex;gap:2px;padding:3px;border-radius:999px;background:${KA(0.25)};flex:none}
-    .seg button{height:32px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap;color:${T1};transition:background .25s,color .25s}
+    .seg button{display:flex;align-items:center;justify-content:center;text-align:center;height:32px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap;color:${T1};transition:background .25s,color .25s}
     .seg button.on{background:${PINK};color:${INK}}
     .pc{position:relative;height:180px;margin:4px 0 20px 34px}
     .pc .gl{position:absolute;left:0;right:0;border-top:1px solid ${WA(0.08)}}.pc .gl.z{border-top-color:${WA(0.3)}}
@@ -292,11 +321,15 @@
     .sh2{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 0}.sh2 b{font-size:15px;font-weight:600}
     .ib{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:${T2}}
     .tg2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .tg{display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px 0 10px;border-radius:999px;text-align:left;background:var(--ki-surface, #3a3a3a);color:${T};box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .25s,transform .15s;min-width:0}
+    .tg{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;min-height:72px;height:72px;box-sizing:border-box;padding:0 16px 0 10px;border-radius:999px;text-align:left;background:var(--ki-surface, #3a3a3a);color:${T};box-shadow:inset 0 0 0 1px ${WA(0.05)};transition:background .25s,color .25s,transform .15s;min-width:0;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
     .tg:active{transform:scale(.97)}
-    .tg .ti{width:52px;height:52px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:var(--ki-surface-2, #4a4a4a);color:${T1};box-shadow:inset 0 0 0 1px ${WA(0.06)};transition:background .25s,color .25s,box-shadow .25s}
-    .tg.on .ti{background:${PINK};color:${INK};box-shadow:0 4px 14px rgba(242,138,201,.28)}
-    .tg .tn{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;min-width:0}.tg .tn b{font-size:15px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tg .tn span{font-size:13px;color:${TM};transition:color .25s}.tg.on .tn span{color:var(--ki-pink-text, rgb(246 170 215))}
+    .tg .th{position:absolute;top:6px;left:50%;width:32px;height:3px;margin-left:-16px;border-radius:2px;background:${WA(0.12)};pointer-events:none;transition:background .25s}
+    .tg .ti{width:52px;height:52px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:var(--ki-surface-2, #4a4a4a);color:${T1};transition:background .25s,color .25s}
+    .tg .tn{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;min-width:0}.tg .tn b{font-size:15px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tg .tn span{font-size:13px;color:${TM};transition:color .25s}
+    .tg.on{background:${TG_ON};color:var(--ki-on-accent, #2a1720);box-shadow:none}
+    .tg.on .th{background:rgb(255 255 255 / .4)}
+    .tg.on .ti{background:rgba(42,23,32,.08);color:var(--ki-on-accent, #2a1720)}
+    .tg.on .tn span{color:rgba(42,23,32,.6)}
     .uc2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;animation:fade .3s ease}
     .uc{background:var(--s-card);border-radius:26px;padding:14px 16px 16px;display:flex;flex-direction:column;gap:2px;min-height:156px;transition:transform .18s,box-shadow .18s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;min-width:0}
     .uc .ui{width:48px;height:48px;border-radius:50%;background:var(--s-in);display:flex;align-items:center;justify-content:center;margin-bottom:auto}
@@ -342,6 +375,7 @@
     static getConfigElement() { return document.createElement('msh-strom-editor'); }
     static get uiPersist() { return ['tab', 'ex', 'pday']; }
     static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (cfg) => cfg.start }; }
+    get holdMs() { return 500; } // Fiks 47 N/T: hold 500 ms → more-info (data-ent: «Inkludert i prisen», Trinn → margin)
     constructor() {
       super();
       this._st = { day: new Map(), month: null, year: null, busy: new Set() };
@@ -465,22 +499,51 @@
       </div>`;
     }
     _heroHTML(V, gear) {
-      const P = V.P || {}, lv = V.lvl, st = V.step;
+      const c = this.config, lv = V.lvl, st = V.step, h = this.hass;
       const chip = V.spot != null ? `Spotpris ${lv != null ? LVL[lv][0].toLowerCase() : ''}${lv != null ? ' · ' : ''}${nf(V.spot, 2)} kr` : 'Spotpris –';
       const watt = V.watt != null ? Math.round(V.watt).toLocaleString('nb-NO') : '–';
+      const showChip = c.spot_chip !== false && c.spotChip !== false; // Fiks 47 M (spotChip = designets navn)
+      // Fiks 47 T: hver del er en egen trykkflate → more-info (haptic light, scale .97). Mangler entitet → ingen handling/animasjon.
+      const ex = (id) => !!(id && h && h.states && h.states[id]);
+      const mi = (id, cls, extra) => (ex(id) ? `class="${cls} hmi" role="button" tabindex="0" data-act="mi" data-id="${esc(id)}" data-haptic="light"${extra || ''}` : `class="${cls}"`);
+      const eE = this.ent('effekt'), sE = V.P && V.P.entity ? V.P.entity : this.ent('spot'), dE = this.ent('dag'), nE = this.ent('norge'), tE = this.ent('trinn'), mE = this.ent('margin');
+      // Trinn: statistikk (snitt av tre døgntopper), ellers trinn-/margin-sensorene
+      const tS = ex(tE) ? h.states[tE].state : null, mV = ex(mE) && M.isNum(h.states[mE].state) ? Number(h.states[mE].state) : null;
+      const tLab = st ? `Trinn ${st.lo}–${st.hi} kW` : tS && !/^(unknown|unavailable)$/.test(tS) ? `Trinn ${String(tS).replace(/\s*kW$/i, '').replace('-', '–')} kW` : 'Trinn –';
+      const left = st ? st.left : mV, tSub = left != null ? `${nf(left, 1)} kW til neste` : 'Mangler data';
+      const tTap = ex(tE) ? tE : ex(mE) ? mE : null;
+      const trinn = `<span ${mi(tTap, 'ht trinn', ex(mE) && tTap !== mE ? ` data-ent="${esc(mE)}"` : '')}><span class="l">${tLab}</span><span class="bar"><i style="width:${st ? Math.round(st.pct * 100) : 0}%"></i></span><span class="s">${tSub}</span></span>`;
+      // Huset / bilen (usynlige trykkflater over illustrasjonen, samme plassering som bildet)
+      const car = this._carTarget();
+      // HTML-knapper i foreignObject (følger illustrasjonens skalering; vanlige elementer med .click() for verktøy/tester)
+      const hus = `<svg class="hus hhit" viewBox="0 0 400 250" preserveAspectRatio="xMaxYMax meet" aria-hidden="true">
+          ${ex(eE) ? `<foreignObject x="24" y="72" width="342" height="174"><button class="hz hz-hus" data-hz="hus" data-act="mi" data-id="${esc(eE)}" data-haptic="light" title="Huset · effekt" tabindex="-1"></button></foreignObject>` : ''}
+          ${car ? `<foreignObject x="0" y="183" width="128" height="67"><button class="hz" data-hz="bil" data-act="mi" ${car.hash ? `data-hash="${esc(car.hash)}"` : `data-id="${esc(car.id)}"`} data-haptic="light" title="Bilen" tabindex="-1"></button></foreignObject>` : ''}
+        </svg>`;
       return `<div class="hero" data-ki-island>
         <span class="hglow"></span>
         ${gear ? `<button class="hgear" data-act="tilpass" title="Tilpass strøm">${ic('mdi:cog', 22)}</button>` : ''}
-        <img class="hus" src="${HUS_URL}" alt="">
+        <img class="hus" src="${HUS_URL}" alt="">${hus}
         <div class="hnow"><span class="hlab">BRUKER NÅ</span>
-          <span class="hw"><b class="num" data-watt>${watt}</b><span>W</span></span>
-          <span class="hchip"><span class="pdot"><i class="pg"></i><i></i></span>${esc(chip)}</span></div>
+          <span ${mi(eE, 'hw', ' title="Effekt nå"')} data-hk="watt"><b class="num" data-watt>${watt}</b><span>W</span></span>
+          ${showChip ? `<span ${mi(sE, 'hchip', ' title="Spotpris"')} data-hk="spot"><span class="pdot"><i class="pg"></i><i></i></span>${esc(chip)}</span>` : '<span class="hchip ph" aria-hidden="true"></span>'}</div>
         <div class="htiles">
-          <span class="ht"><span class="l">I dag</span><span class="v">${V.dag != null ? nf(V.dag, 0) + ' kr' : '–'}</span></span>
-          <span class="ht"><span class="l">Norgespris</span><span class="v">${V.norge != null ? nf(V.norge, 2) + ' kr' : '–'}</span></span>
-          <span class="ht trinn"><span class="l">${st ? `Trinn ${st.lo}–${st.hi} kW` : 'Trinn –'}</span><span class="bar"><i style="width:${st ? Math.round(st.pct * 100) : 0}%"></i></span><span class="s">${st ? `${nf(st.left, 1)} kW til neste` : 'Mangler data'}</span></span>
+          <span ${mi(dE, 'ht')} data-hk="dag"><span class="l">I dag</span><span class="v">${V.dag != null ? nf(V.dag, 0) + ' kr' : '–'}</span></span>
+          <span ${mi(nE, 'ht')} data-hk="norge"><span class="l">Norgespris</span><span class="v">${V.norge != null ? nf(V.norge, 2) + ' kr' : '–'}</span></span>
+          ${trinn.replace('<span class=', '<span data-hk="trinn" class=')}
         </div>
       </div>`;
+    }
+    // Bilen i toppkortet: valgt entitet (Tilpass → Entiteter) → more-info; ellers Tesla-popupen (#tesla) hvis den finnes;
+    // ellers autokonfigurert lader-effekt. Ingen → ingen trykkflate.
+    _carTarget() {
+      const h = this.hass, o = (this.config && this.config.ent) || {};
+      if (o.bil && h && h.states[o.bil]) return { id: o.bil };
+      const now = Date.now(); // DOM-søket er dyrt: mellomlagres 30 s
+      if (!this._tesla || now - this._tesla.t > 30000) this._tesla = { t: now, v: !!(M.popupExists ? M.popupExists('#tesla') : popupAt('#tesla')) };
+      if (this._tesla.v) return { hash: '#tesla' };
+      const a = autoEnts(h).bil;
+      return a && h.states[a] ? { id: a } : null;
     }
     _secWrap(tab, inner) {
       const c = this.config, h = hidOf(c), dr = this._drag;
@@ -546,9 +609,9 @@
       const minis = `<div class="minis">${[['mdi:arrow-down', 'Lavest', mn, mn != null ? `kl. ${hOf(mn)}` : '–', GREEN_F], ['mdi:arrow-up', 'Høyest', mx, mx != null ? `kl. ${hOf(mx)}` : '–', RED_F], ['mdi:function-variant', 'Snitt', avg, 'kr/kWh', T2]]
         .map(([icon, l, v, s, col]) => `<div class="mi"><span class="l">${ic(icon, 15, 'color:' + col)}${l}</span><span class="v">${v != null ? nf(v, 2) : '–'}</span><span class="s">${s}</span></div>`).join('')}</div>`;
       // inkludert i prisen
-      const TG = togglesOf(this.hass);
+      const TG = togglesOf(this.hass, c);
       const bryt = TG.length ? `<div class="sh2"><b>Inkludert i prisen</b><button class="ib" data-act="page" data-page="innstillinger" title="Innstillinger">${ic('mdi:cog', 18)}</button></div>
-        <div class="tg2">${TG.map((t) => { const s = this.s(t.id), on = s && s.state === 'on'; return `<button class="tg${on ? ' on' : ''}" data-act="tog" data-id="${esc(t.id)}" data-haptic="selection"><span class="ti">${ic(t.icon, 22)}</span><span class="tn"><b>${esc(t.l)}</b><span>${on ? 'På' : 'Av'}</span></span></button>`; }).join('')}</div>` : null;
+        <div class="tg2">${TG.map((t) => { const s = this.s(t.id), on = s && s.state === 'on'; return `<button class="tg${on ? ' on' : ''}" data-act="tog" data-id="${esc(t.id)}" data-ent="${esc(t.id)}" data-tg="${t.k}" data-haptic="selection" title="Hold for detaljer" aria-pressed="${!!on}"><span class="th"></span><span class="ti">${ic(t.icon, 22)}</span><span class="tn"><b>${esc(t.l)}</b><span>${on ? 'På' : 'Av'}</span></span></button>`; }).join('')}</div>` : null;
       return this._secWrap('Priser', { p_kort: kort, p_eks: eks, p_graf: graf, p_minis: minis, p_bryt: bryt });
     }
     _chartHTML(hourly, has, tom, si, nowH, norge) {
@@ -668,7 +731,7 @@
 
     get styles() {
       const B = M.stromKurser && M.stromKurser.css ? M.stromKurser.css : '', Cs = M.stromSider && M.stromSider.css ? M.stromSider.css : '';
-      return CSS + B + Cs;
+      return (M.segment ? M.segment.css : '') + CSS + B + Cs;
     }
     afterRender() {
       const R = this.shadowRoot;
@@ -700,6 +763,11 @@
       if (name === 'pday') return this.setUI({ pday: Number(d.v) || 0, selH: null });
       if (name === 'fday') { const v = Math.min(0, Number(d.v) || 0); this.setUI({ fday: v }); return this._load(); }
       if (name === 'tog') return M.toggle(this.hass, d.id);
+      if (name === 'mi') { // Fiks 47 T: toppkortets deler → more-info (eller Tesla-popupen)
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (d.hash) return M.openPopup(d.hash);
+        return M.moreInfo(this, d.id);
+      }
       return super.onAction(name, el, e);
     }
     customize() { return this._openTilpass(); }
@@ -761,7 +829,7 @@
         if (e.button || H || this._drag) return;
         const path = e.composedPath ? e.composedPath() : [];
         let el = null;
-        for (const n of path) { if (n === R) break; if (n.matches && n.matches('input,textarea,select,[data-scrub],[data-tabbar],[data-glass-drag],[data-skhost],[data-sshost]')) return; /* B/C har egen hold + dra */ if (!el && n.dataset && n.dataset.rk && n.getRootNode() === R) el = n; }
+        for (const n of path) { if (n === R) break; if (n.matches && n.matches('input,textarea,select,[data-scrub],[data-tabbar],[data-glass-drag],[data-skhost],[data-sshost],[data-ent],[data-tg]')) return; /* B/C har egen hold + dra */ if (!el && n.dataset && n.dataset.rk && n.getRootNode() === R) el = n; }
         if (!el) return;
         H = { key: el.dataset.rk, id: el.dataset.rid, pid: e.pointerId, x: e.clientX, y: e.clientY, on: false, el };
         H.t = setTimeout(() => {
@@ -880,9 +948,19 @@
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chips button{height:34px;padding:0 12px 0 9px;border-radius:17px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--ki-surface-3, #333);color:var(--ki-text-1, #d6d6d6);transition:background .2s,transform .15s}
     .chips button:active{transform:scale(.96)}.chips button.on{background:${ACC};color:${INK2}}.chips button.oth{background:var(--ki-surface-2, #4a4a4a);color:var(--ki-text-3, #7f7f7f)}
+    .trk.g{width:50px;height:30px;border-radius:15px;background:var(--ki-ctrl, #545454);transition:background .2s}.trk.g.on{background:rgb(102 209 158)}
+    .trk.g i{top:3px;left:3px;width:24px;height:24px;border-radius:12px;box-shadow:none;background:var(--ki-text-1, #c7c7c7);transition:left .2s}.trk.g.on i{left:23px;background:var(--ki-on-accent, #2f2f2f)}
+    .acc{display:flex;flex-direction:column;border-radius:24px;background:var(--ki-surface, #3a3a3a);overflow:hidden}
+    .accb{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;box-sizing:border-box;padding:8px 14px 8px 8px;text-align:left;color:inherit;font:inherit;-webkit-tap-highlight-color:transparent}
+    .accc{display:flex;color:var(--ki-text-mid, #979797);transition:transform .25s}.acc.op .accc{transform:rotate(180deg)}
+    .accx{display:flex;flex-direction:column;gap:10px;padding:4px 14px 14px;animation:fade .2s ease}
+    .accx .bl{font-size:12px;color:var(--ki-text-mid, #979797);padding-left:4px}
+    .accx .tsc{background:var(--ki-surface-3, #333)}.accx .tsc.on{background:var(--ki-surface-2, #404040)}
+    .ucs.in{padding:0;background:none;border-radius:0}
     .wait{display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:22px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-2, #afafaf);font-size:13px}
   `;
   const swH = (on) => `<span class="trk${on ? ' on' : ''}"><i></i></span>`;
+  const swG = (on) => `<span class="trk g${on ? ' on' : ''}"><i></i></span>`; // designets grønne bryter (Toppkort → Spotpris-merke)
   const TP = {
     // inSheet: arket (med tittel/Nullstill/Ferdig); ellers GUI-editoren (bare fanene)
     html(ctx, inSheet) {
@@ -902,21 +980,29 @@
           }).join('')}</div>`;
       } else if (tab === 'ent') {
         const ov = c.ent || {}, A = autoEnts(ctx.hass);
-        body = `<div class="info">${ic('mdi:sync', 22, 'color:rgb(115 185 242)')}<span>Entitetene finnes automatisk i Home Assistant. Overstyr bare det som skal være annerledes.</span></div>
-          ${ROLES.map(([k, name, icon]) => {
-            const op = st.ent === k, custom = !!ov[k], cur = ov[k] || A[k];
+        // Fiks 47 S.2: «Kilder (strømregning)» – config sensorer.<nøkkel> (M.stromRegning.FIELDS) + sensorer.moms_bryter.
+        // Rad-nøkkel «S:<nøkkel>» skiller dem fra ent-rollene. Auto = standardkilden når den finnes (aldri gjettet).
+        const SR = M.stromRegning, so = isObj(c.sensorer) ? c.sensorer : {};
+        const srAuto = (k) => { if (k === 'moms_bryter') return entOf(ctx.hass, c, 'tg_moms'); const id = SR && SR.STANDARD ? SR.STANDARD[k] : null; return id && ctx.hass && ctx.hass.states[id] ? id : null; };
+        const row = ([k, name, icon, dom]) => {
+            const sk = /^S:/.test(k) ? k.slice(2) : null;
+            const op = st.ent === k, custom = sk ? !!so[sk] : !!ov[k], cur = sk ? so[sk] || srAuto(sk) : ov[k] || A[k];
             const s = cur && ctx.hass && ctx.hass.states[cur];
             const val = cur ? `${cur}${s ? ' · ' + (ctx.hass.formatEntityState ? ctx.hass.formatEntityState(s) : s.state) : ' · finnes ikke'}` : 'Ingen funnet – velg entitet';
             let sug = '';
             if (op) {
-              const q = String(st.q || '').toLowerCase().trim();
-              const L = ctx.hass ? Object.keys(ctx.hass.states).filter((id) => /^(sensor|input_number)\./.test(id) && (!q || txt(ctx.hass, id).includes(q))).slice(0, 8) : [];
+              const q = String(st.q || '').toLowerCase().trim(), rx = dom || /^(sensor|input_number)\./;
+              const L = ctx.hass ? Object.keys(ctx.hass.states).filter((id) => rx.test(id) && (!q || txt(ctx.hass, id).includes(q))).slice(0, 8) : [];
               sug = L.map((id) => `<button data-a="pick" data-k="${k}" data-v="${esc(id)}"><b>${esc(M.name(ctx.hass, id))}</b><span>${esc(id)}</span></button>`).join('');
             }
-            return `<div class="er${op ? ' op' : ''}" data-key="er-${k}"><button class="erb" data-a="ent" data-v="${k}"><span class="eri">${ic(icon, 22)}</span><span class="ern"><b>${name}</b><span>${esc(val)}</span></span><span class="bdg${custom ? ' c' : ''}">${custom ? 'Valgt' : 'Auto'}</span>${ic('mdi:chevron-down', 22, `color:var(--ki-text-mid, #979797);transition:transform .25s;${op ? 'transform:rotate(180deg)' : ''}`)}</button>
-              ${op ? `<div class="erx"><div class="srch">${ic('mdi:magnify', 20, 'color:var(--ki-text-2, #afafaf)')}<input data-in="q" data-k="${k}" value="${esc(st.q != null ? st.q : ov[k] || '')}" placeholder="sensor.…" spellcheck="false"></div>${sug ? `<div class="sug">${sug}</div>` : ''}
+            return `<div class="er${op ? ' op' : ''}" data-key="er-${k}" data-role="${k}"><button class="erb" data-a="ent" data-v="${k}"><span class="eri">${ic(icon, 22)}</span><span class="ern"><b>${name}</b><span>${esc(val)}</span></span><span class="bdg${custom ? ' c' : ''}">${custom ? 'Valgt' : 'Auto'}</span>${ic('mdi:chevron-down', 22, `color:var(--ki-text-mid, #979797);transition:transform .25s;${op ? 'transform:rotate(180deg)' : ''}`)}</button>
+              ${op ? `<div class="erx"><div class="srch">${ic('mdi:magnify', 20, 'color:var(--ki-text-2, #afafaf)')}<input data-in="q" data-k="${k}" value="${esc(st.q != null ? st.q : (sk ? so[sk] : ov[k]) || '')}" placeholder="${dom ? 'input_boolean.… / switch.…' : 'sensor.…'}" spellcheck="false"></div>${sug ? `<div class="sug">${sug}</div>` : ''}
                 ${custom ? `<button class="auto" data-a="auto" data-v="${k}">${ic('mdi:autorenew', 20)}Bruk automatisk</button>` : ''}</div>` : ''}</div>`;
-          }).join('')}`;
+        };
+        body = `<div class="info">${ic('mdi:sync', 22, 'color:rgb(115 185 242)')}<span>Entitetene (kildene) finnes automatisk i Home Assistant. Overstyr bare det som skal være annerledes.</span></div>
+          ${ROLE_GROUPS.map(([gl, gs, keys]) => `<span class="lab">${esc(gl)}</span>${gs ? `<span class="hint">${esc(gs)}</span>` : ''}${keys.map((k) => row(ROLES.find((r) => r[0] === k))).join('')}`).join('')}
+          ${SR && Array.isArray(SR.FIELDS) ? `<span class="lab">Kilder (strømregning)</span><span class="hint">Strømregning- og Norgespris-sidene · config sensorer</span>
+            ${(() => { const A1 = st.acc || (st.acc = {}), n = Object.keys(so).length; return `<div class="acc${A1.sr ? ' op' : ''}" data-key="acc-sr" data-acc="sr"><button class="accb" data-a="acc" data-v="sr" aria-expanded="${!!A1.sr}"><span class="eri">${ic('mdi:receipt-text-outline', 22)}</span><span class="ern"><b>Strømregning og Norgespris</b><span>${SR.FIELDS.length + 1} kilder · ${n ? n + ' valgt' : 'alle automatisk'}</span></span><span class="accc">${ic('mdi:chevron-down', 22)}</span></button>${A1.sr ? `<div class="accx">${[...SR.FIELDS.map(([k2, l2]) => ['S:' + k2, l2, 'mdi:access-point']), ['S:moms_bryter', 'Moms-bryter', 'mdi:cash-multiple', /^(input_boolean|switch)\./]].map(row).join('')}</div>` : ''}</div>`; })()}` : ''}`;
       } else if (tab === 'kurs') {
         const K = M.stromKurser;
         body = `<div class="info">${ic('mdi:file-tree', 22, 'color:rgb(115 185 242)')}<span>Full kontroll over kategorier og kurser – samme oppsett som ki-energi-card-strom. Trykk blyanten for å redigere navn, ikon, farge og entiteter.</span></div>`;
@@ -933,22 +1019,27 @@
         const uc = ucOf(c);
         const big = c.cardSize !== 'kompakt', gear = c.gear === 'tab' ? 'tab' : 'hero';
         const ga = M.glassAnimOn ? M.glassAnimOn() : true;
+        // Fiks 47 O: lange seksjoner som akkordeon (lukket som standard; åpen/lukket er bare visning – st.acc, aldri config)
+        const A0 = st.acc || (st.acc = {});
+        const acc = (k, icon, title, sub, inner) => `<div class="acc${A0[k] ? ' op' : ''}" data-key="acc-${k}" data-acc="${k}"><button class="accb" data-a="acc" data-v="${k}" aria-expanded="${!!A0[k]}"><span class="eri">${ic(icon, 22)}</span><span class="ern"><b>${esc(title)}</b><span>${esc(sub)}</span></span><span class="accc">${ic('mdi:chevron-down', 22)}</span></button>${A0[k] ? `<div class="accx">${inner}</div>` : ''}</div>`;
         body = `<span class="lab">Startfane</span>
           <div class="sg" data-glass-drag="x">${V.map((k) => `<button class="${stK === k ? 'on' : ''}" data-a="start" data-v="${k}">${k}</button>`).join('')}${M.startTab ? `<button class="${sv === 'last' ? 'on' : ''}" data-a="start" data-v="last">Sist brukte</button>` : ''}</div>
           <span class="lab">Hva koster det nå</span>
-          <div class="box"><span class="bl">Pris som brukes</span>
+          ${acc('ex', 'mdi:calculator', 'Pris og eksempler', `${ep === 'total' ? 'Totalpris' : pl} · ${exOn.length} eksempler`, `<span class="bl">Pris som brukes</span>
             <div class="sg in" data-glass-drag="x">${PRS.map(([k, l]) => `<button class="${ep === k ? 'on' : ''}" data-a="exp" data-v="${k}">${k === 'total' ? 'Totalpris' : l}</button>`).join('')}</div>
             <div class="entc">${ic('mdi:access-point', 20, 'color:var(--ki-text-2, #afafaf)')}<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><b>${esc(pe)}</b><span>${esc(pl)} · ${pv != null ? nf(pv, 2) : '–'} kr/kWh nå</span></span></div>
             <span class="bl" style="padding-top:4px">Eksempler som vises</span>
-            ${EXALL.map(([id, icon, l, kwh]) => `<button class="swr" data-a="exs" data-v="${id}"><span class="swi">${ic(icon, 20)}</span><span class="swn"><b>${esc(l)}</b><span>~${nf(kwh, kwh < 1 ? 2 : 1)} kWh · ${pv != null ? nf(kwh * pv, kwh * pv >= 10 ? 1 : 2) : '–'} kr</span></span>${swH(exOn.includes(id))}</button>`).join('')}</div>
+            ${EXALL.map(([id, icon, l, kwh]) => `<button class="swr" data-a="exs" data-v="${id}"><span class="swi">${ic(icon, 20)}</span><span class="swn"><b>${esc(l)}</b><span>~${nf(kwh, kwh < 1 ? 2 : 1)} kWh · ${pv != null ? nf(kwh * pv, kwh * pv >= 10 ? 1 : 2) : '–'} kr</span></span>${swH(exOn.includes(id))}</button>`).join('')}`)}
           <span class="lab">Fanelinje</span>
-          ${Object.keys(TSTY).map((k) => `<button class="tsc${tsOf(c) === k ? ' on' : ''}" data-a="ts" data-v="${k}"><span class="tsh"><b>${TSTY[k].name}</b><span>${TSTY[k].sub}</span><span class="ck">${ic('mdi:check-circle', 20)}</span></span><span class="tsp">${tabBarHTML(c, null, true, k)}</span></button>`).join('')}
+          ${acc('ts', 'mdi:tab', 'Stil på fanelinjen', `${TSTY[tsOf(c)].name} · ${Object.keys(TSTY).length} stiler`, Object.keys(TSTY).map((k) => `<button class="tsc${tsOf(c) === k ? ' on' : ''}" data-a="ts" data-v="${k}"><span class="tsh"><b>${TSTY[k].name}</b><span>${TSTY[k].sub}</span><span class="ck">${ic('mdi:check-circle', 20)}</span></span><span class="tsp">${tabBarHTML(c, null, true, k)}</span></button>`).join(''))}
           <span class="lab">Forbruk-kort · hold inne på kortene i popupen for å bytte plass</span>
-          ${[0, 1].map((si) => `<div class="ucs"><span class="uh"><i>${si + 1}</i>${si ? 'Høyre kort' : 'Venstre kort'}</span><div class="chips">${Object.keys(UC).map((k) => `<button class="${uc[si] === k ? 'on' : uc[1 - si] === k ? 'oth' : ''}" data-a="uc" data-s="${si}" data-v="${k}">${ic(UC[k][0], 16)}${esc(UC[k][1])}</button>`).join('')}</div></div>`).join('')}
+          ${acc('uc', 'mdi:view-grid-outline', 'Kortene i Forbruk', uc.map((k) => UC[k][1]).join(' · '), [0, 1].map((si) => `<div class="ucs in"><span class="uh"><i>${si + 1}</i>${si ? 'Høyre kort' : 'Venstre kort'}</span><div class="chips">${Object.keys(UC).map((k) => `<button class="${uc[si] === k ? 'on' : uc[1 - si] === k ? 'oth' : ''}" data-a="uc" data-s="${si}" data-v="${k}">${ic(UC[k][0], 16)}${esc(UC[k][1])}</button>`).join('')}</div></div>`).join(''))}
           <span class="lab">Regning-kort</span>
           <div class="sg" data-glass-drag="x"><button class="${!big ? 'on' : ''}" data-a="size" data-v="kompakt">${ic('mdi:arrow-collapse-vertical', 18)}Kompakt</button><button class="${big ? 'on' : ''}" data-a="size" data-v="stor">${ic('mdi:arrow-expand-vertical', 18)}Stor</button></div>
           <span class="lab">Tannhjul (Tilpass)</span>
           <div class="sg" data-glass-drag="x"><button class="${gear === 'hero' ? 'on' : ''}" data-a="gear" data-v="hero">${ic('mdi:application-outline', 18)}Toppkort</button><button class="${gear === 'tab' ? 'on' : ''}" data-a="gear" data-v="tab">${ic('mdi:tab', 18)}Fanelinje</button></div>
+          <span class="lab">Toppkort</span>
+          <button class="swr big" data-a="spotchip"><span class="swi">${ic('mdi:tag-outline', 22)}</span><span class="swn"><b>Spotpris-merke</b><span>«Spotpris middels · 1,49 kr» under watt</span></span>${swG(c.spot_chip !== false && c.spotChip !== false)}</button>
           <span class="lab">Effekter</span>
           ${[['anim', 'Animasjoner', 'mdi:animation', 'Glød i toppkortet, grafer som tegnes og søyler som vokser', c.anim !== false], ['glass', 'Liquid glass', 'mdi:blur', 'Dra over fanelinjer for glass-linse som følger fingeren', ga], ['live', 'Live effekt', 'mdi:access-point', 'Oppdater watt i toppkortet fortløpende', c.live !== false]]
             .map(([k, l, icon, sub, on]) => `<button class="swr big" data-a="sw" data-v="${k}"><span class="swi">${ic(icon, 22)}</span><span class="swn"><b>${l}</b><span>${sub}</span></span>${swH(on)}</button>`).join('')}`;
@@ -971,7 +1062,7 @@
         switch (a) {
           case 'tptab': hp(); st.tab = v; st.q = null; return x.rerender();
           case 'done': hp('light'); if (M.flushSaves) M.flushSaves(); return x.close && x.close();
-          case 'reset': hp('warning'); return x.set({ order: null, hid: null, ent: null, start: null, start_tab: null, anim: null, live: null, tabStyle: null, gear: null, cardSize: null, useCards: null, exPrice: null, exShow: null, ord: c.ord && (c.ord.kurs || c.ord.cat) ? { kurs: c.ord.kurs, cat: c.ord.cat } : null });
+          case 'reset': hp('warning'); return x.set({ order: null, hid: null, ent: null, start: null, start_tab: null, anim: null, live: null, tabStyle: null, gear: null, cardSize: null, useCards: null, exPrice: null, exShow: null, spot_chip: null, spotChip: null, sensorer: null, ord: c.ord && (c.ord.kurs || c.ord.cat) ? { kurs: c.ord.kurs, cat: c.ord.cat } : null });
           case 'open': hp(); st.open = st.open === v ? null : v; return x.rerender();
           case 'eye': {
             const isTab = TABK.includes(v);
@@ -981,12 +1072,14 @@
             return x.set({ hid: Object.keys(nh).length ? nh : null });
           }
           case 'ent': hp(); st.ent = st.ent === v ? null : v; st.q = null; return x.rerender();
-          case 'pick': hp('success'); st.q = null; return x.set({ ent: { ...(c.ent || {}), [el.dataset.k]: v } });
-          case 'auto': { hp(); const o = { ...(c.ent || {}) }; delete o[v]; st.q = null; return x.set({ ent: Object.keys(o).length ? o : null }); }
+          case 'pick': { hp('success'); st.q = null; const k = el.dataset.k; if (/^S:/.test(k)) return x.set({ sensorer: { ...(isObj(c.sensorer) ? c.sensorer : {}), [k.slice(2)]: v } }); return x.set({ ent: { ...(c.ent || {}), [k]: v } }); }
+          case 'auto': { hp(); st.q = null; if (/^S:/.test(v)) { const o = { ...(isObj(c.sensorer) ? c.sensorer : {}) }; delete o[v.slice(2)]; return x.set({ sensorer: Object.keys(o).length ? o : null }); } const o = { ...(c.ent || {}) }; delete o[v]; return x.set({ ent: Object.keys(o).length ? o : null }); }
           case 'start': hp(); return x.set({ start: v === 'last' ? null : v, start_tab: v === 'last' ? 'last' : null });
           case 'exp': hp(); return x.set({ exPrice: v });
           case 'exs': { hp(); const on = exShowOf(c); return x.set({ exShow: on.includes(v) ? on.filter((k) => k !== v) : EXALL.map((k) => k[0]).filter((k) => k === v || on.includes(k)) }); }
           case 'ts': hp(); return x.set({ tabStyle: v });
+          case 'acc': { hp('light'); st.acc = { ...(st.acc || {}), [v]: !(st.acc && st.acc[v]) }; return x.rerender(); }
+          case 'spotchip': { hp(); const on = c.spot_chip !== false && c.spotChip !== false; return x.set({ spot_chip: on ? false : null, spotChip: null }); }
           case 'uc': { hp(); const si = Number(el.dataset.s), cur = ucOf(c), nx = cur.slice(); if (cur[1 - si] === v) nx[1 - si] = cur[si]; nx[si] = v; return x.set({ useCards: nx }); }
           case 'size': hp(); return x.set({ cardSize: v });
           case 'gear': hp(); return x.set({ gear: v });
@@ -1004,9 +1097,9 @@
       root.addEventListener('input', (e) => { const el = e.target; if (!el.dataset || el.dataset.in !== 'q') return; C().st.q = el.value; C().rerender(); });
       root.addEventListener('change', (e) => {
         const el = e.target; if (!el.dataset || el.dataset.in !== 'q') return;
-        const x = C(), v = el.value.trim(), k = el.dataset.k, o = { ...(x.cfg.ent || {}) };
+        const x = C(), v = el.value.trim(), k0 = el.dataset.k, sr = /^S:/.test(k0), k = sr ? k0.slice(2) : k0, o = { ...((sr ? x.cfg.sensorer : x.cfg.ent) || {}) };
         if (!v) delete o[k]; else if (/^[a-z_]+\.[a-z0-9_]+$/.test(v)) o[k] = v; else return;
-        M.haptic('selection'); x.st.q = null; x.set({ ent: Object.keys(o).length ? o : null });
+        M.haptic('selection'); x.st.q = null; x.set({ [sr ? 'sensorer' : 'ent']: Object.keys(o).length ? o : null });
       });
       // Faner: dra i håndtaket (touch-action none + stopPropagation), 66 px per plass som i designet
       root.addEventListener('pointerdown', (e) => {

@@ -23,6 +23,10 @@
  *   startTab · defaultView (liste|maned; `default_view: list|month` leses også) · valgt visning huskes per bruker
  *     (ki-store kalender.view.<kalender|framover>) · days (7|14|30) · showPlex · birthdayToday · tab_labels (icon|name)
  *   gap · pad_top · pad_bottom  (Mellomrom; `spacing: { gap, top, bottom }` leses også)
+ *   Fiks 47 K · Kilder → Framover: sonarr_entity · radarr_entity · plex_entity (tom = autodetekt, M.arrMedia.detect) ·
+ *     posters: show|hide («Plakater: Vis / Skjul»). Plakater/fanart via M.arrMedia (06-arr-media.js): upcoming_media-data →
+ *     Plex entity_picture (HA-proxy) → 24 t-cache → HA-tjeneste; bare https/HA-proxy, ellers stripet plassholder per tittel.
+ *   Fiks 47 D: sessionStorage 'ki-cal-tab' (fram = Framover) leses ved åpning (#kalender) og fjernes.
  * Data (fallgruve 8): hentes når #kalender er åpen, mellomlagres 5 min. Kalendere via
  *   hass.callApi('GET', 'calendars/<id>?start&end') (samme som calendar.get_events), ±40 dager.
  * Ingen mock-data: mangler en kilde → «– · Velg entitet».
@@ -86,6 +90,7 @@
   const normView = (v) => (v === 'month' || v === 'maned' ? 'maned' : v === 'list' || v === 'liste' ? 'liste' : null);
   // 36.6: lagret startvisning – `default_view` (list|month) vinner, ellers gamle `defaultView` (liste|maned)
   const startView = (c) => normView((c || {}).default_view) || normView((c || {}).defaultView) || 'liste';
+  const CAL_TAB_ALIAS = { fram: 'framover', framover: 'framover', kal: 'kalender', kalender: 'kalender', hytta: 'hytta', bursdag: 'bursdager', bursdager: 'bursdager', post: 'posten', posten: 'posten' };
   const FILTERS = [['alle', 'Alle'], ['serier', 'Serier'], ['filmer', 'Filmer'], ['plex', 'Plex']];
   const DEF = { days: 14, defaultView: 'liste', showPlex: true, birthdayToday: true, tab_labels: 'icon' };
 
@@ -294,6 +299,13 @@
       return { kind, title: m ? m[1] : e.summary.replace(/\s*\((cinema|digital|physical)[^)]*\)\s*$/i, ''), ep: m ? m[2].toUpperCase() : '', epTitle: m ? m[3] || '' : '', network: e.location || '', date: e.start, allDay: e.allDay, poster: '', fanart: '', desc: e.description, src: id, url: '' };
     });
   }
+
+  // Fiks 47 K: plakater/fanart via M.arrMedia (06-arr-media.js) – upcoming_media-sensor → Plex entity_picture (HA-proxy) →
+  // 24 t-cache → HA-tjeneste. Bare sikre URL-er (https / HA-proxy); ellers stripet plassholder (fast farge per tittel).
+  const ARR = () => M.arrMedia || null;
+  const postersOn = (c) => !(c && (c.posters === 'hide' || c.posters === false));
+  const arrSrc = (kind) => (kind === 'film' ? 'radarr' : kind === 'plex' ? 'plex' : 'sonarr');
+  const posterHTML = (x, cls) => { const A = ARR(); return A ? A.imgHTML(x.poster, { cls: 'pst ' + (cls || ''), title: x.title }) : `<span class="pst ph ${cls || ''}"></span>`; };
 
   /* ------------------------------------------------------------ Hytta */
   const MOTIF = (sted, rolle, i) => {
@@ -774,6 +786,15 @@
     } };
     // 46: `postnord_view` (eget PostNord-kort per konto) er fjernet – tallene summeres i «Når kommer Posten»
     // Fiks 40: PostNord-pakker jeg sender (konto: *_outgoing_parcels) – standard skjult
+    // Fiks 47 K: Kilder → Framover – bildekildene for plakater (M.arrMedia, autodetekt) + «Plakater: Vis / Skjul».
+    // Samme felt i kortets Tilpass og i getConfigElement (samme skjema).
+    const arrAuto = (k) => (hh) => (M.arrMedia && hh ? M.arrMedia.detect(hh)[k] : null);
+    const framover = { type: 'section', id: 'framover', label: 'Framover', icon: 'mdi:movie-open-outline', open: false, meta: (hh, cc) => (cc.posters === 'hide' || cc.posters === false ? 'Plakater skjult' : 'Plakater vises'), fields: [
+      { type: 'entity', name: 'sonarr_entity', label: 'Sonarr (plakater)', icon: 'mdi:television-classic', domain: ['sensor', 'calendar'], auto: arrAuto('sonarr'), help: 'Sonarr Upcoming Media-sensoren (data med poster/fanart) finnes automatisk.' },
+      { type: 'entity', name: 'radarr_entity', label: 'Radarr (plakater)', icon: 'mdi:filmstrip', domain: ['sensor', 'calendar'], auto: arrAuto('radarr'), help: 'Radarr Upcoming Media-sensoren finnes automatisk.' },
+      { type: 'entity', name: 'plex_entity', label: 'Plex (plakater)', icon: 'mdi:plex', domain: ['sensor', 'media_player'], auto: arrAuto('plex'), help: 'Plex-sensor (nylig lagt til) eller Plex-spiller – bildet går via Home Assistant (proxy).' },
+      { type: 'select', name: 'posters', label: 'Plakater', options: [['show', 'Vis'], ['hide', 'Skjul']], default: 'show', help: 'Bare sikre bilder (https eller via Home Assistant). Mangler bildet vises en stripet plassholder.' },
+    ] };
     const pnOut = { type: 'boolean', name: 'postnord_outgoing', label: 'Vis pakker jeg sender', default: false, help: 'PostNord-konto: vis også pakker du har sendt i Pakker.' };
     const spacing = { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
       { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
@@ -803,7 +824,7 @@
       { type: 'tabs', id: 'kalender', tabs: [
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [faner, ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })), mode: (cc) => (cc.tab_labels === 'name' ? 'tekst' : 'aktiv'), native: 40, gear: true })] : [])] }, // 33.4: fanehøyde
         { key: 'kalendere', label: 'Kalendere', icon: 'mdi:calendar-multiple', focus: ['kalendere'], fields: [kal] },
-        { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder'], fields: [info, ...SRC.map(kilde), pnRoles, pnOut] },
+        { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder', 'framover'], fields: [info, ...SRC.map(kilde), pnRoles, pnOut, framover] },
         { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing', 'visning'], fields: visning },
       ] },
       { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); resetCfg(hh, cc, ed); } }, // også i headeren (36.7); knappen er dekkende #3a3a3a
@@ -830,12 +851,14 @@
     connectedCallback() {
       super.connectedCallback();
       if (!this.__mbBound) { this.__mbBound = true; this._bindMode(); this._bindSwipe(); }
+      if (!this._calHc) { this._calHc = () => setTimeout(() => { if (location.hash === HASH && this.isOpen && this._calTab()) this.update(); }, 0); window.addEventListener('hashchange', this._calHc); }
       // Fiks 24.1: valgt visning (per bruker i ki-store) endret her eller fra en annen enhet → tegn på nytt
       if (M.store && M.store.subscribe && !this._kvOff) this._kvOff = M.store.subscribe((d, path) => { if (!path || /^kalender(\.|$)/.test(String(path))) this._upd(); });
     }
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
       if (this._kvOff) { this._kvOff(); this._kvOff = null; }
+      if (this._calHc) { window.removeEventListener('hashchange', this._calHc); this._calHc = null; }
     }
     // 36.6: visning for Kalender/Framover: byttet med knappen i denne åpningen → Startvisning (default_view) → liste.
     // Knappen lagrer ingenting – neste åpning starter i Startvisning igjen.
@@ -843,7 +866,18 @@
       const k = t === 'kalender' ? 'kview' : 'fview';
       return normView(this.ui[k]) || startView(this.config);
     }
-    onOpen() { this._ui = { ...this._ui, kview: null, fview: null, btn: 'view', pSel: null }; this._pnSub(); this.update(); }
+    onOpen() { this._ui = { ...this._ui, kview: null, fview: null, btn: 'view', pSel: null }; this._calTab(); this._pnSub(); this.update(); }
+    // Fiks 47 D/K: Hjem «Kommer i dag» (og andre) setter sessionStorage 'ki-cal-tab' (fram = Framover) før #kalender åpnes →
+    // den fanen åpnes (vinner over startfanen) og verdien fjernes. Popupen allerede åpen → hashchange gjør det samme.
+    _calTab() {
+      let v = null;
+      try { v = sessionStorage.getItem('ki-cal-tab'); if (v != null) sessionStorage.removeItem('ki-cal-tab'); } catch (e) { return false; }
+      if (!v) return false;
+      const t = CAL_TAB_ALIAS[String(v).toLowerCase()] || String(v).toLowerCase();
+      if (!visTabs(this.config).includes(t)) return false;
+      this.setUI({ tab: t, btn: 'view' }, true);
+      return true;
+    }
     // 36.5: startfane ved åpning (MSH.startTab via basekortet) – start_tab, ellers gamle startTab
     static get startTabSpec() { return { tabs: (card) => visTabs(card.config), legacy: (c) => c.startTab }; }
     onClose() { this._ui = { ...this._ui, mOff: 0, fOff: 0, hOff: 0, selDay: null, fSel: null, btn: 'view', q: '', kview: null, fview: null, pSel: null, pMsg: null, pnF: null }; this._pnUnsub(); clearTimeout(this._pnRegT); clearTimeout(this._pnRegT2); }
@@ -1222,12 +1256,30 @@
     _mRow(x) {
       const i = this._mItems().indexOf(x);
       return `<button class="mr press" data-act="mdet" data-i="${i}">
-        <span class="pst ${x.poster ? '' : 'ph'}">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy">` : M.icon(x.kind === 'film' ? 'mdi:filmstrip' : 'mdi:television-classic', 18)}</span>
+        ${postersOn(this.config) ? posterHTML(x) : ''}
         <span class="grow evc"><b class="ell">${esc(x.title)}</b><span class="ell">${esc([x.ep, x.epTitle].filter(Boolean).join(' · ') || (x.kind === 'film' ? 'Film' : x.kind === 'plex' ? 'Plex' : 'Serie'))}${x.network ? ' · ' + esc(x.network) : ''}</span></span>
         <span class="mt num">${x.allDay || x.kind === 'plex' ? '' : esc(hm(x.date))}</span></button>`;
     }
     _plex() { const id = srcOf(this.hass, this.config, 'plex'); if (!id) return []; this.s(id); return mediaFromSensor(this.hass, id, 'plex'); }
-    _mItems() { if (!this.__mi) { const m = this._media(); this.__mi = [...m.list, ...this._plex()]; this.__mBusy = m.busy; } return this.__mi; }
+    _mItems() { if (!this.__mi) { const m = this._media(); this.__mi = [...m.list, ...this._plex()].map((x) => this._art(x)); this.__mBusy = m.busy; } return this.__mi; }
+    // Fiks 47 K: sikre bilde-URL-er per element (null = plassholder). «Plakater: Skjul» → ingen bilder.
+    _art(x) {
+      const A = ARR(), h = this.hass, c = this.config;
+      if (!A || !postersOn(c)) return { ...x, poster: null, fanart: null };
+      let p = A.img(h, x.poster), f = A.img(h, x.fanart);
+      if (p || f) A.remember(x.title, { poster: p, fanart: f });
+      if (!p || !f) { const a = A.art(h, x.title, arrSrc(x.kind), c); p = p || a.poster; f = f || a.fanart; }
+      return { ...x, poster: p, fanart: f };
+    }
+    // Mangler bilder → HA-tjenesten (sonarr/radarr med return_response, finnes den) én gang mens Framover er åpen; tegn på nytt.
+    _artFetch(items) {
+      const A = ARR();
+      if (!A || !this.isOpen || !postersOn(this.config)) return;
+      ['sonarr', 'radarr'].forEach((s) => {
+        const miss = items.filter((x) => arrSrc(x.kind) === s && !x.poster).map((x) => x.title);
+        if (miss.length) A.fetchArt(this.hass, miss, s, this.config).then((n) => { if (n && this.isOpen) { this.__mi = null; this._upd(); } });
+      });
+    }
     // 36.6: valgt filter → elementene som teller i månedsvisningen (merker + dagspanel). Alle = Sonarr + Radarr (+ Plex når
     // «Nylig i Plex» er på), Serier = Sonarr, Filmer = Radarr, Plex = bare «lagt til i Plex».
     _fFilter() {
@@ -1251,8 +1303,9 @@
       const has = ['sonarr', 'radarr', 'plex'].some((k) => srcOf(h, c, k));
       if (!has) return this._missing('Ingen Sonarr, Radarr eller Plex', 'kilder');
       const items = this._mItems(), busy = this.__mBusy;
+      this._artFetch(items);
       const up = items.filter((x) => x.kind !== 'plex'), plex = items.filter((x) => x.kind === 'plex');
-      const P = this._parts('framover'), f = this._fFilter();
+      const P = this._parts('framover'), f = this._fFilter(), pOn = postersOn(c);
       // 36.6: filter-chipsene står ALLTID øverst – rett under fanelinjen, over månedsnavigasjonen – i begge visninger
       const chips = P.includes('filter') ? this._fChips(f) : '';
       if (this._view('framover') === 'maned') return chips + this._fMonth(this._fPool(f), f);
@@ -1263,8 +1316,9 @@
           const x = L[0];
           if (!x) { out.push(`<div class="card none">${busy ? 'Henter …' : 'Ingen kommende utgivelser'}</div>`); return; }
           const n = dayDiff(new Date(), x.date);
-          out.push(`<button class="hero press" data-ki-island data-act="mdet" data-i="${items.indexOf(x)}"><span class="bdrop ${x.fanart ? '' : 'ph'}">${x.fanart ? `<img src="${esc(x.fanart)}" alt="" loading="lazy">` : ''}</span>
-            <span class="hin"><span class="pst lg ${x.poster ? '' : 'ph'}">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : M.icon(x.kind === 'film' ? 'mdi:filmstrip' : 'mdi:television-classic', 26)}</span>
+          const bg = x.fanart || x.poster; // hero-bakgrunn: fanart (plakat som reserve) med mørkt overlegg
+          out.push(`<button class="hero press" data-ki-island data-act="mdet" data-i="${items.indexOf(x)}"><span class="bdrop ki-arr-img ${bg ? 'has' : 'ph'}" style="--arr-h:${ARR() ? ARR().hue(x.title) : 250}">${bg ? `<img src="${esc(bg)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>
+            <span class="hin">${pOn ? posterHTML(x, 'lg') : ''}
             <span class="grow hcol"><span class="hchips"><span class="mchip">${x.kind === 'film' ? 'Film' : 'Serie'}</span><span class="mchip hl">${esc(n === 0 ? 'I dag' : n === 1 ? 'I morgen' : 'Om ' + n + ' dager')}</span></span>
             <b class="htl">${esc(x.title)}</b><span class="hsub ell">${esc([x.ep, x.epTitle].filter(Boolean).join(' · ') || dShort(x.date))}${x.network ? ' · ' + esc(x.network) : ''}</span></span></span></button>`);
         }
@@ -1281,7 +1335,7 @@
     _plexGrid(plex, full) {
       if (!plex.length) return srcOf(this.hass, this.config, 'plex') ? '<div class="card none">Ingenting nylig lagt til</div>' : this._missing('Ingen Plex-kilde', 'kilder');
       const items = this._mItems();
-      return `<div class="${full ? 'pgrid' : 'prow noscroll'}">${plex.slice(0, full ? 24 : 12).map((x) => `<button class="pc press" data-act="mdet" data-i="${items.indexOf(x)}"><span class="pst xl ${x.poster ? '' : 'ph'}">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy">` : M.icon('mdi:plex', 24)}</span><b class="ell">${esc(x.title)}</b><span class="ell">${esc(x.ep || x.epTitle || '')}</span></button>`).join('')}</div>`;
+      return `<div class="${full ? 'pgrid' : 'prow noscroll'}">${plex.slice(0, full ? 24 : 12).map((x) => `<button class="pc press" data-act="mdet" data-i="${items.indexOf(x)}">${posterHTML(x, 'xl')}<b class="ell">${esc(x.title)}</b><span class="ell">${esc(x.ep || x.epTitle || '')}</span></button>`).join('')}</div>`;
     }
     // Valgt dag i Framover-måneden (ui.fSel, ellers i dag / den 1. i en annen måned)
     _fSelKey() { const off = Number(this.ui.fOff) || 0, now = d0(new Date()), f = new Date(now.getFullYear(), now.getMonth() + off, 1); return this.ui.fSel || (off ? dk(f) : dk(now)); }
@@ -1315,19 +1369,19 @@
       const ov = M.overlay({ maxWidth: 480, guard: 350, css: `
         .dt{display:flex;flex-direction:column;gap:14px;padding-bottom:calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px))}
         .dtop{display:flex;gap:14px;align-items:flex-end}
-        .pst{width:96px;aspect-ratio:2/3;border-radius:14px;overflow:hidden;flex:none;background:#404040;display:grid;place-items:center;color:#7f7f7f} /* ki-hex-ok: plakat/bakgrunnsbilde (mørk øy) */
-        .pst img{width:100%;height:100%;object-fit:cover;display:block}
-        .ph{background:repeating-linear-gradient(135deg,#3a3a3a 0 10px,#404040 10px 20px)} /* ki-hex-ok: plakat/bakgrunnsbilde (mørk øy) */
+        ${ARR() ? ARR().CSS : ''}
+        .pst{width:84px;height:124px;border-radius:12px;overflow:hidden;flex:none;display:grid;place-items:center} /* 47 K: det.poster 84×124 r12 */
         .tt{font-size:22px;font-weight:600;line-height:1.2}.sub{font-size:13px;color:var(--ki-text-2, #afafaf);margin-top:4px}
         .chips{display:flex;flex-wrap:wrap;gap:6px}.chip{height:28px;padding:0 12px;border-radius:14px;background:var(--ki-surface-2, #404040);font-size:12px;display:inline-flex;align-items:center;color:var(--ki-text-1, #c7c7c7)}
         .desc{font-size:14px;line-height:1.5;color:var(--ki-text-1, #c7c7c7);white-space:pre-line}
         .acts{display:flex;gap:8px}.acts button{flex:1;height:52px;border-radius:26px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}
         .acts .pri{background:${C.accent};color:var(--ki-on-accent, #2a1720)}` ,
-      html: `<div class="dt"><div class="dtop"><span class="pst ${x.poster ? '' : 'ph'}">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : M.icon(x.kind === 'film' ? 'mdi:filmstrip' : 'mdi:television-classic', 32)}</span>
+      html: `<div class="dt"><div class="dtop">${postersOn(this.config) || x.kind === 'plex' ? posterHTML(x) : ''}
         <div><div class="tt">${esc(x.title)}</div><div class="sub">${esc([x.ep, x.epTitle].filter(Boolean).join(' · '))}</div><div class="sub">${esc(when)}</div></div></div>
         <div class="chips"><span class="chip">${x.kind === 'film' ? 'Film' : x.kind === 'plex' ? 'Plex' : 'Serie'}</span>${x.network ? `<span class="chip">${esc(x.network)}</span>` : ''}${x.runtime ? `<span class="chip">${esc(x.runtime)} min</span>` : ''}${x.rating ? `<span class="chip">★ ${esc(x.rating)}</span>` : ''}${x.genres ? `<span class="chip">${esc(String(x.genres).split(',').slice(0, 2).join(', '))}</span>` : ''}</div>
         ${x.desc ? `<div class="desc">${esc(x.desc)}</div>` : ''}
         <div class="acts">${canPlay && players.length ? `<button class="pri" data-d="play">${M.icon('mdi:play', 22)}Spill av</button>` : ''}${openLbl ? `<button data-d="open">${M.icon('mdi:open-in-new', 20)}${openLbl}</button>` : ''}</div></div>` });
+      if (ARR()) ARR().bind(ov.root); // 47 K: bildet vises ved load, plassholderen blir stående ved error
       ov.body.addEventListener('click', (e) => {
         const b = e.target.closest && e.target.closest('[data-d]'); if (!b) return;
         M.haptic('light');
@@ -1580,6 +1634,7 @@
     afterRender() {
       const R = this.shadowRoot;
       if (M.glassDrag) R.querySelectorAll('.seg').forEach((s) => M.glassDrag(s, { axis: 'x' }));
+      if (M.arrMedia) M.arrMedia.bind(R); // 47 K: plakater vises ved load, plassholderen blir stående ved error
       // Fiks 28.13: fanelinjen – hold 400 ms + dra = omorganiser (tab_order), sideveis dra = Liquid Glass-valg
       if (M.tabRow) M.tabRow(this, R.querySelector('.top>.tabs'), { active: () => this.tab, order: () => tabOrder(this.config), field: 'tab_order' });
       // Hytta-karusellen: scroll-snap, prikkene følger (MSH.snapCarousel)
@@ -1715,15 +1770,15 @@
         .chips{display:flex;gap:6px;overflow-x:auto}
         .fc{height:36px;padding:0 16px;border-radius:18px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:13px;color:var(--ki-text-1, var(--gray900,#c7c7c7));flex:none}
         .fc.on{background:${C.accent};color:var(--ki-on-accent, #2a1720);font-weight:500}
-        .pst{width:40px;aspect-ratio:2/3;border-radius:8px;overflow:hidden;flex:none;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--gray600,#7f7f7f)} /* ki-hex-ok: plakat/bakgrunnsbilde (mørk øy) */
-        .pst img{width:100%;height:100%;object-fit:cover;display:block}
-        .pst.lg{width:84px;border-radius:14px}
-        .pst.xl{width:100%;border-radius:14px}
-        .ph{background:repeating-linear-gradient(135deg,#3a3a3a 0 10px,#404040 10px 20px)} /* ki-hex-ok: plakat/bakgrunnsbilde (mørk øy) */
+        ${M.arrMedia ? M.arrMedia.CSS : ''}
+        .pst{width:44px;height:64px;border-radius:8px;overflow:hidden;flex:none;display:grid;place-items:center} /* 47 K: mRow.poster 44×64 r8 */
+        .pst.lg{width:88px;height:128px;border-radius:12px;box-shadow:0 8px 24px ${BA(0.35)}} /* fh.poster 88×128 r12 */
+        .pst.xl{width:100%;height:auto;aspect-ratio:2/3;border-radius:14px}
+        .ph:not(.ki-arr-img){background:repeating-linear-gradient(135deg,#3a3a3a 0 10px,#404040 10px 20px)} /* ki-hex-ok: plakat/bakgrunnsbilde (mørk øy) */
         .mt{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf));flex:none}
         .hero{position:relative;display:block;width:100%;min-height:196px;border-radius:28px;overflow:hidden;text-align:left;background:var(--gray200,#3a3a3a);color:#fafafa;box-shadow:${C.edge}} /* ki-hex-ok: plakat/bakgrunnsbilde (mørk øy) */
-        .bdrop{position:absolute;inset:0}
-        .bdrop img{width:100%;height:100%;object-fit:cover;display:block;opacity:.55}
+        .bdrop{position:absolute;inset:0;display:block;--arr-l1:.31;--arr-l2:.28}
+        .bdrop>img.ok{opacity:.55}
         .bdrop::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,40,40,0) 0%,rgba(40,40,40,.92) 85%)}
         .hin{position:relative;display:flex;align-items:flex-end;gap:14px;padding:16px;min-height:196px}
         .hcol{display:flex;flex-direction:column;gap:4px}

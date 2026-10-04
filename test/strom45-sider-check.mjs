@@ -106,18 +106,18 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
   ok('toppkort grønt (won) når Norgespris billigst', (await p.evaluate(() => window.__R.querySelector('[data-ss-hero]').getAttribute('data-ss-hero'))) === 'won');
   ok('tittel «Spart med Norgespris · denne måneden»', (await q(p, '.ss-nx-title')) === 'Spart med Norgespris · denne måneden', await q(p, '.ss-nx-title'));
   ok('stort tall og prosent-chip', /^[\d\s ]+(,\d)?$/.test(await q(p, '.ss-nx-big')) && /% billigere/.test(await q(p, '.ss-nx-chip')), [await q(p, '.ss-nx-big'), await q(p, '.ss-nx-chip')]);
-  ok('4 periodevalg, Måned aktiv', await p.evaluate(() => { const b = [...window.__R.querySelectorAll('.ss-seg-n .ss-pill')]; return b.length === 4 && b.map((x) => x.textContent).join('|') === 'I dag|Uke|Måned|År' && b[2].classList.contains('on'); }));
+  ok('4 periodevalg, Måned aktiv', await p.evaluate(() => { const b = [...window.__R.querySelectorAll('.ss-seg-n .ki-seg-b')]; return b.length === 4 && b.map((x) => x.textContent).join('|') === 'I dag|Uke|Måned|År' && b[2].classList.contains('on'); }));
   ok('sammenligning: 2 søyler, spot lengst', await p.evaluate(() => { const b = [...window.__R.querySelectorAll('.ss-cmp .ss-bar')]; return b.length === 2 && parseFloat(b[0].style.width) === 100 && parseFloat(b[1].style.width) < 100 && parseFloat(b[1].style.width) > 0; }));
   ok('divergerende timegraf: 24 kolonner, grønne opp', await p.evaluate(() => { const c = [...window.__R.querySelectorAll('.ss-hcol')]; return c.length === 24 && c.filter((x) => parseFloat(x.querySelector('.ss-hup>span').style.height) > 0).length >= 12; }));
   ok('tre fliser med verdier', await p.evaluate(() => { const t = [...window.__R.querySelectorAll('.ss-tile')]; return t.length === 3 && t.map((x) => x.querySelector('.ss-tile-l').textContent).join('|') === 'Denne timen|I dag|Denne uken' && t.every((x) => /kr$/.test(x.querySelector('.ss-tile-v').textContent)); }));
   const mon = await q(p, '.ss-cmp-v');
-  await tap(p, '.ss-seg-n .ss-pill:nth-child(1)');
+  await tap(p, '.ss-seg-n .ki-seg-b:nth-child(1)');
   ok('periode I dag: tittel og verdier byttes, haptic', /· i dag$/.test(await q(p, '.ss-nx-title')) && (await q(p, '.ss-cmp-v')) !== mon && (await p.evaluate(() => window.__hp.includes('selection'))) && (await p.evaluate(() => window.__h.ui.ssNp)) === 'I dag');
-  await tap(p, '.ss-seg-n .ss-pill:nth-child(4)');
+  await tap(p, '.ss-seg-n .ki-seg-b:nth-child(4)');
   ok('periode År', /· i år$/.test(await q(p, '.ss-nx-title')));
   ok('År: tidligere måneder med period month (ingen time-henting for hele året)', await p.evaluate(() => { const L = window.__ws.filter((m) => m.type === 'recorder/statistics_during_period'), n = new Date(); const mo = L.filter((m) => m.period === 'month'); return (n.getMonth() === 0 ? mo.length === 0 : mo.length === 1 && Date.parse(mo[0].end_time) === new Date(n.getFullYear(), n.getMonth(), 1).getTime()) && L.filter((m) => m.period === 'hour').every((m) => Date.parse(m.end_time) - Date.parse(m.start_time) < 40 * 86400000); }), await p.evaluate(() => window.__ws.map((m) => [m.period, m.start_time, m.end_time])));
   ok('År: tall i toppkortet', /\d/.test(await q(p, '.ss-nx-big')), await q(p, '.ss-nx-big'));
-  await tap(p, '.ss-seg-n .ss-pill:nth-child(2)');
+  await tap(p, '.ss-seg-n .ki-seg-b:nth-child(2)');
   ok('periode Uke', /· denne uken$/.test(await q(p, '.ss-nx-title')));
   // scrub i timegrafen
   const g = await p.evaluate(() => { const r = window.__R.querySelector('.ss-hrs').getBoundingClientRect(); return { x: r.left, y: r.top + r.height / 2, w: r.width, ta: getComputedStyle(window.__R.querySelector('.ss-hrs')).touchAction }; });
@@ -148,7 +148,7 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
   ok('uten data: nøytralt toppkort med «–»', (await p.evaluate(() => window.__R.querySelector('[data-ss-hero]').getAttribute('data-ss-hero'))) === 'none' && (await q(p, '.ss-nx-big')) === '–');
   ok('uten data: flat timegraf og «–»-fliser', await p.evaluate(() => [...window.__R.querySelectorAll('.ss-hup>span,.ss-hdn>span')].every((x) => parseFloat(x.style.height) === 0) && [...window.__R.querySelectorAll('.ss-tile-v')].every((x) => x.textContent === '–')));
   await go(p, 'stromregning'); await p.waitForTimeout(80);
-  ok('uten data: regning viser sensoren for måned, poster «–»', /^587/.test(await q(p, '.ss-bill-big')) && (await p.evaluate(() => window.__R.querySelector('[data-ss-part="Strøm"] .ss-part-v').textContent)) === '– kr');
+  ok('uten data: total «–» (summen av radene), poster «–»', (await q(p, '.ss-bill-big')) === '–' && (await p.evaluate(() => window.__R.querySelector('[data-ss-part="Strøm"] .ss-part-v').textContent)) === '– kr', await q(p, '.ss-bill-big'));
   await p.close();
 }
 // ---------------------------------------------------------------- Strømregning
@@ -156,13 +156,14 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
   const p = await open({ spot: 1.2 });
   await go(p, 'stromregning'); await p.waitForTimeout(150);
   ok('hode «Strømregning»', (await q(p, '.ss-title')) === 'Strømregning');
-  ok('rosa toppkort med total (Måned = regning-sensoren) og «estimat»', /^587 ?kr$/.test((await q(p, '.ss-bill .ss-big-row')).replace(/\s/g, ' ').replace(/ /g, ' ').replace(' kr', ' kr')) || /^587/.test(await q(p, '.ss-bill-big')), await q(p, '.ss-bill .ss-big-row'));
-  ok('stripe med segmenter', await p.evaluate(() => window.__R.querySelectorAll('.ss-stripe>span').length === 3));
-  ok('periodevalg Dag/Uke/Måned/År', await p.evaluate(() => [...window.__R.querySelectorAll('.ss-seg-b .ss-pill')].map((x) => x.textContent).join('|') === 'Dag|Uke|Måned|År'));
+  const sumRows = () => p.evaluate(() => { const n = (t) => { const x = t.replace(/\s|kr/g, '').replace('−', '-'); return x === '–' ? 0 : Number(x); }; return [Number(window.__R.querySelector('.ss-bill-big').textContent.replace(/\s/g, '').replace('−', '-')), [...window.__R.querySelectorAll('.ss-part-v')].reduce((t, e) => t + n(e.textContent), 0)]; });
+  { const [tot, sr] = await sumRows(); ok('rosa toppkort: total = summen av radene (estimat)', Math.abs(tot - sr) <= 2 && (await q(p, '.ss-est')) === 'estimat', [tot, sr]); }
+  ok('stripe (knapp) med segmenter', await p.evaluate(() => window.__R.querySelector('button.ss-stripe') && window.__R.querySelectorAll('.ss-stripe>.ss-sg').length >= 1));
+  ok('periodevalg Dag/Uke/Måned/År', await p.evaluate(() => [...window.__R.querySelectorAll('.ss-seg-b .ki-seg-b')].map((x) => x.textContent).join('|') === 'Dag|Uke|Måned|År'));
   ok('poster med ikoner: Strøm, Nettleie, Avgifter, Norgespris', await p.evaluate(() => { const r = [...window.__R.querySelectorAll('.ss-part')]; return r.length === 4 && r.map((x) => x.querySelector('.ss-part-l').textContent).join('|') === 'Strøm|Nettleie|Avgifter|Norgespris' && r.every((x) => x.querySelector('.ss-part-ic ha-icon')); }));
   ok('Norgespris-fratrekk negativt (grønt) og Strøm har verdi', await p.evaluate(() => { const n = window.__R.querySelector('[data-ss-part="Norgespris"] .ss-part-v'); return n.classList.contains('neg') && /^−/.test(n.textContent) && /\d/.test(window.__R.querySelector('[data-ss-part="Strøm"] .ss-part-v').textContent); }));
   ok('grønn spart-linje', /^Norgespris har spart deg \d/.test(await q(p, '.ss-saved')) && !(await p.evaluate(() => window.__R.querySelector('.ss-saved').classList.contains('lost'))), await q(p, '.ss-saved'));
-  ok('dag/natt-fordeling', /Dag · \d+ %/.test(await q(p, '.ss-dn-l')) && /Natt\/helg · \d+ %/.test(await q(p, '.ss-dn-l')));
+  ok('dag/natt-fordeling', /Dag [\d,]+ kWh · \d+ %/.test(await q(p, '.ss-dn-l')) && /Natt\/helg [\d,]+ kWh · \d+ %/.test(await q(p, '.ss-dn-l')));
   ok('effekttrinn: 5 trinn, ett aktivt, topp 3', await p.evaluate(() => window.__R.querySelectorAll('.ss-step').length === 5 && window.__R.querySelectorAll('.ss-step-b.on').length === 1 && window.__R.querySelectorAll('.ss-peak').length === 3));
   const nowD = new Date().getDate();
   if (nowD > 2) ok('topp 1 = 5,25 kW den 1.', /#1 · 1\. \w+ ?5,25 kW/.test(await q(p, '.ss-peaks')), await q(p, '.ss-peaks'));
@@ -173,11 +174,11 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
     ok('tidligere måned: timer hentes bare for den måneden, bare forbruk', await p.evaluate(() => { const n = new Date(); const m = window.__ws.filter((x) => x.period === 'hour' && Date.parse(x.start_time) === new Date(n.getFullYear(), 0, 1).getTime()); return m.length === 1 && Date.parse(m[0].end_time) === new Date(n.getFullYear(), 1, 1).getTime() && m[0].statistic_ids.join() === 'sensor.forbruk_i_dag'; }), await p.evaluate(() => window.__ws.filter((m) => m.statistic_ids).map((m) => [m.period, m.start_time, m.end_time, m.statistic_ids.join()])));
     ok('januar-søylen vises etter henting', /^Januar · .*snittet$|^Januar$/.test(await q(p, '.ss-eff-s')) && (await q(p, '.ss-eff-v')) !== '–', [await q(p, '.ss-eff-s'), await q(p, '.ss-eff-v')]);
   }
-  await tap(p, '.ss-seg-b .ss-pill:nth-child(1)');
-  ok('periode Dag: total = kostnad i dag-sensoren', /^42/.test(await q(p, '.ss-bill-big')) && /i dag/.test(await q(p, '.ss-bill-p')), await q(p, '.ss-bill-big'));
-  await tap(p, '.ss-seg-b .ss-pill:nth-child(2)');
+  await tap(p, '.ss-seg-b .ki-seg-b:nth-child(1)');
+  { const [tot, sr] = await sumRows(); ok('periode Dag: total = summen av radene', Math.abs(tot - sr) <= 2 && /i dag/.test(await q(p, '.ss-bill-p')), [tot, sr]); }
+  await tap(p, '.ss-seg-b .ki-seg-b:nth-child(2)');
   ok('periode Uke: beregnet total og «uke N»', /\d/.test(await q(p, '.ss-bill-big')) && /uke \d+/.test(await q(p, '.ss-bill-p')));
-  await tap(p, '.ss-seg-b .ss-pill:nth-child(4)');
+  await tap(p, '.ss-seg-b .ki-seg-b:nth-child(4)');
   await p.waitForTimeout(120);
   ok('periode År', new RegExp(String(new Date().getFullYear())).test(await q(p, '.ss-bill-p')) && /i år/.test(await q(p, '.ss-saved')) && /\d/.test(await q(p, '.ss-bill-big')), [await q(p, '.ss-bill-p'), await q(p, '.ss-saved'), await q(p, '.ss-bill-big')]);
   ok('År: kWh for hele året, dag/natt «–»', /Dag · – %/.test(await q(p, '.ss-dn-l')) && parseFloat((await q(p, '.ss-v17')).replace(/\s/g, '').replace(',', '.')) > 24 * 28, [await q(p, '.ss-v17'), await q(p, '.ss-dn-l')]);
@@ -242,10 +243,10 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
   const nxBig = await probe('.ss-nx-big', 'color'), nxT = await probe('.ss-nx-title', 'color'), nxSub = await probe('.ss-nx-sub', 'color');
   ok('lys: Norgespris-toppkort lys flate', lum(nxBg) > 0.4, nxBg);
   ok('lys: tall/tittel/undertekst ≥ 4,5:1 på toppkortet', cr(nxBig, nxBg) >= 4.5 && cr(nxT, nxBg) >= 4.5 && cr(nxSub, nxBg) >= 4.5, [nxBig, nxT, nxSub, nxBg].map(String));
-  const onPill = await probe('.ss-seg-n .ss-pill.on', 'color');
+  const onPill = await probe('.ss-seg-n .ki-seg-b.on', 'color');
   ok('lys: aktiv periode-pille mørk tekst på rosa ≥ 4,5:1', cr(onPill, pink1) >= 4.5 && cr(onPill, pink2) >= 4.5, onPill);
   await go(p, 'stromregning'); await p.waitForTimeout(120);
-  const billC = await probe('.ss-bill', 'color'), billOn = await probe('.ss-seg-b .ss-pill.on', 'color'), billOff = await probe('.ss-seg-b .ss-pill:not(.on)', 'color');
+  const billC = await probe('.ss-bill', 'color'), billOn = await probe('.ss-seg-b .ki-seg-b.on', 'color'), billOff = await probe('.ss-seg-b .ki-seg-b:not(.on)', 'color');
   ok('lys: tekst på rosa regning ≥ 4,5:1', cr(billC, pink1) >= 4.5 && cr(billC, pink2) >= 4.5, billC);
   ok('lys: periodevalg på rosa mørk tekst (aktiv ≥ 4,5, inaktiv ≥ 3)', cr(billOn, pink1) >= 4.5 && cr(billOff, pink1) >= 3, [billOn, billOff]);
   const card = await probe('.ss-card', 'backgroundColor'), partV = await probe('.ss-part-v', 'color'), partS = await probe('.ss-part-s', 'color'), sm = await probe('.ss-sm', 'color');

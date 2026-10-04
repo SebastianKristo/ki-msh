@@ -206,8 +206,31 @@ for (const [name, tag, hash, extra, hideP, legP] of list) {
     e.remove();
     return out;
   }, { X, Y });
+  if (name === 'Media') { // 47 G: Media v4 har «Startfane» som segment (TV · Musikk) i Tilpass → Faner – samme i GUI og ark, skriver start_tab
+    const md = await page.evaluate(async ({ X, Y }) => {
+      const cls = card().constructor, out = {};
+      for (const inl of [false, true]) {
+        const e = cls.getConfigElement(); if (inl) e.inline = true;
+        document.body.appendChild(e); e.hass = H; e.setConfig({ ...BASE, start_tab: X });
+        await new Promise((r) => setTimeout(r, 200));
+        const R0 = e.shadowRoot, ft = R0.querySelector('.mmt [data-t="faner"]'); if (ft) { ft.click(); await new Promise((r) => setTimeout(r, 120)); }
+        const k = inl ? 'inl' : 'gui', segs = [...R0.querySelectorAll('.mso[data-g="start"]')];
+        let got = null; e.addEventListener(inl ? 'msh-change' : 'config-changed', (ev) => { got = ev.detail.config; });
+        out[k] = { opts: segs.map((b) => b.dataset.v), on: (segs.find((b) => b.classList.contains('on')) || {}).dataset };
+        out[k].on = out[k].on && out[k].on.v;
+        const b = segs.find((x) => x.dataset.v === Y); if (b) b.click();
+        await new Promise((r) => setTimeout(r, 120));
+        out[k].out = got && got.start_tab; out[k].bg = segs.length ? getComputedStyle(R0.querySelector('.mso[data-g="start"].on')).backgroundImage.slice(0, 15) : null;
+        e.remove();
+      }
+      return out;
+    }, { X, Y });
+    ok(`${name}: GUI-editor · «Startfane»-segment (${md.gui.opts.join('|')}), verdi ${X}, valg → config-changed start_tab`, md.gui.opts.includes(X) && md.gui.opts.includes(Y) && md.gui.on === X && md.gui.out === Y, md);
+    ok(`${name}: Tilpass → Faner · «Startfane»-segment, ${X} aktiv (rosa), valg → start_tab`, md.inl.on === X && md.inl.out === Y && /gradient/.test(md.inl.bg || ''), md);
+  } else {
   ok(`${name}: GUI-editor · ha-selector «Startfane» (${ed.guiOpts ? ed.guiOpts.join('|') : '–'}), verdi ${X}, valg → config-changed`, ed.gui && ed.guiOpts && ed.guiOpts.includes(X) && ed.guiOpts.includes('last') && ed.guiVal === X && ed.guiOut === 'last', ed);
   ok(`${name}: Tilpass → Faner · chips + «Sist brukte», ${X} aktiv${ed.pill && ed.pill.length ? ', «Start»-pill' : ''}, valg → start_tab`, ed.inl && ed.chips.includes('last') && ed.chips.includes(X) && ed.on === X && ed.inlOut === Y && /gradient/.test(ed.onBg || '') && (!ed.pill.length || ed.pill.join() === X), ed);
+  }
   ok(`${name}: ingen sidefeil`, !errs.length, errs.slice(0, 3));
   await page.close();
 }

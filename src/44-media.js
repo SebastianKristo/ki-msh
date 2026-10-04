@@ -14,6 +14,8 @@
  * (players.<obj>.back_hold_action / home_hold_action / menu_hold_action, HA action-format).
  * Fiks 19.4: players.<obj>.remote_style = 'kompakt' (std) | 'sirkel' (styrekors 260 px, fem runde knapper, volumlinje).
  * (Nøkkelen heter remote_style fordi players.<obj>.remote allerede er remote.*-entiteten.)
+ * Fiks 47 G: fanelinja har fanestil/visning i config.tabs { style, mode, start } (start speiles i start_tab, MSH.startTab);
+ * «Tilpass media» = felles Tilpass-ark med ikonfaner Faner · TV · Musikk og Nullstill per aktiv fane (Media v4 cfgOpen).
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
@@ -95,14 +97,80 @@
     const tv = pick('tv'), musikk = pick('musikk');
     return { tv, musikk, all: withHidden ? base : base.filter((p) => tv.includes(p) || musikk.includes(p)) };
   }
-  // 36.5: startfane (felles MSH.startTab): start_tab, ellers gamle default_tab (tv | musikk | last)
-  const startLegacy = (c) => (c && c.default_tab) || undefined;
+  // 36.5: startfane (felles MSH.startTab): start_tab, ellers tabs.start (47 G), ellers gamle default_tab (tv | musikk | last)
+  const startLegacy = (c) => (c && ((c.tabs && typeof c.tabs === 'object' && c.tabs.start) || c.default_tab)) || undefined;
   const tabOrder = (cfg) => {
     const k = TABS.map((t) => t[0]);
     const o = Array.isArray(cfg.tab_order) ? cfg.tab_order.filter((x) => k.includes(x)) : [];
     k.forEach((x) => { if (!o.includes(x)) o.push(x); });
     const hid = cfg.hidden_tabs || [], v = o.filter((x) => !hid.includes(x));
     return { all: o, vis: v.length ? v : o };
+  };
+
+  /* Fiks 47 G · fanestil for fanelinja øverst i Media (Media v4 seg/tb 1:1). Config: tabs: { style, mode, start }
+   *   style: kontur (std: spor med ring + glidende rosa indikator) | fylt | glass | strek («Understrek») | chips
+   *   mode:  tekst (std) | ikon | aktiv («Ikon + aktiv»: bare aktiv fane viser navnet) | begge
+   *   start: speiles i start_tab (felles MSH.startTab, som gjelder) – se startLegacy over.
+   * Samme HTML/CSS i kortet og i forhåndsvisningen i «Tilpass media» → Faner (CSS med prefiks for editorens shadow root).
+   * Lys modus: tokens + MSH.theme.whiteA/blackA; lysrefleks på glass = hvit i begge moduser (regel). */
+  const TSTYLES = ['kontur', 'fylt', 'glass', 'strek', 'chips'], TMODES = ['tekst', 'ikon', 'aktiv', 'begge'];
+  const TICON = { tv: 'tv', musikk: 'music_note' };
+  const tabLook = (c) => { const t = c && c.tabs && typeof c.tabs === 'object' ? c.tabs : {}; return { style: TSTYLES.includes(t.style) ? t.style : 'kontur', mode: TMODES.includes(t.mode) ? t.mode : 'tekst' }; };
+  const WA = (a) => M.theme.whiteA(a), BA = (a) => M.theme.blackA(a); // regel 4/3 (00-a-theme lastes før alle kort)
+  // o: { preview (spans uten roller), style (inline variabler, MSH.tabH) }
+  const tabBarHTML = (order, cur, cfg, o = {}) => {
+    const L = tabLook(cfg), kon = L.style === 'kontur', pv = !!o.preview, ti = Math.max(0, order.indexOf(cur));
+    const tab = (k) => {
+      const on = k === cur, ic = L.mode !== 'tekst', lb = L.mode === 'tekst' || L.mode === 'begge' || (L.mode === 'aktiv' && on), name = (TABS.find((t) => t[0] === k) || [k, k])[1];
+      const inner = `${ic ? M.icon(TICON[k] || 'tab', 20) : ''}${lb ? `<span class="tl">${esc(name)}</span>` : ''}`, cls = `tab${pv ? ' mtp-t' : ''}${on ? ' on' : ''}${lb ? '' : ' io'}`;
+      return pv ? `<span class="${cls}" data-t="${k}" data-key="pt-${k}">${inner}</span>`
+        : `<button class="${cls}" role="tab" aria-selected="${on}" aria-label="${esc(name)}" title="${esc(name)}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${inner}</button>`;
+    };
+    const ind = kon ? `<span class="ind ${order.includes(cur) ? '' : 'off'}" data-key="ind" aria-hidden="true"></span>` : '';
+    const gear = pv ? `<span class="gear" data-key="gear">${M.icon('settings', 22)}</span>` : `<button class="gear press" data-act="customize" data-key="gear" title="Oppsett">${M.icon('settings', 22)}</button>`;
+    return `<div class="tabs ts-${L.style} md-${L.mode}"${o.style ? ` style="${o.style}"` : ''}${pv ? ' data-key="mtp-row" aria-hidden="true"' : ''}>${kon ? '<span data-key="tsp"></span>' : ''}<div class="seg msh-tr ts-${L.style} md-${L.mode}" data-gd-skip data-key="seg" style="--n:${order.length || 1};--i:${ti}">${ind}${order.map(tab).join('')}</div>${gear}</div>`;
+  };
+  const tabBarCSS = (P = '') => {
+    const ring = 'inset 0 0 0 1px ' + WA(0.14), none = 'background:none;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none';
+    const fl = ['fylt', 'glass', 'strek'].map((s) => `${P}.seg.ts-${s}>.tab`).join(',');
+    return `
+    /* 33.4: fanehøyde (MSH.tabH) – pille H (38), sporet H + 8, tannhjul = sporets høyde */
+    ${P}.tabs{--mg:calc(${TV('th', 38)} + 8px);display:grid;grid-template-columns:var(--mg) minmax(0,1fr) var(--mg);align-items:center;gap:8px}
+    ${P}.tabs:not(.ts-kontur){grid-template-columns:minmax(0,1fr) var(--mg)}
+    /* standard (Kontur): transparent + ring; glassflate bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2) */
+    ${P}.seg{gap:2px;padding:4px;border-radius:calc(${TV('th', 38)} / 2 + 3px);${M.tabSurface ? M.tabSurface('transparent', ring) : `box-shadow:${ring};`}justify-self:center}
+    ${P}.tab{display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;height:${TV('th', 38)};padding:0 ${TV('tp', 18)};border-radius:calc(${TV('th', 38)} / 2);font-size:${TV('tf', 13)};font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
+    ${P}.tab.io{padding:0 12px}
+    ${P}.tab ha-icon{flex:none}
+    ${P}.tab.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+    /* Fiks 16.10: like brede faner + indikator med indeks-/prosentposisjon (--i/--n) – glir med transition, følger fingeren ved dra */
+    ${P}.seg.msh-tr{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+    ${P}.seg .tab{position:relative;z-index:1;transition:color .25s,background .2s,box-shadow .2s}
+    ${P}.seg.ts-kontur .tab.on{background:transparent}
+    ${P}.seg .ind{position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * var(--i, 0) / var(--n, 1));width:calc((100% - 6px) / var(--n, 1) - 2px);border-radius:calc(${TV('th', 38)} / 2);background:${PINK};pointer-events:none;
+      transition:left .34s cubic-bezier(.34,1.25,.64,1),box-shadow .2s,scale .2s cubic-bezier(.34,1.8,.64,1)}
+    ${P}.seg .ind.off{opacity:0}
+    ${P}.seg .ind.drag{transition:left .12s cubic-bezier(.34,1.5,.64,1),box-shadow .2s,scale .25s cubic-bezier(.34,1.8,.64,1);scale:1.1;box-shadow:inset 0 1px 0 ${WA(0.65)},inset 0 -1px 1px ${WA(0.18)},inset 0 0 0 0.5px ${WA(0.4)},0 10px 24px ${BA(0.35)}}
+    ${P}.seg.tr-drag .ind{opacity:0}
+    /* 47 G · Fylt / Glass / Understrek / Chips: faner uten indikator, aktiv flate på selve fanen */
+    ${P}.seg.msh-tr.ts-fylt,${P}.seg.msh-tr.ts-glass,${P}.seg.msh-tr.ts-strek,${P}.seg.msh-tr.ts-chips{display:flex;min-width:0;justify-self:stretch}
+    ${P}.seg.ts-fylt,${P}.seg.ts-glass{border-radius:26px}
+    ${P}.seg.ts-fylt{background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px ${WA(0.05)};-webkit-backdrop-filter:none;backdrop-filter:none}
+    ${P}.seg.ts-glass{background:${WA(0.06)};-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);box-shadow:inset 0 1px 0 rgb(255 255 255 / 0.16),inset 0 0 0 0.5px rgb(255 255 255 / 0.12),0 8px 24px ${BA(0.25)}}
+    ${P}.seg.ts-strek{gap:0;padding:0;border-radius:0;${none}}
+    ${P}.seg.ts-chips{gap:8px;padding:0;border-radius:0;${none};overflow-x:auto;scrollbar-width:none}
+    ${fl}{flex:1 1 0;min-width:0;height:${TV('th', 44)};padding:0 8px;border-radius:22px;font-size:14px}
+    ${['fylt', 'glass', 'strek'].map((s) => `${P}.seg.ts-${s}.md-aktiv>.tab.on`).join(',')}{flex:2 1 0}
+    ${P}.seg.ts-fylt>.tab.on{background:${PINK};color:var(--ki-on-accent, #3a3a3a)}
+    ${P}.seg.ts-glass>.tab{color:var(--ki-text-1, #c7c7c7)}
+    ${P}.seg.ts-glass>.tab.on{background:var(--ki-surface, linear-gradient(180deg, rgba(255,255,255,0.30), rgba(255,255,255,0.10)));color:var(--ki-text, #fafafa);box-shadow:inset 0 1px 0 rgb(255 255 255 / 0.55),inset 0 0 0 0.5px rgb(255 255 255 / 0.3),0 4px 12px ${BA(0.25)}}
+    ${P}.seg.ts-strek>.tab{border-radius:0;font-size:15px;color:var(--ki-text-mid, #979797);box-shadow:inset 0 -1px 0 ${WA(0.1)}}
+    ${P}.seg.ts-strek>.tab.on{background:transparent;color:var(--ki-text, #fafafa);box-shadow:inset 0 -3px 0 ${PINKC}}
+    ${P}.seg.ts-chips>.tab{flex:none;height:${TV('th', 40)};min-width:44px;padding:0 16px;border-radius:20px;font-size:14px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-1, #e1e1e1)}
+    ${P}.seg.ts-chips>.tab.io{padding:0 12px}
+    ${P}.seg.ts-chips>.tab.on{background:${PINK};color:var(--ki-on-accent, #3a3a3a)}
+    ${P}.gear{width:var(--mg,46px);height:var(--mg,46px);border-radius:calc(var(--mg,46px) / 2);background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))}
+    ${P}.tabs.ts-glass .gear{background:${WA(0.08)};-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:inset 0 1px 0 rgb(255 255 255 / 0.16)}`;
   };
   const remoteOf = (hass, p) => p.pc.remote || sameDevice(hass, p.id, 'remote')[0] || (hass.states['remote.' + obj(p.id)] ? 'remote.' + obj(p.id) : null);
   const REMOTE = {
@@ -487,17 +555,25 @@
     };
   }
 
-  // Fiks 17.22: editoren viser én fane om gangen (TV | Musikk). Valgt fane er UI-tilstand for editoren (ikke config).
-  let ED_TAB = 'tv';
+  // Fiks 17.22 → 47 G: «Tilpass media» viser én fane om gangen (Faner | TV | Musikk, ikonfaner der aktiv viser navnet –
+  // Media v4 cfgTabs). Valgt fane er UI-tilstand for editoren (ikke config) og huskes mens siden er åpen (designets cfgTab).
+  let ED_TAB = 'faner';
+  const ED_TABS = [['faner', 'Faner', 'tab'], ['tv', 'TV', 'tv'], ['musikk', 'Musikk', 'music_note']];
+  const sheetTabs = () => ({
+    type: 'html',
+    click: (d, ed) => { if (d.t && d.t !== ED_TAB && ED_TABS.some((t) => t[0] === d.t)) { ED_TAB = d.t; M.haptic('light'); ed._render(); } },
+    html: (h, c, key) => `<style>.chips.sg.tabs.mmt{padding:4px;border-radius:24px;box-shadow:inset 0 0 0 1px ${WA(0.05)}}
+      :host([inline]) .wrap>.chips.sg.tabs.mmt{box-shadow:inset 0 0 0 1px ${WA(0.05)},0 0 0 8px var(--ki-sheet-bg,#282828)}
+      .chips.sg.tabs.mmt>.itab{font-size:14px;font-weight:500;transition:color .25s,background .2s}</style>
+      <div class="chips sg tabs itabs mmt" role="tablist" data-key="mmt">${ED_TABS.map(([k, l, i]) => M.iconTabs.btn({ label: l, icon: i }, k === ED_TAB, `data-a="fn" data-k="${key}" data-t="${k}" data-key="mmt-${k}"`, `chip${k === ED_TAB ? ' on' : ''}`)).join('')}</div>`,
+  });
   const tabOf = (p) => (p.kind === 'skjul' ? p.auto : p.kind);
   // Fane-segment + rekkefølge-kort for valgt fane → config.order.<fane> = [id …], config.hidden = { id: true }
   const orderField = () => ({
     type: 'html',
-    click: (d, ed) => { if (d.t && d.t !== ED_TAB) { ED_TAB = d.t; M.haptic('selection'); ed._render(); } },
     html: (h, c, key) => {
       const P = h ? M.mediaPlayers(h, c, true) : { tv: [], musikk: [] }, L = P[ED_TAB] || [];
       const hid = c.hidden && typeof c.hidden === 'object' ? c.hidden : {}, ids = L.map((p) => p.id), vis = L.filter((p) => !hid[p.id]).length;
-      const seg = `<div class="chips sg" role="tablist" style="display:grid;grid-template-columns:1fr 1fr">${TABS.map(([k, l]) => `<button class="chip ${k === ED_TAB ? 'on' : ''}" style="justify-content:center" role="tab" aria-selected="${k === ED_TAB}" data-a="fn" data-k="${key}" data-t="${k}">${M.icon(k === 'tv' ? 'mdi:television' : 'mdi:music', 18)}${l}</button>`).join('')}</div>`;
       const row = (p, i) => {
         const off = !!hid[p.id], last = !off && vis <= 1, nh = { ...hid };
         if (off) delete nh[p.id]; else nh[p.id] = true;
@@ -509,8 +585,7 @@
           <button class="ib" data-a="sel" data-name="hidden" data-json="1" data-v="${esc(JSON.stringify(Object.keys(nh).length ? nh : null))}" title="${off ? 'Vis' : last ? 'Minst én spiller må vises' : 'Skjul'}" ${last ? 'disabled style="opacity:.3"' : ''}>${M.icon(off ? 'mdi:eye-off' : 'mdi:eye', 18)}</button></div>`;
       };
       const tl = ED_TAB === 'tv' ? 'TV-er' : 'musikkspillere';
-      return `<div class="f" style="background:transparent;padding:0">${seg}</div>
-        <div class="sec" style="display:flex;flex-direction:column;gap:6px;padding:12px"><div class="line" style="padding:2px 4px 4px">${M.icon('mdi:sort', 20)}<span style="flex:1;font-size:14px;font-weight:500">Rekkefølge</span><span class="small">${L.length} ${tl}</span></div>
+      return `<div class="sec" data-key="mord-${ED_TAB}" style="display:flex;flex-direction:column;gap:6px;padding:12px"><div class="line" style="padding:2px 4px 4px">${M.icon('mdi:sort', 20)}<span style="flex:1;font-size:14px;font-weight:500">Rekkefølge</span><span class="small">${L.length} ${tl}</span></div>
           ${L.length ? L.map(row).join('') : `<div class="small" style="padding:4px">Ingen ${tl} funnet</div>`}
           <div class="small" style="padding:2px 4px">Nr. 1 vises når fanen åpnes. Øye = vis/skjul i karusellen, piler = rekkefølge.</div></div>
         <datalist id="mm-ic" data-key="mm-ic" data-nomorph></datalist>`;
@@ -686,17 +761,40 @@
   // Seksjon per spiller tegnes bare når den er åpen (lazy) – lister, source_list, favoritter og velgere for lukkede
   // spillere bygges ikke. Feil i én spiller gir «Kunne ikke laste denne delen» i stedet for et halvt tegnet ark.
   const failSec = (p, e) => { try { console.error('[msh-media] editor', p && p.id, e); } catch (x) { /* */ } return { type: 'section', id: 'p_' + (p && p.obj), lazy: true, icon: 'mdi:alert-circle-outline', label: ((p && p.name) || '–') + ' · Kunne ikke laste denne delen', fields: [{ type: 'info', label: 'Kunne ikke laste denne delen' }] }; };
-  const baseSchema = (h, c, common) => {
+  // 47 G: [ikonfaner] + Faner (forhåndsvisning, Fanestil/Faner viser/Startfane, rekkefølge/høyde) | TV/Musikk («Rekkefølge»
+  // øverst, så spillerne og de felles valgene som før). GUI-editoren (getConfigElement) bruker samme skjema + Nullstill nederst.
+  const baseSchema = (h, c) => {
     c = c || {};
+    if (!ED_TABS.some((t) => t[0] === ED_TAB)) ED_TAB = 'faner';
+    if (ED_TAB === 'faner') return [sheetTabs(), ...fanerSchema(), guiReset()];
     let P = [];
     try { P = h ? M.mediaPlayers(h, c, true).all : []; } catch (e) { console.error('[msh-media] spillere', e); }
     const tab = ED_TAB;
     return [
+      sheetTabs(),
       orderField(),
       ...P.filter((p) => tabOf(p) === tab).map((p) => { try { return playerSec(h, c, p); } catch (e) { return failSec(p, e); } }),
-      ...commonSchema(common),
+      ...commonSchema(),
+      guiReset(),
     ];
   };
+  // Nullstill gjelder aktiv fane (Media v4 cfgReset): Faner → standard fanedesign (tabs + startfane), TV/Musikk → rekkefølge
+  // og skjulte spillere for den fanen. Arket: «Nullstill» i headeren (editorHead, haptic medium der); GUI: knapp nederst.
+  function resetTab(hh, cc, ed) {
+    cc = cc || {};
+    const n = { ...cc };
+    if (ED_TAB === 'faner') { delete n.tabs; delete n.start_tab; delete n.default_tab; }
+    else {
+      let L = [];
+      try { L = hh ? (M.mediaPlayers(hh, cc, true)[ED_TAB] || []) : []; } catch (e) { L = []; }
+      if (n.order && typeof n.order === 'object') { const o = { ...n.order }; delete o[ED_TAB]; if (Object.keys(o).length) n.order = o; else delete n.order; }
+      if (n.hidden && typeof n.hidden === 'object') { const H = { ...n.hidden }; L.forEach((p) => delete H[p.id]); if (Object.keys(H).length) n.hidden = H; else delete n.hidden; }
+    }
+    ed._config = n;
+    ed._set('card_id', n.card_id || M.uid());
+  }
+  const guiReset = () => ({ type: 'html', click: (d, ed) => { M.haptic('medium'); resetTab(ed._hass, ed._config, ed); },
+    html: (h, c, key, ed) => (ed && ed._inline ? '' : `<button class="btn" data-a="fn" data-k="${key}" data-key="mreset" style="height:48px;border-radius:24px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500">${M.icon('mdi:restore', 20)}Nullstill ${esc((ED_TABS.find((t) => t[0] === ED_TAB) || ['', ''])[1])}</button>`) });
   const playerSec = (h, c, p) => {
     {
         const b = `players.${p.obj}`, tv = p.kind === 'tv';
@@ -742,34 +840,53 @@
         return { type: 'section', id: 'p_' + p.obj, lazy: true, icon: tv ? 'mdi:television' : 'mdi:speaker', label: `${p.name} · ${p.kind === 'skjul' ? 'skjult' : tv ? 'TV' : 'Musikk'}${p.areaName ? ' · ' + p.areaName : ''}`, meta: p.id, fields: [mpField(p), ...fields] };
     }
   };
-  // 35.8 · Tilpass media → Faner: live forhåndsvisning av fanelinja øverst (samme mål/farger som kortets .tabs/.seg/.ind,
-  // inline siden editoren har egen shadow root). Tegnes på nytt ved hver endring i utkastet (rekkefølge, skjul, åpne med).
+  // 47 G · Tilpass media → Faner (Media v4 cfgIsFaner): tekst, forhåndsvisning (live, på --ki-bg) av fanelinja øverst med
+  // samme HTML/CSS som kortet (tabBarHTML/tabBarCSS, aktiv = startfanen), og tre kort med segmenter (tabSegs/segBoxM/segOptM).
+  const startOf = (c) => { const v = M.startTab ? M.startTab.value(c, startLegacy) : (c.start_tab || startLegacy(c)); return v === 'last' ? null : v && TABS.some((t) => t[0] === v) ? v : tabOrder(c).vis[0]; };
   const tabPreview = () => ({
     type: 'html',
     html: (h, c) => {
       c = c || {};
       const T = tabOrder(c).vis, dt = (M.startTab ? M.startTab.pillKey(c, T, startLegacy) : null) || T[0]; // 36.5: startfanen (Sist brukte → første)
-      const i = Math.max(0, T.indexOf(dt)), n = T.length || 1;
-      const ring = 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))';
-      // 33.4: forhåndsvisningen følger fanehøyden (kortets egen → global → 38)
-      const S = (M.tabH && M.tabH.scale(M.tabH.height(c, 38))) || { h: 38, f: 13, p: 18 }, th = S.h, tf = th === 38 && !M.tabH.own(c) && M.tabH.global() == null ? 13 : S.f, tp = th === 38 && !M.tabH.own(c) && M.tabH.global() == null ? 18 : S.p, mg = th + 8;
-      const tab = (k) => `<span class="mtp-t${k === dt ? ' on' : ''}" data-t="${k}" style="position:relative;z-index:1;display:grid;place-items:center;height:${th}px;padding:0 ${tp}px;border-radius:${th / 2}px;font-size:${tf}px;font-weight:500;white-space:nowrap;color:${k === dt ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${esc((TABS.find((t) => t[0] === k) || [k, k])[1])}</span>`;
-      return `<div class="f" data-key="mtp" style="gap:8px"><span class="hl" style="font-size:12px;color:var(--ki-text-mid, #979797)">Forhåndsvisning</span>
-        <div class="mtp" data-key="mtp-row" aria-hidden="true" style="display:grid;grid-template-columns:${mg}px minmax(0,1fr) ${mg}px;align-items:center;gap:8px;padding:10px 8px;border-radius:20px;background:var(--ki-popup, #282828);pointer-events:none">
-          <span></span>
-          <div class="mtp-seg" style="position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;padding:4px;border-radius:${th / 2 + 3}px;box-shadow:${ring};justify-self:center">
-            <span class="mtp-ind" style="position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * ${i} / ${n});width:calc((100% - 6px) / ${n} - 2px);border-radius:${th / 2}px;background:${PINK};transition:left .3s cubic-bezier(.34,1.25,.64,1)"></span>${T.map(tab).join('')}</div>
-          <span style="width:${mg}px;height:${mg}px;border-radius:${mg / 2}px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))">${M.icon('settings', 22)}</span>
-        </div></div>`;
+      return `<style>${tabBarCSS('.mtpv ')}</style><span class="hl" data-key="mtp-i" style="font-size:13px;color:var(--ki-text-mid, #979797);padding:2px 8px 0">Utseendet på fanelinja øverst i Media</span>
+        <div class="mtpv" data-key="mtp" style="display:flex;flex-direction:column;gap:10px;padding:14px 12px 16px;border-radius:24px;background:var(--ki-bg, #232323);pointer-events:none">
+          <span style="font-size:12px;color:var(--ki-text-3, #7f7f7f);padding:0 4px">Forhåndsvisning</span>
+          ${tabBarHTML(T, dt, c, { preview: true, style: M.tabH && M.tabH.style(c) })}</div>`;
     },
   });
-  const commonSchema = (common) => [
-      { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
-        tabPreview(),
-        ...(common || []),
-        { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', start: { legacy: startLegacy }, options: TABS },
-        ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => { const o = Array.isArray(cc.tab_order) ? cc.tab_order.filter((k) => TABS.some((t) => t[0] === k)) : []; TABS.forEach((t) => { if (!o.includes(t[0])) o.push(t[0]); }); return o.filter((k) => !(cc.hidden_tabs || []).includes(k)).map((k) => TABS.find((t) => t[0] === k)[1]); }, native: 38, gear: true, preview: false })] : []), // 33.4: fanehøyde (forhåndsvisningen over følger valget)
-      ] },
+  const SEGS = [
+    ['style', 'Fanestil', [['kontur', 'Kontur'], ['fylt', 'Fylt'], ['glass', 'Glass'], ['strek', 'Understrek'], ['chips', 'Chips']]],
+    ['mode', 'Faner viser', [['tekst', 'Tekst'], ['ikon', 'Ikoner'], ['aktiv', 'Ikon + aktiv'], ['begge', 'Begge']]],
+    ['start', 'Startfane', TABS],
+  ];
+  const tabSegs = () => ({
+    type: 'html',
+    // Haptic selection ved valg (én per trykk). Startfane skrives til start_tab (felles MSH.startTab) + tabs.start; gamle default_tab fjernes.
+    click: (d, ed) => {
+      const c = ed._config || {}, g = d.g, v = d.v;
+      if (!g || !v) return;
+      M.haptic('selection');
+      if (g === 'start') { const n = { ...c, tabs: { ...(c.tabs && typeof c.tabs === 'object' ? c.tabs : {}), start: v } }; delete n.default_tab; ed._config = n; return ed._set('start_tab', v); }
+      return ed._set('tabs.' + g, v);
+    },
+    html: (h, c, key) => {
+      c = c || {};
+      const L = tabLook(c), cur = { style: L.style, mode: L.mode, start: startOf(c) };
+      return SEGS.map(([g, title, opts]) => `<div class="mseg" data-key="mseg-${g}" style="display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:24px;background:var(--ki-surface, #3a3a3a)">
+          <span style="font-size:13px;font-weight:500;color:var(--ki-text-1, #c7c7c7);padding:0 4px">${esc(title)}</span>
+          <div role="radiogroup" aria-label="${esc(title)}" style="display:grid;grid-template-columns:repeat(${Math.min(opts.length, 3)},minmax(0,1fr));gap:2px;padding:4px;border-radius:22px;background:var(--ki-surface-3, #2f2f2f)">${opts.map(([v, l]) => {
+            const on = cur[g] === v;
+            return `<button type="button" role="radio" aria-checked="${on}" class="mso${on ? ' on' : ''}" data-a="fn" data-k="${key}" data-g="${g}" data-v="${v}" data-key="mso-${g}-${v}" style="height:40px;min-width:0;border-radius:18px;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;transition:background .2s,color .2s;background:${on ? PINK : 'transparent'};color:${on ? 'var(--ki-on-accent, #3a3a3a)' : 'var(--ki-text-2, #afafaf)'}">${esc(l)}</button>`;
+          }).join('')}</div></div>`).join('');
+    },
+  });
+  const fanerSchema = () => [
+    tabPreview(),
+    tabSegs(),
+    { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Faner (rekkefølge / skjul)', start: { legacy: startLegacy }, options: TABS },
+    ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => { const o = Array.isArray(cc.tab_order) ? cc.tab_order.filter((k) => TABS.some((t) => t[0] === k)) : []; TABS.forEach((t) => { if (!o.includes(t[0])) o.push(t[0]); }); return o.filter((k) => !(cc.hidden_tabs || []).includes(k)).map((k) => TABS.find((t) => t[0] === k)[1]); }, native: 38, gear: true, preview: false })] : []), // 33.4: fanehøyde
+  ];
+  const commonSchema = () => [
       { type: 'info', label: 'Felles for begge faner' },
       { type: 'lists', label: 'Mediaspillere', lists: (hh) => [{ key: 'spillere', label: 'Mediaspillere', ids: M.all(hh, 'media_player'), domains: ['media_player'] }] },
       { type: 'area', name: 'area', label: 'Begrens til område', help: 'Tomt = alle media_player.* i huset, sortert per område' },
@@ -1303,10 +1420,12 @@
     // Valgt fane/spiller er ren UI-tilstand (localStorage), aldri Lovelace-config.
     static get uiPersist() { return ['tab', 'sel']; }
     static get schema() {
-      return (h, c) => [
-        ...baseSchema(h, c, M.startTab ? [M.startTab.field({ legacy: startLegacy, clear: ['default_tab'], items: (hh, cc) => tabOrder(cc).vis.map((k) => ({ key: k, label: (TABS.find((t) => t[0] === k) || [k, k])[1] })) })] : []), { type: 'gap' }, // 36.5: Startfane øverst i Faner
-      ];
+      return (h, c) => [...baseSchema(h, c), { type: 'gap' }]; // 47 G: Startfane = segmentet i Faner (start_tab)
     }
+    // 47 G: «Tilpass media» som «Tilpass kalender» – tittel 24/600, «Nullstill» (aktiv fane) + rosa «Ferdig», ark top 52 /
+    // maks 440 / radius 38 (felles MSH.overlay tilpass: true), bakteppe .5 + blur 4, portalt til ki-overlay-root.
+    static get editorTitle() { return 'Tilpass media'; }
+    static get editorHead() { return { reset: resetTab }; }
     get cardSize() { return 8; }
     setConfig(c) { super.setConfig(c); this._publish(); }
     // Volum-stil per bruker (ki-store media.vol_style / media.vol_style_tv): tegn på nytt når den endres (også fra andre enheter)
@@ -1319,10 +1438,14 @@
       if (this._vsOff) { this._vsOff(); this._vsOff = null; }
       this._seekClose();
     }
-    // Oppsett åpnes på fanen som vises nå (Fiks 17.22)
+    // 47 G: tannhjulet åpner på sist valgte fane i arket (start: Faner, Media v4 cfgTab). Fokus 'faner'/'tabs'/'start_tab' →
+    // Faner; 'tv'/'musikk' → den fanen; annet fokus (f.eks. «Velg entitet») → fanen som vises nå (Fiks 17.22).
     customize(focus, opts) {
-      if (this._R && TABS.some((t) => t[0] === this._R.tab)) ED_TAB = this._R.tab;
-      return super.customize(focus, opts);
+      if (focus === 'faner' || focus === 'tabs' || focus === 'start_tab') ED_TAB = 'faner';
+      else if (TABS.some((t) => t[0] === focus)) ED_TAB = focus;
+      else if (focus && this._R && TABS.some((t) => t[0] === this._R.tab)) ED_TAB = this._R.tab;
+      return super.customize(focus, { ...(opts || {}), sheet: { css: `.sh.tp{box-shadow:0 -12px 40px ${BA(0.45)}}
+        .bg{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}` } });
     }
     _publish() {
       if (!this.isConnected) return;
@@ -1351,11 +1474,9 @@
       const cfg = this.config, R = M.mediaResolve(this.hass, cfg, this.key), h = this.hass;
       this._R = R;
       R.P.all.forEach((p) => this.s(p.id));
-      const tabs = R.order.map((k) => `<button class="tab ${k === R.tab ? 'on' : ''}" role="tab" aria-selected="${k === R.tab}" data-act="tab" data-t="${k}" data-haptic="selection" data-key="${k}">${esc(TABS.find((t) => t[0] === k)[1])}</button>`).join('');
-      // Fiks 16.10: rosa indikator = eget element med indeks-/prosentbasert posisjon (--i/--n, like brede faner) – aldri
-      // piksler fra et gammelt mål, så den lander riktig selv om innholdet under endrer høyde eller popupen scroller.
-      const ti = Math.max(0, R.order.indexOf(R.tab));
-      const head = `<div class="tabs"${M.tabH && M.tabH.style(cfg) ? ` style="${M.tabH.style(cfg)}"` : ''}><span></span><div class="seg msh-tr" data-gd-skip style="--n:${R.order.length || 1};--i:${ti}"><span class="ind ${R.order.includes(R.tab) ? '' : 'off'}" data-key="ind" aria-hidden="true"></span>${tabs}</div><button class="gear press" data-act="customize" title="Oppsett">${M.icon('settings', 22)}</button></div>`;
+      // Fiks 16.10: rosa indikator (Kontur) = eget element med indeks-/prosentbasert posisjon (--i/--n, like brede faner).
+      // 47 G: fanestil/visning fra config.tabs (tabBarHTML, samme som forhåndsvisningen i «Tilpass media» → Faner).
+      const head = tabBarHTML(R.order, R.tab, cfg, { style: M.tabH && M.tabH.style(cfg) });
       if (!R.p) return `<div class="mc">${head}${M.emptyState(R.P.all.length ? 'Ingen spillere i denne fanen' : 'Fant ingen mediaspillere', 'entities')}</div>`;
       const p = R.p, I = info(this, p), a = I.a;
       if (this._pid !== p.id) this._pid = p.id;
@@ -1720,8 +1841,8 @@
         // Fiks 16.10: den rosa indikatoren ER glasslinsen – den følger fingeren (regnet fra sporets ferske mål hver frame),
         // snapper til nærmeste fane ved slipp og bytter først da. Ingen ekstra trykk-linse (glassTap) oppå den.
         glassTap: false,
-        onGlassMove: (hit, x) => this._indDrag(seg, x),
-        onGlassEnd: (hit) => this._indDrag(seg, null, hit),
+        // 47 G: bare Kontur har indikatoren; de andre fanestilene bruker standardlinsen
+        ...(seg.querySelector('.ind') ? { onGlassMove: (hit, x) => this._indDrag(seg, x), onGlassEnd: (hit) => this._indDrag(seg, null, hit) } : { onGlassMove: null, onGlassEnd: null }),
         onSelect: (k) => { const b = seg.querySelector(`.tab[data-t="${k}"]`); if (b && !b.classList.contains('on')) this.onAction('tab', b); },
         items: () => Array.from(seg.querySelectorAll('.tab')),
         idOf: (b) => b.dataset.t,
@@ -1814,23 +1935,8 @@
       return `
         .mc{display:flex;flex-direction:column;gap:var(--msh-gap,14px)}
         ${M.TAB_ROW_CSS || ''}
-        /* 33.4: fanehøyde (MSH.tabH) – pille H (38), sporet H + 8, tannhjul = sporets høyde */
-        .tabs{--mg:calc(${TV('th', 38)} + 8px);display:grid;grid-template-columns:var(--mg) minmax(0,1fr) var(--mg);align-items:center;gap:8px}
-        /* standard: transparent + ring; glassflate bare med Liquid Glass-temaet (MSH.tabSurface, Fiks 15.2) */
-        .seg{gap:2px;padding:4px;border-radius:calc(${TV('th', 38)} / 2 + 3px);${M.tabSurface ? M.tabSurface('transparent', 'inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))') : 'box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)));'}justify-self:center}
-        .tab{height:${TV('th', 38)};padding:0 ${TV('tp', 18)};border-radius:calc(${TV('th', 38)} / 2);font-size:${TV('tf', 13)};font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf));background:transparent}
-        .tab.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
-        /* Fiks 16.10: like brede faner + indikator med indeks-/prosentposisjon (--i/--n) – glir med transition, følger fingeren ved dra */
-        .seg.msh-tr{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
-        .seg .tab{position:relative;z-index:1;transition:color .25s}
-        .seg .tab.on{background:transparent}
-        .seg .ind{position:absolute;z-index:0;top:4px;bottom:4px;left:calc(4px + (100% - 6px) * var(--i, 0) / var(--n, 1));width:calc((100% - 6px) / var(--n, 1) - 2px);border-radius:calc(${TV('th', 38)} / 2);background:${PINK};pointer-events:none;
-          transition:left .34s cubic-bezier(.34,1.25,.64,1),box-shadow .2s,scale .2s cubic-bezier(.34,1.8,.64,1)}
-        .seg .ind.off{opacity:0}
-        .seg .ind.drag{transition:left .12s cubic-bezier(.34,1.5,.64,1),box-shadow .2s,scale .25s cubic-bezier(.34,1.8,.64,1);scale:1.1;box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.65*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 -1px 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1))),inset 0 0 0 0.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.4*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 10px 24px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
-        .seg.tr-drag .ind{opacity:0}
+        ${tabBarCSS()}
         .mb{display:flex;flex-direction:column;gap:var(--msh-gap,14px);transition:min-height .3s cubic-bezier(.2,.8,.2,1)}
-        .gear{width:var(--mg,46px);height:var(--mg,46px);border-radius:calc(var(--mg,46px) / 2);background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .gear:active{transform:scale(.92)}
         [data-seek]{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
         .sk[data-noskip]{opacity:.6}

@@ -199,6 +199,7 @@
       this._cpT = setTimeout(() => { this._copied = null; this.update(); }, 1400);
     }
     afterRender() {
+      if (M.tabPress) M.tabPress(this.shadowRoot.querySelector('.tabs')); // Fiks 47 E: felles trykk-logikk for fanelinjen
       const ta = this.shadowRoot.querySelector('textarea[data-input="edtext"]');
       if (!ta) return;
       // Tekstfeltet: merking/dra skal ikke lukke eller scrolle popupen (fallgruve 2)

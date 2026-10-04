@@ -1,4 +1,4 @@
-// Fiks 24.9 + 26.11/26.12 · Sir Sweeps (#rolf, msh-stovsuger-card): toppkort med animert robot, tank-varsel, faner + tannhjul,
+// Fiks 24.9 + 26.11/26.12 (+ 47 H/I/J/L: forventninger oppdatert) · Sir Sweeps (#rolf, msh-stovsuger-card): toppkort med animert robot, tank-varsel, faner + tannhjul,
 // Renhold (romgrid, start, pause/hjem, soner-scroll), Kontroll (fremdrift teller), Info, Kart, «Tilpass» (Rom/Faner/
 // Entiteter/Avansert, dra-rekkefølge) ↔ GUI-editor, «–» uten entiteter og popup-registreringen (sub_button, vilkår).
 //   node test/stovsuger-check.mjs   (SHOTS=<mappe> for skjermbilder)
@@ -64,13 +64,13 @@ await shot(p, '1-renhold');
 // ---------------------------------------------------------------- Renhold
 const R = await p.evaluate(() => {
   const sr = window.__c.shadowRoot, t = [...sr.querySelectorAll('.rt')];
-  const rc = t.map((e) => e.getBoundingClientRect()); return { names: t.map((e) => e.querySelector('.rn').textContent), big: t.map((e) => e.classList.contains('big')), on: t.filter((e) => e.classList.contains('on')).map((e) => e.querySelector('.rn').textContent), rows: rc.map((r) => Math.round(r.top)), wid: rc.map((r) => Math.round(r.width)), card: t.every((e) => e.closest('.rcard')), cardBg: getComputedStyle(sr.querySelector('.rcard')).backgroundColor, radio: !!sr.querySelector('.rt .rc'), tint: getComputedStyle(t[2]).backgroundColor, hdr: sr.querySelector('.rct').textContent, lnkBg: getComputedStyle(sr.querySelector('.lnk')).backgroundColor, go: sr.querySelector('.gobtn .gt b').textContent.trim(), goSub: sr.querySelector('.gobtn .gt span') && sr.querySelector('.gobtn .gt span').textContent, goH: Math.round(sr.querySelector('.gobtn').getBoundingClientRect().height), zh: Math.round(sr.querySelector('.zc').getBoundingClientRect().height), sel: sr.querySelector('[data-act="selall"]').textContent, zones: [...sr.querySelectorAll('.zc')].map((e) => e.textContent.trim()), zta: getComputedStyle(sr.querySelector('.zones')).touchAction, sum: sr.querySelector('.sum').textContent.replace(/\s+/g, ' ') };
+  const rc = t.map((e) => e.getBoundingClientRect()); return { names: t.map((e) => e.querySelector('.rn').textContent), big: t.map((e) => e.classList.contains('big')), on: t.filter((e) => e.classList.contains('on')).map((e) => e.querySelector('.rn').textContent), rows: rc.map((r) => Math.round(r.top)), wid: rc.map((r) => Math.round(r.width)), card: t.every((e) => e.closest('.rcard')), cardBg: getComputedStyle(sr.querySelector('.rcard')).backgroundColor, radio: !!sr.querySelector('.rt .rc'), tint: getComputedStyle(t[2]).backgroundColor, hdr: sr.querySelector('.rct').textContent, lnkBg: getComputedStyle(sr.querySelector('.lnk')).backgroundColor, go: sr.querySelector('.sw-t').textContent.trim(), goSub: sr.querySelector('.sw-s') && sr.querySelector('.sw-s').textContent, goH: Math.round(sr.querySelector('.sw').getBoundingClientRect().height), zh: Math.round(sr.querySelector('.zc').getBoundingClientRect().height), sel: sr.querySelector('[data-act="selall"]').textContent, zones: [...sr.querySelectorAll('.zc')].map((e) => e.textContent.trim()), zta: getComputedStyle(sr.querySelector('.zones')).touchAction, sum: sr.querySelector('.sum').textContent.replace(/\s+/g, ' ') };
 });
 ok('romgrid: 5 rom i standard-rekkefølge, plass 1–2 store', R.names.join('|') === 'Soverom|Pappa|Mamma|Kontor|Trapp' && R.big.join() === 'true,true,false,false,false', R);
 ok('26.11 rom i ETT kort #3a3a3a, header + «Velg alle» som tekst, 2 + 3 (1fr 2fr 1fr), fargetonet, ingen radio', R.card && R.cardBg === 'rgb(58, 58, 58)' && R.lnkBg === 'rgba(0, 0, 0, 0)' && R.rows[0] === R.rows[1] && R.rows[2] === R.rows[3] && R.rows[3] === R.rows[4] && R.rows[2] > R.rows[0] && R.wid[0] === R.wid[1] && Math.abs(R.wid[3] - (2 * R.wid[2] + 8)) <= 2 && R.wid[2] === R.wid[4] && !R.radio && R.tint !== 'rgb(58, 58, 58)', R);
 ok('26.11 sum uten areal: bare «2 rom» (aldri «– m²»)', R.sum.trim() === '2 rom' && !/–/.test(R.sum), R.sum);
 ok('valgte rom = input_boolean på (Soverom, Pappa)', R.on.join('|') === 'Soverom|Pappa', R.on);
-ok('«Støvsug 2 rom» (sensor.rolf_all = True), «Velg alle», pill 64 px, soner 52 px', R.go === 'Støvsug 2 rom' && !R.goSub && R.goH === 64 && R.zh === 52 && R.sel === 'Velg alle', R);
+ok('«Støvsug valgte rom» (sensor.rolf_all = True), «Velg alle», pill 64 px, soner 60 px (47 L3)', R.go === 'Støvsug valgte rom' && !R.goSub && R.goH === 64 && R.zh === 60 && R.sel === 'Velg alle', R);
 ok('soner: 5 chips, touch-action pan-x', R.zones.join('|') === 'Spisebord lite|Spisebord mye|Stue uten spisebord|Teppe stue|Kjøkkenbord' && R.zta === 'pan-x', R);
 await clear(p);
 await click(p, '.rt[data-k="mamma_soverom"]');
@@ -94,29 +94,29 @@ ok('soner: touch/pointer bobler ikke til popupen', Z === 0, Z);
 await p.evaluate(() => { window.__set('vacuum.sir_sweeps_a_lot', 'cleaning', { __lc: new Date(Date.now() - 12 * 60000).toISOString() }); window.__set('binary_sensor.sir_sweeps_a_lot_charging', 'off'); });
 await p.evaluate(() => { const c = window.__c; c.setConfig({ ...c._rawConfig, rooms: { sebsatian_soverom: { m2: 14 }, pappa_soverom: { m2: 16 } } }); });
 await wait(p, 400);
-const A = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { pill: sr.querySelector('.spill').textContent.trim(), motion: !!sr.querySelector('.bot.cleaning animateMotion'), trail: !!sr.querySelector('.trail animate'), act: [...sr.querySelectorAll('.actrow .ab')].map((b) => b.textContent.trim()), sum: sr.querySelector('.sum').textContent.replace(/\s+/g, ' ') }; });
+const A = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { pill: sr.querySelector('.spill').textContent.trim(), motion: !!sr.querySelector('.bot.cleaning animateMotion'), trail: !!sr.querySelector('.trail animate'), act: [...sr.querySelectorAll('.sw-ctl .sw-cb')].map((b) => b.getAttribute('aria-label')), lbl: sr.querySelector('.sw-t').textContent, sum: sr.querySelector('.sum').textContent.replace(/\s+/g, ' ') }; });
 ok('rengjør: pille «Rengjør», robot følger ruten (animateMotion) med spor', A.pill === 'Rengjør' && A.motion && A.trail, A);
-ok('Renhold aktiv: Pause + Hjem i stedet for start, sum «2 rom · 30 m² · ca N min»', A.act.join('|') === 'Pause|Hjem' && /^2 rom · 30 m² · ca \d+ min$/.test(A.sum.trim()), A);
+ok('Renhold aktiv (47 H): pillen «Støvsuger» med Pause + Hjem inni, sum «2 rom · 30 m² · ca N min»', A.lbl === 'Støvsuger' && A.act.join('|') === 'Pause|Returner hjem' && /^2 rom · 30 m² · ca \d+ min$/.test(A.sum.trim()), A);
 await shot(p, '2-rengjor');
 await clear(p);
-await click(p, '.actrow [data-act="pause"]');
-await click(p, '.actrow [data-act="home"]');
+await click(p, '.sw-ctl [data-act="pause"]');
+await click(p, '.sw-ctl [data-act="home"]');
 cl = await calls(p);
 ok('pause = script.stovsuger_pause, hjem = script.stovsuger_retuner_hjem', cl.includes('script turn_on script.stovsuger_pause') && cl.includes('script turn_on script.stovsuger_retuner_hjem'), cl);
 await click(p, '[data-act="tab"][data-v="kontroll"]');
 await wait(p, 300);
-const K1 = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { pct: sr.querySelector('.pv').textContent, left: sr.querySelector('.pl span').textContent, bar: sr.querySelector('.bar i').style.width, segs: [...sr.querySelectorAll('.segc .sgh span:first-of-type')].map((e) => e.textContent), fan: [...sr.querySelectorAll('.seg .sg')].slice(0, 4).map((e) => e.textContent), glass: sr.querySelectorAll('.seg[data-glass-drag]').length }; });
+const K1 = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { pct: sr.querySelector('.ctl-n').textContent, left: sr.querySelector('.ctl-u').textContent, bar: sr.querySelector('.ctl-bar i').style.width, segs: [...sr.querySelectorAll('.kset .kl, .kset .kl2')].map((e) => e.textContent), fan: sr.querySelector('.kfan .kv').textContent, vals: [...sr.querySelectorAll('.kset .kv2')].map((e) => e.textContent), seg: sr.querySelectorAll('.seg').length }; });
 await p.evaluate(() => window.__set('vacuum.sir_sweeps_a_lot', 'cleaning', { __lc: new Date(Date.now() - 20 * 60000).toISOString() }));
 await wait(p, 300);
-const K2 = await p.evaluate(() => window.__c.shadowRoot.querySelector('.pv').textContent);
+const K2 = await p.evaluate(() => window.__c.shadowRoot.querySelector('.ctl-n').textContent);
 ok('Kontroll: fremdrift % + min igjen, teller oppover', parseInt(K1.pct) > 0 && /min igjen/.test(K1.left) && parseInt(K2) > parseInt(K1.pct), { K1, K2 });
-ok('Kontroll: segmenter Vifte/Moppmodus/Moppintensitet (glass-drag)', K1.segs.join('|') === 'Vifte|Moppmodus|Moppintensitet' && K1.fan.join('|') === 'quiet|balanced|turbo|max' && K1.glass === 3, K1);
+ok('Kontroll (47 L2): fliser Viftehastighet/Mopp modus/Mopp intensitet med norske verdier, ingen segmenter', K1.segs.join('|') === 'Viftehastighet|Mopp modus|Mopp intensitet' && K1.fan === 'Standard' && K1.vals.join('|') === 'Standard|Middels' && K1.seg === 0, K1);
 await clear(p);
-await click(p, '.seg .sg[data-v="turbo"]');
-await click(p, '.seg .sg[data-v="Høy"]');
-await click(p, '.cb[data-act="empty"]');
+await click(p, '.kfan');
+await click(p, '.kpill[data-k="mop_intensity"]');
+await click(p, '.ctl-b.em');
 cl = await calls(p);
-ok('vifte = vacuum.set_fan_speed, mopp = select_option, tøm = script.rolf_empty', cl.includes('vacuum set_fan_speed vacuum.sir_sweeps_a_lot turbo') && cl.includes('input_select select_option input_select.vacuum_fan_speed Høy') && cl.includes('script turn_on script.rolf_empty'), cl);
+ok('vifte = vacuum.set_fan_speed (neste), mopp = select.select_option (neste), tøm = script.rolf_empty', cl.includes('vacuum set_fan_speed vacuum.sir_sweeps_a_lot turbo') && cl.includes('select select_option select.sir_sweeps_a_lot_mop_intensity intense') && cl.includes('script turn_on script.rolf_empty'), cl);
 await shot(p, '3-kontroll');
 // retur → robot kjører hjem
 await p.evaluate(() => window.__set('vacuum.sir_sweeps_a_lot', 'returning'));
@@ -126,8 +126,8 @@ ok('retur: «På vei hjem», robot animerer mot dokken', H.pill === 'På vei hje
 // ---------------------------------------------------------------- Info + Kart
 await click(p, '[data-act="tab"][data-v="info"]');
 await wait(p, 300);
-const I = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { stats: [...sr.querySelectorAll('.stat')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()), rows: [...sr.querySelectorAll('.vrow')].map((e) => [e.querySelector('b').textContent, e.classList.contains('low'), !!e.querySelector('[data-act="reset"]')]) }; });
-ok('Info: vasket totalt m² + fotballbaner, tid brukt dager + timer', /2[\s ]531 m²/.test(I.stats[0]) && /0,4 fotballbaner/.test(I.stats[0]) && /7 dager 19 timer/.test(I.stats[1]), I.stats);
+const I = await p.evaluate(() => { const sr = window.__c.shadowRoot; return { prose: sr.querySelector('.prose') && sr.querySelector('.prose').textContent.replace(/\s+/g, ' ').trim(), stats: sr.querySelectorAll('.stat').length, rows: [...sr.querySelectorAll('.vrow')].map((e) => [e.querySelector('b').textContent, e.classList.contains('low'), !!e.querySelector('[data-act="reset"]')]) }; });
+ok('Info (47 J): prosa med m² + fotballbaner + «dager og timer», ingen statistikkort', I.prose === 'Sir Sweeps a lot har vasket 2531 m² som tilsvarer ca 0,4 fotballbaner, det har han brukt mer enn 7 dager og 19 timer på til sammen.' && I.stats === 0, I);
 ok('Info: vedlikehold ≤ 30 t oransje + «Nullstill» (filter, sensorer)', JSON.stringify(I.rows) === JSON.stringify([['Hovedbørste', false, false], ['Sidebørste', false, false], ['Filter', true, true], ['Sensorer', true, true]]), I.rows);
 await shot(p, '4-info');
 await click(p, '[data-act="tab"][data-v="kart"]');
@@ -285,7 +285,7 @@ await wait(p, 300);
 await clear(p);
 await click(p, '.gobtn');
 await wait(p, 100);
-const armed = await p.evaluate(() => window.__c.shadowRoot.querySelector('.gobtn .gt b').textContent.trim());
+const armed = await p.evaluate(() => window.__c.shadowRoot.querySelector('.sw-t').textContent.trim());
 const c0 = (await calls(p)).length;
 await click(p, '.gobtn');
 cl = await calls(p);

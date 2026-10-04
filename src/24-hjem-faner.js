@@ -30,7 +30,7 @@
   const TILE_DEF = { hjem: { lock: 'L-top', garage: 'L-top', alarm: 'L-bottom', cam: 'R-bottom', ruter: 'R-bottom', todo: 'R-bottom' }, aktuelt: {} };
   const STACK_DEF = { hjem: { cam: true, ruter: true } };
   const APPL = { dish: [/oppvask|dish.?wash/i, 'dishwasher_gen', 'Oppvaskmaskin', 180], wash: [/vaskemaskin|washing.?machine|washer/i, 'local_laundry_service', 'Vaskemaskin', 120], dry: [/t[øo]rketrommel|tumble|dryer/i, 'dry_cleaning', 'Tørketrommel', 90] };
-  const SLIDES = { cal: ['calendar_month', 'Kalender'], vaer: ['partly_cloudy_day', 'Vær'], strom: ['bolt', 'Strøm'], trash: ['delete', 'Søppel'] };
+  const SLIDES = { cal: ['calendar_month', 'Kalender'], arr: ['mdi:television-play', 'Kommer i dag'], vaer: ['partly_cloudy_day', 'Vær'], strom: ['bolt', 'Strøm'], trash: ['delete', 'Søppel'] };
   const TCOL = { gronn: C.green, gul: C.yellow, oransje: C.orange, rod: C.red, bla: C.blue };
   const TSW = [['ingen', 'Grå'], ['gronn', 'Grønn'], ['gul', 'Gul'], ['oransje', 'Oransje'], ['rod', 'Rød'], ['bla', 'Blå'], ['rosa', 'Rosa']];
   const WX = { 'clear-night': 'Klart', cloudy: 'Skyet', exceptional: 'Ekstremvær', fog: 'Tåke', hail: 'Hagl', lightning: 'Torden', 'lightning-rainy': 'Torden og regn', partlycloudy: 'Delvis skyet', pouring: 'Kraftig regn', rainy: 'Regn', snowy: 'Snø', 'snowy-rainy': 'Sludd', sunny: 'Sol', windy: 'Vind', 'windy-variant': 'Vind og skyer' };
@@ -162,6 +162,41 @@
   // Ny id for en ekstra flis av samme type: lock_2, lock_3 …
   M.hjemNewTileId = (c, kd) => { let n = 2; while (tileCfg(c, kd + '_' + n).kind || (c.links || {})[kd + '_' + n]) n++; return kd + '_' + n; };
   const tileCfg = (c, id) => ((c && c.tile_cfg) || {})[id] || {};
+  /* Fiks 47 A/B · dørlåser på Hjem-flisen: ÉN lås om gangen, sveip mellom låsene. Låsene = listen i Dørlås-popupen (#dorlas,
+   * msh-las-card: M.lasAuto(hass, cfg).vis – exclude/include.laser, locks_cfg.<obj>.hidden, popup-rekkefølge). Ingen
+   * hardkodede entiteter. Rekkefølge (tile_cfg.lock.lock_sort, ellers lock_sort på rotnivå):
+   *   unlocked (standard) – ulåste først (popup-rekkefølge); alle låst → standard-låsen først
+   *   default             – standard-låsen først, så ulåste, så resten låste
+   *   popup               – som i Dørlås-popupen
+   * Standard-lås: tile_cfg.lock.lock_default (eller lock_default) → flisens entitet → første lås.
+   * Første lås i rekkefølgen er «hjem»; de andre ligger til VENSTRE for den (2. rett til venstre …), neste kort i gruppen
+   * (f.eks. Garasjeport) til høyre. M.hjemLockOrder er ren (testbar). */
+  const lasCfg = () => {
+    try {
+      const live = M.liveOf && M.liveOf('msh-las-card');
+      if (live && live.config) return live.config;
+      return (M.effectiveConfig && M.popupCardId ? M.effectiveConfig({ type: 'custom:msh-las-card', card_id: M.popupCardId('#dorlas') }, null, { shared: true }) : null) || {};
+    } catch (e) { return {}; }
+  };
+  M.hjemLockList = (hass) => (!hass ? [] : M.lasAuto ? M.lasAuto(hass, lasCfg()).vis : M.all(hass, 'lock'));
+  const LOCK_SORTS = [['unlocked', 'Ulåste først'], ['default', 'Standard først'], ['popup', 'Som i popup']];
+  const lockOpen = (st) => !!st && /^(unlocked|unlocking|open|opening|jammed)$/.test(st.state);
+  const lockSortOf = (c) => { const v = tileCfg(c, 'lock').lock_sort || (c && c.lock_sort); return LOCK_SORTS.some(([k]) => k === v) ? v : 'unlocked'; };
+  const lockDefOf = (c, L, ent) => { const v = tileCfg(c, 'lock').lock_default || (c && c.lock_default); return L.includes(v) ? v : L.includes(ent) ? ent : L[0] || null; };
+  M.hjemLockOrder = function (hass, L, mode, def) {
+    L = (L || []).filter((id) => hass && hass.states[id]);
+    if (!L.length) return [];
+    def = L.includes(def) ? def : L[0];
+    if (mode === 'popup') return L.slice();
+    const open = (id) => lockOpen(hass.states[id]), rest = L.filter((id) => id !== def);
+    const unl = rest.filter(open), lk = rest.filter((id) => !open(id));
+    if (mode === 'default') return [def, ...unl, ...lk];
+    const all = L.filter(open);
+    return all.length ? [...all, ...(open(def) ? [] : [def]), ...lk] : [def, ...rest];
+  };
+  M.HJEM_LOCK_SORTS = LOCK_SORTS;
+  const lockName = (hass, id) => { const o = ((lasCfg().locks_cfg || {})[String(id).split('.')[1]]) || {}; return o.name || M.name(hass, id); };
+  M.hjemLockName = lockName;
   const kindOf = (c, id) => (KINDS[id] ? id : (KINDS[tileCfg(c, id).kind] && id !== 'jul' ? tileCfg(c, id).kind : null));
   const extraIds = (c) => Object.keys((c && c.tile_cfg) || {}).filter((id) => !KINDS[id] && kindOf(c, id) && kindOf(c, id) !== 'jul').sort((a, b) => a.localeCompare(b, 'nb', { numeric: true }));
   const regOk = (hass, id) => { const e = M.regEntry(hass, id); return !e || !(e.hidden || e.hidden_by || e.disabled_by); };
@@ -475,6 +510,70 @@
   const kindIcon = (k, c) => { const kd = kindOf(c, k); return kd ? tileCfg(c, k).icon || KINDS[kd][0] : ((c.links || {})[k] || {}).icon || 'mdi:star'; };
   // Standardplass for en flis: tile_cfg.<id>.side/pos (ny flis) → standard for typen
   const defSlot = (c, tk, k) => { const x = tileCfg(c, k); if (/^[LR]$/.test(x.side || '') && /^(top|bottom)$/.test(x.pos || '')) return x.side + '-' + x.pos; return (TILE_DEF[tk] || {})[kindOf(c, k) || k]; };
+  /* ------------------------------------------------------------ Fiks 47 D: sveip-kort i karusellen */
+  // slides.<fane>.<L|R>.<id> = true|false. «Kommer i dag» (arr) er på som standard i venstre karusell på Hjem når en
+  // Sonarr/Radarr-kilde finnes (autokonfig); false = fjernet. Rekkefølge: slide_order.<fane>.<side> (liste), ellers SLIDES.
+  const arrSrc = (hass) => {
+    if (!hass) return false;
+    if (M.arrMedia && typeof M.arrMedia.detect === 'function') { try { const d = M.arrMedia.detect(hass) || {}; if (d.sonarr || d.radarr) return true; } catch (e) { /* */ } }
+    return Object.keys(hass.states).some((id) => /^calendar\.(sonarr|radarr)/.test(id) || /^sensor\..*(sonarr|radarr).*upcoming|^sensor\..*upcoming_media/.test(id));
+  };
+  const slideOn = (c, tab, side, k, hass, noHid) => {
+    if (!noHid && listOf(get(c, `slide_hidden.${tab}.${side}`)).includes(k)) return false; // øyet i GUI-editorens rekkefølge-liste
+    const v = get(c, `slides.${tab}.${side}.${k}`);
+    if (v != null) return !!v;
+    return k === 'arr' && tab === 'hjem' && side === 'L' && arrSrc(hass || M.lastHass);
+  };
+  const slideList = (c, tab, side, hass, noHid) => {
+    const ord = listOf(get(c, `slide_order.${tab}.${side}`)).filter((k) => SLIDES[k]);
+    const keys = [...ord, ...Object.keys(SLIDES).filter((k) => !ord.includes(k))];
+    return keys.filter((k) => slideOn(c, tab, side, k, hass, noHid));
+  };
+  M.hjemSlides = { SLIDES, on: slideOn, list: slideList, arrSrc };
+  /* 47 D · lokal reserve når M.arrMedia (06-arr-media.js) mangler: sensor.*upcoming_media* (attributtet data: poster/fanart/
+   * airdate/title/number/episode/studio) + calendar.sonarr* · radarr* (calendars/<id>, ingen bilder → plakat fra sensoren
+   * når tittelen matcher). Bilder: bare https:// eller HA-proxy (/api/… → hass.hassUrl), aldri http:// på https. */
+  M.hjemArrLocal = async function (hass, from, to) {
+    const safe = (u) => {
+      u = String(u || '').trim();
+      if (!u) return null;
+      if (/^https:\/\//i.test(u) || /^data:image\//i.test(u)) return u;
+      if (/^\/api\//.test(u)) return hass.hassUrl ? hass.hassUrl(u) : u;
+      if (/^http:\/\//i.test(u) && location.protocol !== 'https:') return u;
+      return null;
+    };
+    const out = [], img = {}, norm = (t) => M.slug(String(t || ''));
+    Object.keys(hass.states).filter((id) => /^sensor\..*(upcoming_media|(sonarr|radarr).*upcoming)/.test(id) && !/plex|recent/.test(id)).forEach((id) => {
+      let D = hass.states[id].attributes.data;
+      if (typeof D === 'string') { try { D = JSON.parse(D); } catch (e) { D = []; } }
+      const src = /radarr/.test(id) ? 'radarr' : 'sonarr';
+      (Array.isArray(D) ? D : []).filter((x) => x && x.title && !x.title_default).forEach((x) => {
+        const st = new Date(x.airdate || x.release_date || x.aired || '');
+        const poster = safe(x.poster), fanart = safe(x.fanart);
+        img[norm(x.title)] = { poster, fanart };
+        if (isNaN(st) || st < from || st >= to) return;
+        out.push({ source: src, title: x.title, sub: src === 'sonarr' ? [x.number, x.studio].filter(Boolean).join(' · ') || x.episode || '' : [x.release || 'Utgivelse', 'film'].join(' · '), start: st.toISOString(), poster, fanart, entity: id });
+      });
+    });
+    const cals = Object.keys(hass.states).filter((id) => /^calendar\.(sonarr|radarr)/.test(id));
+    await Promise.all(cals.map((id) => Promise.resolve(hass.callApi ? hass.callApi('GET', `calendars/${id}?start=${encodeURIComponent(new Date(from).toISOString())}&end=${encodeURIComponent(new Date(to).toISOString())}`) : []).then((L) => {
+      const src = /radarr/.test(id) ? 'radarr' : 'sonarr';
+      (Array.isArray(L) ? L : []).forEach((e) => {
+        const s0 = (e.start && (e.start.dateTime || e.start.date)) || e.start, allDay = !!(e.start && e.start.date && !e.start.dateTime);
+        const st = allDay ? new Date(s0 + 'T00:00:00') : new Date(s0);
+        if (isNaN(st)) return;
+        let title = String(e.summary || ''), sub = '';
+        const rel = /\s*\((digital|physical|cinema|in cinemas)[^)]*\)\s*$/i.exec(title);
+        if (rel) { sub = /digital/i.test(rel[1]) ? 'Digital utgivelse · film' : /physical/i.test(rel[1]) ? 'Fysisk utgivelse · film' : 'Kino · film'; title = title.slice(0, rel.index); }
+        else if (src === 'sonarr') { const p = title.split(' - '); if (p.length > 1) { title = p[0]; sub = p.slice(1).join(' · '); } }
+        else sub = 'Film';
+        if (out.some((x) => norm(x.title) === norm(title) && new Date(x.start).toDateString() === st.toDateString())) return;
+        const im = img[norm(title)] || {};
+        out.push({ source: src, title: title.trim(), sub, start: st.toISOString(), all_day: allDay, poster: im.poster || null, fanart: im.fanart || null, entity: id });
+      });
+    }).catch(() => {})));
+    return out.sort((a, b) => new Date(a.start) - new Date(b.start));
+  };
   /* ------------------------------------------------------------ Fiks 20.4: «Vis først når …» per karusell */
   // carousel.<fane>.<L|R> = { dots: false (prikkene av), first: [{ slide: 'rooms'|'cal'|'vaer'|'strom'|'trash', condition: <HA-condition> }] }.
   // Første regel (ovenfra) som slår til bestemmer kortet karusellen står på; ingen treff → første kort. Evaluering: MSH.condEval.
@@ -489,7 +588,7 @@
     ];
   };
   // Kortene en regel kan peke på: Rommene + sveip-kortene som er lagt til på karusellen
-  const carSlides = (c, tab, side) => { const sl = get(c, `slides.${tab}.${side}`) || {}; return [['rooms', 'Rommene'], ...Object.keys(SLIDES).filter((k) => sl[k]).map((k) => [k, SLIDES[k][1]])]; };
+  const carSlides = (c, tab, side) => [['rooms', 'Rommene'], ...slideList(c, tab, side).map((k) => [k, SLIDES[k][1]])];
   M.hjemCar = { presets: carPresets, slides: carSlides };
   M.hjemTiles = { STATE_TXT, stStates, stDefault, stTxt, KINDS, DEF_TAP, TAP_KEYS, TAP_FIELDS, TAP_MODES, TAP_LABELS, CAM_NAV, camTapShown, TILE_DOM, tapLabel, tileCfg, kindOf, extraIds, kindLabel, kindIcon, defSlot, availKinds: (E, c) => availKinds(E, c) };
   // Hjem med kuratert liste (t.hc): bare kort i tabs.hjem.cards vises; plass = lagret plass eller standard (apparater o.l.: høyre, over rom).
@@ -681,6 +780,8 @@
             { type: 'info', label: 'Dra sideveis over fanene for å bytte. Hold inne en fane og dra for å flytte den. Etasjer fra HA dukker opp automatisk.' },
             // Fiks 17.18: global, lagres i ki-store ui.glass_anim (ikke i kort-configen) – samme bryter som «Tilpass Hjem» → Faner
             { type: 'boolean', label: 'Liquid Glass-animasjon', help: 'Glass-linse når du drar eller trykker i faner og segmenter i hele dashbordet', get: () => (M.glassAnimOn ? M.glassAnimOn() : true), set: (v) => { if (M.setGlassAnim) M.setGlassAnim(v); } },
+            // Fiks 47 F: «Bekreftelsespille» (config toasts, standard på) – gjelder hele dashbordet (MSH.toast sjekker flagget)
+            { type: 'boolean', name: 'toasts', label: 'Bekreftelsespille', help: 'Hvit pille ved handlinger (f.eks. «Garasjeporten åpnes») i hele dashbordet. Av = ingen pille noe sted; haptic og handlingen påvirkes ikke.', default: true },
             ...T.map((t) => ({ type: 'text', name: `tab_labels.${t.id}`, label: `Navn · ${t.autoLabel}`, placeholder: t.autoLabel })),
             ...T.filter((t) => t.kind !== 'batterier').map((t) => ({ type: 'select', name: `tab_views.${t.id}`, label: `Visning · ${t.label}`, options: VIEWS, default: t.defView })),
             { type: 'text', name: 'custom_tabs', label: 'Egne faner', placeholder: 'Favoritter, Barn', help: 'Kommaseparert. Legg rom på fanen under «Rom og snarveier».' },
@@ -718,7 +819,12 @@
             [...keys, nx].forEach((k, i) => f.push({ type: 'area', name: `layout.${t.id}.add.${k}`, label: i === keys.length ? 'Hent rom fra en annen etasje' : 'Hentet rom', help: i === keys.length ? 'Velg et område – det legges til fanen' : '' }));
           }
           base.forEach((a) => f.push({ type: 'select', name: `layout.${t.id}.side.${a.id}`, label: `Kolonne · ${a.name}`, options: [['L', 'Venstre'], ['R', 'Høyre']], help: get(c, `layout.${t.id}.side.${a.id}`) ? '' : 'Auto' }));
-          if (t.view === 'karusell') Object.keys(SLIDES).forEach((s) => ['L', 'R'].forEach((sd) => f.push({ type: 'boolean', name: `slides.${t.id}.${sd}.${s}`, label: `Sveip-kort · ${sd === 'L' ? 'venstre' : 'høyre'} karusell · ${SLIDES[s][1]}` })));
+          if (t.view === 'karusell') ['L', 'R'].forEach((sd) => {
+            Object.keys(SLIDES).forEach((s) => f.push({ type: 'boolean', name: `slides.${t.id}.${sd}.${s}`, label: `Sveip-kort · ${sd === 'L' ? 'venstre' : 'høyre'} karusell · ${SLIDES[s][1]}`, default: get(c, `slides.${t.id}.${sd}.${s}`) == null && slideOn({}, t.id, sd, s, hass), ...(s === 'arr' ? { help: 'Sonarr/Radarr i dag – trykk åpner Kalender → Framover. Kilder: Kalender → Tilpass → Kilder.' } : {}) }));
+            // 47 D: rekkefølge på sveip-kortene (slide_order) – samme som pilene i «Tilpass Hjem» → Kort → Swipe-kort
+            const on = slideList(c, t.id, sd, hass, true);
+            if (on.length > 1) f.push({ type: 'order', name: `slide_order.${t.id}.${sd}`, hiddenName: `slide_hidden.${t.id}.${sd}`, label: `Sveip-kort · ${sd === 'L' ? 'venstre' : 'høyre'} karusell · rekkefølge`, options: on.map((k) => [k, SLIDES[k][1]]) });
+          });
           // Fiks 20.4: «Vis prikker» + «Vis først når …» per karusell (HAs egen condition-editor via ha-selector)
           if (t.view === 'karusell') ['L', 'R'].forEach((sd) => {
             const P = `carousel.${t.id}.${sd}`, sn = sd === 'L' ? 'venstre' : 'høyre', L = listOf(get(c, P + '.first'));
@@ -788,6 +894,12 @@
               ...(kd === 'cam' ? camFields(hass, c, k, P) : []),
               ...stFields(hass, c, k, kd, P),
               ...(kd === 'lock' || kd === 'garage' ? [{ type: 'hash', name: P + '.popup_hash', label: 'Popup (popup_hash) · trykk på kortet', placeholder: kd === 'lock' ? '#dorlas' : '#garasje' }] : []), // 32.3
+              ...(k === 'lock' && kd === 'lock' ? (() => { // Fiks 47 B · «Dørlåser · sveip» (samme nøkler som Tilpass Hjem → Kort)
+                const L = M.hjemLockList(hass);
+                return [{ type: 'info', label: `Dørlåser · sveip – ${L.length > 1 ? `${L.length} låser fra Dørlås-popupen. Én lås om gangen; de andre ligger til venstre for standard-låsen.` : 'bare én lås i Dørlås-popupen – vanlig kort uten sveip.'}` },
+                  { type: 'select', name: P + '.lock_sort', label: 'Rekkefølge', options: LOCK_SORTS, default: 'unlocked', help: 'Ulåste først: når alle er låst vises standard først. Standard først: standard, så ulåste, så låste. Som i popupen: samme rekkefølge som Dørlås-popupen.' },
+                  ...(L.length ? [{ type: 'select', name: P + '.lock_default', label: 'Standard-lås', options: L.map((id) => [id, lockName(hass, id)]), default: lockDefOf(c, L, tileCfg(c, 'lock').entity || (tileEnts(hass, c) || {}).lock) }] : [])];
+              })() : []),
               ...TAP_FIELDS.map(([w, lab]) => ({ type: 'tap', name: `${P}.${TAP_KEYS[w]}`, label: lab, modes: TAP_MODES, labels: TAP_LABELS, ...(kd === 'cam' && w === 'card' ? { auto: (h, cc) => camTapShown(cc, k) } : {}), stdHint: 'Standard: ' + tapLabel(DEF_TAP[kd] && DEF_TAP[kd][w], w) })));
           }
           out.push({ type: 'button', label: 'Fjern kortet', icon: 'mdi:delete', run: (h, cc, ed) => {
@@ -866,7 +978,6 @@
         });
         fields.push({ type: 'section', id: 'utseende', label: 'Layout', icon: 'mdi:page-layout-body', fields: [
           { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto', help: 'Stor skjerm = Fold-oppsettet: telefon-innholdet i full bredde (auto: ≥ 1000 px, berøring ≥ 600 px).' },
-          { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger (f.eks. «Garasjeporten åpnes»)', default: true },
         ] });
         return fields;
       };
@@ -1049,12 +1160,14 @@
 
     /* ---------- snarvei-fliser */
     // Flis-modell for en flis-id (type eller ekstra flis lock_2 …): egen entitet/navn/ikon/undertekst fra tile_cfg.<id>.
-    _tileModel(id, E) {
+    // lid (Fiks 47 A): én bestemt lås i dørlås-sveipen – entiteten vinner over tile_cfg.<id>.entity, undertekst = låsens navn.
+    _tileModel(id, E, lid) {
       const c = this.config, kd = kindOf(c, id);
       if (!kd) return this._kindModel(id, E);
       const cfg = tileCfg(c, id);
       let E2 = E;
-      if (cfg.entity || id !== kd) {
+      if (lid && kd === 'lock') E2 = { ...E, lock: lid };
+      else if (cfg.entity || id !== kd) {
         E2 = { ...E };
         if (cfg.entity && this.hass.states[cfg.entity]) {
           E2[kd] = APPL[kd] ? applFind(this.hass, kd, cfg.entity) : cfg.entity;
@@ -1069,6 +1182,7 @@
       const nm = cfg.name;
       if (nm && ['tv', 'vacr', 'cam', 'ruter', 'dish', 'wash', 'dry', 'jul'].includes(kd)) m.title = nm;
       if ((cfg.sub || nm) && !(nm && !cfg.sub && m.title === nm) && !(m.camOn && cfg.sub)) { m.sub = cfg.sub || nm; m.subHtml = null; }
+      if (lid && kd === 'lock') { const ln = lockName(this.hass, lid); m.sub = ln; m.subHtml = null; m.lid = lid; m.ic = () => this._lockTap(lid, ln); } // 47 A: undertekst = låsens navn
       // Fiks 20.7 · tekst per tilstand: tilstanden flisen viser (lås: også «Låser …» mens den venter; kamera: aktiv = on)
       if (STATE_TXT[kd] && m.ent) {
         const so = this.hass.states[m.ent];
@@ -1266,13 +1380,111 @@
       kinds.sort((a, b) => { const ia = ord.indexOf(a), ib = ord.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
       const raw = kinds.map((k) => ({ k, m: this._tileModel(k, E) })).filter((x) => x.m && !x.m.hide);
       raw.sort((x, y) => (y.m.top ? 1 : 0) - (x.m.top ? 1 : 0)); // 17.16: «Vis øverst» mens kameraet er aktivt
+      // Fiks 47 A/B: Dørlås-flisen (id «lock») → én flis per lås i #dorlas-listen når det er flere. Hjem-låsen (første i
+      // rekkefølgen) står der flisen stod, de andre til venstre for den (2. lås rett til venstre …) – alle i sveip-gruppen.
+      const li = raw.findIndex((x) => x.k === 'lock' && kindOf(c, 'lock') === 'lock');
+      let lockSig = null;
+      if (li >= 0) {
+        const own = raw.filter((x) => x.k !== 'lock' && x.m.type === 'lock').map((x) => x.m.ent);
+        const L = M.hjemLockList(this.hass).filter((id) => !own.includes(id));
+        if (L.length > 1) {
+          const mode = lockSortOf(c), def = lockDefOf(c, L, tileCfg(c, 'lock').entity || E.lock), o = M.hjemLockOrder(this.hass, L, mode, def);
+          const ex = [...o.slice(1).reverse(), o[0]].map((id, j, a) => ({ k: 'lock', lid: id, home: j === a.length - 1, st: true, m: this._tileModel('lock', E, id) })).filter((x) => x.m);
+          raw.splice(li, 1, ...ex);
+          lockSig = JSON.stringify([mode, def, L]);
+        }
+      }
+      const tk = (x) => x.k + (x.lid ? '-' + String(x.lid).split('.')[1] : '');
       const all = get(c, `swipe.${t.id}.${slot}`) ?? (t.kind === 'hjem' && slot === 'L-top');
       const stack = (k) => get(c, `tiles.${t.id}.${k}.stack`) ?? !!(STACK_DEF[t.kind] || {})[k];
-      const stR = raw.filter((x) => all || stack(x.k)), useS = stR.length > 1;
-      const flat = (useS ? raw.filter((x) => !stR.includes(x)) : raw).map((x) => this._tileHTML(x.m, `ti-${x.k}`)).join('');
+      const stR = raw.filter((x) => all || x.st || stack(x.k)), useS = stR.length > 1;
+      const flat = (useS ? raw.filter((x) => !stR.includes(x)) : raw).map((x) => this._tileHTML(x.m, `ti-${tk(x)}`)).join('');
       if (!useS) return flat;
-      const key = `${t.id}-${slot}`, n = stR.length, i = M.clamp(get(this.ui, 'sw.' + key) || 0, 0, n - 1);
-      return flat + `<div class="swc" data-key="tsw-${esc(key)}"><div class="tsw" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${stR.map((x) => `<div class="slot">${this._tileHTML(x.m, 'ts-' + x.k)}</div>`).join('')}</div></div>${!all ? this._dots(n, i) : ''}</div>`;
+      const key = `${t.id}-${slot}`, n = stR.length;
+      if (lockSig) {
+        // Låse-sveip: scroll-snap-spor (touch-action: pan-x). Indeksen følger LÅSEN: ved lasting / endret oppsett → hjem-låsen;
+        // endres rekkefølgen live (en lås byttet tilstand) står kortet på samme lås hvis brukeren har sveipet/trykket de
+        // siste 60 s, ellers følger det hjem-låsen.
+        const ids = stR.map((x) => x.lid || x.k), homeI = Math.max(0, stR.findIndex((x) => x.home));
+        const V = (this._lkV = this._lkV || {}), prev = V[key];
+        let i = homeI;
+        if (prev && prev.sig === lockSig && prev.id && Date.now() - (prev.t || 0) < 60000) { const j = ids.indexOf(prev.id); if (j >= 0) i = j; }
+        V[key] = { sig: lockSig, id: ids[i], t: prev && prev.sig === lockSig ? prev.t || 0 : 0 };
+        return flat + `<div class="swc" data-key="tsw-${esc(key)}"><div class="tsw snap" data-lsw="${esc(key)}" data-n="${n}" data-i="${i}" data-ids="${esc(ids.join('|'))}"><div class="track">${stR.map((x) => `<div class="slot">${this._tileHTML(x.m, 'ts-' + tk(x))}</div>`).join('')}</div></div>${!all ? this._dots(n, i) : ''}</div>`;
+      }
+      const i = M.clamp(get(this.ui, 'sw.' + key) || 0, 0, n - 1);
+      return flat + `<div class="swc" data-key="tsw-${esc(key)}"><div class="tsw" data-sw="${esc(key)}" data-n="${n}" data-i="${i}"><div class="track" style="transform:translateX(-${i * 100}%)">${stR.map((x) => `<div class="slot">${this._tileHTML(x.m, 'ts-' + tk(x))}</div>`).join('')}</div></div>${!all ? this._dots(n, i) : ''}</div>`;
+    }
+    _lockSeen(lid) { const V = this._lkV || {}; Object.keys(V).forEach((k) => { if (V[k] && V[k].sig && String(V[k].sig).includes(JSON.stringify(lid))) V[k] = { ...V[k], id: lid, t: Date.now() }; }); }
+    // Fiks 47 A · låse-sveipen: native scroll-snap (touch-action: pan-x) + stopPropagation (Bubble swipe-to-close / side),
+    // mus: dra = scroll, slipp → nærmeste. Ingen haptic ved sveip. Etter tegning settes sporet på data-i UTEN animasjon
+    // (bare når brukeren ikke holder på), så hjem-låsen vises ved lasting og samme lås står når rekkefølgen endres.
+    _lockSwipe(vp) {
+      const key = vp.dataset.lsw, w = () => vp.clientWidth || 1, n = () => Number(vp.dataset.n) || 1;
+      const dotsEl = () => { const d = vp.nextElementSibling; return d && d.classList.contains('msh-dots') ? d : null; };
+      const seen = (i) => {
+        const ids = String(vp.dataset.ids || '').split('|'), V = (this._lkV = this._lkV || {});
+        V[key] = { ...(V[key] || {}), id: ids[i], t: Date.now() };
+      };
+      const go = (i, smooth) => {
+        i = M.clamp(i, 0, n() - 1);
+        vp.dataset.i = i;
+        M.setDots(dotsEl(), i);
+        if (vp.scrollTo) vp.scrollTo({ left: i * w(), behavior: smooth ? 'smooth' : 'auto' }); else vp.scrollLeft = i * w();
+      };
+      M.bindDots(dotsEl(), (i) => { seen(i); go(i, true); });
+      if (!vp.__lsw) {
+        vp.__lsw = true;
+        vp.style.touchAction = 'pan-x';
+        const stop = (e) => e.stopPropagation();
+        vp.addEventListener('pointerdown', stop);
+        vp.addEventListener('touchstart', (e) => { e.stopPropagation(); vp.__touch = true; }, { passive: true });
+        vp.addEventListener('touchmove', stop, { passive: true });
+        const untouch = () => { setTimeout(() => { vp.__touch = false; }, 350); };
+        vp.addEventListener('touchend', untouch, { passive: true });
+        vp.addEventListener('touchcancel', untouch, { passive: true });
+        vp.addEventListener('scroll', () => {
+          vp.__scrollT = Date.now();
+          this._busy = true;
+          clearTimeout(vp.__settle);
+          vp.__settle = setTimeout(() => {
+            const i = M.clamp(Math.round(vp.scrollLeft / w()), 0, n() - 1);
+            if (i !== Number(vp.dataset.i)) { vp.dataset.i = i; M.setDots(dotsEl(), i); seen(i); }
+            if (this._busy === true) { this._busy = false; if (this._skipped) { this._skipped = false; this._schedule(); } }
+          }, 140);
+        }, { passive: true });
+        // mus: dra sporet (touch og hjul/styreflate scroller native)
+        let md = null;
+        vp.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse' || e.button || n() < 2) return; md = { x: e.clientX, sl: vp.scrollLeft, t: Date.now(), moved: false, id: e.pointerId }; });
+        vp.addEventListener('pointermove', (e) => {
+          if (!md) return;
+          const dx = e.clientX - md.x;
+          if (!md.moved && Math.abs(dx) < 6) return;
+          if (!md.moved) { md.moved = true; vp.style.scrollSnapType = 'none'; try { vp.setPointerCapture(md.id); } catch (x) { /* */ } }
+          e.preventDefault();
+          vp.scrollLeft = md.sl - dx;
+        });
+        const mup = (e) => {
+          if (!md) return;
+          const s0 = md; md = null;
+          if (!s0.moved) return;
+          this._swallow = true;
+          setTimeout(() => { this._swallow = false; }, 350);
+          const dx = e.clientX - s0.x, v = dx / Math.max(1, Date.now() - s0.t), i0 = Math.round(s0.sl / w());
+          let i = i0;
+          if (dx < -w() * 0.2 || v < -0.45) i++; else if (dx > w() * 0.2 || v > 0.45) i--;
+          vp.style.scrollSnapType = '';
+          seen(M.clamp(i, 0, n() - 1));
+          go(i, true);
+        };
+        vp.addEventListener('pointerup', mup);
+        vp.addEventListener('pointercancel', mup);
+      }
+      // på plass etter tegning (uten animasjon) – ikke mens brukeren sveiper
+      const want = Number(vp.dataset.i) || 0;
+      if (vp.__touch || Date.now() - (vp.__scrollT || 0) < 300) return;
+      if (Math.abs(vp.scrollLeft - want * w()) > 1) { vp.scrollLeft = want * w(); vp.__scrollT = 0; }
+      M.setDots(dotsEl(), want);
     }
     // Snarvei-flis = universal small-rad (07-universal.js) i tileV-form (Hjem v2): klassen «ht» gir pille 64 px / radius 32 (Fiks 15.3)
     // på samme element som bakgrunnen, ikon-sirkel 56/28, ikon 24. Ikon-sirkelen er egen knapp (data-w="ic").
@@ -1297,8 +1509,8 @@
       const zones = !!t.type;
       const ring = zones && this._tapFor(t.kind, 'hold_ic', t).action !== 'none' ? '<svg class="hr" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="26.5" pathLength="100"></circle></svg>' : '';
       return M.universal({ ...o, mode: 'sensor', size: 'small', st, cls: 'ht' + (zones ? ' hz' : '') + (t.pulse ? ' hpulse' : '') + (blink ? ' hblink' : ''), icon: t.icon, icon_html: ring + (t.aIcon || M.icon(t.icon || 'mdi:link', 24)), main_text: t.title, sub_text: t.sub || '', sub_html: t.subHtml || null,
-        act: 'tile', id: null, ent: zones ? false : t.ent || false, key, attrs: { 'data-k': t.kind, 'data-w': 'card', 'data-hz': zones ? '1' : null },
-        icon_attrs: { role: 'button', 'data-act': 'tile', 'data-k': t.kind, 'data-w': 'ic' } });
+        act: 'tile', id: null, ent: zones ? false : t.ent || false, key, attrs: { 'data-k': t.kind, 'data-w': 'card', 'data-hz': zones ? '1' : null, 'data-lid': t.lid || null },
+        icon_attrs: { role: 'button', 'data-act': 'tile', 'data-k': t.kind, 'data-w': 'ic', 'data-lid': t.lid || null } });
     }
     // Handling for en flis og sone (ic | card | hold_ic | hold_card): tile_cfg.<id> → 16.7-aliaser → gammel tap.<type> → DEF_TAP.
     _tapFor(id, w, t) {
@@ -1342,9 +1554,10 @@
       if (a.action === 'perform-action' || a.action === 'call-service') { if (M.tap.run(this, a, { entity: ent, hass: this.hass })) this._toast('Kjørte ' + (a.perform_action || a.service)); return; }
       if (M.tap) M.tap.run(this, a, { entity: ent, hass: this.hass });
     }
-    _runTile(kind, w) {
+    _runTile(kind, w, lid) {
       if (/^akt:/.test(kind)) return this._runAkt(kind);
-      const c = this.config, t = this._tileModel(kind, this._E || tileEnts(this.hass, c));
+      const c = this.config, t = this._tileModel(kind, this._E || tileEnts(this.hass, c), lid || undefined);
+      if (lid) this._lockSeen(lid); // 47 A: trykk/hold på en lås → kortet blir stående på den låsen
       if (!t) return;
       if (kindOf(c, kind)) return this._doTap(t, this._tapFor(kind, w, t));
       // egne snarveier (lenker)
@@ -1387,8 +1600,8 @@
         const tile = this._el(e, '.u.ht[data-hz]', true);
         if (!tile) return;
         end();
-        const icEl = this._el(e, '[data-w="ic"]', true), zone = icEl && tile.contains(icEl) ? 'hold_ic' : 'hold_card', k = tile.dataset.k;
-        const t = this._tileModel(k, this._E || tileEnts(this.hass, this.config));
+        const icEl = this._el(e, '[data-w="ic"]', true), zone = icEl && tile.contains(icEl) ? 'hold_ic' : 'hold_card', k = tile.dataset.k, lid = tile.dataset.lid || undefined;
+        const t = this._tileModel(k, this._E || tileEnts(this.hass, this.config), lid);
         if (!t) return;
         const a = this._tapFor(k, zone, t);
         if (!a || a.action === 'none') return;
@@ -1401,8 +1614,8 @@
           this._swallow = true;
           setTimeout(() => { this._swallow = false; }, 700);
           M.haptic('medium');
-          this._runTile(k, zone);
-        }, 500);
+          this._runTile(k, zone, lid);
+        }, lid ? 400 : 500); // 47 A: hold på en lås i sveipen = 400 ms
       }, true);
       R.addEventListener('pointermove', (e) => { if (st && Math.hypot(e.clientX - st.x, e.clientY - st.y) > 8) end(); }, true);
       ['pointerup', 'pointercancel'].forEach((ty) => R.addEventListener(ty, end, true));
@@ -1439,12 +1652,99 @@
       return { top: 'Søppel', title: d == null ? '–' : d <= 0 ? 'I dag' : d === 1 ? 'I morgen' : `Om ${M.nf(d, 0)} dager`, line1: type || '–', line2: '', hash: c.trash_hash || '#soppel' };
     }
     _slideHTML(id, E) {
+      if (id === 'arr') return this._arrHTML(); // 47 D
       const x = this._slide(id, E);
       // Kalender: hold gjør ingenting som standard (17.7) – data-ent (hold-timer) bare når hold-handling er valgt
       const hold = id !== 'cal' || (calNorm(get(this.config, 'calendar.hold_action')) || { action: 'none' }).action !== 'none';
       return `<div class="rk sl" data-act="slide" data-s="${id}" data-key="sl-${id}" ${x.ent && hold ? `data-ent="${esc(x.ent)}"` : ''}>
         <span class="sl-top ell">${esc(x.top)}</span><span class="sl-ti ell">${esc(x.title)}</span><span style="flex:1"></span><span class="sl-bar"></span>
         <span class="sl-l1 num">${esc(x.line1)}</span><span class="sl-l2 ell">${esc(x.line2)}</span></div>`;
+    }
+
+    /* ---------- Fiks 47 D · «Kommer i dag» (Hjem v3 · SL.arr / r.isArr): Sonarr/Radarr-utgivelser i dag med cover art
+     * kant-til-kant (fanart → poster → tonet plassholder), blar automatisk hvert 5. s (crossfade .7 s + zoom 1.04 → 1 på
+     * 1,2 s, fremdriftsstreker), pause når dokumentet er skjult eller kortet ikke er synlig (IntersectionObserver). Ingen
+     * sveip inni kortet. Data: M.arrMedia.items (06-arr-media.js) med Kalender-kortets kilder (sonarr_entity/radarr_entity);
+     * mangler modulen → lokal reserve (calendar.sonarr* / radarr* + sensor.*upcoming_media*). Hentes når sliden tegnes,
+     * mellomlagres 15 min (og ved ny dag). Trykk → sessionStorage ki-cal-tab = 'fram' + #kalender (Framover-fanen). */
+    _arrHTML() {
+      const A = this._arrLoad(), items = A.items, n = items.length, ai = n ? (this._arrI || 0) % n : 0;
+      this._arrN = n;
+      const hue = (t) => { if (M.arrMedia && M.arrMedia.hue) return M.arrMedia.hue(t); let h = 0; String(t || '').split('').forEach((ch) => { h = (h * 31 + ch.charCodeAt(0)) % 360; }); return h; };
+      const layer = (it, i) => {
+        const img = it.fanart || it.poster, src = it.source === 'radarr' ? 'radarr' : it.source === 'plex' ? 'plex' : 'sonarr', h = hue(it.title);
+        return `<div class="arl${i === ai ? ' on' : ''}" data-i="${i}" data-key="arl-${i}-${esc(M.slug(it.title || '') || 'x')}">
+          <span class="arc"${img ? ` data-img="${esc(img)}"` : ''} style="background:repeating-linear-gradient(135deg,hsl(${h} 30% 30%) 0 14px,hsl(${h} 30% 27%) 14px 28px)">${img ? `<img class="arim" src="${esc(img)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>
+          <span class="arg"></span>
+          <div class="arb"><span class="arch"><span class="ars ${src}">${src === 'radarr' ? 'Radarr' : src === 'plex' ? 'Plex' : 'Sonarr'}</span>${it.time ? `<span class="art num">${esc(it.time)}</span>` : ''}</span>
+            <span class="arti">${esc(it.title || '–')}</span>${it.sub ? `<span class="arsu">${esc(it.sub)}</span>` : ''}</div></div>`;
+      };
+      const bars = n > 1 ? `<div class="arbars">${items.map((_, i) => `<span class="arbar${i === ai ? ' on' : ''}"></span>`).join('')}</div>` : '';
+      const empty = !n ? `<div class="are"><span class="are-t">${A.loading ? '…' : 'Ingenting i dag'}</span><span class="are-s">${esc(A.loading ? 'Henter Sonarr/Radarr' : A.none ? 'Velg Sonarr/Radarr i Kalender → Kilder' : 'Neste: ' + (A.next || '–'))}</span></div>` : '';
+      return `<div class="rk sl arr" data-act="slide" data-s="arr" data-key="sl-arr" data-ki-island data-n="${n}" role="button" aria-label="Kommer i dag – åpne Kalender, Framover">
+        ${items.map(layer).join('')}
+        <div class="artop">Kommer i dag</div>${bars}${empty}</div>`;
+    }
+    // Kalender-kortets kilder (Tilpass → Kilder → Framover) gjelder også her
+    _arrCfg() {
+      try {
+        const live = M.liveOf && M.liveOf('msh-kalender-card');
+        if (live && live.config) return live.config;
+        return (M.effectiveConfig && M.popupCardId ? M.effectiveConfig({ type: 'custom:msh-kalender-card', card_id: M.popupCardId('#kalender') }, null, { shared: true }) : null) || {};
+      } catch (e) { return {}; }
+    }
+    _arrLoad() {
+      const now = new Date(), day = now.toDateString(), A = this._arr;
+      if (A && A.day === day && (A.loading || Date.now() - A.t < 15 * 60000)) return A;
+      const hass = this.hass, none = !arrSrc(hass);
+      const st = (this._arr = { day, t: Date.now(), loading: !none, none, items: A && A.day === day ? A.items : [], next: A ? A.next : '' });
+      if (none) return st;
+      const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+      const d1 = new Date(d0.getTime() + 864e5), to = new Date(d0.getTime() + 15 * 864e5);
+      const get0 = M.arrMedia && typeof M.arrMedia.items === 'function' ? M.arrMedia.items(hass, { from: d0, to, cfg: this._arrCfg() }) : M.hjemArrLocal(hass, d0, to);
+      Promise.resolve(get0).then((L) => {
+        L = (Array.isArray(L) ? L : []).filter((x) => x && x.title && x.source !== 'plex').map((x) => ({ ...x, st: x.start ? new Date(x.start) : null }));
+        const today = L.filter((x) => x.st && !isNaN(x.st) && x.st >= d0 && x.st < d1).map((x) => ({ ...x, time: x.time || (x.all_day || x.allDay || (x.st.getHours() === 0 && x.st.getMinutes() === 0) ? 'I dag' : hhmm(x.st)) }));
+        const nx = L.find((x) => x.st && !isNaN(x.st) && x.st >= d1);
+        const dl = (d) => { const k = Math.round((new Date(d).setHours(0, 0, 0, 0) - d0) / 864e5); return k === 1 ? 'i morgen' : d.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'short' }); };
+        this._arr = { day, t: Date.now(), loading: false, none: false, items: today, next: nx ? `${dl(nx.st)} · ${nx.title}` : '' };
+      }).catch(() => { this._arr = { day, t: Date.now(), loading: false, none: false, items: [], next: '' }; })
+        .then(() => { if (this.isConnected) this._schedule(true); });
+      return st;
+    }
+    _arrOpen() {
+      try { sessionStorage.setItem('ki-cal-tab', 'fram'); } catch (e) { /* */ }
+      try { window.dispatchEvent(new CustomEvent('ki-cal-tab', { detail: { tab: 'fram' } })); } catch (e) { /* */ }
+      M.openPopup('#kalender');
+    }
+    // Autoavspilling (DOM-klasser, ingen ny tegning): hvert 5. s når dokumentet er synlig og kortet er i synsfeltet.
+    _arrBind() {
+      const el = this.shadowRoot.querySelector('.sl.arr');
+      el && el.querySelectorAll('img.arim').forEach((im) => {
+        if (im.__arr) return;
+        im.__arr = true;
+        const bad = () => im.remove(), ok = () => im.classList.add('ok');
+        im.addEventListener('error', bad); im.addEventListener('load', ok);
+        if (im.complete) { if (im.naturalWidth) ok(); else if (im.getAttribute('src')) bad(); }
+      });
+      if (this._arrEl !== el) {
+        if (this._arrIO) { this._arrIO.disconnect(); this._arrIO = null; }
+        this._arrEl = el; this._arrVis = !!el;
+        if (el && window.IntersectionObserver) { this._arrIO = new IntersectionObserver((es) => { es.forEach((x) => { this._arrVis = x.isIntersecting && x.intersectionRatio > 0.2; }); }, { threshold: [0, 0.2, 0.6] }); this._arrIO.observe(el); }
+      }
+      const run = !!el && (this._arrN || 0) > 1;
+      if (run && !this._arrT) this._arrT = setInterval(() => this._arrTick(), M.HJEM_ARR_MS || 5000);
+      else if (!run && this._arrT) { clearInterval(this._arrT); this._arrT = null; }
+    }
+    _arrTick() {
+      const el = this._arrEl;
+      if (!el || !el.isConnected || !this.isConnected) { clearInterval(this._arrT); this._arrT = null; return; }
+      if (document.hidden || !this._arrVis) return;
+      const n = this._arrN || 0;
+      if (n < 2) return;
+      this._arrI = ((this._arrI || 0) + 1) % n;
+      el.querySelectorAll('.arl').forEach((x, i) => x.classList.toggle('on', i === this._arrI));
+      el.querySelectorAll('.arbar').forEach((x, i) => x.classList.toggle('on', i === this._arrI));
     }
 
     /* ---------- rom */
@@ -1478,7 +1778,7 @@
       return M.romkortHTML(r, { variant, klima: this._klima(r), alert, key: `rk-${variant}-${r.id}` });
     }
     _carousel(t, side, rooms, E) {
-      const sl = get(this.config, `slides.${t.id}.${side}`) || {}, slides = Object.keys(SLIDES).filter((k) => sl[k]);
+      const slides = slideList(this.config, t.id, side, this.hass); // 47 D: + «Kommer i dag», rekkefølge slide_order
       const items = [...rooms.map((r) => this._roomHTML(r, 'karusell')), ...slides.map((k) => this._slideHTML(k, E))];
       if (!items.length) return '';
       const key = `${t.id}-car-${side}`, n = items.length;
@@ -1646,9 +1946,13 @@
       if (name === 'tile') {
         // fiks 19.3: sveip i flis-stabelen (Kamera/Ruter) er ikke trykk – pekeren må ha flyttet seg < 8 px (tastatur: detail 0)
         if (ev && ev.detail !== 0 && this._pdXY && ev.clientX != null && Math.hypot(ev.clientX - this._pdXY[0], ev.clientY - this._pdXY[1]) >= 8) return;
-        return this._runTile(d.k, d.w);
+        return this._runTile(d.k, d.w, d.lid);
       }
       if (name === 'appl') { const A = this._appl(d.k, (this._E || {})[d.k]); if (A) this._applAct(A); return; }
+      if (name === 'slide' && d.s === 'arr') { // 47 D: Kalender → Framover (ikke ved sveip i karusellen)
+        if (ev && ev.detail !== 0 && this._pdXY && ev.clientX != null && Math.hypot(ev.clientX - this._pdXY[0], ev.clientY - this._pdXY[1]) >= 8) return;
+        return this._arrOpen();
+      }
       if (name === 'slide' && d.s === 'cal') {
         // swipe mellom sidene er ikke trykk: pekeren må ha flyttet seg < 8 px (tastatur: detail 0)
         if (ev && ev.detail !== 0 && this._pdXY && Math.hypot(ev.clientX - this._pdXY[0], ev.clientY - this._pdXY[1]) >= 8) return;
@@ -1668,6 +1972,8 @@
     }
     afterRender() {
       const root = this.shadowRoot;
+      root.querySelectorAll('[data-lsw]').forEach((vp) => this._lockSwipe(vp)); // 47 A
+      this._arrBind(); // 47 D
       root.querySelectorAll('[data-sw]').forEach((vp) => M.hjemSwiper(this, vp, (i) => { (this._swT = this._swT || {})[vp.dataset.sw] = Date.now(); this.setUI({ sw: { ...(this.ui.sw || {}), [vp.dataset.sw]: i } }, true); }));
       // 20.4: tidsstyrte regler (time/sun/for) sjekkes hvert 30. s; state og template gir ny tegning selv
       const rules = /"first":\[\{/.test(JSON.stringify(this.config.carousel || {}));
@@ -1811,6 +2117,11 @@
         .carw,.swc{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;min-width:0}
         .car{box-sizing:content-box;width:100%;overflow:hidden;padding-top:10px;margin-top:-10px;touch-action:pan-y}
         .tsw{width:100%;overflow:hidden;border-radius:32px;touch-action:pan-y}
+        .tsw.snap{overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:auto;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x;-webkit-overflow-scrolling:touch}
+        .tsw.snap::-webkit-scrollbar{display:none}
+        .tsw.snap .track{transform:none;transition:none;will-change:auto}
+        .tsw.snap .slot{scroll-snap-align:start;scroll-snap-stop:always}
+        .tsw.snap .u.ht.hz{touch-action:pan-x}
         ${M.UNIVERSAL_CSS || ''}
         .u-i[data-act]{cursor:pointer;transition:transform .2s,background .25s}
         .u-i[data-act]:active{transform:scale(.9)}
@@ -1855,6 +2166,30 @@
         .sl-bar{width:16px;height:1.5px;background:var(--ki-text-2, var(--gray800,#afafaf));margin-bottom:12px;flex:none}
         .sl-l1{font-size:14px;font-weight:500;white-space:nowrap}
         .sl-l2{font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));padding-top:4px}
+        /* 47 D · «Kommer i dag» (Hjem v3 · r.isArr) – mørk øy (bilde), faste lyse farger på bildet */
+        .sl.arr{position:relative;padding:0;overflow:hidden;background:var(--gray100,#2f2f2f);color:#fafafa} /* ki-hex-ok: bildeflate */
+        .arl{position:absolute;inset:0;opacity:0;transform:scale(1.04);transition:opacity .7s ease,transform 1.2s ease;pointer-events:none}
+        .arl.on{opacity:1;transform:scale(1)}
+        .arc{position:absolute;inset:0;overflow:hidden}
+        .arc img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s}
+        .arc img.ok{opacity:1}
+        .arg{position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,20,22,0.55) 0%,rgba(20,20,22,0) 32%,rgba(20,20,22,0) 42%,rgba(20,20,22,0.88) 100%)} /* ki-hex-ok */
+        .arb{position:absolute;left:16px;right:16px;bottom:22px;display:flex;flex-direction:column;gap:6px;min-width:0}
+        .arch{display:flex;gap:6px;align-items:center}
+        .ars,.art{height:22px;padding:0 9px;border-radius:11px;display:flex;align-items:center;font-size:12px;font-weight:600}
+        .ars{background:rgb(115 185 242);color:#232323} /* ki-hex-ok: mørk tekst på aksent */
+        .ars.radarr{background:rgb(242 181 115)}
+        .ars.plex{background:rgb(229 160 13)}
+        .art{background:rgba(255,255,255,0.16);color:#fafafa} /* ki-hex-ok */
+        .arti{font-size:22px;font-weight:600;letter-spacing:-0.01em;line-height:1.15;color:#fafafa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* ki-hex-ok */
+        .arsu{font-size:13px;color:rgba(255,255,255,0.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* ki-hex-ok: tekst på bilde */
+        .artop{position:absolute;left:16px;right:16px;top:14px;display:flex;align-items:center;gap:8px;pointer-events:none;font-size:13px;font-weight:500;color:#fafafa} /* ki-hex-ok */
+        .arbars{position:absolute;left:16px;right:16px;bottom:10px;display:flex;gap:4px;pointer-events:none}
+        .arbar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.3);transition:background .4s} /* ki-hex-ok */
+        .arbar.on{background:#fafafa} /* ki-hex-ok */
+        .are{position:absolute;left:18px;bottom:18px;right:18px;display:flex;flex-direction:column;gap:4px}
+        .are-t{font-size:30px;font-weight:300;line-height:1.15;text-transform:uppercase}
+        .are-s{font-size:13px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* ki-hex-ok */
         .apg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
         .ap{position:relative;height:150px;border-radius:26px;background:var(--ki-surface, var(--gray100,#2f2f2f));overflow:hidden;display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .ap-h{display:flex;align-items:flex-start;gap:8px;padding:14px 12px 0 16px}

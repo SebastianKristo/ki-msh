@@ -132,14 +132,15 @@ const pv = await p.evaluate(async () => {
   const wait2 = (ms) => new Promise((q) => setTimeout(q, ms));
   const c = window.__M(), ui = c.customize(); await wait2(600);
   const E = ui.editor, R = E.shadowRoot;
-  const sec = R.querySelector('details.sec[data-focus="faner"]');
-  if (sec && !sec.open) { sec.open = true; sec.dispatchEvent(new Event('toggle')); await wait2(300); }
+  // 47 G: «Tilpass media» har ikonfaner (Faner · TV · Musikk); forhåndsvisningen står øverst i Faner (etter teksten)
+  const ft = R.querySelector('.mmt [data-t="faner"]'); if (ft && ft.getAttribute('aria-selected') !== 'true') { ft.click(); await wait2(300); }
+  const sec = R.querySelector('.wrap');
   const row = () => R.querySelector('[data-key="mtp-row"]');
   const read = () => { const r = row(); return r ? { tabs: [...r.querySelectorAll('.mtp-t')].map((x) => x.textContent.trim()), on: (r.querySelector('.mtp-t.on') || {}).textContent } : null; };
-  const firstInSec = sec && [...sec.querySelectorAll('[data-key]')].find((x) => x.getBoundingClientRect().height > 0);
+  const firstInSec = sec && [...sec.children].filter((x) => x.getBoundingClientRect().height > 0 && x.localName !== 'style' && !x.classList.contains('ttl') && x.getAttribute('data-key') !== 'mmt' && x.getAttribute('data-key') !== 'mtp-i')[0];
   const o = { sec: !!sec, top: firstInSec && firstInSec.getAttribute('data-key'), a: read() };
-  // 36.5: «Fane ved åpning» er nå felles Startfane-chips (MSH.startTab, start_tab)
-  const dt = R.querySelector('[data-mst-field] [data-a="fn"][data-v="musikk"]');
+  // 36.5 → 47 G: «Startfane»-segmentet (TV · Musikk) skriver start_tab (felles MSH.startTab) + tabs.start
+  const dt = R.querySelector('.mso[data-g="start"][data-v="musikk"]');
   if (dt) { dt.click(); await wait2(400); }
   o.b = read();
   // Flytt «Musikk» først (rekkefølge-feltet)
@@ -149,16 +150,16 @@ const pv = await p.evaluate(async () => {
   o.draft = { dt: E._config.start_tab, order: E._config.tab_order };
   // lys modus: forhåndsvisningen
   await window.__theme(true);
-  const r = row(), on = r.querySelector('.mtp-t.on'), off = r.querySelector('.mtp-t:not(.on)');
+  const r = R.querySelector('.mtpv'), on = r.querySelector('.mtp-t.on'), off = r.querySelector('.mtp-t:not(.on)');
   o.light = { bg: getComputedStyle(r).backgroundColor, onC: getComputedStyle(on).color, crOff: +window.MSH.theme.contrast(getComputedStyle(off).color, getComputedStyle(r).backgroundColor).toFixed(2), crOn: +window.MSH.theme.contrast(getComputedStyle(on).color, 'rgb(244 169 199)').toFixed(2) };
   await window.__theme(false);
   const pp = window.MSH.portals().pop(); pp.shadowRoot.querySelector('.bg').click(); await wait2(500);
   return o;
 });
-ok('Tilpass media → Faner: forhåndsvisningen ligger øverst i seksjonen og viser TV · Musikk', pv.sec && pv.top === 'mtp' && pv.a && pv.a.tabs.join() === 'TV,Musikk' && pv.a.on === 'TV', pv);
+ok('Tilpass media → Faner: forhåndsvisningen ligger øverst i fanen og viser TV · Musikk', pv.sec && pv.top === 'mtp' && pv.a && pv.a.tabs.join() === 'TV,Musikk' && pv.a.on === 'TV', pv);
 ok('forhåndsvisningen følger «Startfane» live (Musikk aktiv)', pv.b && pv.b.on === 'Musikk' && pv.draft.dt === 'musikk', pv);
 ok('forhåndsvisningen følger rekkefølgen live (Musikk først)', pv.c && pv.c.tabs.join() === 'Musikk,TV', pv.c);
-ok('lys · forhåndsvisning: lys flate, inaktiv ≥ 4,5:1, aktiv mørk tekst på rosa', pv.light.bg === 'rgb(240, 240, 240)' && pv.light.crOff >= 4.5 && pv.light.crOn >= 4.5, pv.light);
+ok('lys · forhåndsvisning: lys flate (--ki-bg, 47 G), inaktiv ≥ 4,5:1, aktiv mørk tekst på rosa', pv.light.bg === 'rgb(230, 230, 230)' && pv.light.crOff >= 4.5 && pv.light.crOn >= 4.5, pv.light);
 
 // ---------- 6 · lys modus: spole-menyen + «spiller nå» som mørk øy
 await p.evaluate(async () => { await window.__theme(true); const c = window.__M(); c.select('musikk', 'media_player.spotify_jem'); await new Promise((q) => setTimeout(q, 400)); });

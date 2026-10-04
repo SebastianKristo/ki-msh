@@ -72,7 +72,8 @@ const H = await p.evaluate(() => {
     draw: (R.querySelector('.pc svg path[pathLength]') || { style: {} }).style.animation || '', tabs: [...R.querySelectorAll('[data-tabbar] button')].map((x) => x.dataset.v) };
 });
 ok('kortet fyller popup-bredden', H.w >= H.pw - 40 && H.w > 300, H);
-ok('toppkort: energi-hus-v2.svg med bilen (cTop/cGlass), 58 % bredde, top 6 px, ≥ 250 px', H.svg && Math.abs(H.imgW - Math.min(290, H.heroW * 0.58)) <= 2 && H.imgTop === 6 && H.heroH >= 250, H);
+// Fiks 47 M: huset skaleres etter høyden (calc(100% - 96px)), maks 58 % bredde
+ok('toppkort: energi-hus-v2.svg med bilen (cTop/cGlass), høyde 100 % − 96 px, maks 58 % bredde, top 6 px, ≥ 250 px', H.svg && H.imgW <= Math.round(H.heroW * 0.58) + 1 && H.imgTop === 6 && H.heroH >= 250, H);
 ok('BRUKER NÅ = effekt-sensoren (live), mørk øy, glowP + ping', H.ent && H.watt !== '–' && H.island && H.glow === 'glowP' && H.ping === 'ping', { ent: H.ent, watt: H.watt });
 ok('ingen mock-verdier fra designet (883 W, 687 kr, 1,49 kr, 0,80 kr, 49 kr)', !/\b883\b|687 kr|1,49 kr|0,80 kr|\b49 kr/.test(H.txt) && !/Spotpris middels · 1,49/.test(H.txt), H.txt.slice(0, 300));
 ok('Priser: pris time for time tegnes med draw', /draw/.test(H.draw), H.draw);
@@ -138,9 +139,13 @@ const T58 = await p.evaluate(() => Math.round(window.__tp.shadowRoot.querySelect
 ok('håndtaket bytter til 58 %', Math.abs(T58 - 58) <= 2, T58);
 const tpClick = async (sel) => { await p.evaluate((sel) => window.__tp.shadowRoot.querySelector(sel).click(), sel); await wait(250); };
 await tpClick('[data-a="tptab"][data-v="vis"]');
+// Fiks 47 O: lange seksjoner er akkordeoner (lukket som standard)
+await tpClick('[data-a="acc"][data-v="ts"]');
 await tpClick('[data-a="ts"][data-v="ikoner"]');
+await tpClick('[data-a="acc"][data-v="ex"]');
 await tpClick('[data-a="exp"][data-v="norge"]');
 await tpClick('[data-a="exs"][data-v="tv"]');
+await tpClick('[data-a="acc"][data-v="uc"]');
 await tpClick('[data-a="uc"][data-s="0"][data-v="cost"]');
 await tpClick('[data-a="gear"][data-v="tab"]');
 await tpClick('[data-a="tptab"][data-v="ent"]');
@@ -171,7 +176,7 @@ const GE = await p.evaluate(async () => {
   const R = ed.shadowRoot, click = async (s) => { R.querySelector(s).click(); await wait(80); };
   const tabs = [...R.querySelectorAll('.tpt button')].map((x) => x.title);
   await click('[data-a="tptab"][data-v="vis"]');
-  await click('[data-a="ts"][data-v="kompakt"]'); await click('[data-a="size"][data-v="kompakt"]'); await click('[data-a="start"][data-v="Forbruk"]'); await click('[data-a="sw"][data-v="anim"]');
+  await click('[data-a="acc"][data-v="ts"]'); await click('[data-a="ts"][data-v="kompakt"]'); await click('[data-a="size"][data-v="kompakt"]'); await click('[data-a="start"][data-v="Forbruk"]'); await click('[data-a="sw"][data-v="anim"]');
   const last = out[out.length - 1] || {};
   ed.remove();
   return { tabs, n: out.length, cfg: { tabStyle: last.tabStyle, cardSize: last.cardSize, start: last.start, anim: last.anim, card_id: last.card_id } };
