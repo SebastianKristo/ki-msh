@@ -50,7 +50,8 @@ const st = (p) => p.evaluate(() => {
   const cs = m && getComputedStyle(m);
   return { off: !m || m.classList.contains('off'), mx: m ? parseFloat(m.style.getPropertyValue('--mx')) || 0 : 0, my: m ? parseFloat(m.style.getPropertyValue('--my')) || 0 : 0, w: m ? m.offsetWidth : 0,
     field: !!(f && f.classList.contains('on')), fop: f ? getComputedStyle(f).opacity : null, undo: u ? u.textContent : null, exp: !!(m && m.classList.contains('exp')),
-    sl: sw ? Math.round(sw.scrollLeft) : 0, cw: sw ? sw.clientWidth : 0, ta: sw ? getComputedStyle(sw).touchAction : null, hid: !!sessionStorage.getItem('ki:mini:hidden'), op: cs && cs.opacity,
+    sl: sw ? Math.round(sw.scrollLeft) : 0, cw: sw ? sw.clientWidth : 0, ta: sw ? getComputedStyle(sw).touchAction : null, hid: !!(sessionStorage.getItem('ki:mini:hidden') || sessionStorage.getItem('ki:mini:gone')), // Fiks 50: fjern = per entity_id (ki:mini:gone)
+    op: cs && cs.opacity,
     scrollY: window.scrollY, hash: location.hash };
 });
 // første synlige treff (radene i sporet ligger ved siden av hverandre)
@@ -74,7 +75,7 @@ const rowPt = async (p) => { const r = await box(p, '[data-mini] .mtx'); return 
   const { p } = S;
   let s = await st(p);
   ok('vises når noe spiller', !s.off, s);
-  ok('36.10 sporet: touch-action pan-y ved scroll-start', s.ta === 'pan-y', s.ta);
+  ok('Fiks 50 sporet: touch-action none (alle gester i JS)', s.ta === 'none', s.ta);
   let pt = await rowPt(p);
   await p.evaluate(() => window.scrollTo(0, 200)); await p.waitForTimeout(800);
   const y0 = (await st(p)).scrollY;
@@ -95,7 +96,7 @@ const rowPt = async (p) => { const r = await box(p, '[data-mini] .mtx'); return 
   let w = await mid(40, 8, 30);
   s = await st(p);
   ok('36.10 ned 40 px → ingenting (ingen translate/opasitet)', !s.off && s.my === 0 && !s.hid && w.my === 0 && w.op === '1' && !w.drag, { s, w });
-  ok('36.10 siden kan rulle under loddrett sveip (pan-y)', s.scrollY !== y0, { y0, y: s.scrollY });
+  ok('Fiks 50 siden ruller ikke under sveip på mini-spilleren (touch-action none)', s.scrollY === y0, { y0, y: s.scrollY });
   pt = await rowPt(p);
   w = await mid(90, 8, 30);
   s = await st(p);
@@ -185,11 +186,12 @@ const rowPt = async (p) => { const r = await box(p, '[data-mini] .mtx'); return 
   await swipe(S, pt.x + 150, pt.y, -140, 0, 8, 30, 700);
   s = await st(p);
   ok('sveip venstre → neste spiller', s.cw && Math.round(s.sl / s.cw) === 1 && !s.field && !s.off, s);
-  ok('spiller 2: touch-action pan-x', /pan-x/.test(s.ta || ''), s.ta);
-  await swipe(S, pt.x, pt.y, 140, 0, 8, 30, 700);
+  ok('Fiks 50 spiller 2: touch-action none', s.ta === 'none', s.ta);
+  await swipe(S, pt.x, pt.y, 80, 0, 8, 30, 700);
   s = await st(p);
-  // pan-x: nettleseren ruller selv (CDP-touch ruller ikke alltid i hodeløs Chromium) – kravet er at «Fjern» ikke åpnes
-  ok('spiller 2: sveip høyre gir ikke «Fjern» (vanlig rulling)', !s.field && !s.off && !s.hid && s.mx === 0, s);
+  ok('Fiks 50 spiller 2: sveip høyre → «Fjern» (1/3)', s.field && !s.off && !s.hid && Math.abs(s.mx - s.w / 3) < 2, s);
+  const mb2 = await box(p, '[data-mini]');
+  await tapAt(S, mb2.l + 40, mb2.t + mb2.h / 2);
   await p.evaluate(() => { const sw = deep('.msw'); sw.scrollLeft = 0; }); await p.waitForTimeout(400);
   // utvid (sveip opp på play), sveip ned lukker utvidelsen uten å skjule
   let pp = await box(p, '[data-mini] .mpp');

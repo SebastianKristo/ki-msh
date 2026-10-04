@@ -6,8 +6,14 @@
  *   2. Toppkort (184 px): vertsnavn + statuschip, stor verdi (44/300) for valgt måling + to små målinger (trykk = bytt graf),
  *      tidsetikett «nå · …» / «−3 t · …», graf 84 px kant til kant med scrub (touch-action none + stopPropagation).
  *   3. Prosa-setning (show_prose, std på): ÉN <p> med inline invers-piller (35.7 regel 1 – aldri containere).
- *   4. Underfaner per vert: Nettverk Internett · Enheter · Switch (ingen Kameraer-underfane) · Proxmox Gjester · Lagring · Backup
- *      · Unraid Array · Gjester · HA Tillegg · Oppdateringer · System.
+ *   4. Underfaner per vert: Nettverk UDM · Enheter · Switch (Fiks 50 K; UDM = Internett-kortet (SpeedTest, del G) + UDM-kortet
+ *      fra 58b-server-unifi.js; Enheter/Switch tegnes av M.serverUnifi når den finnes) · Proxmox Gjester · Lagring · Backup
+ *      · Unraid Array · Gjester · HA Tillegg · Oppdateringer · System · qBittorrent Torrenter · Statistikk (Fiks 50 E).
+ *   Fiks 50 F: vertvelgeren er en vannrett karusell (faner og kort): flex 1 0 auto, min 84 px, scroll-snap, fade 18 px bare på
+ *      siden med skjult innhold, aktiv fane sentreres, touch-action pan-x + stopPropagation, hold-dra omorganiserer fortsatt.
+ *   Fiks 50 E: qBittorrent (plattform qbittorrent, translation_key) skjules automatisk når integrasjonen mangler (qbit_force).
+ *   Fiks 50 G: Internett-kortet bruker SpeedTest (speedtestdotnet): Ned/Opp Mbit/s, «Ping 6 ms · målt 14:10», «Kjør test».
+ *   Vert-grensesnitt for M.serverUnifi: card._host = { hass, config, ui, setUI, render, haptic, moreInfo, setCfg, go, confirm }.
  *   Felles utvidbar liste (35.2: Gjester/Tillegg): søk (44 px), filterchips med antall, rader 60 px med bryter (stopPropagation),
  *   trykk = utvid (6 stat-fliser, bruksstolper, brytere, handlinger). Rød-tone-handlinger krever bekreftelse (to trykk).
  * Data (autokonfig, aldri mock – mangler → «–»): UniFi Network (unifi), UniFi Protect (unifiprotect – kameraene vises ikke i Server;
@@ -36,12 +42,15 @@
   const PLAT = {}; INTEG.forEach((i) => i.platforms.forEach((p) => { PLAT[p] = i.key; }));
   const DOMS = INTEG.flatMap((i) => i.domains);
   // Verter (vertvelgeren) og underfaner (designet: HOSTS / SUBS)
-  const HOSTS = [['net', 'Nettverk', 'mdi:router-network'], ['proxmox', 'Proxmox', 'mdi:cube-outline'], ['unraid', 'Unraid', 'mdi:dns'], ['ha', 'HA', 'mdi:home-assistant']];
+  // Fiks 50 E: qBittorrent (designet: HOSTS k 'qbit') etter HA – skjules automatisk når integrasjonen mangler (qbit_force = vis likevel)
+  const HOSTS = [['net', 'Nettverk', 'mdi:router-network'], ['proxmox', 'Proxmox', 'mdi:cube-outline'], ['unraid', 'Unraid', 'mdi:dns'], ['ha', 'HA', 'mdi:home-assistant'], ['qbit', 'qBittorrent', 'mdi:download']];
   const HOSTL = Object.fromEntries(HOSTS.map((t) => [t[0], t]));
   const KEYS = HOSTS.map((t) => t[0]);
-  const HOST_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid', ha: null };
+  const HOST_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid', ha: null, qbit: null };
+  // Fiks 50 K: Nettverk-underfanene heter UDM · Enheter · Switch (gamle «internett» i lagret UI-tilstand → «udm»)
   const SUBS = {
-    net: [['internett', 'Internett'], ['enheter', 'Enheter'], ['switch', 'Switch']],
+    net: [['udm', 'UDM'], ['enheter', 'Enheter'], ['switch', 'Switch']],
+    qbit: [['torrenter', 'Torrenter'], ['statistikk', 'Statistikk']],
     proxmox: [['gjester', 'Gjester'], ['lagring', 'Lagring'], ['backup', 'Backup']],
     unraid: [['array', 'Array'], ['gjester', 'Gjester']],
     ha: [['tillegg', 'Tillegg'], ['oppdateringer', 'Oppdateringer'], ['system', 'System']],
@@ -60,6 +69,7 @@
     proxmox: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['io', 'IO wait', '%', OR]],
     unraid: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['temp', 'CPU-temp', '°', OR]],
     ha: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['disk', 'Disk', '%', OR]],
+    qbit: [['down', 'Ned', 'MB/s', BL], ['up', 'Opp', 'MB/s', GR], ['act', 'Aktive', '', PU]],
   };
   const NPT = 48; // punkter i grafen (30 min, 24 t – designet: series(…) med 48 punkter)
   const DEF = {};
@@ -501,6 +511,117 @@
     return R;
   }
 
+  /* ------------------------------------------------------------ Fiks 50 E/G: qBittorrent + SpeedTest (autokonfig fra registeret) */
+  // Entitetene finnes via plattform (qbittorrent / speedtestdotnet) + translation_key (eller unique_id-suffiks
+  // «<entry_id>-<nøkkel>») – objekt-ID-mønsteret er bare reserve. Overstyres per nøkkel i overrides.<qbit_*|speedtest_*>.
+  // [nøkkel i kortet, override-nøkkel, domene, translation_key/unique_id-nøkler, reserve-mønster for objekt-ID]
+  const QB = [
+    // rekkefølgen er søkerekkefølgen: spesifikke nøkler først (grense før fart, inaktive før aktive, tilkobling før status)
+    ['downLim', 'qbit_down_limit', 'sensor', ['download_speed_limit', 'dl_limit'], /download_speed_limit$/],
+    ['upLim', 'qbit_up_limit', 'sensor', ['upload_speed_limit', 'up_limit'], /upload_speed_limit$/],
+    ['down', 'qbit_down', 'sensor', ['download_speed', 'dlspeed'], /download_speed$/],
+    ['up', 'qbit_up', 'sensor', ['upload_speed', 'upspeed'], /upload_speed$/],
+    ['inactive', 'qbit_inactive', 'sensor', ['inactive_torrents'], /inactive_torrents$/],
+    ['active', 'qbit_active', 'sensor', ['active_torrents'], /(^|_)active_torrents$/],
+    ['paused', 'qbit_paused', 'sensor', ['paused_torrents'], /paused_torrents$/],
+    ['errored', 'qbit_errored', 'sensor', ['errored_torrents'], /errored_torrents$/],
+    ['all', 'qbit_all', 'sensor', ['all_torrents', 'total_torrents'], /(all|total)_torrents$/],
+    ['dlTot', 'qbit_dl_total', 'sensor', ['alltime_download', 'all_time_download', 'alltime_dl'], /all_?time_download$/],
+    ['ulTot', 'qbit_ul_total', 'sensor', ['alltime_upload', 'all_time_upload', 'alltime_ul'], /all_?time_upload$/],
+    ['ratio', 'qbit_ratio', 'sensor', ['global_ratio'], /(global_)?ratio$/],
+    ['conn', 'qbit_conn', 'sensor', ['connection_status'], /connection_status$/],
+    ['status', 'qbit_status', 'sensor', ['current_status', 'status'], /(^|_)(current_)?status$/],
+    ['alt', 'qbit_alt', 'switch', ['alternative_speed', 'alt_speed'], /alt(ernative)?_speed/],
+  ];
+  const ST_K = [
+    ['down', 'speedtest_down', 'sensor', ['download'], /download$/],
+    ['up', 'speedtest_up', 'sensor', ['upload'], /upload$/],
+    ['ping', 'speedtest_ping', 'sensor', ['ping'], /ping$/],
+  ];
+  // Velg entitet for én nøkkel i en kandidatliste: translation_key → unique_id-suffiks → objekt-ID-mønster
+  const pickKey = (liste, [, , d, tks, re], taken) => {
+    const L = liste.filter((e) => dom(e.entity_id) === d && !taken.has(e.entity_id));
+    const uid = (e) => String(e.unique_id || '');
+    const x = L.find((e) => e.translation_key && tks.includes(e.translation_key))
+      || L.find((e) => tks.some((k) => uid(e).endsWith('-' + k) || uid(e).endsWith('_' + k)))
+      || L.find((e) => re.test(obj(e.entity_id)));
+    return x ? x.entity_id : undefined;
+  };
+  // Nøklene i listens rekkefølge; en entitet brukes bare én gang
+  function pickAll(liste, K) {
+    const out = {}, taken = new Set();
+    K.forEach((k) => { const id = pickKey(liste, k, taken); if (id) { out[k[0]] = id; taken.add(id); } });
+    return out;
+  }
+  const regPool = (hass, plats) => Object.values(hass.entities || {}).filter((e) => e && plats.includes(e.platform) && !e.disabled_by && hass.states[e.entity_id]);
+  const QB_L = { down: 'Hastighet ned', up: 'Hastighet opp', downLim: 'Grense ned', upLim: 'Grense opp', active: 'Aktive torrenter', inactive: 'Inaktive torrenter', paused: 'Pausede torrenter',
+    errored: 'Torrenter med feil', all: 'Alle torrenter', dlTot: 'Totalt lastet ned', ulTot: 'Totalt lastet opp', ratio: 'Ratio', conn: 'Tilkoblingsstatus', status: 'Status', alt: 'Alternativ hastighet (bryter)' };
+  let QMEMO = null;
+  // qBittorrent: { found, auto: {nøkkel → id}, ids: {nøkkel → id (med overrides)} }
+  function oppdagQB(hass, cfg) {
+    cfg = cfg || {};
+    const E = hass.entities || {}, S = hass.states, o = cfg.overrides || {}, sig = JSON.stringify(QB.map((k) => o[k[1]] || ''));
+    if (QMEMO && QMEMO.E === E && QMEMO.S === S && QMEMO.sig === sig) return QMEMO.R;
+    const pool = regPool(hass, ['qbittorrent']);
+    // flere qBittorrent-servere: den første enheten (stabil rekkefølge)
+    const devs = [...new Set(pool.map((e) => e.device_id || '_'))].sort();
+    const liste = devs.length > 1 ? pool.filter((e) => (e.device_id || '_') === devs[0]) : pool;
+    const auto = pickAll(liste, QB), ids = {};
+    QB.forEach(([k, ok_]) => { ids[k] = o[ok_] || auto[k]; });
+    const R = { found: pool.length > 0 || QB.some((k) => !!o[k[1]]), auto, ids, n: pool.length };
+    QMEMO = { E, S, sig, R };
+    return R;
+  }
+  let SMEMO = null;
+  // SpeedTest (speedtestdotnet): { found, auto, ids } – reserve: sensor.speedtest*_download/_upload/_ping (mønster, ikke ID)
+  function oppdagST(hass, cfg) {
+    cfg = cfg || {};
+    const E = hass.entities || {}, S = hass.states, o = cfg.overrides || {}, sig = JSON.stringify(ST_K.map((k) => o[k[1]] || ''));
+    if (SMEMO && SMEMO.E === E && SMEMO.S === S && SMEMO.sig === sig) return SMEMO.R;
+    let liste = regPool(hass, ['speedtestdotnet']);
+    if (!liste.length) liste = Object.keys(S).filter((id) => /^sensor\.speed_?test(_[a-z0-9]+)*_(download|upload|ping)$/.test(id)).map((id) => E[id] || { entity_id: id });
+    const auto = pickAll(liste, ST_K), ids = {};
+    ST_K.forEach(([k, ok_]) => { ids[k] = o[ok_] || auto[k]; });
+    const R = { found: Object.values(ids).some(Boolean), auto, ids };
+    SMEMO = { E, S, sig, R };
+    return R;
+  }
+  // Datahastighet → MB/s (qBittorrent: B/s, KiB/s, kB/s, MB/s, MiB/s …; bit-enheter / 8)
+  const mbsF = (u) => {
+    const r = String(u || '').replace(/\s/g, '');
+    if (!r) return 1;
+    const l = r.toLowerCase();
+    if (/bit|bps/.test(l)) return rateF(r) / 8; // Mbit/s-faktoren / 8
+    const p = /^gi/.test(l) ? 1073.741824 : /^g/.test(l) ? 1000 : /^mi/.test(l) ? 1.048576 : /^m/.test(l) ? 1 : /^ki/.test(l) ? 0.001024 : /^k/.test(l) ? 0.001 : /^b/.test(l) ? 1e-6 : 1;
+    return p;
+  };
+  // Datamengde → byte (B, kB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB)
+  const bytesF = (u) => {
+    const l = String(u || '').replace(/\s/g, '').toLowerCase();
+    const P = { k: 1, m: 2, g: 3, t: 4, p: 5 }, c = l[0];
+    if (!l || !P[c]) return 1;
+    return Math.pow(l[1] === 'i' ? 1024 : 1000, P[c]);
+  };
+  const mbTxt = (v) => M.nf(v, v < 10 ? 1 : 0).replace(/,0$/, ''); // fartsgrense: «5 MB/s», «0,5 MB/s»
+  const sig3 = (v) => (v >= 100 ? 0 : v >= 10 ? 1 : 2);
+  const sizeOf = (b) => {
+    if (b == null || isNaN(b)) return '–';
+    const T = [[1e15, 'PB'], [1e12, 'TB'], [1e9, 'GB'], [1e6, 'MB'], [1e3, 'kB']].find(([f]) => b >= f) || [1, 'B'];
+    const v = b / T[0];
+    return `${M.nf(v, sig3(v)).replace(/,0+$/, '')} ${T[1]}`;
+  };
+  const MND = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
+  // «14:10» (i dag) · «i går 22:10» · «3. okt»
+  const maltTxt = (iso, now) => {
+    const t = new Date(iso); if (isNaN(t)) return '–';
+    now = now || new Date();
+    const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+    const day = (y, m, d) => new Date(y, m, d).getTime(), dt = day(t.getFullYear(), t.getMonth(), t.getDate());
+    if (dt === day(now.getFullYear(), now.getMonth(), now.getDate())) return hm;
+    if (dt === day(now.getFullYear(), now.getMonth(), now.getDate() - 1)) return `i går ${hm}`;
+    return `${t.getDate()}. ${MND[t.getMonth()]}`;
+  };
+
   /* ------------------------------------------------------------ config: verter */
   function tabsCfg(c) {
     const T = c.tabs && !Array.isArray(c.tabs) ? c.tabs : {}; // v5: tabs { order, hidden, start }
@@ -513,7 +634,10 @@
   }
   // 36.5: startfane (felles MSH.startTab): start_tab | 'last'; gamle tabs.start leses, '' (gammel «Sist brukt») = 'last'
   const ST_LEG = { legacy: (c) => (c.start_tab === '' ? 'last' : c.tabs && !Array.isArray(c.tabs) && c.tabs.start ? c.tabs.start : undefined), map: (k) => (k === 'unifi' ? 'net' : k) };
-  function visTabs(c) { const T = tabsCfg(c), V = T.order.filter((k) => !T.hidden.includes(k)); return V.length ? V : [T.order[0]]; }
+  // Fiks 50 E: qBittorrent-fanen skjules automatisk når integrasjonen mangler (ingen entiteter/overstyringer), med mindre
+  // qbit_force (Tilpass → Faner: «Vis qBittorrent-fanen selv om integrasjonen mangler»). hass: kortets, ellers MSH.lastHass.
+  const qbitOff = (c, h) => { h = h || M.lastHass; return !c.qbit_force && !(h && h.states && oppdagQB(h, c).found); };
+  function visTabs(c, h) { const T = tabsCfg(c), qo = qbitOff(c, h), V = T.order.filter((k) => !T.hidden.includes(k) && !(k === 'qbit' && qo)); return V.length ? V : [T.order[0]]; }
   // 33.4: felles fanehøyde (MSH.tabH, 05-tab-bar.js): kortets tab_height (28–64) → global «Fanehøyde i popups» → designets 44
   const tabH = (c) => (M.tabH ? M.tabH.height(c, 44) : 44);
   const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
@@ -558,8 +682,37 @@
   }
   M.serverPick = openPick;
 
+  /* ------------------------------------------------------------ bekreftelse (host.confirm, Fiks 50) – portalt ark (fallgruve 1) */
+  // confirmSheet(tekst, { ok: 'Slå av', hot: true }) → Promise<bool>. Esc/bakteppe = avbryt.
+  function confirmSheet(text, o) {
+    o = o || {};
+    if (!M.overlay) return Promise.resolve(window.confirm(text));
+    return new Promise((res) => {
+      let done = false;
+      const fin = (v) => { if (done) return; done = true; res(v); };
+      const hot = o.hot !== false;
+      const api = M.overlay({ center: true, maxWidth: 360, guard: 300, onClose: () => fin(false), css: `
+        .cf{display:flex;flex-direction:column;gap:16px;padding:6px 2px 2px}
+        .cf p{margin:0;font-size:16px;line-height:1.45;color:var(--ki-text, #fafafa);text-wrap:pretty}
+        .cfb{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .cfb button{height:48px;border-radius:24px;font-size:15px;font-weight:600;border:0;cursor:pointer}
+        .no{background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}
+        .yes{background:${hot ? tone(RD, 0.2) : C.accent};color:${hot ? TX.red : 'var(--ki-on-accent, #2f2f2f)'}}`,
+        html: `<div class="cf"><p>${esc(text)}</p><div class="cfb"><button class="no" data-c="0">${esc(o.cancel || 'Avbryt')}</button><button class="yes" data-c="1">${esc(o.ok || 'Bekreft')}</button></div></div>` });
+      api.body.addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('[data-c]'); if (!b) return;
+        const v = b.dataset.c === '1';
+        M.haptic(v ? (hot ? 'heavy' : 'success') : 'light');
+        fin(v); api.close();
+      });
+    });
+  }
+  M.serverConfirm = confirmSheet;
+
   /* ------------------------------------------------------------ vertvelgeren (kortet + forhåndsvisningen i Tilpass) */
-  const tabRowHTML = (V, act, attrs) => `<div class="trow"><div class="tabs" role="tablist">${V.map((k) => `<button class="tb${k === act ? ' on' : ''}" role="tab" aria-selected="${k === act}" data-v="${k}" ${attrs ? attrs(k) : ''}>${esc(HOSTL[k][1])}</button>`).join('')}</div>
+  // Fiks 50 F: fanelinjen er en vannrett karusell (designet: pickTabs/tabStop/fadeTabs) – sporet (.tbox) er uendret pille,
+  // scrolleren (.tabs) har padding 4, scroll-snap, skjult scrollbar og fade bare på siden med skjult innhold.
+  const tabRowHTML = (V, act, attrs) => `<div class="trow"><div class="tbox"><div class="tabs" role="tablist">${V.map((k) => `<button class="tb${k === act ? ' on' : ''}" role="tab" aria-selected="${k === act}" data-v="${k}" ${attrs ? attrs(k) : ''}>${esc(HOSTL[k][1])}</button>`).join('')}</div></div>
     <button class="gear" ${attrs ? 'data-act="customize"' : ''} aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button></div>`;
   // Kort-variant: ring (CPU-/ned-last) + statusprikk + navn + undertekst. X: { [k]: { pct, col, ok, none, sub } }
   const ringDash = (p) => `${((M.clamp(p || 0, 0, 100) / 100) * 106.8).toFixed(1)} 106.8`;
@@ -573,13 +726,15 @@
     .svp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);margin:0 4px}.svp button{pointer-events:none}
     ${TAB_CSS('.svp')}`;
   const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
-    ${pre} .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:999px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));touch-action:pan-y}
-    ${pre} .tb{flex:1 1 0;min-width:0;height:var(--sv-th,44px);padding:0 ${TV('tp', 6)};border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
+    ${pre} .tbox{flex:1;min-width:0;border-radius:999px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));overflow:hidden}
+    ${pre} .tabs{display:flex;gap:2px;padding:4px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain}
+    ${pre} .tabs::-webkit-scrollbar,${pre} .hcards::-webkit-scrollbar{display:none}
+    ${pre} .tb{flex:1 0 auto;min-width:84px;height:var(--sv-th,44px);padding:0 16px;scroll-snap-align:center;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;white-space:nowrap;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
     ${pre} .tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
     ${pre} .gear{width:calc(var(--sv-th,44px) + 8px);height:calc(var(--sv-th,44px) + 8px);border-radius:999px;flex:none;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));color:var(--ki-text, #fafafa)}
     ${pre} .gear:active{transform:scale(.92)}
-    ${pre} .hcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-    ${pre} .hc{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:12px;border-radius:24px;min-width:0;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));transition:background .2s,box-shadow .2s,transform .12s;text-align:left}
+    ${pre} .hcards{display:flex;gap:8px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain}
+    ${pre} .hc{flex:1 0 140px;min-width:140px;scroll-snap-align:center;display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:12px;border-radius:24px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));transition:background .2s,box-shadow .2s,transform .12s;text-align:left}
     ${pre} .hc:active{transform:scale(.97)}
     ${pre} .hc.on{background:var(--ki-surface-2, #404040);box-shadow:inset 0 0 0 1.5px ${PK}}
     ${pre} .hct{display:flex;align-items:center;justify-content:space-between;width:100%}
@@ -605,7 +760,7 @@
     c = c || {};
     const preview = { type: 'html', html: (hh, cc, key, ed) => {
       if (ed && !ed.__svInst) { ed.__svInst = true; window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); }); }
-      const V = visTabs(cc), act = (M.startTab ? M.startTab.pillKey(cc, V, ST_LEG) : null) || V[0]; // 36.5: forhåndsvisningen viser startfanen
+      const V = visTabs(cc, hh), act = (M.startTab ? M.startTab.pillKey(cc, V, ST_LEG) : null) || V[0]; // 36.5: forhåndsvisningen viser startfanen
       return `<style>${PREV_CSS()}</style><div class="svp" data-key="svp" aria-hidden="true" style="${thVars(cc)}"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}) : tabRowHTML(V, act)}</div>`;
     } };
     const ints = { type: 'html', html: (hh, cc, key) => `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${INTEG.map((I) => {
@@ -615,6 +770,8 @@
         <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">${esc(I.name)}</span><span style="font-size:12px;color:${col}">${esc(txt)}</span></span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
     }).join('')}<span class="help">Home Assistant (HA-fanen) hentes alltid fra Supervisor og systemmonitor. Trykk for å velge en annen config entry, eller «Ingen».</span></div>`,
     click: (dd, ed) => { M.haptic('light'); openPick(ed._hass, ed._config || {}, dd.v, (v) => ed._set('integrations.' + dd.v, v)); } };
+    // overrides.<nøkkel> med eget autovalg (qBittorrent / SpeedTest) – autovalget ignorerer overstyringen
+    const entX = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => { if (!hh) return null; try { return fnc(hh, cc || {}) || null; } catch (e) { return null; } }, none_label: '– · Velg entitet', ...(extra || {}) });
     const ent = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => autoOf(hh, cc, fnc), none_label: '– · Velg entitet', ...(extra || {}) });
     const reset = { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-server-card', card_id: id }; ed._set('card_id', id); } };
     const hostOpts = HOSTS.map((t) => [t[0], t[1]]);
@@ -630,9 +787,10 @@
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs', 'faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
-            ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, clear: ['tabs.start'], items: (hh, cc) => { const by = Object.fromEntries(hostOpts); return visTabs(cc || {}).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane øverst
+            ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, clear: ['tabs.start'], items: (hh, cc) => { const by = Object.fromEntries(hostOpts); return visTabs(cc || {}, hh).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane øverst
             preview,
-            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', start: { legacy: ST_LEG, visible: (cc) => visTabs(cc) }, options: hostOpts },
+            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', start: { legacy: ST_LEG, visible: (cc) => visTabs(cc) }, options: hostOpts,
+              after: [{ type: 'boolean', name: 'qbit_force', label: 'Vis qBittorrent-fanen selv om integrasjonen mangler', default: false, help: 'Uten qBittorrent-integrasjonen skjules fanen automatisk.' }] },
             { type: 'info', label: 'Hold inne en fane i 0,4 s og dra for å endre rekkefølgen direkte i popupen.' },
           ] },
         ] },
@@ -644,7 +802,7 @@
         { key: 'integrasjoner', label: 'Integrasjoner', icon: 'mdi:puzzle', focus: ['integrasjoner', 'integrations'], fields: [
           { type: 'section', id: 'integrasjoner', label: 'Integrasjoner', icon: 'mdi:puzzle', fields: [ints] },
         ] },
-        { key: 'avansert', label: 'Avansert', icon: 'mdi:tune', focus: ['entities', 'overrides', 'spacing', 'advanced', 'avansert'], fields: [
+        { key: 'avansert', label: 'Avansert', icon: 'mdi:tune', focus: ['entities', 'overrides', 'spacing', 'advanced', 'avansert', 'speedtest', 'qbit', 'unifi'], fields: [
           { type: 'section', id: 'entities', label: 'Entiteter i toppkortet', icon: 'mdi:format-list-bulleted', fields: [
             { type: 'info', label: 'Alt er funnet automatisk. Velg en annen entitet bare der det automatiske valget er feil.' },
             ent('net_down', 'Nettverk · Ned', (RR) => (gateway(RR) || {}).rx), ent('net_up', 'Nettverk · Opp', (RR) => (gateway(RR) || {}).tx),
@@ -653,6 +811,17 @@
             ent('unraid_cpu', 'Unraid · CPU', (RR) => (RR.unraid || {}).cpu), ent('unraid_ram', 'Unraid · Minne', (RR) => (RR.unraid || {}).ram), ent('unraid_temp', 'Unraid · CPU-temp', (RR) => (RR.unraid || {}).temp),
             ent('ha_cpu', 'HA · CPU', (RR, HH) => HH.sys.cpu), ent('ha_mem', 'HA · Minne', (RR, HH) => HH.sys.mem), ent('ha_disk', 'HA · Disk', (RR, HH) => HH.sys.disk),
             { type: 'entities', name: 'exclude', label: 'Skjul entiteter (rader og fliser)', help: 'Søk opp enheter, gjester, tillegg eller oppdateringer som ikke skal vises.' },
+          ] },
+          // Fiks 50 H–J: UniFi-enheter (rekkefølge/synlighet, PoE-budsjett) fra 58b-server-unifi.js – samme skjema i Tilpass og GUI
+          ...(() => { const su = M.serverUnifi; if (!su || typeof su.editorFields !== 'function') return []; try { return su.editorFields(h, c) || []; } catch (e) { console.error('[ki-msh] serverUnifi.editorFields', e); return []; } })(),
+          // Fiks 50 G: Internett-kortet (Nettverk → UDM) – SpeedTest-integrasjonen (speedtestdotnet)
+          { type: 'section', id: 'speedtest', label: 'Internett (SpeedTest)', icon: 'mdi:speedometer', fields: [
+            ...ST_K.map(([k, o]) => entX(o, { down: 'Ned (Mbit/s)', up: 'Opp (Mbit/s)', ping: 'Ping (ms)' }[k], (hh, cc) => oppdagST(hh, cc).auto[k])),
+          ] },
+          // Fiks 50 E: qBittorrent-fanen
+          { type: 'section', id: 'qbit', label: 'qBittorrent', icon: 'mdi:download', fields: [
+            { type: 'info', label: 'Funnet automatisk fra qBittorrent-integrasjonen. Velg en annen entitet bare der det automatiske valget er feil.' },
+            ...QB.map(([k, o, d]) => entX(o, QB_L[k], (hh, cc) => oppdagQB(hh, cc).auto[k], d === 'switch' ? { domains: ['switch'] } : null)),
           ] },
           M.spacingSchema(),
           { type: 'section', id: 'avansert', label: 'Tilbakestill', icon: 'mdi:restore', fields: [reset] },
@@ -684,13 +853,17 @@
       CE.t = 0; entries(this.hass); // friske config entries når popupen åpnes
       supLoad(this.hass, true);
       this._loadHist(); // 36.5: startfanen settes av MSH.startTab (startTabSpec) før onOpen
+      this._cKey = null; this.update(); // Fiks 50 F: aktiv fane sentreres (uten animasjon) når popupen åpnes
 
     }
     onClose() { if (this._pick) { this._pick.close(); this._pick = null; } this._holdStop(); }
-    get tabs() { return visTabs(this.config); }
-    static get startTabSpec() { return { key: 'host', tabs: (card) => visTabs(card.config), legacy: ST_LEG.legacy, map: ST_LEG.map, get: (card) => card.tab, set: (card, id) => { if (card.ui.host !== id) card.setUI({ host: id, sel: null }, true); } }; }
+    get tabs() { return visTabs(this.config, this.hass); }
+    static get startTabSpec() { return { key: 'host', tabs: (card) => visTabs(card.config, card.hass), legacy: ST_LEG.legacy, map: ST_LEG.map, get: (card) => card.tab, set: (card, id) => { if (card.ui.host !== id) card.setUI({ host: id, sel: null }, true); } }; }
     get tab() { const V = this.tabs, st = tabsCfg(this.config).start; const u = this.ui.host || this.ui.tab; return V.includes(u) ? u : V.includes(st) ? st : V[0]; }
-    _sub(host) { const S = SUBS[host], u = (this.ui.sub || {})[host]; return S.some((s) => s[0] === u) ? u : S[0][0]; }
+    _sub(host) { const S = SUBS[host]; let u = (this.ui.sub || {})[host]; if (u === 'internett') u = 'udm'; return S.some((s) => s[0] === u) ? u : S[0][0]; }
+    // Fiks 50 G: SpeedTest-målingen er ferdig når sensorene melder ny tilstand (last_updated) – sjekkes ved hver hass-oppdatering
+    set hass(h) { super.hass = h; this._stCheck(); }
+    get hass() { return super.hass; }
 
     /* ---------------------------------------------------------- målinger (toppkort + vertkort) */
     _metrics(R, HA, host) {
@@ -709,6 +882,11 @@
       if (host === 'unraid') {
         const U = R.unraid || {}, cp = ov(c, 'unraid_cpu') || U.cpu, mm = ov(c, 'unraid_ram') || U.ram, tp = ov(c, 'unraid_temp') || U.temp;
         return [mk(a, cp, pctOf(h, cp)), mk(b, mm, pctOf(h, mm)), mk(x, tp, numOf(h, tp))];
+      }
+      if (host === 'qbit') {
+        const Q = oppdagQB(h, c).ids, sp = (id) => { const v = numOf(h, id), f = mbsF(unitOf(h, id)); return [v == null ? null : v * f, f]; };
+        const [vd, fd] = sp(Q.down), [vu, fu] = sp(Q.up);
+        return [mk(a, Q.down, vd, fd), mk(b, Q.up, vu, fu), mk(x, Q.active, numOf(h, Q.active))];
       }
       const S = HA.sys, cp = ov(c, 'ha_cpu') || S.cpu, mm = ov(c, 'ha_mem') || S.mem, dk = ov(c, 'ha_disk') || S.disk;
       return [mk(a, cp, pctOf(h, cp)), mk(b, mm, pctOf(h, mm)), dk ? mk(x, dk, pctOf(h, dk)) : mk(x, HA.host.diskUsed, pctOf(h, null, HA.host.diskUsed, HA.host.diskTot))];
@@ -735,6 +913,13 @@
     // Status per vert (chip, prikk): { t, ok, none }
     _status(R, HA, host) {
       const h = this.hass;
+      if (host === 'qbit') {
+        const Q = oppdagQB(h, this.config), s = Q.ids.conn && h.states[Q.ids.conn];
+        if (!Q.found) return { t: 'Ikke koblet', ok: false, none: true };
+        if (!ok(s)) return { t: '–', ok: false, none: true };
+        const v = String(s.state).toLowerCase();
+        return v === 'connected' ? { t: 'Tilkoblet', ok: true } : v === 'firewalled' ? { t: 'Brannmur', ok: false } : v === 'disconnected' ? { t: 'Frakoblet', ok: false } : { t: tittel(s.state), ok: false };
+      }
       if (host === 'ha') { const n = this._updN(); return n ? { t: `${n} ${n === 1 ? 'oppdatering' : 'oppdateringer'}`, ok: false } : { t: 'Oppdatert', ok: true }; }
       const ik = HOST_INT[host];
       if (!R.found[ik]) return { t: R.loading && R.mode[ik] !== 'none' ? 'Leter …' : 'Ikke koblet', ok: false, none: true };
@@ -775,8 +960,81 @@
         case 'opt': return this._opt(d);
         case 'install': return this._install(d.id);
         case 'locate': return this._locate(d);
+        case 'st': return this._stRun();
+        case 'qalt': return this._qAlt(d.id);
         default: return super.onAction(name, el, ev);
       }
+    }
+    /* ---------------------------------------------------------- Fiks 50 G: «Kjør test» (SpeedTest) */
+    _stIds() { const I = oppdagST(this.hass, this.config).ids; return [I.down, I.up, I.ping].filter(Boolean); }
+    _stRun() {
+      const h = this.hass, ids = this._stIds();
+      if (this._st || !ids.length) { if (!ids.length) M.toast('Fant ingen SpeedTest-sensorer'); return; }
+      const lu = {}; ids.forEach((id) => { const s = h.states[id]; lu[id] = s ? s.last_updated : null; });
+      this._st = { t: Date.now(), lu };
+      clearTimeout(this._stT);
+      this._stT = setTimeout(() => { if (!this._st) return; this._st = null; M.haptic('warning'); M.toast('Speedtest ga ikke svar'); this.update(); }, 180000);
+      this.update();
+      const svc = h.services && h.services.speedtestdotnet && h.services.speedtestdotnet.speedtest;
+      const p = svc ? M.call(h, 'speedtestdotnet', 'speedtest', {}) : M.call(h, 'homeassistant', 'update_entity', { entity_id: ids });
+      Promise.resolve(p).catch((e) => { clearTimeout(this._stT); this._st = null; M.toast('Feil: ' + ((e && e.message) || e)); this.update(); });
+    }
+    _stCheck() {
+      const st = this._st, h = this.hass;
+      if (!st || !h) return;
+      const ids = Object.keys(st.lu), main = ids[0]; // nedlasting først (ellers den som finnes)
+      const ch = (id) => { const s = h.states[id]; return !!s && s.last_updated !== st.lu[id]; };
+      if (!ch(main) && !ids.every(ch)) return;
+      this._st = null; clearTimeout(this._stT);
+      M.haptic('success'); M.toast('Speedtest ferdig');
+      this.update();
+    }
+    /* ---------------------------------------------------------- Fiks 50 E: alternativ hastighet (switch.toggle, optimistisk) */
+    _qAlt(id) {
+      const h = this.hass, s = id && h.states[id];
+      if (!s) return;
+      const want = !this._pendingTgl(id, s.state === 'on');
+      this._want('t:' + id, want);
+      M.call(h, 'switch', 'toggle', { entity_id: id }).catch((e) => M.toast('Feil: ' + ((e && e.message) || e)));
+      M.toast(want ? 'Alternativ hastighet på' : 'Alternativ hastighet av');
+    }
+    /* ---------------------------------------------------------- vert-grensesnitt for M.serverUnifi (58b-server-unifi.js, Fiks 50 H–M) */
+    // host.render() = ny tegning (kortets egen render() er malen og returnerer HTML), derfor et eget objekt.
+    get _host() {
+      if (this.__host) return this.__host;
+      const card = this;
+      this.__host = {
+        card,
+        get hass() { return card.hass; },
+        get config() { return card.config; },
+        get ui() { return card.ui; },
+        setUI: (p, quiet) => card.setUI(p, quiet),
+        render: () => card.update(),
+        update: () => card.update(),
+        haptic: (t) => M.haptic(t || 'light'),
+        moreInfo: (id) => { if (id) M.moreInfo(card, id); },
+        toast: (t) => M.toast(t),
+        call: (d, sv, data) => M.call(card.hass, d, sv, data),
+        setCfg: (patch) => card._setCfg(patch),
+        go: (tab, sub, extra) => card._go(tab, sub, extra),
+        confirm: (text, o) => confirmSheet(text, o),
+      };
+      return this.__host;
+    }
+    async _setCfg(patch) {
+      const old = this._rawConfig || this.config, n = { ...old, ...(patch || {}) };
+      Object.keys(n).forEach((k) => { if (n[k] === undefined) delete n[k]; });
+      this.setConfig(n);
+      try { const r = await M.saveCardConfig(this.hass, old, n, { card: this }); if (r && r.config) this.setConfig(r.config); } catch (e) { console.warn('[ki-msh] Server', e); }
+    }
+    // Hopp til vert/underfane (f.eks. «Porter» → go('net', 'switch', { dev })) – extra legges i UI-tilstanden
+    _go(tab, sub, extra) {
+      const host = tab && this.tabs.includes(tab) ? tab : this.tab, x = { ...(extra || {}) }, moved = host !== this.tab;
+      if (x.dev && x.swSel == null) x.swSel = x.dev;
+      const p = { host, sel: null, port: null, ...x };
+      if (sub && SUBS[host] && SUBS[host].some((t) => t[0] === sub)) p.sub = { ...(this.ui.sub || {}), [host]: sub };
+      this.setUI(p);
+      if (moved) setTimeout(() => this._loadHist(), 0);
     }
     onInput(name, el) { if (name === 'q') { this._q[this.tab] = el.value; this.update(); } }
     // Rød-tone-handlinger: første trykk = «Bekreft · trykk igjen» (rød), andre trykk kjører, tilbakestilles etter 3 s
@@ -881,8 +1139,13 @@
     /* ---------------------------------------------------------- tegning */
     render() {
       const h = this.hass, c = this.config;
-      const R = (this._R = oppdag(h, c)), HA = (this._HA = oppdagHA(h, c));
-      const V = this.tabs, host = this.tab;
+      let R = oppdag(h, c);
+      const HA = (this._HA = oppdagHA(h, c)), su = M.serverUnifi;
+      // Fiks 50 H–M: 58b-server-unifi.js kan utvide oppdagelsen (UniFi-enheter via device_id)
+      if (su && typeof su.discover === 'function') { try { const x = su.discover(h, R, c); if (x && typeof x === 'object' && x.unifi) R = x; } catch (e) { console.error('[ki-msh] serverUnifi.discover', e); } }
+      this._R = R;
+      const V = this.tabs, host = this.tab, QQ = oppdagQB(h, c), STT = oppdagST(h, c);
+      [...Object.values(QQ.ids), ...Object.values(STT.ids)].forEach((id) => { if (id) this._deps.add(id); });
       INTEG.forEach((i) => R.ents[i.key].forEach((id) => this._deps.add(id)));
       Object.values(c.overrides || {}).forEach((id) => { if (id) this._deps.add(id); });
       [HA.sys, HA.core, HA.os, HA.sup, HA.host].forEach((o) => Object.values(o || {}).forEach((id) => { if (typeof id === 'string' && id.includes('.')) this._deps.add(id); }));
@@ -891,11 +1154,13 @@
       const X = {};
       V.forEach((k) => {
         const m = this._metrics(R, HA, k)[0], st = this._status(R, HA, k);
-        X[k] = { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : m.v, sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : `${m.label} ${Math.round(m.v)} %` };
+        // ring: net 100 % = 1000 Mbit · qbit 100 % = 20 MB/s (designet: v * 5)
+        X[k] = { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : k === 'qbit' ? Math.min(100, m.v * 5) : m.v,
+          sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : k === 'qbit' ? `${fmtN(m.v, m.v < 100 ? 1 : 0)} MB/s ned` : `${m.label} ${Math.round(m.v)} %` };
       });
       const cards = isCards(c);
       const pick = cards ? hostCardsHTML(V, host, X, (k) => `data-act="host" data-haptic="selection"`) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"');
-      const ik = HOST_INT[host], found = host === 'ha' || R.found[ik], sub = this._sub(host);
+      const ik = HOST_INT[host], found = !ik || R.found[ik], sub = this._sub(host);
       const parts = [pick, this._hero(R, HA, host, cards), showProse(c) ? this._prose(R, HA, host) : ''];
       if (!found) parts.push(this._notFound(R, ik));
       else {
@@ -919,7 +1184,8 @@
         mx = pts[Math.min(idx, pts.length - 1)][0];
       }
       const at = (m) => { if (ui.sel == null) return m.v; const s = this._series(m); return s.length ? s[Math.min(idx, s.length - 1)] : null; };
-      const fv = (m, v) => (v == null || isNaN(v) ? '–' : m.unit === '%' && v < 10 ? M.nf(v, 1) : String(Math.round(v)));
+      // MB/s (qBittorrent) med én desimal under 100 (designet: «9,2 MB/s»)
+      const fv = (m, v) => (v == null || isNaN(v) ? '–' : (m.unit === '%' && v < 10) || (m.unit === 'MB/s' && v < 100) ? M.nf(v, 1) : String(Math.round(v)));
       const st = this._status(R, HA, host);
       const hrs = (NPT - 1 - idx) / 2;
       const time = ui.sel == null ? `nå · ${M0.label.toLowerCase()}` : `−${M.nf(hrs, hrs % 1 ? 1 : 0)} t · ${M0.label.toLowerCase()}`;
@@ -941,8 +1207,14 @@
     _prose(R, HA, host) {
       const h = this.hass, c = this.config, ik = HOST_INT[host], pill = (t) => `<span class="pp">${esc(t)}</span>`;
       let txt;
-      if (host !== 'ha' && !R.found[ik]) txt = R.loading && R.mode[ik] !== 'none' ? `Leter etter ${pill(INT[ik].name)} …` : `Ingen ${pill(INT[ik].name)} er koblet til ennå.`;
-      else if (host === 'net') {
+      if (ik && !R.found[ik]) txt = R.loading && R.mode[ik] !== 'none' ? `Leter etter ${pill(INT[ik].name)} …` : `Ingen ${pill(INT[ik].name)} er koblet til ennå.`;
+      else if (host === 'qbit') {
+        const m = this._metrics(R, HA, 'qbit'), a = m[2].v;
+        txt = `qBittorrent laster ned med ${pill(m[0].v == null ? '–' : `${fmtN(m[0].v, m[0].v < 100 ? 1 : 0)} MB/s`)} og har ${pill(a == null ? '–' : `${M.nf(a)} ${a === 1 ? 'aktiv torrent' : 'aktive torrenter'}`)}.`;
+      } else if (host === 'net' && M.serverUnifi && typeof M.serverUnifi.prosa === 'function' && (() => { try { txt = M.serverUnifi.prosa(h, R, c) || ''; } catch (e) { console.error('[ki-msh] serverUnifi.prosa', e); txt = ''; } return !!txt; })()) {
+        // Fiks 50 H: prosaen for Nettverk kommer fra 58b-server-unifi.js (ekte UniFi-enheter) – HTML (én <p> eller innhold)
+        if (/^\s*<p[\s>]/.test(txt)) return txt;
+      } else if (host === 'net') {
         const off = R.unifi.enheter.filter((e) => e.type !== 'enhet' && apOffline(h, e)).length, k = klientTall(h, R, c);
         txt = `Nettet er ${pill(off ? `${off} ${off === 1 ? 'enhet' : 'enheter'} frakoblet` : 'helt oppe')} og ${pill(k == null ? '–' : `${M.nf(k)} ${k === 1 ? 'klient' : 'klienter'}`)} er tilkoblet.`;
       } else if (host === 'proxmox') {
@@ -1103,13 +1375,62 @@
     }
 
     /* ---------------------------------------------------------- Nettverk */
-    _b_net_internett(R) {
-      const h = this.hass, c = this.config, g = gateway(R) || {}, Ms = this._metrics(R, this._HA, 'net');
-      const lat = numOf(h, (g.latens || [])[0]), isp = g.isp && ok(h.states[g.isp]) ? h.states[g.isp].state : null;
-      (g.latens || []).forEach((id) => this.s(id));
-      const tile = (icon, label, col, m) => `<div class="wt"><span class="wl">${M.icon(icon, 16, `color:${col}`)}${esc(label)}</span><span class="wv"><span class="num">${m.v == null ? '–' : Math.round(m.v)}</span><span>Mbit/s</span></span></div>`;
-      return `<section class="card wan"><div class="ch wide"><span class="ct">Internett</span><span class="cs">${esc(isp || '–')} · ${lat == null ? '–' : M.nf(lat) + ' ms'}</span></div>
-        ${tile('mdi:arrow-down', 'Ned', TX.blue, Ms[0])}${tile('mdi:arrow-up', 'Opp', TX.green, Ms[1])}</section>`;
+    // Fiks 50 G: Internett-kortet (designet: sec.wan / wan / stInfo) – SpeedTest-sensorene (speedtestdotnet), Mbit/s avrundet
+    _internett() {
+      const h = this.hass, I = oppdagST(h, this.config).ids, run = !!this._st;
+      const mb = (id) => { if (run) return null; const v = numOf(h, id); return v == null ? null : v * rateF(unitOf(h, id)); };
+      const ping = run ? null : numOf(h, I.ping), ds = I.down && h.states[I.down];
+      const none = !I.down && !I.up && !I.ping;
+      const meta = run ? 'Måler …' : none ? '– · Velg entitet' : ok(ds) || ping != null ? [`Ping ${ping == null ? '–' : M.nf(ping, ping < 10 && ping % 1 ? 1 : 0)} ms`, ok(ds) ? `målt ${maltTxt(ds.last_updated)}` : null].filter(Boolean).join(' · ') : '–';
+      const tile = (icon, label, col, id) => { const v = mb(id); return `<button class="wt press" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="speedtest"'} data-key="wt-${label}"><span class="wl">${M.icon(icon, 16, `color:${col}`)}${esc(label)}</span><span class="wv"><span class="num">${v == null ? '–' : M.nf(Math.round(v))}</span><span>Mbit/s</span></span></button>`; };
+      return `<section class="card wan" data-key="wan"><span class="wh"><span class="grow wcol"><span class="ct">Internett</span><button class="wmeta num" ${none ? 'data-act="customize" data-section="speedtest"' : I.ping && !run ? `data-act="more" data-id="${esc(I.ping)}"` : 'tabindex="-1"'}>${esc(meta)}</button></span>
+          <button class="strun${run ? ' run' : ''}" data-act="st" data-haptic="medium" ${run || none ? 'disabled' : ''} aria-label="Kjør speedtest">${M.icon('mdi:speedometer', 16)}Kjør test</button></span>
+        ${tile('mdi:arrow-down', 'Ned', TX.blue, I.down)}${tile('mdi:arrow-up', 'Opp', TX.green, I.up)}</section>`;
+    }
+    // Fiks 50 K: Nettverk-underfanene UDM · Enheter · Switch – innholdet under Internett-kortet kommer fra M.serverUnifi (S2)
+    _su(sub, R) {
+      const su = M.serverUnifi;
+      if (!su || typeof su.html !== 'function') return null;
+      try { return su.html(this._host, sub, R) || ''; } catch (e) { return this._failHTML(e); }
+    }
+    _b_net_udm(R) { const x = this._su('udm', R); return this._internett(R) + (x || ''); }
+    _b_net_enheter(R) { const x = this._su('enheter', R); return x != null ? x : this._enheterV1(R); }
+    _b_net_switch(R) { const x = this._su('switch', R); return x != null ? x : this._switchV1(R); }
+
+    /* ---------------------------------------------------------- Fiks 50 E: qBittorrent (designet: QB_T / QB_S / qb) */
+    _qb() {
+      const h = this.hass, Q = oppdagQB(h, this.config).ids;
+      const cnt = (id) => numOf(h, id);
+      const spd = (id) => { const v = numOf(h, id); return v == null ? null : v * mbsF(unitOf(h, id)); };
+      return { Q, cnt, spd };
+    }
+    _qbTap(id, extra) { return id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"${extra || ''}` : 'tabindex="-1"'; }
+    _b_qbit_torrenter() {
+      const h = this.hass, { Q, cnt, spd } = this._qb();
+      const T = [['active', 'Aktive', BL], ['inactive', 'Inaktive', 'var(--ki-text-3, #7f7f7f)'], ['paused', 'Pauset', OR], ['errored', 'Feil', RD]].map(([k, l, c]) => ({ k, l, c, id: Q[k], n: cnt(Q[k]) }));
+      const sum = T.reduce((a, t) => a + (t.n || 0), 0), all = cnt(Q.all) != null ? cnt(Q.all) : T.some((t) => t.n != null) ? sum : null;
+      const bar = T.some((t) => t.n != null) ? T.map((t) => `<span style="flex:${Math.max(t.n || 0, 0.5)} 1 0;min-width:4px;background:${t.c}"></span>`).join('') : '<span class="qb0"></span>';
+      const tiles = T.map((t) => `<button class="qt press" ${this._qbTap(t.id)} data-key="qt-${t.k}"><span class="ql"><i style="background:${t.c}"></i>${esc(t.l)}</span><span class="qn num">${t.n == null ? '–' : M.nf(t.n)}</span></button>`).join('');
+      const fs = (v) => (v == null ? '–' : fmtN(v, v < 100 ? 1 : 0));
+      const sp = [['Ned', Q.down, 'mdi:arrow-down', BL], ['Opp', Q.up, 'mdi:arrow-up', GR]].map(([l, id, ic, c]) => `<button class="qs press" ${this._qbTap(id)} data-key="qs-${l}"><span class="qsi" style="background:${tone(c)};color:${c === BL ? TX.blue : TX.green}">${M.icon(ic, 18)}</span><span class="qsc"><span class="qsv num">${esc(fs(spd(id)))} <span>MB/s</span></span><span class="qsl">${esc(l)}</span></span></button>`).join('');
+      // alternativ hastighet: bryter 52×32 (rosa gradient når på) → switch.toggle, haptic «medium»
+      const as = Q.alt && this.s(Q.alt), on = !!as && this._pendingTgl(Q.alt, as.state === 'on');
+      const lim = (id) => { const v = spd(id); return v == null ? null : v === 0 ? 'ubegrenset' : `${mbTxt(v)} MB/s`; };
+      const ln = lim(Q.downLim), lu = lim(Q.upLim);
+      const altSub = !as || !ok(as) ? '–' : on ? `På · ${ln || '–'} ned · ${lu || '–'} opp` : 'Av · bruker vanlige grenser';
+      return `<section class="card qbt" data-key="qbt"><div class="ch">${M.icon('mdi:download', 20, 'color:var(--ki-text-1, #c7c7c7)')}<span class="ct">Torrenter</span><span class="cs num">${all == null ? '–' : `${M.nf(all)} totalt`}</span></div>
+          <div class="qbar">${bar}</div><div class="qg">${tiles}</div><div class="qg">${sp}</div></section>
+        <button class="card qalt press${on ? ' on' : ''}" ${Q.alt && as ? `data-act="qalt" data-id="${esc(Q.alt)}" data-ent="${esc(Q.alt)}" data-haptic="medium"` : 'disabled'} role="switch" aria-checked="${on}" data-key="qalt">
+          <span class="qai">${M.icon('mdi:speedometer', 20)}</span><span class="grow col"><b>Alternativ hastighet</b><span class="ell">${esc(altSub)}</span></span><span class="qtr"><i></i></span></button>`;
+    }
+    _b_qbit_statistikk() {
+      const h = this.hass, { Q, cnt, spd } = this._qb();
+      const by = (id) => { const v = numOf(h, id); return v == null ? null : v * bytesF(unitOf(h, id)); };
+      const lim = (id) => { const v = spd(id); return v == null ? '–' : v === 0 ? 'Ingen' : `${mbTxt(v)} MB/s`; };
+      const ra = numOf(h, Q.ratio);
+      const L = [['Totalt lastet ned', Q.dlTot, sizeOf(by(Q.dlTot))], ['Totalt lastet opp', Q.ulTot, sizeOf(by(Q.ulTot))], ['Ratio', Q.ratio, ra == null ? '–' : M.nf(ra, 2)],
+        ['Alle torrenter', Q.all, cnt(Q.all) == null ? '–' : M.nf(cnt(Q.all))], ['Grense ned', Q.downLim, lim(Q.downLim)], ['Grense opp', Q.upLim, lim(Q.upLim)]];
+      return `<section class="card qst" data-key="qst">${L.map(([l, id, v], i) => `<button class="qx press" ${this._qbTap(id)} data-key="qx-${i}"><span class="num ell">${esc(v)}</span><span>${esc(l)}</span></button>`).join('')}</section>`;
     }
     _devs(R) {
       const ex = new Set(this.config.exclude || []);
@@ -1124,7 +1445,7 @@
       if (sw) return sw.state === 'on' ? 'rec' : 'pause';
       return cs.state === 'recording' ? 'rec' : 'pause';
     }
-    _b_net_enheter(R) {
+    _enheterV1(R) {
       const h = this.hass, L = this._devs(R);
       if (!L.length) return `<section class="card">${this._head('Enheter', '–')}<div class="none">Fant ingen enheter</div></section>`;
       const ICON = { ruter: 'mdi:router-network', ap: 'mdi:access-point', switch: 'mdi:lan', cam: 'mdi:cctv' };
@@ -1213,7 +1534,7 @@
         return { n, sp, up, poe: isOn(p.poe) && (numOf(h, p.pw) == null || numOf(h, p.pw) > 0), name, ent: p.poe || p.en || p.speed };
       });
     }
-    _b_net_switch(R) {
+    _switchV1(R) {
       const h = this.hass, ex = new Set(this.config.exclude || []);
       const SW = R.unifi.enheter.filter((e) => e.type === 'switch' && !ex.has(e.tracker));
       if (!SW.length) return `<section class="card sw">${this._head('Switch', '–')}<div class="none">Fant ingen switcher</div></section>`;
@@ -1339,13 +1660,20 @@
     /* ---------------------------------------------------------- gester */
     afterRender() {
       const Rt = this.shadowRoot;
-      // Vertvelgeren (fanelinje): hold 400 ms + dra = ny rekkefølge (tab_order), kort trykk bytter vert
-      if (M.tabRow) M.tabRow(this, Rt.querySelector('.trow>.tabs[role="tablist"]'), { active: () => this.tab, order: () => tabsCfg(this.config).order, field: 'tab_order' });
+      // Vertvelgeren (fanelinje / kort): hold 400 ms + dra = ny rekkefølge (tab_order), kort trykk bytter vert.
+      // Fiks 50 F: begge er vannrette karuseller – fade på siden med skjult innhold, aktiv fane sentreres.
+      const sc = Rt.querySelector('.trow .tabs[role="tablist"]') || Rt.querySelector('.hcards');
+      if (sc && M.tabRow) M.tabRow(this, sc, { active: () => this.tab, order: () => tabsCfg(this.config).order, field: 'tab_order', glass: !sc.classList.contains('hcards') });
+      if (sc) this._carousel(sc);
+      // Fiks 50 H–M: underfanene fra 58b-server-unifi.js kobler sine egne gester (idempotent, etter hver morph)
+      const su = M.serverUnifi, pane = Rt.querySelector('.pane');
+      if (su && typeof su.bind === 'function' && pane && this.tab === 'net') { try { su.bind(this._host, pane, this._sub('net'), this._R); } catch (e) { console.error('[ki-msh] serverUnifi.bind', e); } }
       // søkefeltet: verdien (property) følger søket for valgt vert (morph oppdaterer bare attributtet)
       const qi = Rt.querySelector('.srch input'), qv = this._q[this.tab] || '';
       if (qi && qi.value !== qv && Rt.activeElement !== qi) qi.value = qv;
-      const sc = Rt.querySelector('.scrub');
-      if (sc && !sc.__b) {
+      const scr = Rt.querySelector('.scrub');
+      if (scr && !scr.__b) {
+        const sc = scr;
         sc.__b = true;
         M.guardDrag(sc, 'none'); // fallgruve 2: touch-action none + stopPropagation
         const pos = (e) => { const r = sc.getBoundingClientRect(); return M.clamp(Math.round(((e.clientX - r.left) / r.width) * (NPT - 1)), 0, NPT - 1); };
@@ -1370,6 +1698,36 @@
         const up = (e) => { if (e) e.stopPropagation(); this._holdCancel(hb); };
         hb.addEventListener('pointerup', up); hb.addEventListener('pointercancel', up); hb.addEventListener('pointerleave', up);
       }
+    }
+    // Fiks 50 F (designet: tabStop / fadeTabs / tap → scrollTo): fade 18 px bare på siden med skjult innhold (scroll + resize),
+    // aktiv fane sentreres – myk ved trykk, uten animasjon når popupen åpnes. stopPropagation på pointerdown/touchstart/touchmove
+    // (fallgruve 2) ligger i MSH.tabReorder/tabPress på scrolleren; her i tillegg for kort-modus uten omorganisering.
+    _carousel(sc) {
+      if (!sc.__svCar) {
+        sc.__svCar = true;
+        const stop = (e) => e.stopPropagation();
+        sc.addEventListener('pointerdown', stop); sc.addEventListener('touchstart', stop, { passive: true }); sc.addEventListener('touchmove', stop, { passive: true });
+        sc.addEventListener('scroll', () => this._fade(sc), { passive: true });
+        if (window.ResizeObserver) { sc.__svRO = new ResizeObserver(() => { this._fade(sc); if (this._cKey == null) this._center(sc, false); }); sc.__svRO.observe(sc); }
+      }
+      this._fade(sc);
+      if (this._cKey !== this.tab || this._cEl !== sc) this._center(sc, this._cKey != null && this._cEl === sc);
+    }
+    _fade(sc) {
+      const L = sc.scrollLeft > 2, R = sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 2;
+      const m = L || R ? `linear-gradient(90deg,${L ? 'transparent 0,#000 18px' : '#000 0'},${R ? '#000 calc(100% - 18px),transparent 100%' : '#000 100%'})` : 'none'; // ki-hex-ok (maske, ikke farge)
+      if (sc.style.maskImage !== m) { sc.style.maskImage = m; sc.style.webkitMaskImage = m; }
+      sc.dataset.fade = (L ? 'l' : '') + (R ? 'r' : '');
+    }
+    _center(sc, smooth) {
+      const b = [...sc.children].find((x) => x.dataset && x.dataset.v === this.tab);
+      if (!b || !sc.clientWidth) { this._cKey = null; return; } // ikke synlig ennå (lukket popup) – prøv igjen ved resize/åpning
+      this._cKey = this.tab; this._cEl = sc;
+      if (sc.scrollWidth <= sc.clientWidth + 1) return;
+      const l = b.getBoundingClientRect().left - sc.getBoundingClientRect().left + sc.scrollLeft;
+      const left = Math.max(0, Math.min(sc.scrollWidth - sc.clientWidth, l - (sc.clientWidth - b.offsetWidth) / 2));
+      if (Math.abs(left - sc.scrollLeft) < 1) return;
+      sc.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
     }
     _holdStart(hb) {
       this._holdStop();
@@ -1406,6 +1764,10 @@
       // tekst i #7f7f7f/#696969 (designet) → --ki-text-mid i lys modus (--ki-text-3/-lo er under 4,5:1 på lyse flater)
       const T3t = 'var(--ki-text-mid, #7f7f7f)', TLt = 'var(--ki-text-mid, #696969)';
       const EDGE = 'inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05))', LINE = 'var(--ki-line, rgba(255,255,255,0.05))', INK = 'var(--ki-on-accent, #3a3a3a)', KNOB = 'var(--ki-knob, #fafafa)';
+      // Fiks 50 H–M: CSS fra 58b-server-unifi.js (klasser su-*) i samme shadow root
+      const su = M.serverUnifi;
+      let suCss = '';
+      try { suCss = su ? (typeof su.css === 'function' ? su.css() : su.css) || '' : ''; } catch (e) { console.error('[ki-msh] serverUnifi.css', e); }
       return `
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:8px}
@@ -1494,9 +1856,36 @@
         .ab.armed{background:${RD} !important;color:var(--ki-on-accent, #232323) !important}
         /* Nettverk */
         .wan{padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
-        .wt{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:20px;background:${S2}}
+        .wh{grid-column:1/-1;display:flex;align-items:center;gap:8px;min-width:0}
+        .wcol{display:flex;flex-direction:column;gap:1px;min-width:0}
+        .wmeta{align-self:flex-start;font-size:12px;color:${TM};white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;text-align:left;padding:0}
+        .strun{height:32px;padding:0 12px 0 10px;border-radius:16px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;flex:none;background:${C.accent};color:${INK};transition:background .2s,color .2s,transform .12s}
+        .strun:active{transform:scale(.96)}.strun.run,.strun[disabled]{background:${S2};color:${T2};cursor:default}
+        .wt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;border-radius:20px;background:${S2};text-align:left;min-width:0;color:${T}}
         .wl{display:flex;align-items:center;gap:6px;font-size:12px;color:${T2}}
         .wv{display:flex;align-items:baseline;gap:3px}.wv .num{font-size:28px;font-weight:300}.wv>span:last-child{font-size:12px;color:${TM}}
+        .press{transition:transform .12s}.press:active{transform:scale(.97)}
+        /* qBittorrent (Fiks 50 E) */
+        .qbt{padding:14px;display:flex;flex-direction:column;gap:12px}.qbt>.ch{padding:0 2px}
+        .qbar{display:flex;gap:3px;height:10px;border-radius:999px;overflow:hidden}.qbar>span{display:block;height:100%}.qb0{flex:1;background:${S3}}
+        .qg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+        .qt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px 14px;border-radius:18px;background:${S2};min-width:0;text-align:left;color:${T}}
+        .ql{display:flex;align-items:center;gap:6px;font-size:12px;color:${T2}}.ql i{width:8px;height:8px;border-radius:4px;flex:none;display:block}
+        .qn{font-size:24px;font-weight:300;line-height:1}
+        .qs{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:18px;background:${S2};min-width:0;color:${T}}
+        .qsi{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center}
+        .qsc{display:flex;flex-direction:column;align-items:flex-start;min-width:0}.qsv{font-size:16px;white-space:nowrap}.qsv span,.qsl{font-size:11px;color:${TM}}
+        .qalt{display:flex;align-items:center;gap:12px;min-height:68px;padding:0 14px;text-align:left;width:100%;color:${T}}
+        .qalt:active{transform:scale(.98)}.qalt[disabled]{cursor:default}.qalt[disabled]:active{transform:none}
+        .qalt b{font-size:14px;font-weight:500}.qalt .col>span{font-size:12px;color:${TM}}
+        .qai{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:${S2};color:${T1b};transition:background .2s,color .2s}
+        .qalt.on .qai{background:${tone(PK, 0.18)};color:${TX.pink}}
+        .qtr{width:52px;height:32px;border-radius:16px;flex:none;position:relative;background:${CTRL};transition:background .2s}
+        .qtr i{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:12px;background:${KNOB};transition:left .2s cubic-bezier(.34,1.4,.64,1)}
+        .qalt.on .qtr{background:${C.accent}}.qalt.on .qtr i{left:24px}
+        .qst{padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+        .qx{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:16px;background:${S2};min-width:0;text-align:left;color:${T}}
+        .qx .num{font-size:16px;max-width:100%}.qx>span:last-child{font-size:11px;color:${TM}}
         .devs{padding:6px 0;display:flex;flex-direction:column}.devs>.ch{padding:8px 16px 4px}
         .dw{border-radius:20px;margin:0 6px;transition:background .2s}.dw.open{background:${S2}}
         .dr{display:flex;align-items:center;gap:12px;min-height:56px;width:100%;padding:0 12px;text-align:left}
@@ -1560,6 +1949,7 @@
         .sys{padding:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
         .syt{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:${S2};min-width:0}
         .syt .num{font-size:16px}.syt>span:last-child{font-size:11px;color:${TM}}
+        ${suCss}
       `;
     }
   }
@@ -1573,7 +1963,7 @@
   M.popupNeeds = M.popupNeeds || {};
   // brukervalg (35): UniFi Network, Proxmox VE, Unraid eller Home Assistant Supervisor (hassio) – ikke Glances eller UniFi Protect alene
   const NEED_SKIP = { glances: 1, unifiprotect: 1 };
-  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && ((PLAT[e.platform] && !NEED_SKIP[e.platform]) || e.platform === 'hassio')) || (Array.isArray(CE.data) && CE.data.some((e) => !NEED_SKIP[e.domain]));
-  M.server = { oppdag, oppdagHA, entries, entriesFor, openPick, INTEG, HOSTS, SUBS, tabsCfg, SUP };
-  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
+  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && ((PLAT[e.platform] && !NEED_SKIP[e.platform]) || e.platform === 'hassio' || e.platform === 'qbittorrent')) || (Array.isArray(CE.data) && CE.data.some((e) => !NEED_SKIP[e.domain]));
+  M.server = { oppdag, oppdagHA, oppdagQB, oppdagST, visTabs, maltTxt, sizeOf, mbsF, bytesF, confirm: confirmSheet, entries, entriesFor, openPick, INTEG, HOSTS, SUBS, tabsCfg, SUP };
+  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA · qBittorrent, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
 })();

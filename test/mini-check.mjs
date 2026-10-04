@@ -118,7 +118,7 @@ const calls = (p) => p.evaluate(() => window.__calls.filter((c) => c[0] === 'med
   m = await mini(p);
   ok('flere spillere → sveip + prikker', m && m.rows === 2 && m.dots === 2, m && { rows: m.rows, dots: m.dots });
   const sw = await p.evaluate(() => { const s = deep('.msw'); return { ta: getComputedStyle(s).touchAction, snap: getComputedStyle(s).scrollSnapType }; });
-  ok('scroll-snap + touch-action pan-x', /pan-x/.test(sw.ta) && /x/.test(sw.snap), sw);
+  ok('scroll-snap + touch-action none (Fiks 50: alle gester i JS)', sw.ta === 'none' && /x/.test(sw.snap), sw);
   await tap(p, '.mdots button:nth-child(2)'); await p.waitForTimeout(500);
   ok('prikk → spiller 2', await p.evaluate(() => { const s = deep('.msw'); return Math.round(s.scrollLeft / s.clientWidth) === 1 && deep('.mdots button.on') === deepAll('.mdots button')[1]; }));
   // 20.19: retur fra bakgrunn → første spiller som spiller (posisjonen lagres ikke)
@@ -508,7 +508,7 @@ for (const [vp, style] of [[{ width: 390, height: 844 }, 'white'], [{ width: 390
   await tap(p, '[data-act="mexp"]'); await p.waitForTimeout(300);
   ok('22.8 ⌄ lukker (64 px)', (await mini(p)).m.h === 64);
   await swipe(-40); ok('22.8 sveip opp igjen → utvidet', (await mini(p)).m.h === 172);
-  await swipe(40); await p.waitForTimeout(300); ok('22.8 sveip ned → lukket', (await mini(p)).m.h === 64);
+  await swipe(60); await p.waitForTimeout(300); ok('22.8 sveip ned → lukket (Fiks 50: > 40 px)', (await mini(p)).m.h === 64);
   await p.evaluate(() => { window.__calls.length = 0; });
   await tap(p, '.mpp');
   ok('22.8 trykk (lukket) spiller/pauser som før', JSON.stringify((await mc()).map((x) => x[0])) === '["media_play_pause"]', await mc());

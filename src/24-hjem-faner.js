@@ -533,6 +533,20 @@
   /* 47 D · lokal reserve når M.arrMedia (06-arr-media.js) mangler: sensor.*upcoming_media* (attributtet data: poster/fanart/
    * airdate/title/number/episode/studio) + calendar.sonarr* · radarr* (calendars/<id>, ingen bilder → plakat fra sensoren
    * når tittelen matcher). Bilder: bare https:// eller HA-proxy (/api/… → hass.hassUrl), aldri http:// på https. */
+  /* Fiks 50 C · neste utgivelse etter i dag (første element fra M.arrMedia.items / reserven med start ≥ i morgen):
+   * etikett «i morgen · 20:00» (relativ dag: i morgen · på fredag (2–6 dager) · om N dager; heldags → uten klokkeslett),
+   * serie (Sonarr) får «S01E02» bak; tittel = serienavn / filmtittel. Ingen → { next: '', nextTitle: '' }. */
+  M.hjemArrNext = function (nx, d0) {
+    const st = nx && (nx.st || (nx.start ? new Date(nx.start) : null));
+    if (!nx || !st || isNaN(st)) return { next: '', nextTitle: '' };
+    const base = new Date(d0 || Date.now()); base.setHours(0, 0, 0, 0);
+    const k = Math.round((new Date(st).setHours(0, 0, 0, 0) - base.getTime()) / 864e5);
+    const rel = k <= 0 ? 'i dag' : k === 1 ? 'i morgen' : k < 7 ? 'på ' + st.toLocaleDateString('nb-NO', { weekday: 'long' }) : `om ${k} dager`;
+    const allDay = !!(nx.all_day || nx.allDay) || (st.getHours() === 0 && st.getMinutes() === 0);
+    const se = nx.source !== 'radarr' && /\b(S\d+\s*E\d+|\d+x\d+)\b/i.exec(String(nx.sub || '') + ' ' + String(nx.number || ''));
+    const next = [rel, allDay ? '' : hhmm(st), se ? se[1].replace(/\s+/g, '').toUpperCase() : ''].filter(Boolean).join(' · ');
+    return { next, nextTitle: String(nx.title || '') };
+  };
   M.hjemArrLocal = async function (hass, from, to) {
     const safe = (u) => {
       u = String(u || '').trim();
@@ -1680,7 +1694,11 @@
             <span class="arti">${esc(it.title || '–')}</span>${it.sub ? `<span class="arsu">${esc(it.sub)}</span>` : ''}</div></div>`;
       };
       const bars = n > 1 ? `<div class="arbars">${items.map((_, i) => `<span class="arbar${i === ai ? ' on' : ''}"></span>`).join('')}</div>` : '';
-      const empty = !n ? `<div class="are"><span class="are-t">${A.loading ? '…' : 'Ingenting i dag'}</span><span class="are-s">${esc(A.loading ? 'Henter Sonarr/Radarr' : A.none ? 'Velg Sonarr/Radarr i Kalender → Kilder' : 'Neste: ' + (A.next || '–'))}</span></div>` : '';
+      // Fiks 50 C (Hjem v3 · r.empty): «Ingenting i dag» 26/300 (balance) · etikett på egen linje «Neste: i morgen · 20:00»
+      // (serie: + S01E02) · tittel 15/500 maks 2 linjer. Ingen kommende → bare «Ingenting i dag».
+      const lab = A.loading ? 'Henter Sonarr/Radarr' : A.none ? 'Velg Sonarr/Radarr i Kalender → Kilder' : A.next ? 'Neste: ' + A.next : '';
+      const nt = !A.loading && !A.none && A.next ? A.nextTitle || '' : '';
+      const empty = !n ? `<div class="are"><span class="are-t">${A.loading ? '…' : 'Ingenting i dag'}</span>${lab ? `<span class="are-s">${esc(lab)}</span>` : ''}${nt ? `<span class="are-n">${esc(nt)}</span>` : ''}</div>` : '';
       return `<div class="rk sl arr" data-act="slide" data-s="arr" data-key="sl-arr" data-ki-island data-n="${n}" role="button" aria-label="Kommer i dag – åpne Kalender, Framover">
         ${items.map(layer).join('')}
         <div class="artop">Kommer i dag</div>${bars}${empty}</div>`;
@@ -1697,7 +1715,7 @@
       const now = new Date(), day = now.toDateString(), A = this._arr;
       if (A && A.day === day && (A.loading || Date.now() - A.t < 15 * 60000)) return A;
       const hass = this.hass, none = !arrSrc(hass);
-      const st = (this._arr = { day, t: Date.now(), loading: !none, none, items: A && A.day === day ? A.items : [], next: A ? A.next : '' });
+      const st = (this._arr = { day, t: Date.now(), loading: !none, none, items: A && A.day === day ? A.items : [], next: A ? A.next : '', nextTitle: A ? A.nextTitle : '' });
       if (none) return st;
       const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
       const d1 = new Date(d0.getTime() + 864e5), to = new Date(d0.getTime() + 15 * 864e5);
@@ -1706,9 +1724,8 @@
         L = (Array.isArray(L) ? L : []).filter((x) => x && x.title && x.source !== 'plex').map((x) => ({ ...x, st: x.start ? new Date(x.start) : null }));
         const today = L.filter((x) => x.st && !isNaN(x.st) && x.st >= d0 && x.st < d1).map((x) => ({ ...x, time: x.time || (x.all_day || x.allDay || (x.st.getHours() === 0 && x.st.getMinutes() === 0) ? 'I dag' : hhmm(x.st)) }));
         const nx = L.find((x) => x.st && !isNaN(x.st) && x.st >= d1);
-        const dl = (d) => { const k = Math.round((new Date(d).setHours(0, 0, 0, 0) - d0) / 864e5); return k === 1 ? 'i morgen' : d.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'short' }); };
-        this._arr = { day, t: Date.now(), loading: false, none: false, items: today, next: nx ? `${dl(nx.st)} · ${nx.title}` : '' };
-      }).catch(() => { this._arr = { day, t: Date.now(), loading: false, none: false, items: [], next: '' }; })
+        this._arr = { day, t: Date.now(), loading: false, none: false, items: today, ...M.hjemArrNext(nx, d0) };
+      }).catch(() => { this._arr = { day, t: Date.now(), loading: false, none: false, items: [], next: '', nextTitle: '' }; })
         .then(() => { if (this.isConnected) this._schedule(true); });
       return st;
     }
@@ -2187,9 +2204,10 @@
         .arbars{position:absolute;left:16px;right:16px;bottom:10px;display:flex;gap:4px;pointer-events:none}
         .arbar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.3);transition:background .4s} /* ki-hex-ok */
         .arbar.on{background:#fafafa} /* ki-hex-ok */
-        .are{position:absolute;left:18px;bottom:18px;right:18px;display:flex;flex-direction:column;gap:4px}
-        .are-t{font-size:30px;font-weight:300;line-height:1.15;text-transform:uppercase}
-        .are-s{font-size:13px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* ki-hex-ok */
+        .are{position:absolute;left:18px;right:18px;bottom:18px;display:flex;flex-direction:column;gap:4px;min-width:0} /* Fiks 50 C */
+        .are-t{font-size:26px;font-weight:300;line-height:1.1;text-transform:uppercase;text-wrap:balance}
+        .are-s{font-size:12px;color:var(--ki-text-2, #afafaf);margin-top:2px;min-width:0;overflow-wrap:anywhere}
+        .are-n{font-size:15px;font-weight:500;line-height:1.25;color:var(--ki-text-1, #e1e1e1);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;text-wrap:pretty;min-width:0}
         .apg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
         .ap{position:relative;height:150px;border-radius:26px;background:var(--ki-surface, var(--gray100,#2f2f2f));overflow:hidden;display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .ap-h{display:flex;align-items:flex-start;gap:8px;padding:14px 12px 0 16px}
