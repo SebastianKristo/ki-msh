@@ -11471,6 +11471,14 @@ try {
     get() { try { return JSON.parse(sessionStorage.getItem(MINI_KEY) || 'null'); } catch (e) { return null; } },
     set(v) { try { if (v) sessionStorage.setItem(MINI_KEY, JSON.stringify(v)); else sessionStorage.removeItem(MINI_KEY); } catch (e) { /* */ } },
   };
+  // Fiks 50 A · sveip høyre fjerner BARE den viste spilleren: lagres per entity_id ({ id: { st, cid } }) i sessionStorage.
+  // Den kommer tilbake når den spiller noe nytt (ny media_content_id) eller går fra idle/off (ikke pause) til playing.
+  const MINI_GONE = 'ki:mini:gone';
+  const mGone = {
+    get() { try { const v = JSON.parse(sessionStorage.getItem(MINI_GONE) || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } },
+    set(v) { try { if (v && Object.keys(v).length) sessionStorage.setItem(MINI_GONE, JSON.stringify(v)); else sessionStorage.removeItem(MINI_GONE); } catch (e) { /* */ } },
+  };
+  const mCid = (s) => { const a = (s && s.attributes) || {}; return a.media_content_id != null && a.media_content_id !== '' ? String(a.media_content_id) : a.media_title ? 't:' + a.media_title + '|' + (a.media_artist || '') : ''; };
   const mSig = (s) => { const a = (s && s.attributes) || {}; return (a.media_content_id || '') + '|' + (a.media_title || ''); };
   const mVolIcon = (a) => (a.is_volume_muted || a.volume_level === 0 ? 'mdi:volume-off' : a.volume_level == null || a.volume_level >= 0.67 ? 'mdi:volume-high' : a.volume_level >= 0.34 ? 'mdi:volume-medium' : 'mdi:volume-low');
   // Fiks 22.8: spoleposisjon (media_position + tid siden media_position_updated_at mens den spiller) og tidsformat
@@ -11510,7 +11518,7 @@ try {
   };
   const mStateOk = (x, s) => !!s && String(x || 'on').split(/[,|]/).map((v) => v.trim().toLowerCase()).filter(Boolean).includes(String(s.state).toLowerCase());
   const MINI_CSS = `
-    .mini{position:fixed;z-index:23;height:64px;border-radius:40px;overflow:hidden;isolation:isolate;touch-action:pan-x pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:${M.FONT};transform-origin:bottom center;opacity:1;transition:opacity .25s ease,transform .25s cubic-bezier(.2,.8,.3,1),height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
+    .mini{position:fixed;z-index:23;height:64px;border-radius:40px;overflow:hidden;isolation:isolate;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:${M.FONT};transform-origin:bottom center;opacity:1;transition:opacity .25s ease,transform .25s cubic-bezier(.2,.8,.3,1),height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
     /* Fiks 22.8: utvidet (sveip opp på play/pause) – 172 px, bunnen står fast; omslag/tekst + ⌄ · spole-slider · ⏮ −10 ⏯ +10 ⏭ */
     .mini.exp{height:172px;border-radius:32px}
     .mrow.mx{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:8px;padding:10px 12px 12px}
@@ -11525,7 +11533,7 @@ try {
     .mini.white{background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323));box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
     .mini.glass{background:${'linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 45%,rgb(255 255 255/0.06))'},var(--ki-glass, rgba(40,40,44,0.5));color:var(--ki-glass-fg, #fafafa);backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:inset 0 0 0 0.5px rgb(255 255 255/0.18),inset 0 1px 0 rgb(255 255 255/0.25),0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))))}
     .mini.off{opacity:0;pointer-events:none;--mo:24px}
-    .msw{display:flex;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
+    .msw{display:flex;height:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:none} /* Fiks 50 A: alltid none – alle gester i JS */
     .msw::-webkit-scrollbar{display:none}
     .mrow{flex:none;width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;gap:8px;padding:8px 9px 8px 8px;min-width:0}
     .mhit{flex:1;min-width:0;height:48px;display:flex;align-items:center;gap:10px;text-align:left;border-radius:24px}
@@ -11565,10 +11573,9 @@ try {
     .mdots button.on span{opacity:.9}
     /* Fiks 35.3 · sveip: ned skjuler, venstre→høyre (første spiller) avdekker rødt «Fjern»-felt bak spilleren (1/3) */
     .mini.drag{transition:opacity .25s ease,height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
-    .msw.st{touch-action:pan-y} /* 36.10: loddrett = siden ruller (ingen sveip ned), vannrett = JS (sveip høyre = fjern) */
-    .mini.exp .msw{touch-action:pan-x}.mini.exp .msw.st{touch-action:none} /* utvidet: sveip ned lukker utvidelsen (JS eier loddrett) */
     .mrmf{position:fixed;z-index:22;height:64px;border-radius:40px;overflow:hidden;display:flex;align-items:stretch;background:var(--red, #f28073);color:var(--ki-on-accent, #232323);font-family:${M.FONT};opacity:0;pointer-events:none;transition:opacity .2s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
     .mrmf.on{opacity:1;pointer-events:auto}
+    .mrmf.x{height:172px;border-radius:32px} /* Fiks 50: «Fjern» bak det utvidede kortet */
     .mrmb{width:33.34%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:600;color:inherit;border-radius:40px 0 0 40px}
     .mrmb:active{background:rgb(0 0 0/0.08)}
     .mundo{position:fixed;z-index:23;height:64px;display:flex;align-items:center;justify-content:center;pointer-events:none;font-family:${M.FONT}}
@@ -12259,6 +12266,20 @@ try {
       let ids = Array.isArray(m.players) && m.players.length ? m.players.filter((id) => h.states[id])
         : M.mediaPlayers ? M.mediaPlayers(h, (mb && mb.cfg) || {}).all.map((p) => p.id) : M.all(h, 'media_player');
       ids.forEach((id) => this.s(id));
+      // Fiks 50 A: spillere fjernet med sveip (per entity_id) – tilbake ved ny media_content_id eller idle/off → playing
+      const gone = mGone.get();
+      if (gone) {
+        let dirty = false;
+        Object.keys(gone).forEach((id) => {
+          const s = h.states[id], o = gone[id] || {};
+          if (!s) return;
+          const cid = mCid(s);
+          if ((s.state === 'playing' && !/^(playing|paused|buffering)$/.test(o.st || '')) || (cid && cid !== o.cid)) { delete gone[id]; dirty = true; }
+          else if (s.state !== o.st) { gone[id] = { ...o, st: s.state }; dirty = true; }
+        });
+        if (dirty) mGone.set(gone);
+        ids = ids.filter((id) => !gone[id]);
+      }
       const st = (id) => (h.states[id] || {}).state, t = (id) => Date.parse((h.states[id] || {}).last_changed) || 0, now = Date.now();
       const sort = (L) => L.sort((a, b) => (st(b) === 'playing') - (st(a) === 'playing') || t(b) - t(a));
       // Hold på pause skjulte mini-spilleren: tilbake når en spiller går til playing fra en annen tilstand eller får nytt spor
@@ -12330,7 +12351,7 @@ try {
       const vo = this._mVolV;
       const rows = L.map((id) => {
         const s = h.states[id], a = s.attributes || {}, playing = s.state === 'playing';
-        const name = (M.mediaPlayers && (M.mediaPlayers(h, {}).all.find((p) => p.id === id) || {}).name) || a.friendly_name || id;
+        const name = this._miniName(id);
         const sub = [a.media_title, a.media_artist || a.media_album_artist].filter(Boolean).join(' · ') || a.app_name || a.source || (playing ? 'Spiller' : s.state === 'paused' ? 'Pauset' : M.fmtState(h, id));
         const pic = mPic(h, a.entity_picture_local || a.entity_picture), bad = this._mBad && this._mBad.has(pic);
         const T = this._miniTv(id), tv = T.tv, steps = tv && m.tv_vol !== 'slider'; // Fiks 19.15: TV → − / + i pillen
@@ -12356,14 +12377,19 @@ try {
       }).join('');
       const dots = L.length > 1 && !this._mExp ? `<div class="mdots">${L.map((id, i) => `<button class="${i === ci ? 'on' : ''}" data-act="mdot" data-i="${i}" data-haptic="selection" aria-label="Spiller ${i + 1}"><span></span></button>`).join('')}</div>` : '';
       // Fiks 35.3: avdekket «Fjern»-felt (this._mRm) / pågående sveip (this._mDrag) → --mx/--my; angre-pille etter sveip-skjul
-      if (this._mRm && (!show || this._mExp || this._mRm.id !== this._mCur)) this._mRm = null;
+      if (this._mRm && (!show || this._mRm.id !== this._mCur)) this._mRm = null; // Fiks 50: også utvidet (høyre = fjern)
       const dr = this._mDrag, mx = dr ? dr.mx : this._mRm ? this._mRm.px : 0, my = dr ? dr.my : 0;
       const rmOn = !!(this._mRm || (dr && dr.mx > 0));
       const U = this._mUndo && Date.now() < this._mUndo.until && !show ? this._mUndo : null;
       if (!U) this._mUndo = null;
-      const field = `<div class="mrmf${rmOn ? ' on' : ''}" data-mrmf style="${pos}" aria-hidden="${rmOn ? 'false' : 'true'}"><button class="mrmb" data-act="mrm" data-id="${esc(this._mCur || '')}" data-haptic="off" aria-label="Fjern mini-spilleren">${M.icon('mdi:trash-can-outline', 22)}<span>Fjern</span></button></div>`;
+      const field = `<div class="mrmf${rmOn ? ' on' : ''}${this._mExp ? ' x' : ''}" data-mrmf style="${pos}" aria-hidden="${rmOn ? 'false' : 'true'}"><button class="mrmb" data-act="mrm" data-id="${esc(this._mCur || '')}" data-haptic="off" aria-label="Fjern denne spilleren fra mini-spilleren">${M.icon('mdi:trash-can-outline', 22)}<span>Fjern</span></button></div>`;
       const undo = U ? `<div class="mundo${glass ? ' glass' : ''}" data-mundo style="${pos}"><button data-act="mundo" data-haptic="light">Mini-spilleren er skjult<b>Angre</b></button></div>` : '';
-      return `${field}<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}${this._mExp ? ' exp' : ''}${dr ? ' drag' : ''}" data-mini style="${pos};--mx:${mx.toFixed(1)}px;--my:${my.toFixed(1)}px" aria-hidden="${show ? 'false' : 'true'}"><div class="msw${ci === 0 ? ' st' : ''}">${rows}</div>${dots}</div>${undo}`;
+      return `${field}<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}${this._mExp ? ' exp' : ''}${dr || this._mSnap ? ' drag' : ''}" data-mini style="${pos};--mx:${mx.toFixed(1)}px;--my:${my.toFixed(1)}px" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>${undo}`;
+    }
+    // Visningsnavn for en spiller (samme som i Media-popupen), brukt i raden og i toasten «<navn> fjernet»
+    _miniName(id) {
+      const h = this.hass, s = h && h.states[id], a = (s && s.attributes) || {};
+      return (M.mediaPlayers && (M.mediaPlayers(h, {}).all.find((p) => p.id === id) || {}).name) || a.friendly_name || id;
     }
     // Fiks 22.8 · utvidet mini-spiller (172 px): omslag/tekst (trykk → #media) + ⌄ · spole-slider (nåtid / −gjenstår) ·
     // ⏮ · −10 s · play/pause · +10 s · ⏭. Uten varighet/posisjon eller SEEK → slider deaktivert med «–» og uten ±10 s;
@@ -12439,7 +12465,7 @@ try {
       const hit = (e, sel) => { for (const n of e.composedPath()) { if (n === sr) break; if (n.matches && n.matches(sel)) return n; } return null; };
       const inMini = (e) => !!hit(e, '[data-mini]');
       // Fallgruve 2: drag/sveip i mini-spilleren skal aldri nå popupen/siden under
-      ['touchstart', 'touchmove'].forEach((t) => sr.addEventListener(t, (e) => { if (inMini(e)) e.stopPropagation(); }, { passive: true }));
+      ['touchstart', 'touchmove'].forEach((t) => sr.addEventListener(t, (e) => { if (inMini(e) || hit(e, '[data-mrmf]')) e.stopPropagation(); }, { passive: true }));
       sr.addEventListener('contextmenu', (e) => { if (inMini(e)) e.preventDefault(); });
       // Albumbildet feiler → ikon på farge (huskes, så det ikke prøves igjen ved neste render)
       sr.addEventListener('error', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('mimg')) { (this._mBad || (this._mBad = new Set())).add(t.getAttribute('src')); t.remove(); } }, true);
@@ -12455,11 +12481,11 @@ try {
         if (!sw.classList || !sw.classList.contains('msw') || !sw.clientWidth) return;
         const i = Math.round(sw.scrollLeft / sw.clientWidth), row = sw.children[i];
         if (row && row.dataset.mid) this._mCur = row.dataset.mid;
-        sw.classList.toggle('st', sw.scrollLeft <= 2); // 35.3/36.10: touch-action pan-y ved scroll-start (sveip høyre = fjern), ellers pan-x pan-y
         if (this._mExp && this._mCur !== this._mExp) { this._mExp = null; this._schedule(true); } // 22.8: bytt spiller lukker
         sr.querySelectorAll('.mdots button').forEach((b, j) => b.classList.toggle('on', j === i));
       }, true);
       sr.addEventListener('pointerdown', (e) => {
+        if (hit(e, '[data-mrmf]')) { e.stopPropagation(); return; } // Fiks 50: «Fjern»-feltet (trykket går til klikket)
         if (e.button || !inMini(e)) return;
         e.stopPropagation();
         this._mHeld = false;
@@ -12488,7 +12514,8 @@ try {
         }
         const pp = hit(e, '.mpp[data-act="mplay"]');
         if (pp) return this._miniSkipDrag(pp, e); // Fiks 20.20: trykk / hold 550 ms / dra
-        this._miniSwipe(e, mini); // 35.3/36.10: sveip høyre / venstre (loddrett gjør ingenting; holdet under avbrytes av bevegelse > 8 px)
+        // Fiks 50 A/B: hele kortet – høyre = fjern, venstre = neste, opp = utvid (utvidet: ned lukker, unntatt kontroller)
+        if (!(this._mExp && hit(e, '.mvb,.mseek,.mvp,.mst'))) this._miniSwipe(e, mini);
         const el = hit(e, '[data-mhold]');
         if (!el) return;
         // 36.9 (fasit volHoldDown/volHoldUp): pointerdown starter timeren; pointerup/-cancel/-leave og bevegelse > 8 px avbryter.
@@ -12510,8 +12537,8 @@ try {
     // ⏮/⏭ glir ut fra knappen til midten av mini-spilleren; slipp på markert knapp = forrige/neste (TV: kanal − / +).
     // Laget ligger utenfor morph (__mshKeep), så hass-oppdateringer under draget ikke fjerner det.
     _miniSkipDrag(pp, e) {
-      const id = pp.dataset.id, x0 = e.clientX, y0 = e.clientY, pid = e.pointerId, mini = pp.closest('[data-mini]');
-      let sk = null, sel = null, vert = false, vdone = false;
+      const id = pp.dataset.id, x0 = e.clientX, y0 = e.clientY, pid = e.pointerId, mini = pp.closest('[data-mini]'), t0 = Date.now();
+      let sk = null, sel = null, vert = false;
       try { pp.setPointerCapture(pid); } catch (x) { /* */ }
       const open = () => {
         const s = this.hass && this.hass.states[id], f = Number(((s && s.attributes) || {}).supported_features) || 0, tv = this._miniTv(id).tv;
@@ -12552,17 +12579,12 @@ try {
             if (Math.abs(dy) > Math.abs(dx)) vert = true;
           }
           if (vert) {
-            // 36.10: sveip ned på play (ikke utvidet) gjør ingenting (fasit swMove/playMove) – bare opp utvider, ned lukker utvidet
-            if (vdone || Math.abs(dy) < 20) return;
-            const exp = this._mExp === id;
-            if (dy < 0 ? exp : !exp) return;
-            vdone = true;
+            // Fiks 50 B: loddrett fra play går til kortets felles sveip (gummistrikk opp → utvid, utvidet: ned → lukk);
+            // ned på lukket kort / opp på utvidet gjør ingenting. Klikket etterpå spises uansett (ingen spill/pause).
+            end();
             this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 500);
-            M.haptic('medium');
-            this._mExp = dy < 0 ? id : null;
-            if (dy < 0) this._mCur = id;
-            this._mVolId = null;
-            this._schedule(true);
+            const exp = this._mExp === id;
+            if (dy < 0 ? !exp : exp) this._miniSwipe({ clientX: x0, clientY: y0, pointerId: pid, t0 }, mini, dy < 0 ? 'up' : 'down', ev);
             return;
           }
           M.haptic('light');
@@ -12599,23 +12621,24 @@ try {
         this._miniHold('hide', id);
       }, 550);
     }
-    // Fiks 35.3 · sveip i mini-spilleren (i tillegg til hold på play + kryss):
-    //  · 36.10: loddrett bevegelse gjør ingenting (ingen translate/opasitet) – sveip ned skjuler ikke lenger; sporet har
-    //    touch-action pan-y ved scroll-start (pan-x pan-y ellers), så siden kan rulle
-    //  · venstre → høyre bare når første spiller vises (sporet har touch-action:pan-y ved scroll-start, ellers pan-x pan-y):
-    //    > 40 px → spilleren legger seg 1/3 ut og avdekker rødt felt (søppel + «Fjern») + toast; nytt sveip > 24 px eller
-    //    «Fjern» → glir helt ut; trykk eller sveip tilbake → lukker; > 60 % av bredden → fjernes direkte
-    //  · venstre = neste spiller som før (manuell rulling når sporet har touch-action:pan-y / mus) · utvidet: ned lukker utvidelsen
-    //  setPointerCapture først når retningen er bestemt (trykk på knapper virker som før), stopPropagation, haptic
-    //  selection ved terskler og medium ved fjern. pre = retning bestemt av kalleren (play-knappen), ev0 = første flytt.
+    // Fiks 50 A/B · sveip på HELE mini-kortet (fasit Hjem v3 mini.swDown/swMove/swUp/swRemove). Sporet har alltid
+    // touch-action: none, og alle gester håndteres her med stopPropagation (fallgruve 2). Retningen låses ved første 10 px:
+    //  · høyre (uansett posisjon i karusellen): rødt «Fjern»-felt fra venstre – > 40 px → 1/3 ut (trykk «Fjern» eller sveip
+    //    igjen > 24 px), > 60 % → fjernes direkte. Fjerner BARE den viste spilleren (per entity_id). Haptic selection ved
+    //    terskler, medium ved fjerning.
+    //  · venstre: neste spiller (> 30 px), fra den siste rundt til den første. Haptic light.
+    //  · opp (lukket kort): gummistrikk (0,35 × dy, maks 28 px); slipp > 30 px eller > 0,5 px/ms → utvidet meny for den viste
+    //    spilleren. Haptic selection ved 30 px, medium ved åpning.
+    //  · ned (utvidet, unntatt søkelinje/volum/knapper): følger fingeren (0,4 × dy); > 40 px eller > 0,5 px/ms → lukker. Haptic light.
+    //  setPointerCapture først når retningen er låst (trykk på knapper virker som før); klikket etter en gest spises (_mSwallow).
+    //  pre = retning bestemt av kalleren (play-knappen), ev0 = første flytt.
     _miniSwipe(e, mini, pre, ev0) {
       const sr = this._portal && this._portal.shadowRoot;
       if (!mini || !sr) return;
-      const sw = mini.querySelector('.msw'), x0 = e.clientX, y0 = e.clientY, pid = e.pointerId;
-      const W = mini.offsetWidth || 1, cw = (sw && sw.clientWidth) || W, id = this._mCur, exp = !!this._mExp;
-      const rm0 = this._mRm ? this._mRm.px : 0, sl0 = sw ? sw.scrollLeft : 0, atStart = sl0 <= 2;
-      const manual = e.pointerType !== 'touch' || !!(sw && sw.classList.contains('st')); // pan-x → nettleseren ruller selv
-      let mode = pre || null, cap = false, mx = rm0, my = 0, dx = 0, dy = 0;
+      const sw = mini.querySelector('.msw'), x0 = e.clientX, y0 = e.clientY, pid = e.pointerId, t0 = e.t0 || Date.now();
+      const W = mini.offsetWidth || 1, id = this._mCur, exp = !!this._mExp;
+      const rm0 = this._mRm ? this._mRm.px : 0;
+      let mode = pre || null, cap = false, mx = rm0, my = 0, dx = 0, dy = 0, tL = t0;
       const field = () => sr.querySelector('[data-mrmf]');
       const put = (x, y) => { mx = x; my = y; this._mDrag = { mx, my }; mini.style.setProperty('--mx', x.toFixed(1) + 'px'); mini.style.setProperty('--my', y.toFixed(1) + 'px'); };
       const thr = {};
@@ -12625,38 +12648,61 @@ try {
         cap = true; this._mSwipeOn = true;
         clearTimeout(this._mHold);
         try { mini.setPointerCapture(pid); } catch (x) { /* */ }
-        if (mode === 'rm') { mini.classList.add('drag'); put(mx, my); }
+        mini.classList.add('drag'); put(mx, my);
         if (mode === 'rm') { const f = field(); if (f) f.classList.add('on'); }
-        if (mode === 'sc' && sw) sw.style.scrollSnapType = 'none';
       };
       const mv = (ev) => {
         if (ev.pointerId !== pid) return;
         ev.stopPropagation();
-        dx = ev.clientX - x0; dy = ev.clientY - y0;
+        dx = ev.clientX - x0; dy = ev.clientY - y0; tL = Date.now();
         if (!mode) {
-          if (Math.hypot(dx, dy) < 8) return;
-          if (Math.abs(dy) > Math.abs(dx)) mode = exp && dy > 0 ? 'xv' : 'no'; // 36.10: loddrett gjør ingenting (utvidet: ned lukker utvidelsen)
-          else mode = exp ? 'sc' : rm0 || (dx > 0 && atStart) ? 'rm' : 'sc';
-          if (mode === 'no' || (mode === 'sc' && !manual)) { stop(); return; }
+          if (Math.abs(dx) <= 10 && Math.abs(dy) <= 10) return;
+          if (Math.abs(dx) > Math.abs(dy)) mode = rm0 || dx > 0 ? 'rm' : 'next';
+          else mode = rm0 ? 'no' : dy < 0 ? (exp ? 'no' : 'up') : (exp ? 'down' : 'no');
+          if (mode === 'no') { stop(); return; }
         }
         if (ev.cancelable) ev.preventDefault();
         start();
-        if (mode === 'xv') { if (dy > 40) { mode = 'done'; this._mSwallow = true; M.haptic('light'); this._mExp = null; this._mVolId = null; this._schedule(true); } }
-        else if (mode === 'rm') { const x = rm0 + dx; put(x > 0 ? x : x * 0.15, 0); if (!rm0) cross('r', x > 40); cross('f', x > W * 0.6); }
-        else if (mode === 'sc' && sw) sw.scrollLeft = sl0 - dx;
+        if (mode === 'up') { put(0, Math.max(-28, Math.min(0, dy * 0.35))); cross('u', dy < -30); }
+        else if (mode === 'down') { put(0, Math.max(0, dy) * 0.4); cross('d', dy > 40); }
+        else if (mode === 'rm') { const x = Math.min(W, rm0 + dx); put(x > 0 ? x : x * 0.15, 0); if (!rm0) cross('r', x > 40); cross('f', x > W * 0.6); }
+        else if (mode === 'next') put(Math.max(-24, Math.min(0, dx * 0.2)), 0);
       };
       const stop = () => {
         mini.removeEventListener('pointermove', mv); mini.removeEventListener('pointerup', up); mini.removeEventListener('pointercancel', up);
         try { if (cap) mini.releasePointerCapture(pid); } catch (x) { /* */ }
         setTimeout(() => { this._mSwipeOn = false; }, 0);
       };
+      const back = () => { this._mDrag = null; mini.classList.remove('drag'); mini.style.setProperty('--mx', '0px'); mini.style.setProperty('--my', '0px'); };
       const up = (ev) => {
         if (ev.pointerId !== pid) return;
         ev.stopPropagation();
         stop();
         if (!cap) return; // trykk → klikket gjør jobben (i «Fjern»-tilstand: lukker)
-        this._mSwallow = true; setTimeout(() => { this._mSwallow = false; }, 400);
-        const cancel = ev.type === 'pointercancel';
+        this._mSwallow = true; clearTimeout(this._mSwT); this._mSwT = setTimeout(() => { this._mSwallow = false; }, 400);
+        // hastighet = strekning / tid fra pointerdown til siste flytt (px/ms)
+        const cancel = ev.type === 'pointercancel', dt = Math.max(1, tL - t0), v = dy / dt;
+        if (mode === 'up' || mode === 'down') {
+          back();
+          if (!cancel && mode === 'up' && (dy < -30 || v < -0.5)) { M.haptic('medium'); this._mExp = id; this._mCur = id; this._mVolId = null; this._mRm = null; }
+          else if (!cancel && mode === 'down' && (dy > 40 || v > 0.5)) { M.haptic('light'); this._mExp = null; this._mVolId = null; }
+          this._schedule(true);
+          return undefined;
+        }
+        if (mode === 'next') {
+          back();
+          const rows = sw ? [...sw.children] : [], n = rows.length, ci = Math.max(0, rows.findIndex((r) => r.dataset.mid === id));
+          if (!cancel && n > 1 && (dx < -30 || (dx < -10 && dx / dt < -0.5))) {
+            const i = ci + 1 < n ? ci + 1 : 0;
+            M.haptic('light');
+            this._mCur = rows[i].dataset.mid;
+            if (this._mExp && this._mExp !== this._mCur) this._mExp = null;
+            sr.querySelectorAll('.mdots button').forEach((b, j) => b.classList.toggle('on', j === i));
+            sw.scrollTo({ left: i * sw.clientWidth, behavior: 'smooth' });
+          }
+          this._schedule(true);
+          return undefined;
+        }
         if (mode === 'rm') {
           if (!cancel && mx > W * 0.6) return this._miniRmGo('right', mini);
           if (rm0) {
@@ -12670,13 +12716,6 @@ try {
             return undefined;
           }
           return this._miniRmClose(mini);
-        }
-        if (mode === 'sc' && sw) {
-          sw.style.scrollSnapType = '';
-          const n = sw.children.length, i0 = Math.round(sl0 / cw);
-          const i = Math.max(0, Math.min(n - 1, Math.abs(dx) > 40 ? i0 + (dx < 0 ? 1 : -1) : i0));
-          if (i !== i0) M.haptic('selection');
-          sw.scrollTo({ left: i * cw, behavior: 'smooth' });
         }
         return undefined;
       };
@@ -12701,28 +12740,40 @@ try {
       this._mRmT = setTimeout(() => { if (f && !this._mRm && !this._mDrag) f.classList.remove('on'); }, 220);
       this._schedule(true);
     }
-    // Glir helt ut mot høyre og skjules til neste avspilling (som hold på play) – med «Angre»
+    // Fiks 50 A · «Fjern»: glir helt ut mot høyre og fjerner BARE den viste spilleren (per entity_id, sessionStorage) –
+    // karusellen hopper til neste (eller forrige, hvis det var den siste) + toast «<navn> fjernet». Var det den siste
+    // spilleren, skjules mini-spilleren («Mini-spilleren er skjult» med «Angre»).
     _miniRmGo(dir, mini) {
       mini = mini || (this._portal && this._portal.shadowRoot.querySelector('[data-mini]'));
-      const id = this._mCur;
+      const id = this._mCur, L = (this._mLast || []).slice(), i = L.indexOf(id), rest = L.filter((x) => x !== id);
       M.haptic('medium');
-      this._mGone = true;
+      if (!id) return;
+      const name = this._miniName(id), prevGone = mGone.get(), prevHid = mStore.get();
+      this._mGone = true; // skjult mens den glir ut (ingen hass-tegning henter den tilbake midt i animasjonen)
       if (mini) {
         mini.classList.remove('drag');
         const W = mini.offsetWidth || 400;
-        this._mDrag = { mx: W + 40, my: 0 }; // 36.10: bare mot høyre (sveip ned er fjernet)
-        mini.style.setProperty('--mx', this._mDrag.mx + 'px'); mini.style.setProperty('--my', this._mDrag.my + 'px');
+        this._mDrag = { mx: W + 40, my: 0 };
+        mini.style.setProperty('--mx', this._mDrag.mx + 'px'); mini.style.setProperty('--my', '0px');
         mini.classList.add('off');
       }
       const f = this._portal && this._portal.shadowRoot.querySelector('[data-mrmf]'); if (f) f.classList.remove('on');
       clearTimeout(this._mGoT);
       this._mGoT = setTimeout(() => {
-        this._mDrag = null; this._mRm = null; this._mGone = false;
-        const prev = mStore.get();
-        this._miniHide(id);
-        this._mUndo = { prev, until: Date.now() + 5000 };
-        clearTimeout(this._mUndoT);
-        this._mUndoT = setTimeout(() => { this._mUndo = null; this._schedule(true); }, 5100);
+        this._mDrag = null; this._mRm = null; this._mGone = false; this._mExp = null; this._mVolId = null;
+        const h = this.hass, s = h && h.states[id], G = { ...(mGone.get() || {}) };
+        G[id] = { st: s ? s.state : '', cid: mCid(s) };
+        mGone.set(G);
+        if (rest.length) {
+          this._mCur = rest[Math.min(Math.max(0, i), rest.length - 1)];
+          this._mFresh = false;
+          this._mSnap = true; clearTimeout(this._mSnapT); this._mSnapT = setTimeout(() => { this._mSnap = false; }, 80); // ikke gli tilbake fra høyre
+          if (this.config.toasts !== false) M.toast(name + ' fjernet', { icon: 'mdi:trash-can-outline' });
+        } else {
+          this._mUndo = { prev: prevHid, gone: prevGone, until: Date.now() + 5000 };
+          clearTimeout(this._mUndoT);
+          this._mUndoT = setTimeout(() => { this._mUndo = null; this._schedule(true); }, 5100);
+        }
         this._schedule(true);
       }, 260);
     }
@@ -12809,7 +12860,7 @@ try {
       if (name === 'mvstep') return this._miniStep(id, Number(el.dataset.d));
       if (name === 'mexp') { this._mExp = null; return this._schedule(true); } // 22.8: ⌄ lukker
       if (name === 'mrm') return this._miniRmGo('right'); // 35.3: «Fjern» i det røde feltet
-      if (name === 'mundo') { mStore.set(this._mUndo ? this._mUndo.prev : null); this._mUndo = null; this._mFresh = true; return this._schedule(true); }
+      if (name === 'mundo') { mStore.set(this._mUndo ? this._mUndo.prev : null); if (this._mUndo && 'gone' in this._mUndo) mGone.set(this._mUndo.gone); this._mUndo = null; this._mFresh = true; return this._schedule(true); }
       if (name === 'mxtrk') return M.call(h, 'media_player', Number(el.dataset.d) < 0 ? 'media_previous_track' : 'media_next_track', { entity_id: id });
       if (name === 'mx10') {
         const P = mPos(h.states[id]), sv = this._mSeekV, cur = sv && sv.id === id && Date.now() - sv.t < 2500 ? sv.v : P.pos;
@@ -12819,7 +12870,12 @@ try {
         this._schedule(true);
         return M.call(h, 'media_player', 'media_seek', { entity_id: id, seek_position: Math.round(v) });
       }
-      if (name === 'mdot') { const sw = sr && sr.querySelector('.msw'); if (sw) sw.scrollTo({ left: Number(el.dataset.i) * sw.clientWidth, behavior: 'smooth' }); return undefined; }
+      if (name === 'mdot') { // Fiks 50 A: prikkene hopper direkte til spilleren
+        const sw = sr && sr.querySelector('.msw'), i = Number(el.dataset.i), row = sw && sw.children[i];
+        if (row && row.dataset.mid) this._mCur = row.dataset.mid;
+        if (sw) sw.scrollTo({ left: i * sw.clientWidth, behavior: 'smooth' });
+        return undefined;
+      }
       if (name === 'mrow') {
         // Media-popupen med denne spilleren valgt (Media-kortets onOpen velger standardfane først → velg etterpå)
         M.openPopup('#media');
@@ -12865,7 +12921,7 @@ try {
         }
         this._closeMenu(true);
         this.setUI({ compact: false });
-        if (hashOf(N, id) === '#media' && mStore.get()) mStore.set(null); // Fiks 19.7: Media i navbaren henter den skjulte mini-spilleren tilbake
+        if (hashOf(N, id) === '#media') { if (mStore.get()) mStore.set(null); mGone.set(null); } // Fiks 19.7: Media i navbaren henter den skjulte mini-spilleren tilbake
         // Popupen til knappen er allerede åpen → lukk den (fasit Hjem v2: isOpen ? closePop() : open…).
         // Gjelder bunn, glass (slipp etter dra), rail og «Mer»-menyen – alle går via denne handlingen.
         // Dobbel hendelse ved åpning (f.eks. klikk + syntetisk klikk etter glass-slipp, dobbelttrykk): samme knapp < 400 ms
@@ -18161,6 +18217,20 @@ try {
   /* 47 D · lokal reserve når M.arrMedia (06-arr-media.js) mangler: sensor.*upcoming_media* (attributtet data: poster/fanart/
    * airdate/title/number/episode/studio) + calendar.sonarr* · radarr* (calendars/<id>, ingen bilder → plakat fra sensoren
    * når tittelen matcher). Bilder: bare https:// eller HA-proxy (/api/… → hass.hassUrl), aldri http:// på https. */
+  /* Fiks 50 C · neste utgivelse etter i dag (første element fra M.arrMedia.items / reserven med start ≥ i morgen):
+   * etikett «i morgen · 20:00» (relativ dag: i morgen · på fredag (2–6 dager) · om N dager; heldags → uten klokkeslett),
+   * serie (Sonarr) får «S01E02» bak; tittel = serienavn / filmtittel. Ingen → { next: '', nextTitle: '' }. */
+  M.hjemArrNext = function (nx, d0) {
+    const st = nx && (nx.st || (nx.start ? new Date(nx.start) : null));
+    if (!nx || !st || isNaN(st)) return { next: '', nextTitle: '' };
+    const base = new Date(d0 || Date.now()); base.setHours(0, 0, 0, 0);
+    const k = Math.round((new Date(st).setHours(0, 0, 0, 0) - base.getTime()) / 864e5);
+    const rel = k <= 0 ? 'i dag' : k === 1 ? 'i morgen' : k < 7 ? 'på ' + st.toLocaleDateString('nb-NO', { weekday: 'long' }) : `om ${k} dager`;
+    const allDay = !!(nx.all_day || nx.allDay) || (st.getHours() === 0 && st.getMinutes() === 0);
+    const se = nx.source !== 'radarr' && /\b(S\d+\s*E\d+|\d+x\d+)\b/i.exec(String(nx.sub || '') + ' ' + String(nx.number || ''));
+    const next = [rel, allDay ? '' : hhmm(st), se ? se[1].replace(/\s+/g, '').toUpperCase() : ''].filter(Boolean).join(' · ');
+    return { next, nextTitle: String(nx.title || '') };
+  };
   M.hjemArrLocal = async function (hass, from, to) {
     const safe = (u) => {
       u = String(u || '').trim();
@@ -19308,7 +19378,11 @@ try {
             <span class="arti">${esc(it.title || '–')}</span>${it.sub ? `<span class="arsu">${esc(it.sub)}</span>` : ''}</div></div>`;
       };
       const bars = n > 1 ? `<div class="arbars">${items.map((_, i) => `<span class="arbar${i === ai ? ' on' : ''}"></span>`).join('')}</div>` : '';
-      const empty = !n ? `<div class="are"><span class="are-t">${A.loading ? '…' : 'Ingenting i dag'}</span><span class="are-s">${esc(A.loading ? 'Henter Sonarr/Radarr' : A.none ? 'Velg Sonarr/Radarr i Kalender → Kilder' : 'Neste: ' + (A.next || '–'))}</span></div>` : '';
+      // Fiks 50 C (Hjem v3 · r.empty): «Ingenting i dag» 26/300 (balance) · etikett på egen linje «Neste: i morgen · 20:00»
+      // (serie: + S01E02) · tittel 15/500 maks 2 linjer. Ingen kommende → bare «Ingenting i dag».
+      const lab = A.loading ? 'Henter Sonarr/Radarr' : A.none ? 'Velg Sonarr/Radarr i Kalender → Kilder' : A.next ? 'Neste: ' + A.next : '';
+      const nt = !A.loading && !A.none && A.next ? A.nextTitle || '' : '';
+      const empty = !n ? `<div class="are"><span class="are-t">${A.loading ? '…' : 'Ingenting i dag'}</span>${lab ? `<span class="are-s">${esc(lab)}</span>` : ''}${nt ? `<span class="are-n">${esc(nt)}</span>` : ''}</div>` : '';
       return `<div class="rk sl arr" data-act="slide" data-s="arr" data-key="sl-arr" data-ki-island data-n="${n}" role="button" aria-label="Kommer i dag – åpne Kalender, Framover">
         ${items.map(layer).join('')}
         <div class="artop">Kommer i dag</div>${bars}${empty}</div>`;
@@ -19325,7 +19399,7 @@ try {
       const now = new Date(), day = now.toDateString(), A = this._arr;
       if (A && A.day === day && (A.loading || Date.now() - A.t < 15 * 60000)) return A;
       const hass = this.hass, none = !arrSrc(hass);
-      const st = (this._arr = { day, t: Date.now(), loading: !none, none, items: A && A.day === day ? A.items : [], next: A ? A.next : '' });
+      const st = (this._arr = { day, t: Date.now(), loading: !none, none, items: A && A.day === day ? A.items : [], next: A ? A.next : '', nextTitle: A ? A.nextTitle : '' });
       if (none) return st;
       const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
       const d1 = new Date(d0.getTime() + 864e5), to = new Date(d0.getTime() + 15 * 864e5);
@@ -19334,9 +19408,8 @@ try {
         L = (Array.isArray(L) ? L : []).filter((x) => x && x.title && x.source !== 'plex').map((x) => ({ ...x, st: x.start ? new Date(x.start) : null }));
         const today = L.filter((x) => x.st && !isNaN(x.st) && x.st >= d0 && x.st < d1).map((x) => ({ ...x, time: x.time || (x.all_day || x.allDay || (x.st.getHours() === 0 && x.st.getMinutes() === 0) ? 'I dag' : hhmm(x.st)) }));
         const nx = L.find((x) => x.st && !isNaN(x.st) && x.st >= d1);
-        const dl = (d) => { const k = Math.round((new Date(d).setHours(0, 0, 0, 0) - d0) / 864e5); return k === 1 ? 'i morgen' : d.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'short' }); };
-        this._arr = { day, t: Date.now(), loading: false, none: false, items: today, next: nx ? `${dl(nx.st)} · ${nx.title}` : '' };
-      }).catch(() => { this._arr = { day, t: Date.now(), loading: false, none: false, items: [], next: '' }; })
+        this._arr = { day, t: Date.now(), loading: false, none: false, items: today, ...M.hjemArrNext(nx, d0) };
+      }).catch(() => { this._arr = { day, t: Date.now(), loading: false, none: false, items: [], next: '', nextTitle: '' }; })
         .then(() => { if (this.isConnected) this._schedule(true); });
       return st;
     }
@@ -19815,9 +19888,10 @@ try {
         .arbars{position:absolute;left:16px;right:16px;bottom:10px;display:flex;gap:4px;pointer-events:none}
         .arbar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.3);transition:background .4s} /* ki-hex-ok */
         .arbar.on{background:#fafafa} /* ki-hex-ok */
-        .are{position:absolute;left:18px;bottom:18px;right:18px;display:flex;flex-direction:column;gap:4px}
-        .are-t{font-size:30px;font-weight:300;line-height:1.15;text-transform:uppercase}
-        .are-s{font-size:13px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* ki-hex-ok */
+        .are{position:absolute;left:18px;right:18px;bottom:18px;display:flex;flex-direction:column;gap:4px;min-width:0} /* Fiks 50 C */
+        .are-t{font-size:26px;font-weight:300;line-height:1.1;text-transform:uppercase;text-wrap:balance}
+        .are-s{font-size:12px;color:var(--ki-text-2, #afafaf);margin-top:2px;min-width:0;overflow-wrap:anywhere}
+        .are-n{font-size:15px;font-weight:500;line-height:1.25;color:var(--ki-text-1, #e1e1e1);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;text-wrap:pretty;min-width:0}
         .apg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
         .ap{position:relative;height:150px;border-radius:26px;background:var(--ki-surface, var(--gray100,#2f2f2f));overflow:hidden;display:flex;flex-direction:column;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .ap-h{display:flex;align-items:flex-start;gap:8px;padding:14px 12px 0 16px}
@@ -25279,8 +25353,8 @@ try {
       return real;
     }
     _dots(n, idx) {
-      if (n < 2) return '<div class="dots"></div>';
-      return M.dotsHTML(n, idx); // felles trykkbare prikker (17.12)
+      // Fiks 50 D: prikk-raden tegnes bare ved 2+ kort – ett kort gir ingen rad og ingen reservert høyde.
+      return n > 1 ? M.dotsHTML(n, idx) : ''; // felles trykkbare prikker (17.12)
     }
 
     /* ------------ media */
@@ -25644,9 +25718,10 @@ try {
         .fan.on .fbtn{background:rgb(0 0 0 / 0.12);border-color:transparent;color:${ON_ACC}}
         @media (prefers-reduced-motion:reduce){.u ha-icon{animation:none !important}}
         /* karuseller (klima/media) */
-        .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
+        /* Fiks 50 D (Rom v4 ac.klima/climSw): 8 px mellom alle elementer, 8 px side-/bunnpadding – kort → 8 → prikker (12) → 8 → neste rad */
+        .cw{display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 8px 8px}
         .car{width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;overscroll-behavior-x:contain}
-        .dots{display:flex;height:14px;align-items:center} /* prikkene: felles .msh-dots (18.3) */
+        .cw>.dots.msh-dots{height:12px;gap:6px} /* prikkene: felles .msh-dots (18.3) – 10 px, aktiv 12 px, gap 6 */
         /* klima */
         .kc{position:relative;flex:none;width:100%;height:155px;scroll-snap-align:start;border-radius:26px;overflow:hidden;transition:background .4s,border-radius .3s}
         /* 16.8: rosa «varmer»-lag (opasitet → 300 ms overgang), mørk tekst */
@@ -35797,7 +35872,7 @@ try {
   };
   // 47 G · Tilpass media → Faner (Media v4 cfgIsFaner): tekst, forhåndsvisning (live, på --ki-bg) av fanelinja øverst med
   // samme HTML/CSS som kortet (tabBarHTML/tabBarCSS, aktiv = startfanen), og tre kort med segmenter (tabSegs/segBoxM/segOptM).
-  const startOf = (c) => { const v = M.startTab ? M.startTab.value(c, startLegacy) : (c.start_tab || startLegacy(c)); return v === 'last' ? null : v && TABS.some((t) => t[0] === v) ? v : tabOrder(c).vis[0]; };
+  const startOf = (c) => { const v = M.startTab ? M.startTab.value(c, startLegacy) : (c.start_tab || startLegacy(c)); return v === 'last' ? 'last' : v && TABS.some((t) => t[0] === v) ? v : tabOrder(c).vis[0]; };
   const tabPreview = () => ({
     type: 'html',
     html: (h, c) => {
@@ -35812,7 +35887,7 @@ try {
   const SEGS = [
     ['style', 'Fanestil', [['kontur', 'Kontur'], ['fylt', 'Fylt'], ['glass', 'Glass'], ['strek', 'Understrek'], ['chips', 'Chips']]],
     ['mode', 'Faner viser', [['tekst', 'Tekst'], ['ikon', 'Ikoner'], ['aktiv', 'Ikon + aktiv'], ['begge', 'Begge']]],
-    ['start', 'Startfane', TABS],
+    ['start', 'Startfane', [...TABS, ['last', 'Sist brukte']]], // 47 G: «Sist brukte» = start_tab 'last' (felles MSH.startTab)
   ];
   const tabSegs = () => ({
     type: 'html',
@@ -51036,8 +51111,14 @@ try {
  *   2. Toppkort (184 px): vertsnavn + statuschip, stor verdi (44/300) for valgt måling + to små målinger (trykk = bytt graf),
  *      tidsetikett «nå · …» / «−3 t · …», graf 84 px kant til kant med scrub (touch-action none + stopPropagation).
  *   3. Prosa-setning (show_prose, std på): ÉN <p> med inline invers-piller (35.7 regel 1 – aldri containere).
- *   4. Underfaner per vert: Nettverk Internett · Enheter · Switch (ingen Kameraer-underfane) · Proxmox Gjester · Lagring · Backup
- *      · Unraid Array · Gjester · HA Tillegg · Oppdateringer · System.
+ *   4. Underfaner per vert: Nettverk UDM · Enheter · Switch (Fiks 50 K; UDM = Internett-kortet (SpeedTest, del G) + UDM-kortet
+ *      fra 58b-server-unifi.js; Enheter/Switch tegnes av M.serverUnifi når den finnes) · Proxmox Gjester · Lagring · Backup
+ *      · Unraid Array · Gjester · HA Tillegg · Oppdateringer · System · qBittorrent Torrenter · Statistikk (Fiks 50 E).
+ *   Fiks 50 F: vertvelgeren er en vannrett karusell (faner og kort): flex 1 0 auto, min 84 px, scroll-snap, fade 18 px bare på
+ *      siden med skjult innhold, aktiv fane sentreres, touch-action pan-x + stopPropagation, hold-dra omorganiserer fortsatt.
+ *   Fiks 50 E: qBittorrent (plattform qbittorrent, translation_key) skjules automatisk når integrasjonen mangler (qbit_force).
+ *   Fiks 50 G: Internett-kortet bruker SpeedTest (speedtestdotnet): Ned/Opp Mbit/s, «Ping 6 ms · målt 14:10», «Kjør test».
+ *   Vert-grensesnitt for M.serverUnifi: card._host = { hass, config, ui, setUI, render, haptic, moreInfo, setCfg, go, confirm }.
  *   Felles utvidbar liste (35.2: Gjester/Tillegg): søk (44 px), filterchips med antall, rader 60 px med bryter (stopPropagation),
  *   trykk = utvid (6 stat-fliser, bruksstolper, brytere, handlinger). Rød-tone-handlinger krever bekreftelse (to trykk).
  * Data (autokonfig, aldri mock – mangler → «–»): UniFi Network (unifi), UniFi Protect (unifiprotect – kameraene vises ikke i Server;
@@ -51066,12 +51147,15 @@ try {
   const PLAT = {}; INTEG.forEach((i) => i.platforms.forEach((p) => { PLAT[p] = i.key; }));
   const DOMS = INTEG.flatMap((i) => i.domains);
   // Verter (vertvelgeren) og underfaner (designet: HOSTS / SUBS)
-  const HOSTS = [['net', 'Nettverk', 'mdi:router-network'], ['proxmox', 'Proxmox', 'mdi:cube-outline'], ['unraid', 'Unraid', 'mdi:dns'], ['ha', 'HA', 'mdi:home-assistant']];
+  // Fiks 50 E: qBittorrent (designet: HOSTS k 'qbit') etter HA – skjules automatisk når integrasjonen mangler (qbit_force = vis likevel)
+  const HOSTS = [['net', 'Nettverk', 'mdi:router-network'], ['proxmox', 'Proxmox', 'mdi:cube-outline'], ['unraid', 'Unraid', 'mdi:dns'], ['ha', 'HA', 'mdi:home-assistant'], ['qbit', 'qBittorrent', 'mdi:download']];
   const HOSTL = Object.fromEntries(HOSTS.map((t) => [t[0], t]));
   const KEYS = HOSTS.map((t) => t[0]);
-  const HOST_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid', ha: null };
+  const HOST_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid', ha: null, qbit: null };
+  // Fiks 50 K: Nettverk-underfanene heter UDM · Enheter · Switch (gamle «internett» i lagret UI-tilstand → «udm»)
   const SUBS = {
-    net: [['internett', 'Internett'], ['enheter', 'Enheter'], ['switch', 'Switch']],
+    net: [['udm', 'UDM'], ['enheter', 'Enheter'], ['switch', 'Switch']],
+    qbit: [['torrenter', 'Torrenter'], ['statistikk', 'Statistikk']],
     proxmox: [['gjester', 'Gjester'], ['lagring', 'Lagring'], ['backup', 'Backup']],
     unraid: [['array', 'Array'], ['gjester', 'Gjester']],
     ha: [['tillegg', 'Tillegg'], ['oppdateringer', 'Oppdateringer'], ['system', 'System']],
@@ -51090,6 +51174,7 @@ try {
     proxmox: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['io', 'IO wait', '%', OR]],
     unraid: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['temp', 'CPU-temp', '°', OR]],
     ha: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['disk', 'Disk', '%', OR]],
+    qbit: [['down', 'Ned', 'MB/s', BL], ['up', 'Opp', 'MB/s', GR], ['act', 'Aktive', '', PU]],
   };
   const NPT = 48; // punkter i grafen (30 min, 24 t – designet: series(…) med 48 punkter)
   const DEF = {};
@@ -51531,6 +51616,117 @@ try {
     return R;
   }
 
+  /* ------------------------------------------------------------ Fiks 50 E/G: qBittorrent + SpeedTest (autokonfig fra registeret) */
+  // Entitetene finnes via plattform (qbittorrent / speedtestdotnet) + translation_key (eller unique_id-suffiks
+  // «<entry_id>-<nøkkel>») – objekt-ID-mønsteret er bare reserve. Overstyres per nøkkel i overrides.<qbit_*|speedtest_*>.
+  // [nøkkel i kortet, override-nøkkel, domene, translation_key/unique_id-nøkler, reserve-mønster for objekt-ID]
+  const QB = [
+    // rekkefølgen er søkerekkefølgen: spesifikke nøkler først (grense før fart, inaktive før aktive, tilkobling før status)
+    ['downLim', 'qbit_down_limit', 'sensor', ['download_speed_limit', 'dl_limit'], /download_speed_limit$/],
+    ['upLim', 'qbit_up_limit', 'sensor', ['upload_speed_limit', 'up_limit'], /upload_speed_limit$/],
+    ['down', 'qbit_down', 'sensor', ['download_speed', 'dlspeed'], /download_speed$/],
+    ['up', 'qbit_up', 'sensor', ['upload_speed', 'upspeed'], /upload_speed$/],
+    ['inactive', 'qbit_inactive', 'sensor', ['inactive_torrents'], /inactive_torrents$/],
+    ['active', 'qbit_active', 'sensor', ['active_torrents'], /(^|_)active_torrents$/],
+    ['paused', 'qbit_paused', 'sensor', ['paused_torrents'], /paused_torrents$/],
+    ['errored', 'qbit_errored', 'sensor', ['errored_torrents'], /errored_torrents$/],
+    ['all', 'qbit_all', 'sensor', ['all_torrents', 'total_torrents'], /(all|total)_torrents$/],
+    ['dlTot', 'qbit_dl_total', 'sensor', ['alltime_download', 'all_time_download', 'alltime_dl'], /all_?time_download$/],
+    ['ulTot', 'qbit_ul_total', 'sensor', ['alltime_upload', 'all_time_upload', 'alltime_ul'], /all_?time_upload$/],
+    ['ratio', 'qbit_ratio', 'sensor', ['global_ratio'], /(global_)?ratio$/],
+    ['conn', 'qbit_conn', 'sensor', ['connection_status'], /connection_status$/],
+    ['status', 'qbit_status', 'sensor', ['current_status', 'status'], /(^|_)(current_)?status$/],
+    ['alt', 'qbit_alt', 'switch', ['alternative_speed', 'alt_speed'], /alt(ernative)?_speed/],
+  ];
+  const ST_K = [
+    ['down', 'speedtest_down', 'sensor', ['download'], /download$/],
+    ['up', 'speedtest_up', 'sensor', ['upload'], /upload$/],
+    ['ping', 'speedtest_ping', 'sensor', ['ping'], /ping$/],
+  ];
+  // Velg entitet for én nøkkel i en kandidatliste: translation_key → unique_id-suffiks → objekt-ID-mønster
+  const pickKey = (liste, [, , d, tks, re], taken) => {
+    const L = liste.filter((e) => dom(e.entity_id) === d && !taken.has(e.entity_id));
+    const uid = (e) => String(e.unique_id || '');
+    const x = L.find((e) => e.translation_key && tks.includes(e.translation_key))
+      || L.find((e) => tks.some((k) => uid(e).endsWith('-' + k) || uid(e).endsWith('_' + k)))
+      || L.find((e) => re.test(obj(e.entity_id)));
+    return x ? x.entity_id : undefined;
+  };
+  // Nøklene i listens rekkefølge; en entitet brukes bare én gang
+  function pickAll(liste, K) {
+    const out = {}, taken = new Set();
+    K.forEach((k) => { const id = pickKey(liste, k, taken); if (id) { out[k[0]] = id; taken.add(id); } });
+    return out;
+  }
+  const regPool = (hass, plats) => Object.values(hass.entities || {}).filter((e) => e && plats.includes(e.platform) && !e.disabled_by && hass.states[e.entity_id]);
+  const QB_L = { down: 'Hastighet ned', up: 'Hastighet opp', downLim: 'Grense ned', upLim: 'Grense opp', active: 'Aktive torrenter', inactive: 'Inaktive torrenter', paused: 'Pausede torrenter',
+    errored: 'Torrenter med feil', all: 'Alle torrenter', dlTot: 'Totalt lastet ned', ulTot: 'Totalt lastet opp', ratio: 'Ratio', conn: 'Tilkoblingsstatus', status: 'Status', alt: 'Alternativ hastighet (bryter)' };
+  let QMEMO = null;
+  // qBittorrent: { found, auto: {nøkkel → id}, ids: {nøkkel → id (med overrides)} }
+  function oppdagQB(hass, cfg) {
+    cfg = cfg || {};
+    const E = hass.entities || {}, S = hass.states, o = cfg.overrides || {}, sig = JSON.stringify(QB.map((k) => o[k[1]] || ''));
+    if (QMEMO && QMEMO.E === E && QMEMO.S === S && QMEMO.sig === sig) return QMEMO.R;
+    const pool = regPool(hass, ['qbittorrent']);
+    // flere qBittorrent-servere: den første enheten (stabil rekkefølge)
+    const devs = [...new Set(pool.map((e) => e.device_id || '_'))].sort();
+    const liste = devs.length > 1 ? pool.filter((e) => (e.device_id || '_') === devs[0]) : pool;
+    const auto = pickAll(liste, QB), ids = {};
+    QB.forEach(([k, ok_]) => { ids[k] = o[ok_] || auto[k]; });
+    const R = { found: pool.length > 0 || QB.some((k) => !!o[k[1]]), auto, ids, n: pool.length };
+    QMEMO = { E, S, sig, R };
+    return R;
+  }
+  let SMEMO = null;
+  // SpeedTest (speedtestdotnet): { found, auto, ids } – reserve: sensor.speedtest*_download/_upload/_ping (mønster, ikke ID)
+  function oppdagST(hass, cfg) {
+    cfg = cfg || {};
+    const E = hass.entities || {}, S = hass.states, o = cfg.overrides || {}, sig = JSON.stringify(ST_K.map((k) => o[k[1]] || ''));
+    if (SMEMO && SMEMO.E === E && SMEMO.S === S && SMEMO.sig === sig) return SMEMO.R;
+    let liste = regPool(hass, ['speedtestdotnet']);
+    if (!liste.length) liste = Object.keys(S).filter((id) => /^sensor\.speed_?test(_[a-z0-9]+)*_(download|upload|ping)$/.test(id)).map((id) => E[id] || { entity_id: id });
+    const auto = pickAll(liste, ST_K), ids = {};
+    ST_K.forEach(([k, ok_]) => { ids[k] = o[ok_] || auto[k]; });
+    const R = { found: Object.values(ids).some(Boolean), auto, ids };
+    SMEMO = { E, S, sig, R };
+    return R;
+  }
+  // Datahastighet → MB/s (qBittorrent: B/s, KiB/s, kB/s, MB/s, MiB/s …; bit-enheter / 8)
+  const mbsF = (u) => {
+    const r = String(u || '').replace(/\s/g, '');
+    if (!r) return 1;
+    const l = r.toLowerCase();
+    if (/bit|bps/.test(l)) return rateF(r) / 8; // Mbit/s-faktoren / 8
+    const p = /^gi/.test(l) ? 1073.741824 : /^g/.test(l) ? 1000 : /^mi/.test(l) ? 1.048576 : /^m/.test(l) ? 1 : /^ki/.test(l) ? 0.001024 : /^k/.test(l) ? 0.001 : /^b/.test(l) ? 1e-6 : 1;
+    return p;
+  };
+  // Datamengde → byte (B, kB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB)
+  const bytesF = (u) => {
+    const l = String(u || '').replace(/\s/g, '').toLowerCase();
+    const P = { k: 1, m: 2, g: 3, t: 4, p: 5 }, c = l[0];
+    if (!l || !P[c]) return 1;
+    return Math.pow(l[1] === 'i' ? 1024 : 1000, P[c]);
+  };
+  const mbTxt = (v) => M.nf(v, v < 10 ? 1 : 0).replace(/,0$/, ''); // fartsgrense: «5 MB/s», «0,5 MB/s»
+  const sig3 = (v) => (v >= 100 ? 0 : v >= 10 ? 1 : 2);
+  const sizeOf = (b) => {
+    if (b == null || isNaN(b)) return '–';
+    const T = [[1e15, 'PB'], [1e12, 'TB'], [1e9, 'GB'], [1e6, 'MB'], [1e3, 'kB']].find(([f]) => b >= f) || [1, 'B'];
+    const v = b / T[0];
+    return `${M.nf(v, sig3(v)).replace(/,0+$/, '')} ${T[1]}`;
+  };
+  const MND = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
+  // «14:10» (i dag) · «i går 22:10» · «3. okt»
+  const maltTxt = (iso, now) => {
+    const t = new Date(iso); if (isNaN(t)) return '–';
+    now = now || new Date();
+    const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+    const day = (y, m, d) => new Date(y, m, d).getTime(), dt = day(t.getFullYear(), t.getMonth(), t.getDate());
+    if (dt === day(now.getFullYear(), now.getMonth(), now.getDate())) return hm;
+    if (dt === day(now.getFullYear(), now.getMonth(), now.getDate() - 1)) return `i går ${hm}`;
+    return `${t.getDate()}. ${MND[t.getMonth()]}`;
+  };
+
   /* ------------------------------------------------------------ config: verter */
   function tabsCfg(c) {
     const T = c.tabs && !Array.isArray(c.tabs) ? c.tabs : {}; // v5: tabs { order, hidden, start }
@@ -51543,7 +51739,10 @@ try {
   }
   // 36.5: startfane (felles MSH.startTab): start_tab | 'last'; gamle tabs.start leses, '' (gammel «Sist brukt») = 'last'
   const ST_LEG = { legacy: (c) => (c.start_tab === '' ? 'last' : c.tabs && !Array.isArray(c.tabs) && c.tabs.start ? c.tabs.start : undefined), map: (k) => (k === 'unifi' ? 'net' : k) };
-  function visTabs(c) { const T = tabsCfg(c), V = T.order.filter((k) => !T.hidden.includes(k)); return V.length ? V : [T.order[0]]; }
+  // Fiks 50 E: qBittorrent-fanen skjules automatisk når integrasjonen mangler (ingen entiteter/overstyringer), med mindre
+  // qbit_force (Tilpass → Faner: «Vis qBittorrent-fanen selv om integrasjonen mangler»). hass: kortets, ellers MSH.lastHass.
+  const qbitOff = (c, h) => { h = h || M.lastHass; return !c.qbit_force && !(h && h.states && oppdagQB(h, c).found); };
+  function visTabs(c, h) { const T = tabsCfg(c), qo = qbitOff(c, h), V = T.order.filter((k) => !T.hidden.includes(k) && !(k === 'qbit' && qo)); return V.length ? V : [T.order[0]]; }
   // 33.4: felles fanehøyde (MSH.tabH, 05-tab-bar.js): kortets tab_height (28–64) → global «Fanehøyde i popups» → designets 44
   const tabH = (c) => (M.tabH ? M.tabH.height(c, 44) : 44);
   const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
@@ -51588,8 +51787,37 @@ try {
   }
   M.serverPick = openPick;
 
+  /* ------------------------------------------------------------ bekreftelse (host.confirm, Fiks 50) – portalt ark (fallgruve 1) */
+  // confirmSheet(tekst, { ok: 'Slå av', hot: true }) → Promise<bool>. Esc/bakteppe = avbryt.
+  function confirmSheet(text, o) {
+    o = o || {};
+    if (!M.overlay) return Promise.resolve(window.confirm(text));
+    return new Promise((res) => {
+      let done = false;
+      const fin = (v) => { if (done) return; done = true; res(v); };
+      const hot = o.hot !== false;
+      const api = M.overlay({ center: true, maxWidth: 360, guard: 300, onClose: () => fin(false), css: `
+        .cf{display:flex;flex-direction:column;gap:16px;padding:6px 2px 2px}
+        .cf p{margin:0;font-size:16px;line-height:1.45;color:var(--ki-text, #fafafa);text-wrap:pretty}
+        .cfb{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .cfb button{height:48px;border-radius:24px;font-size:15px;font-weight:600;border:0;cursor:pointer}
+        .no{background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}
+        .yes{background:${hot ? tone(RD, 0.2) : C.accent};color:${hot ? TX.red : 'var(--ki-on-accent, #2f2f2f)'}}`,
+        html: `<div class="cf"><p>${esc(text)}</p><div class="cfb"><button class="no" data-c="0">${esc(o.cancel || 'Avbryt')}</button><button class="yes" data-c="1">${esc(o.ok || 'Bekreft')}</button></div></div>` });
+      api.body.addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('[data-c]'); if (!b) return;
+        const v = b.dataset.c === '1';
+        M.haptic(v ? (hot ? 'heavy' : 'success') : 'light');
+        fin(v); api.close();
+      });
+    });
+  }
+  M.serverConfirm = confirmSheet;
+
   /* ------------------------------------------------------------ vertvelgeren (kortet + forhåndsvisningen i Tilpass) */
-  const tabRowHTML = (V, act, attrs) => `<div class="trow"><div class="tabs" role="tablist">${V.map((k) => `<button class="tb${k === act ? ' on' : ''}" role="tab" aria-selected="${k === act}" data-v="${k}" ${attrs ? attrs(k) : ''}>${esc(HOSTL[k][1])}</button>`).join('')}</div>
+  // Fiks 50 F: fanelinjen er en vannrett karusell (designet: pickTabs/tabStop/fadeTabs) – sporet (.tbox) er uendret pille,
+  // scrolleren (.tabs) har padding 4, scroll-snap, skjult scrollbar og fade bare på siden med skjult innhold.
+  const tabRowHTML = (V, act, attrs) => `<div class="trow"><div class="tbox"><div class="tabs" role="tablist">${V.map((k) => `<button class="tb${k === act ? ' on' : ''}" role="tab" aria-selected="${k === act}" data-v="${k}" ${attrs ? attrs(k) : ''}>${esc(HOSTL[k][1])}</button>`).join('')}</div></div>
     <button class="gear" ${attrs ? 'data-act="customize"' : ''} aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button></div>`;
   // Kort-variant: ring (CPU-/ned-last) + statusprikk + navn + undertekst. X: { [k]: { pct, col, ok, none, sub } }
   const ringDash = (p) => `${((M.clamp(p || 0, 0, 100) / 100) * 106.8).toFixed(1)} 106.8`;
@@ -51603,13 +51831,15 @@ try {
     .svp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);margin:0 4px}.svp button{pointer-events:none}
     ${TAB_CSS('.svp')}`;
   const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
-    ${pre} .tabs{flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:999px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));touch-action:pan-y}
-    ${pre} .tb{flex:1 1 0;min-width:0;height:var(--sv-th,44px);padding:0 ${TV('tp', 6)};border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
+    ${pre} .tbox{flex:1;min-width:0;border-radius:999px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));overflow:hidden}
+    ${pre} .tabs{display:flex;gap:2px;padding:4px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain}
+    ${pre} .tabs::-webkit-scrollbar,${pre} .hcards::-webkit-scrollbar{display:none}
+    ${pre} .tb{flex:1 0 auto;min-width:84px;height:var(--sv-th,44px);padding:0 16px;scroll-snap-align:center;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;white-space:nowrap;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
     ${pre} .tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
     ${pre} .gear{width:calc(var(--sv-th,44px) + 8px);height:calc(var(--sv-th,44px) + 8px);border-radius:999px;flex:none;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));color:var(--ki-text, #fafafa)}
     ${pre} .gear:active{transform:scale(.92)}
-    ${pre} .hcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-    ${pre} .hc{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:12px;border-radius:24px;min-width:0;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));transition:background .2s,box-shadow .2s,transform .12s;text-align:left}
+    ${pre} .hcards{display:flex;gap:8px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain}
+    ${pre} .hc{flex:1 0 140px;min-width:140px;scroll-snap-align:center;display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:12px;border-radius:24px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));transition:background .2s,box-shadow .2s,transform .12s;text-align:left}
     ${pre} .hc:active{transform:scale(.97)}
     ${pre} .hc.on{background:var(--ki-surface-2, #404040);box-shadow:inset 0 0 0 1.5px ${PK}}
     ${pre} .hct{display:flex;align-items:center;justify-content:space-between;width:100%}
@@ -51635,7 +51865,7 @@ try {
     c = c || {};
     const preview = { type: 'html', html: (hh, cc, key, ed) => {
       if (ed && !ed.__svInst) { ed.__svInst = true; window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); }); }
-      const V = visTabs(cc), act = (M.startTab ? M.startTab.pillKey(cc, V, ST_LEG) : null) || V[0]; // 36.5: forhåndsvisningen viser startfanen
+      const V = visTabs(cc, hh), act = (M.startTab ? M.startTab.pillKey(cc, V, ST_LEG) : null) || V[0]; // 36.5: forhåndsvisningen viser startfanen
       return `<style>${PREV_CSS()}</style><div class="svp" data-key="svp" aria-hidden="true" style="${thVars(cc)}"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}) : tabRowHTML(V, act)}</div>`;
     } };
     const ints = { type: 'html', html: (hh, cc, key) => `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${INTEG.map((I) => {
@@ -51645,6 +51875,8 @@ try {
         <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">${esc(I.name)}</span><span style="font-size:12px;color:${col}">${esc(txt)}</span></span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
     }).join('')}<span class="help">Home Assistant (HA-fanen) hentes alltid fra Supervisor og systemmonitor. Trykk for å velge en annen config entry, eller «Ingen».</span></div>`,
     click: (dd, ed) => { M.haptic('light'); openPick(ed._hass, ed._config || {}, dd.v, (v) => ed._set('integrations.' + dd.v, v)); } };
+    // overrides.<nøkkel> med eget autovalg (qBittorrent / SpeedTest) – autovalget ignorerer overstyringen
+    const entX = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => { if (!hh) return null; try { return fnc(hh, cc || {}) || null; } catch (e) { return null; } }, none_label: '– · Velg entitet', ...(extra || {}) });
     const ent = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => autoOf(hh, cc, fnc), none_label: '– · Velg entitet', ...(extra || {}) });
     const reset = { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-server-card', card_id: id }; ed._set('card_id', id); } };
     const hostOpts = HOSTS.map((t) => [t[0], t[1]]);
@@ -51660,9 +51892,10 @@ try {
         ] },
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs', 'faner'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
-            ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, clear: ['tabs.start'], items: (hh, cc) => { const by = Object.fromEntries(hostOpts); return visTabs(cc || {}).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane øverst
+            ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, clear: ['tabs.start'], items: (hh, cc) => { const by = Object.fromEntries(hostOpts); return visTabs(cc || {}, hh).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane øverst
             preview,
-            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', start: { legacy: ST_LEG, visible: (cc) => visTabs(cc) }, options: hostOpts },
+            { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', start: { legacy: ST_LEG, visible: (cc) => visTabs(cc) }, options: hostOpts,
+              after: [{ type: 'boolean', name: 'qbit_force', label: 'Vis qBittorrent-fanen selv om integrasjonen mangler', default: false, help: 'Uten qBittorrent-integrasjonen skjules fanen automatisk.' }] },
             { type: 'info', label: 'Hold inne en fane i 0,4 s og dra for å endre rekkefølgen direkte i popupen.' },
           ] },
         ] },
@@ -51674,7 +51907,7 @@ try {
         { key: 'integrasjoner', label: 'Integrasjoner', icon: 'mdi:puzzle', focus: ['integrasjoner', 'integrations'], fields: [
           { type: 'section', id: 'integrasjoner', label: 'Integrasjoner', icon: 'mdi:puzzle', fields: [ints] },
         ] },
-        { key: 'avansert', label: 'Avansert', icon: 'mdi:tune', focus: ['entities', 'overrides', 'spacing', 'advanced', 'avansert'], fields: [
+        { key: 'avansert', label: 'Avansert', icon: 'mdi:tune', focus: ['entities', 'overrides', 'spacing', 'advanced', 'avansert', 'speedtest', 'qbit', 'unifi'], fields: [
           { type: 'section', id: 'entities', label: 'Entiteter i toppkortet', icon: 'mdi:format-list-bulleted', fields: [
             { type: 'info', label: 'Alt er funnet automatisk. Velg en annen entitet bare der det automatiske valget er feil.' },
             ent('net_down', 'Nettverk · Ned', (RR) => (gateway(RR) || {}).rx), ent('net_up', 'Nettverk · Opp', (RR) => (gateway(RR) || {}).tx),
@@ -51683,6 +51916,17 @@ try {
             ent('unraid_cpu', 'Unraid · CPU', (RR) => (RR.unraid || {}).cpu), ent('unraid_ram', 'Unraid · Minne', (RR) => (RR.unraid || {}).ram), ent('unraid_temp', 'Unraid · CPU-temp', (RR) => (RR.unraid || {}).temp),
             ent('ha_cpu', 'HA · CPU', (RR, HH) => HH.sys.cpu), ent('ha_mem', 'HA · Minne', (RR, HH) => HH.sys.mem), ent('ha_disk', 'HA · Disk', (RR, HH) => HH.sys.disk),
             { type: 'entities', name: 'exclude', label: 'Skjul entiteter (rader og fliser)', help: 'Søk opp enheter, gjester, tillegg eller oppdateringer som ikke skal vises.' },
+          ] },
+          // Fiks 50 H–J: UniFi-enheter (rekkefølge/synlighet, PoE-budsjett) fra 58b-server-unifi.js – samme skjema i Tilpass og GUI
+          ...(() => { const su = M.serverUnifi; if (!su || typeof su.editorFields !== 'function') return []; try { return su.editorFields(h, c) || []; } catch (e) { console.error('[ki-msh] serverUnifi.editorFields', e); return []; } })(),
+          // Fiks 50 G: Internett-kortet (Nettverk → UDM) – SpeedTest-integrasjonen (speedtestdotnet)
+          { type: 'section', id: 'speedtest', label: 'Internett (SpeedTest)', icon: 'mdi:speedometer', fields: [
+            ...ST_K.map(([k, o]) => entX(o, { down: 'Ned (Mbit/s)', up: 'Opp (Mbit/s)', ping: 'Ping (ms)' }[k], (hh, cc) => oppdagST(hh, cc).auto[k])),
+          ] },
+          // Fiks 50 E: qBittorrent-fanen
+          { type: 'section', id: 'qbit', label: 'qBittorrent', icon: 'mdi:download', fields: [
+            { type: 'info', label: 'Funnet automatisk fra qBittorrent-integrasjonen. Velg en annen entitet bare der det automatiske valget er feil.' },
+            ...QB.map(([k, o, d]) => entX(o, QB_L[k], (hh, cc) => oppdagQB(hh, cc).auto[k], d === 'switch' ? { domains: ['switch'] } : null)),
           ] },
           M.spacingSchema(),
           { type: 'section', id: 'avansert', label: 'Tilbakestill', icon: 'mdi:restore', fields: [reset] },
@@ -51714,13 +51958,17 @@ try {
       CE.t = 0; entries(this.hass); // friske config entries når popupen åpnes
       supLoad(this.hass, true);
       this._loadHist(); // 36.5: startfanen settes av MSH.startTab (startTabSpec) før onOpen
+      this._cKey = null; this.update(); // Fiks 50 F: aktiv fane sentreres (uten animasjon) når popupen åpnes
 
     }
     onClose() { if (this._pick) { this._pick.close(); this._pick = null; } this._holdStop(); }
-    get tabs() { return visTabs(this.config); }
-    static get startTabSpec() { return { key: 'host', tabs: (card) => visTabs(card.config), legacy: ST_LEG.legacy, map: ST_LEG.map, get: (card) => card.tab, set: (card, id) => { if (card.ui.host !== id) card.setUI({ host: id, sel: null }, true); } }; }
+    get tabs() { return visTabs(this.config, this.hass); }
+    static get startTabSpec() { return { key: 'host', tabs: (card) => visTabs(card.config, card.hass), legacy: ST_LEG.legacy, map: ST_LEG.map, get: (card) => card.tab, set: (card, id) => { if (card.ui.host !== id) card.setUI({ host: id, sel: null }, true); } }; }
     get tab() { const V = this.tabs, st = tabsCfg(this.config).start; const u = this.ui.host || this.ui.tab; return V.includes(u) ? u : V.includes(st) ? st : V[0]; }
-    _sub(host) { const S = SUBS[host], u = (this.ui.sub || {})[host]; return S.some((s) => s[0] === u) ? u : S[0][0]; }
+    _sub(host) { const S = SUBS[host]; let u = (this.ui.sub || {})[host]; if (u === 'internett') u = 'udm'; return S.some((s) => s[0] === u) ? u : S[0][0]; }
+    // Fiks 50 G: SpeedTest-målingen er ferdig når sensorene melder ny tilstand (last_updated) – sjekkes ved hver hass-oppdatering
+    set hass(h) { super.hass = h; this._stCheck(); }
+    get hass() { return super.hass; }
 
     /* ---------------------------------------------------------- målinger (toppkort + vertkort) */
     _metrics(R, HA, host) {
@@ -51739,6 +51987,11 @@ try {
       if (host === 'unraid') {
         const U = R.unraid || {}, cp = ov(c, 'unraid_cpu') || U.cpu, mm = ov(c, 'unraid_ram') || U.ram, tp = ov(c, 'unraid_temp') || U.temp;
         return [mk(a, cp, pctOf(h, cp)), mk(b, mm, pctOf(h, mm)), mk(x, tp, numOf(h, tp))];
+      }
+      if (host === 'qbit') {
+        const Q = oppdagQB(h, c).ids, sp = (id) => { const v = numOf(h, id), f = mbsF(unitOf(h, id)); return [v == null ? null : v * f, f]; };
+        const [vd, fd] = sp(Q.down), [vu, fu] = sp(Q.up);
+        return [mk(a, Q.down, vd, fd), mk(b, Q.up, vu, fu), mk(x, Q.active, numOf(h, Q.active))];
       }
       const S = HA.sys, cp = ov(c, 'ha_cpu') || S.cpu, mm = ov(c, 'ha_mem') || S.mem, dk = ov(c, 'ha_disk') || S.disk;
       return [mk(a, cp, pctOf(h, cp)), mk(b, mm, pctOf(h, mm)), dk ? mk(x, dk, pctOf(h, dk)) : mk(x, HA.host.diskUsed, pctOf(h, null, HA.host.diskUsed, HA.host.diskTot))];
@@ -51765,6 +52018,13 @@ try {
     // Status per vert (chip, prikk): { t, ok, none }
     _status(R, HA, host) {
       const h = this.hass;
+      if (host === 'qbit') {
+        const Q = oppdagQB(h, this.config), s = Q.ids.conn && h.states[Q.ids.conn];
+        if (!Q.found) return { t: 'Ikke koblet', ok: false, none: true };
+        if (!ok(s)) return { t: '–', ok: false, none: true };
+        const v = String(s.state).toLowerCase();
+        return v === 'connected' ? { t: 'Tilkoblet', ok: true } : v === 'firewalled' ? { t: 'Brannmur', ok: false } : v === 'disconnected' ? { t: 'Frakoblet', ok: false } : { t: tittel(s.state), ok: false };
+      }
       if (host === 'ha') { const n = this._updN(); return n ? { t: `${n} ${n === 1 ? 'oppdatering' : 'oppdateringer'}`, ok: false } : { t: 'Oppdatert', ok: true }; }
       const ik = HOST_INT[host];
       if (!R.found[ik]) return { t: R.loading && R.mode[ik] !== 'none' ? 'Leter …' : 'Ikke koblet', ok: false, none: true };
@@ -51805,8 +52065,81 @@ try {
         case 'opt': return this._opt(d);
         case 'install': return this._install(d.id);
         case 'locate': return this._locate(d);
+        case 'st': return this._stRun();
+        case 'qalt': return this._qAlt(d.id);
         default: return super.onAction(name, el, ev);
       }
+    }
+    /* ---------------------------------------------------------- Fiks 50 G: «Kjør test» (SpeedTest) */
+    _stIds() { const I = oppdagST(this.hass, this.config).ids; return [I.down, I.up, I.ping].filter(Boolean); }
+    _stRun() {
+      const h = this.hass, ids = this._stIds();
+      if (this._st || !ids.length) { if (!ids.length) M.toast('Fant ingen SpeedTest-sensorer'); return; }
+      const lu = {}; ids.forEach((id) => { const s = h.states[id]; lu[id] = s ? s.last_updated : null; });
+      this._st = { t: Date.now(), lu };
+      clearTimeout(this._stT);
+      this._stT = setTimeout(() => { if (!this._st) return; this._st = null; M.haptic('warning'); M.toast('Speedtest ga ikke svar'); this.update(); }, 180000);
+      this.update();
+      const svc = h.services && h.services.speedtestdotnet && h.services.speedtestdotnet.speedtest;
+      const p = svc ? M.call(h, 'speedtestdotnet', 'speedtest', {}) : M.call(h, 'homeassistant', 'update_entity', { entity_id: ids });
+      Promise.resolve(p).catch((e) => { clearTimeout(this._stT); this._st = null; M.toast('Feil: ' + ((e && e.message) || e)); this.update(); });
+    }
+    _stCheck() {
+      const st = this._st, h = this.hass;
+      if (!st || !h) return;
+      const ids = Object.keys(st.lu), main = ids[0]; // nedlasting først (ellers den som finnes)
+      const ch = (id) => { const s = h.states[id]; return !!s && s.last_updated !== st.lu[id]; };
+      if (!ch(main) && !ids.every(ch)) return;
+      this._st = null; clearTimeout(this._stT);
+      M.haptic('success'); M.toast('Speedtest ferdig');
+      this.update();
+    }
+    /* ---------------------------------------------------------- Fiks 50 E: alternativ hastighet (switch.toggle, optimistisk) */
+    _qAlt(id) {
+      const h = this.hass, s = id && h.states[id];
+      if (!s) return;
+      const want = !this._pendingTgl(id, s.state === 'on');
+      this._want('t:' + id, want);
+      M.call(h, 'switch', 'toggle', { entity_id: id }).catch((e) => M.toast('Feil: ' + ((e && e.message) || e)));
+      M.toast(want ? 'Alternativ hastighet på' : 'Alternativ hastighet av');
+    }
+    /* ---------------------------------------------------------- vert-grensesnitt for M.serverUnifi (58b-server-unifi.js, Fiks 50 H–M) */
+    // host.render() = ny tegning (kortets egen render() er malen og returnerer HTML), derfor et eget objekt.
+    get _host() {
+      if (this.__host) return this.__host;
+      const card = this;
+      this.__host = {
+        card,
+        get hass() { return card.hass; },
+        get config() { return card.config; },
+        get ui() { return card.ui; },
+        setUI: (p, quiet) => card.setUI(p, quiet),
+        render: () => card.update(),
+        update: () => card.update(),
+        haptic: (t) => M.haptic(t || 'light'),
+        moreInfo: (id) => { if (id) M.moreInfo(card, id); },
+        toast: (t) => M.toast(t),
+        call: (d, sv, data) => M.call(card.hass, d, sv, data),
+        setCfg: (patch) => card._setCfg(patch),
+        go: (tab, sub, extra) => card._go(tab, sub, extra),
+        confirm: (text, o) => confirmSheet(text, o),
+      };
+      return this.__host;
+    }
+    async _setCfg(patch) {
+      const old = this._rawConfig || this.config, n = { ...old, ...(patch || {}) };
+      Object.keys(n).forEach((k) => { if (n[k] === undefined) delete n[k]; });
+      this.setConfig(n);
+      try { const r = await M.saveCardConfig(this.hass, old, n, { card: this }); if (r && r.config) this.setConfig(r.config); } catch (e) { console.warn('[ki-msh] Server', e); }
+    }
+    // Hopp til vert/underfane (f.eks. «Porter» → go('net', 'switch', { dev })) – extra legges i UI-tilstanden
+    _go(tab, sub, extra) {
+      const host = tab && this.tabs.includes(tab) ? tab : this.tab, x = { ...(extra || {}) }, moved = host !== this.tab;
+      if (x.dev && x.swSel == null) x.swSel = x.dev;
+      const p = { host, sel: null, port: null, ...x };
+      if (sub && SUBS[host] && SUBS[host].some((t) => t[0] === sub)) p.sub = { ...(this.ui.sub || {}), [host]: sub };
+      this.setUI(p);
+      if (moved) setTimeout(() => this._loadHist(), 0);
     }
     onInput(name, el) { if (name === 'q') { this._q[this.tab] = el.value; this.update(); } }
     // Rød-tone-handlinger: første trykk = «Bekreft · trykk igjen» (rød), andre trykk kjører, tilbakestilles etter 3 s
@@ -51911,8 +52244,13 @@ try {
     /* ---------------------------------------------------------- tegning */
     render() {
       const h = this.hass, c = this.config;
-      const R = (this._R = oppdag(h, c)), HA = (this._HA = oppdagHA(h, c));
-      const V = this.tabs, host = this.tab;
+      let R = oppdag(h, c);
+      const HA = (this._HA = oppdagHA(h, c)), su = M.serverUnifi;
+      // Fiks 50 H–M: 58b-server-unifi.js kan utvide oppdagelsen (UniFi-enheter via device_id)
+      if (su && typeof su.discover === 'function') { try { const x = su.discover(h, R, c); if (x && typeof x === 'object' && x.unifi) R = x; } catch (e) { console.error('[ki-msh] serverUnifi.discover', e); } }
+      this._R = R;
+      const V = this.tabs, host = this.tab, QQ = oppdagQB(h, c), STT = oppdagST(h, c);
+      [...Object.values(QQ.ids), ...Object.values(STT.ids)].forEach((id) => { if (id) this._deps.add(id); });
       INTEG.forEach((i) => R.ents[i.key].forEach((id) => this._deps.add(id)));
       Object.values(c.overrides || {}).forEach((id) => { if (id) this._deps.add(id); });
       [HA.sys, HA.core, HA.os, HA.sup, HA.host].forEach((o) => Object.values(o || {}).forEach((id) => { if (typeof id === 'string' && id.includes('.')) this._deps.add(id); }));
@@ -51921,11 +52259,13 @@ try {
       const X = {};
       V.forEach((k) => {
         const m = this._metrics(R, HA, k)[0], st = this._status(R, HA, k);
-        X[k] = { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : m.v, sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : `${m.label} ${Math.round(m.v)} %` };
+        // ring: net 100 % = 1000 Mbit · qbit 100 % = 20 MB/s (designet: v * 5)
+        X[k] = { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : k === 'qbit' ? Math.min(100, m.v * 5) : m.v,
+          sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : k === 'qbit' ? `${fmtN(m.v, m.v < 100 ? 1 : 0)} MB/s ned` : `${m.label} ${Math.round(m.v)} %` };
       });
       const cards = isCards(c);
       const pick = cards ? hostCardsHTML(V, host, X, (k) => `data-act="host" data-haptic="selection"`) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"');
-      const ik = HOST_INT[host], found = host === 'ha' || R.found[ik], sub = this._sub(host);
+      const ik = HOST_INT[host], found = !ik || R.found[ik], sub = this._sub(host);
       const parts = [pick, this._hero(R, HA, host, cards), showProse(c) ? this._prose(R, HA, host) : ''];
       if (!found) parts.push(this._notFound(R, ik));
       else {
@@ -51949,7 +52289,8 @@ try {
         mx = pts[Math.min(idx, pts.length - 1)][0];
       }
       const at = (m) => { if (ui.sel == null) return m.v; const s = this._series(m); return s.length ? s[Math.min(idx, s.length - 1)] : null; };
-      const fv = (m, v) => (v == null || isNaN(v) ? '–' : m.unit === '%' && v < 10 ? M.nf(v, 1) : String(Math.round(v)));
+      // MB/s (qBittorrent) med én desimal under 100 (designet: «9,2 MB/s»)
+      const fv = (m, v) => (v == null || isNaN(v) ? '–' : (m.unit === '%' && v < 10) || (m.unit === 'MB/s' && v < 100) ? M.nf(v, 1) : String(Math.round(v)));
       const st = this._status(R, HA, host);
       const hrs = (NPT - 1 - idx) / 2;
       const time = ui.sel == null ? `nå · ${M0.label.toLowerCase()}` : `−${M.nf(hrs, hrs % 1 ? 1 : 0)} t · ${M0.label.toLowerCase()}`;
@@ -51971,8 +52312,14 @@ try {
     _prose(R, HA, host) {
       const h = this.hass, c = this.config, ik = HOST_INT[host], pill = (t) => `<span class="pp">${esc(t)}</span>`;
       let txt;
-      if (host !== 'ha' && !R.found[ik]) txt = R.loading && R.mode[ik] !== 'none' ? `Leter etter ${pill(INT[ik].name)} …` : `Ingen ${pill(INT[ik].name)} er koblet til ennå.`;
-      else if (host === 'net') {
+      if (ik && !R.found[ik]) txt = R.loading && R.mode[ik] !== 'none' ? `Leter etter ${pill(INT[ik].name)} …` : `Ingen ${pill(INT[ik].name)} er koblet til ennå.`;
+      else if (host === 'qbit') {
+        const m = this._metrics(R, HA, 'qbit'), a = m[2].v;
+        txt = `qBittorrent laster ned med ${pill(m[0].v == null ? '–' : `${fmtN(m[0].v, m[0].v < 100 ? 1 : 0)} MB/s`)} og har ${pill(a == null ? '–' : `${M.nf(a)} ${a === 1 ? 'aktiv torrent' : 'aktive torrenter'}`)}.`;
+      } else if (host === 'net' && M.serverUnifi && typeof M.serverUnifi.prosa === 'function' && (() => { try { txt = M.serverUnifi.prosa(h, R, c) || ''; } catch (e) { console.error('[ki-msh] serverUnifi.prosa', e); txt = ''; } return !!txt; })()) {
+        // Fiks 50 H: prosaen for Nettverk kommer fra 58b-server-unifi.js (ekte UniFi-enheter) – HTML (én <p> eller innhold)
+        if (/^\s*<p[\s>]/.test(txt)) return txt;
+      } else if (host === 'net') {
         const off = R.unifi.enheter.filter((e) => e.type !== 'enhet' && apOffline(h, e)).length, k = klientTall(h, R, c);
         txt = `Nettet er ${pill(off ? `${off} ${off === 1 ? 'enhet' : 'enheter'} frakoblet` : 'helt oppe')} og ${pill(k == null ? '–' : `${M.nf(k)} ${k === 1 ? 'klient' : 'klienter'}`)} er tilkoblet.`;
       } else if (host === 'proxmox') {
@@ -52133,13 +52480,62 @@ try {
     }
 
     /* ---------------------------------------------------------- Nettverk */
-    _b_net_internett(R) {
-      const h = this.hass, c = this.config, g = gateway(R) || {}, Ms = this._metrics(R, this._HA, 'net');
-      const lat = numOf(h, (g.latens || [])[0]), isp = g.isp && ok(h.states[g.isp]) ? h.states[g.isp].state : null;
-      (g.latens || []).forEach((id) => this.s(id));
-      const tile = (icon, label, col, m) => `<div class="wt"><span class="wl">${M.icon(icon, 16, `color:${col}`)}${esc(label)}</span><span class="wv"><span class="num">${m.v == null ? '–' : Math.round(m.v)}</span><span>Mbit/s</span></span></div>`;
-      return `<section class="card wan"><div class="ch wide"><span class="ct">Internett</span><span class="cs">${esc(isp || '–')} · ${lat == null ? '–' : M.nf(lat) + ' ms'}</span></div>
-        ${tile('mdi:arrow-down', 'Ned', TX.blue, Ms[0])}${tile('mdi:arrow-up', 'Opp', TX.green, Ms[1])}</section>`;
+    // Fiks 50 G: Internett-kortet (designet: sec.wan / wan / stInfo) – SpeedTest-sensorene (speedtestdotnet), Mbit/s avrundet
+    _internett() {
+      const h = this.hass, I = oppdagST(h, this.config).ids, run = !!this._st;
+      const mb = (id) => { if (run) return null; const v = numOf(h, id); return v == null ? null : v * rateF(unitOf(h, id)); };
+      const ping = run ? null : numOf(h, I.ping), ds = I.down && h.states[I.down];
+      const none = !I.down && !I.up && !I.ping;
+      const meta = run ? 'Måler …' : none ? '– · Velg entitet' : ok(ds) || ping != null ? [`Ping ${ping == null ? '–' : M.nf(ping, ping < 10 && ping % 1 ? 1 : 0)} ms`, ok(ds) ? `målt ${maltTxt(ds.last_updated)}` : null].filter(Boolean).join(' · ') : '–';
+      const tile = (icon, label, col, id) => { const v = mb(id); return `<button class="wt press" ${id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"` : 'data-act="customize" data-section="speedtest"'} data-key="wt-${label}"><span class="wl">${M.icon(icon, 16, `color:${col}`)}${esc(label)}</span><span class="wv"><span class="num">${v == null ? '–' : M.nf(Math.round(v))}</span><span>Mbit/s</span></span></button>`; };
+      return `<section class="card wan" data-key="wan"><span class="wh"><span class="grow wcol"><span class="ct">Internett</span><button class="wmeta num" ${none ? 'data-act="customize" data-section="speedtest"' : I.ping && !run ? `data-act="more" data-id="${esc(I.ping)}"` : 'tabindex="-1"'}>${esc(meta)}</button></span>
+          <button class="strun${run ? ' run' : ''}" data-act="st" data-haptic="medium" ${run || none ? 'disabled' : ''} aria-label="Kjør speedtest">${M.icon('mdi:speedometer', 16)}Kjør test</button></span>
+        ${tile('mdi:arrow-down', 'Ned', TX.blue, I.down)}${tile('mdi:arrow-up', 'Opp', TX.green, I.up)}</section>`;
+    }
+    // Fiks 50 K: Nettverk-underfanene UDM · Enheter · Switch – innholdet under Internett-kortet kommer fra M.serverUnifi (S2)
+    _su(sub, R) {
+      const su = M.serverUnifi;
+      if (!su || typeof su.html !== 'function') return null;
+      try { return su.html(this._host, sub, R) || ''; } catch (e) { return this._failHTML(e); }
+    }
+    _b_net_udm(R) { const x = this._su('udm', R); return this._internett(R) + (x || ''); }
+    _b_net_enheter(R) { const x = this._su('enheter', R); return x != null ? x : this._enheterV1(R); }
+    _b_net_switch(R) { const x = this._su('switch', R); return x != null ? x : this._switchV1(R); }
+
+    /* ---------------------------------------------------------- Fiks 50 E: qBittorrent (designet: QB_T / QB_S / qb) */
+    _qb() {
+      const h = this.hass, Q = oppdagQB(h, this.config).ids;
+      const cnt = (id) => numOf(h, id);
+      const spd = (id) => { const v = numOf(h, id); return v == null ? null : v * mbsF(unitOf(h, id)); };
+      return { Q, cnt, spd };
+    }
+    _qbTap(id, extra) { return id ? `data-act="more" data-id="${esc(id)}" data-ent="${esc(id)}"${extra || ''}` : 'tabindex="-1"'; }
+    _b_qbit_torrenter() {
+      const h = this.hass, { Q, cnt, spd } = this._qb();
+      const T = [['active', 'Aktive', BL], ['inactive', 'Inaktive', 'var(--ki-text-3, #7f7f7f)'], ['paused', 'Pauset', OR], ['errored', 'Feil', RD]].map(([k, l, c]) => ({ k, l, c, id: Q[k], n: cnt(Q[k]) }));
+      const sum = T.reduce((a, t) => a + (t.n || 0), 0), all = cnt(Q.all) != null ? cnt(Q.all) : T.some((t) => t.n != null) ? sum : null;
+      const bar = T.some((t) => t.n != null) ? T.map((t) => `<span style="flex:${Math.max(t.n || 0, 0.5)} 1 0;min-width:4px;background:${t.c}"></span>`).join('') : '<span class="qb0"></span>';
+      const tiles = T.map((t) => `<button class="qt press" ${this._qbTap(t.id)} data-key="qt-${t.k}"><span class="ql"><i style="background:${t.c}"></i>${esc(t.l)}</span><span class="qn num">${t.n == null ? '–' : M.nf(t.n)}</span></button>`).join('');
+      const fs = (v) => (v == null ? '–' : fmtN(v, v < 100 ? 1 : 0));
+      const sp = [['Ned', Q.down, 'mdi:arrow-down', BL], ['Opp', Q.up, 'mdi:arrow-up', GR]].map(([l, id, ic, c]) => `<button class="qs press" ${this._qbTap(id)} data-key="qs-${l}"><span class="qsi" style="background:${tone(c)};color:${c === BL ? TX.blue : TX.green}">${M.icon(ic, 18)}</span><span class="qsc"><span class="qsv num">${esc(fs(spd(id)))} <span>MB/s</span></span><span class="qsl">${esc(l)}</span></span></button>`).join('');
+      // alternativ hastighet: bryter 52×32 (rosa gradient når på) → switch.toggle, haptic «medium»
+      const as = Q.alt && this.s(Q.alt), on = !!as && this._pendingTgl(Q.alt, as.state === 'on');
+      const lim = (id) => { const v = spd(id); return v == null ? null : v === 0 ? 'ubegrenset' : `${mbTxt(v)} MB/s`; };
+      const ln = lim(Q.downLim), lu = lim(Q.upLim);
+      const altSub = !as || !ok(as) ? '–' : on ? `På · ${ln || '–'} ned · ${lu || '–'} opp` : 'Av · bruker vanlige grenser';
+      return `<section class="card qbt" data-key="qbt"><div class="ch">${M.icon('mdi:download', 20, 'color:var(--ki-text-1, #c7c7c7)')}<span class="ct">Torrenter</span><span class="cs num">${all == null ? '–' : `${M.nf(all)} totalt`}</span></div>
+          <div class="qbar">${bar}</div><div class="qg">${tiles}</div><div class="qg">${sp}</div></section>
+        <button class="card qalt press${on ? ' on' : ''}" ${Q.alt && as ? `data-act="qalt" data-id="${esc(Q.alt)}" data-ent="${esc(Q.alt)}" data-haptic="medium"` : 'disabled'} role="switch" aria-checked="${on}" data-key="qalt">
+          <span class="qai">${M.icon('mdi:speedometer', 20)}</span><span class="grow col"><b>Alternativ hastighet</b><span class="ell">${esc(altSub)}</span></span><span class="qtr"><i></i></span></button>`;
+    }
+    _b_qbit_statistikk() {
+      const h = this.hass, { Q, cnt, spd } = this._qb();
+      const by = (id) => { const v = numOf(h, id); return v == null ? null : v * bytesF(unitOf(h, id)); };
+      const lim = (id) => { const v = spd(id); return v == null ? '–' : v === 0 ? 'Ingen' : `${mbTxt(v)} MB/s`; };
+      const ra = numOf(h, Q.ratio);
+      const L = [['Totalt lastet ned', Q.dlTot, sizeOf(by(Q.dlTot))], ['Totalt lastet opp', Q.ulTot, sizeOf(by(Q.ulTot))], ['Ratio', Q.ratio, ra == null ? '–' : M.nf(ra, 2)],
+        ['Alle torrenter', Q.all, cnt(Q.all) == null ? '–' : M.nf(cnt(Q.all))], ['Grense ned', Q.downLim, lim(Q.downLim)], ['Grense opp', Q.upLim, lim(Q.upLim)]];
+      return `<section class="card qst" data-key="qst">${L.map(([l, id, v], i) => `<button class="qx press" ${this._qbTap(id)} data-key="qx-${i}"><span class="num ell">${esc(v)}</span><span>${esc(l)}</span></button>`).join('')}</section>`;
     }
     _devs(R) {
       const ex = new Set(this.config.exclude || []);
@@ -52154,7 +52550,7 @@ try {
       if (sw) return sw.state === 'on' ? 'rec' : 'pause';
       return cs.state === 'recording' ? 'rec' : 'pause';
     }
-    _b_net_enheter(R) {
+    _enheterV1(R) {
       const h = this.hass, L = this._devs(R);
       if (!L.length) return `<section class="card">${this._head('Enheter', '–')}<div class="none">Fant ingen enheter</div></section>`;
       const ICON = { ruter: 'mdi:router-network', ap: 'mdi:access-point', switch: 'mdi:lan', cam: 'mdi:cctv' };
@@ -52243,7 +52639,7 @@ try {
         return { n, sp, up, poe: isOn(p.poe) && (numOf(h, p.pw) == null || numOf(h, p.pw) > 0), name, ent: p.poe || p.en || p.speed };
       });
     }
-    _b_net_switch(R) {
+    _switchV1(R) {
       const h = this.hass, ex = new Set(this.config.exclude || []);
       const SW = R.unifi.enheter.filter((e) => e.type === 'switch' && !ex.has(e.tracker));
       if (!SW.length) return `<section class="card sw">${this._head('Switch', '–')}<div class="none">Fant ingen switcher</div></section>`;
@@ -52369,13 +52765,20 @@ try {
     /* ---------------------------------------------------------- gester */
     afterRender() {
       const Rt = this.shadowRoot;
-      // Vertvelgeren (fanelinje): hold 400 ms + dra = ny rekkefølge (tab_order), kort trykk bytter vert
-      if (M.tabRow) M.tabRow(this, Rt.querySelector('.trow>.tabs[role="tablist"]'), { active: () => this.tab, order: () => tabsCfg(this.config).order, field: 'tab_order' });
+      // Vertvelgeren (fanelinje / kort): hold 400 ms + dra = ny rekkefølge (tab_order), kort trykk bytter vert.
+      // Fiks 50 F: begge er vannrette karuseller – fade på siden med skjult innhold, aktiv fane sentreres.
+      const sc = Rt.querySelector('.trow .tabs[role="tablist"]') || Rt.querySelector('.hcards');
+      if (sc && M.tabRow) M.tabRow(this, sc, { active: () => this.tab, order: () => tabsCfg(this.config).order, field: 'tab_order', glass: !sc.classList.contains('hcards') });
+      if (sc) this._carousel(sc);
+      // Fiks 50 H–M: underfanene fra 58b-server-unifi.js kobler sine egne gester (idempotent, etter hver morph)
+      const su = M.serverUnifi, pane = Rt.querySelector('.pane');
+      if (su && typeof su.bind === 'function' && pane && this.tab === 'net') { try { su.bind(this._host, pane, this._sub('net'), this._R); } catch (e) { console.error('[ki-msh] serverUnifi.bind', e); } }
       // søkefeltet: verdien (property) følger søket for valgt vert (morph oppdaterer bare attributtet)
       const qi = Rt.querySelector('.srch input'), qv = this._q[this.tab] || '';
       if (qi && qi.value !== qv && Rt.activeElement !== qi) qi.value = qv;
-      const sc = Rt.querySelector('.scrub');
-      if (sc && !sc.__b) {
+      const scr = Rt.querySelector('.scrub');
+      if (scr && !scr.__b) {
+        const sc = scr;
         sc.__b = true;
         M.guardDrag(sc, 'none'); // fallgruve 2: touch-action none + stopPropagation
         const pos = (e) => { const r = sc.getBoundingClientRect(); return M.clamp(Math.round(((e.clientX - r.left) / r.width) * (NPT - 1)), 0, NPT - 1); };
@@ -52400,6 +52803,36 @@ try {
         const up = (e) => { if (e) e.stopPropagation(); this._holdCancel(hb); };
         hb.addEventListener('pointerup', up); hb.addEventListener('pointercancel', up); hb.addEventListener('pointerleave', up);
       }
+    }
+    // Fiks 50 F (designet: tabStop / fadeTabs / tap → scrollTo): fade 18 px bare på siden med skjult innhold (scroll + resize),
+    // aktiv fane sentreres – myk ved trykk, uten animasjon når popupen åpnes. stopPropagation på pointerdown/touchstart/touchmove
+    // (fallgruve 2) ligger i MSH.tabReorder/tabPress på scrolleren; her i tillegg for kort-modus uten omorganisering.
+    _carousel(sc) {
+      if (!sc.__svCar) {
+        sc.__svCar = true;
+        const stop = (e) => e.stopPropagation();
+        sc.addEventListener('pointerdown', stop); sc.addEventListener('touchstart', stop, { passive: true }); sc.addEventListener('touchmove', stop, { passive: true });
+        sc.addEventListener('scroll', () => this._fade(sc), { passive: true });
+        if (window.ResizeObserver) { sc.__svRO = new ResizeObserver(() => { if (!sc.isConnected) return; this._fade(sc); if (this._cKey == null) this._center(sc, false); }); sc.__svRO.observe(sc); }
+      }
+      this._fade(sc);
+      if (this._cKey !== this.tab || this._cEl !== sc) this._center(sc, this._cKey != null && this._cEl === sc);
+    }
+    _fade(sc) {
+      const L = sc.scrollLeft > 2, R = sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 2;
+      const m = L || R ? `linear-gradient(90deg,${L ? 'transparent 0,#000 18px' : '#000 0'},${R ? '#000 calc(100% - 18px),transparent 100%' : '#000 100%'})` : 'none'; // ki-hex-ok (maske, ikke farge)
+      if (sc.style.maskImage !== m) { sc.style.maskImage = m; sc.style.webkitMaskImage = m; }
+      sc.dataset.fade = (L ? 'l' : '') + (R ? 'r' : '');
+    }
+    _center(sc, smooth) {
+      const b = [...sc.children].find((x) => x.dataset && x.dataset.v === this.tab);
+      if (!b || !sc.clientWidth) { this._cKey = null; return; } // ikke synlig ennå (lukket popup) – prøv igjen ved resize/åpning
+      this._cKey = this.tab; this._cEl = sc;
+      if (sc.scrollWidth <= sc.clientWidth + 1) return;
+      const l = b.getBoundingClientRect().left - sc.getBoundingClientRect().left + sc.scrollLeft;
+      const left = Math.max(0, Math.min(sc.scrollWidth - sc.clientWidth, l - (sc.clientWidth - b.offsetWidth) / 2));
+      if (Math.abs(left - sc.scrollLeft) < 1) return;
+      sc.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
     }
     _holdStart(hb) {
       this._holdStop();
@@ -52436,6 +52869,10 @@ try {
       // tekst i #7f7f7f/#696969 (designet) → --ki-text-mid i lys modus (--ki-text-3/-lo er under 4,5:1 på lyse flater)
       const T3t = 'var(--ki-text-mid, #7f7f7f)', TLt = 'var(--ki-text-mid, #696969)';
       const EDGE = 'inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05))', LINE = 'var(--ki-line, rgba(255,255,255,0.05))', INK = 'var(--ki-on-accent, #3a3a3a)', KNOB = 'var(--ki-knob, #fafafa)';
+      // Fiks 50 H–M: CSS fra 58b-server-unifi.js (klasser su-*) i samme shadow root
+      const su = M.serverUnifi;
+      let suCss = '';
+      try { suCss = su ? (typeof su.css === 'function' ? su.css() : su.css) || '' : ''; } catch (e) { console.error('[ki-msh] serverUnifi.css', e); }
       return `
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:8px}
@@ -52524,9 +52961,36 @@ try {
         .ab.armed{background:${RD} !important;color:var(--ki-on-accent, #232323) !important}
         /* Nettverk */
         .wan{padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
-        .wt{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:20px;background:${S2}}
+        .wh{grid-column:1/-1;display:flex;align-items:center;gap:8px;min-width:0}
+        .wcol{display:flex;flex-direction:column;gap:1px;min-width:0}
+        .wmeta{align-self:flex-start;font-size:12px;color:${TM};white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;text-align:left;padding:0}
+        .strun{height:32px;padding:0 12px 0 10px;border-radius:16px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;flex:none;background:${C.accent};color:${INK};transition:background .2s,color .2s,transform .12s}
+        .strun:active{transform:scale(.96)}.strun.run,.strun[disabled]{background:${S2};color:${T2};cursor:default;opacity:1}
+        .wt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;border-radius:20px;background:${S2};text-align:left;min-width:0;color:${T}}
         .wl{display:flex;align-items:center;gap:6px;font-size:12px;color:${T2}}
         .wv{display:flex;align-items:baseline;gap:3px}.wv .num{font-size:28px;font-weight:300}.wv>span:last-child{font-size:12px;color:${TM}}
+        .press{transition:transform .12s}.press:active{transform:scale(.97)}
+        /* qBittorrent (Fiks 50 E) */
+        .qbt{padding:14px;display:flex;flex-direction:column;gap:12px}.qbt>.ch{padding:0 2px}
+        .qbar{display:flex;gap:3px;height:10px;border-radius:999px;overflow:hidden}.qbar>span{display:block;height:100%}.qb0{flex:1;background:${S3}}
+        .qg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+        .qt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px 14px;border-radius:18px;background:${S2};min-width:0;text-align:left;color:${T}}
+        .ql{display:flex;align-items:center;gap:6px;font-size:12px;color:${T2}}.ql i{width:8px;height:8px;border-radius:4px;flex:none;display:block}
+        .qn{font-size:24px;font-weight:300;line-height:1}
+        .qs{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:18px;background:${S2};min-width:0;color:${T}}
+        .qsi{width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center}
+        .qsc{display:flex;flex-direction:column;align-items:flex-start;min-width:0}.qsv{font-size:16px;white-space:nowrap}.qsv span,.qsl{font-size:11px;color:${TM}}
+        .qalt{display:flex;align-items:center;gap:12px;min-height:68px;padding:0 14px;text-align:left;width:100%;color:${T}}
+        .qalt:active{transform:scale(.98)}.qalt[disabled]{cursor:default}.qalt[disabled]:active{transform:none}
+        .qalt b{font-size:14px;font-weight:500}.qalt .col>span{font-size:12px;color:${TM}}
+        .qai{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:${S2};color:${T1b};transition:background .2s,color .2s}
+        .qalt.on .qai{background:${tone(PK, 0.18)};color:${TX.pink}}
+        .qtr{width:52px;height:32px;border-radius:16px;flex:none;position:relative;background:${CTRL};transition:background .2s}
+        .qtr i{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:12px;background:${KNOB};transition:left .2s cubic-bezier(.34,1.4,.64,1)}
+        .qalt.on .qtr{background:${C.accent}}.qalt.on .qtr i{left:24px}
+        .qst{padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+        .qx{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:16px;background:${S2};min-width:0;text-align:left;color:${T}}
+        .qx .num{font-size:16px;max-width:100%}.qx>span:last-child{font-size:11px;color:${TM}}
         .devs{padding:6px 0;display:flex;flex-direction:column}.devs>.ch{padding:8px 16px 4px}
         .dw{border-radius:20px;margin:0 6px;transition:background .2s}.dw.open{background:${S2}}
         .dr{display:flex;align-items:center;gap:12px;min-height:56px;width:100%;padding:0 12px;text-align:left}
@@ -52590,6 +53054,7 @@ try {
         .sys{padding:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
         .syt{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:${S2};min-width:0}
         .syt .num{font-size:16px}.syt>span:last-child{font-size:11px;color:${TM}}
+        ${suCss}
       `;
     }
   }
@@ -52603,12 +53068,662 @@ try {
   M.popupNeeds = M.popupNeeds || {};
   // brukervalg (35): UniFi Network, Proxmox VE, Unraid eller Home Assistant Supervisor (hassio) – ikke Glances eller UniFi Protect alene
   const NEED_SKIP = { glances: 1, unifiprotect: 1 };
-  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && ((PLAT[e.platform] && !NEED_SKIP[e.platform]) || e.platform === 'hassio')) || (Array.isArray(CE.data) && CE.data.some((e) => !NEED_SKIP[e.domain]));
-  M.server = { oppdag, oppdagHA, entries, entriesFor, openPick, INTEG, HOSTS, SUBS, tabsCfg, SUP };
-  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
+  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && ((PLAT[e.platform] && !NEED_SKIP[e.platform]) || e.platform === 'hassio' || e.platform === 'qbittorrent')) || (Array.isArray(CE.data) && CE.data.some((e) => !NEED_SKIP[e.domain]));
+  M.server = { oppdag, oppdagHA, oppdagQB, oppdagST, visTabs, maltTxt, sizeOf, mbsF, bytesF, confirm: confirmSheet, entries, entriesFor, openPick, INTEG, HOSTS, SUBS, tabsCfg, SUP };
+  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA · qBittorrent, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
 })();
 
 } catch (e) { console.error('[ki-msh] 58-server.js', e); }
+
+/* ---- 58b-server-unifi.js ---- */
+try {
+/* Server → Nettverk · UniFi (Fiks 50 del H, I, J og M) – egen modul som msh-server-card (58-server.js) kaller.
+ *   M.serverUnifi = { css, discover(hass, R, cfg), prosa(hass, R, cfg), html(host, sub, R), bind(host, el, sub, R), editorFields(hass, cfg) }
+ *   sub: 'udm' (M: enhetskort · WAN-latens 24 t · handlinger – under Internett-kortet som 58-server tegner),
+ *        'enheter' (H: utvidbar rad per UniFi-enhet), 'switch' (H/J/I: velgerfliser, portkort, portdetaljer, hold-meny).
+ * Oppdagelse: én enhet per UniFi-enhet i enhetsregisteret (R.per.unifi = registeroppføringer gruppert på device_id, ellers
+ *   hass.entities med platform unifi). Entitetene finnes via device_id – aldri gjettede navn. Typer gw/sw/ap. Porter fra
+ *   *_port_N_link_speed, switch.*_port_N, switch.*_port_N_poe, sensor.*_port_N_poe_power, button.*_port_N_power_cycle og
+ *   SFP fra *_sfp_N_*. Duplikat-suffiks (_2) på enhetssensorer godtas (cpu_utilisation_2 …).
+ * Config: unifi_order (enhets-ID-er i rekkefølge) · unifi_hidden (skjulte enhets-ID-er) · poe_budget (tall, eller
+ *   { <device_id>: W }) – i Tilpass og GUI-editoren via editorFields (samme skjema). exclude (58-server) respekteres også.
+ * Vertsgrensesnitt (host = server-kortet): hass, config, ui, setUI(patch), update()/render(), haptic(t), moreInfo(id),
+ *   go(tab, sub, extra) (extra flettes inn i host.ui – «Porter» sender { dev }), confirm(text) → Promise<bool>.
+ *   Mangler confirm/moreInfo/haptic brukes egne reserver (portalt bekreftelsesark, MSH.moreInfo, MSH.haptic).
+ * UI-tilstand i host.ui: suDx (utvidet enhet), suSw (valgt switch), suPort (valgt port), dev (fra go()).
+ * Klasser su-*, attributter data-su-*. Farger: tokens med mørk fallback (ki-theme), aksent-tekst via --ki-*-text.
+ */
+(function () {
+  const M = window.MSH;
+  if (!M || M.serverUnifi) return;
+  const esc = M.esc, C = M.C;
+  const GR = C.green, BL = C.blue, OR = C.orange, RD = C.red, PU = C.purple, PK = C.pink;
+  const acc = (n, hex) => `color-mix(in srgb, var(--ki-${n}-text, var(--${n}, ${hex})) calc(100% - (var(--ki-tone-k, 1) - 1) * 50%), black)`;
+  const TX = { green: acc('green', '#66d19e'), blue: acc('blue', '#73b9f2'), orange: acc('orange', '#f2b573'), red: acc('red', '#f28073'), purple: acc('purple', '#ad99e6') };
+  const TXC = (c) => (c === GR ? TX.green : c === BL ? TX.blue : c === OR ? TX.orange : c === RD ? TX.red : c === PU ? TX.purple : c);
+  const tone = (c, a = 0.16) => `color-mix(in srgb, ${c} calc(${Math.round(a * 100)}% * var(--ki-tone-k, 1)), transparent)`;
+  const S = 'var(--ki-surface, #3a3a3a)', S2 = 'var(--ki-surface-2, #404040)', S3 = 'var(--ki-surface-3, #2f2f2f)', CTRL = 'var(--ki-ctrl, #545454)';
+  const T = 'var(--ki-text, #fafafa)', T1 = 'var(--ki-text-1, #e1e1e1)', T1b = 'var(--ki-text-1, #c7c7c7)', T2 = 'var(--ki-text-2, #afafaf)', TM = 'var(--ki-text-mid, #979797)', T3t = 'var(--ki-text-mid, #7f7f7f)';
+  const LINE = 'var(--ki-line, rgba(255,255,255,0.05))';
+  const TTL = 300000;
+
+  /* ------------------------------------------------------------ hjelpere */
+  const BAD = ['unavailable', 'unknown', '', 'none', null, undefined];
+  const okS = (s) => !!s && !BAD.includes(s.state);
+  const obj = (id) => id.slice(id.indexOf('.') + 1);
+  const dom = (id) => id.slice(0, id.indexOf('.'));
+  const tittel = (t) => String(t).replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, (c) => c.toUpperCase());
+  const stOf = (h, id) => (h && id && h.states[id]) || null;
+  const numOf = (h, id) => { const s = stOf(h, id); if (!okS(s)) return null; const v = parseFloat(String(s.state).replace(',', '.')); return isNaN(v) ? null : v; };
+  const unitOf = (h, id) => { const s = stOf(h, id); return (s && s.attributes && s.attributes.unit_of_measurement) || ''; };
+  const nf = (v, d = 0) => (v == null || isNaN(v) ? '–' : M.nf(v, d));
+  const isOn = (h, id) => { const s = stOf(h, id); return !!s && s.state === 'on'; };
+  const PORT_RE = /(?:^|_)(port|sfp)_(\d+)(?:_(link_speed|speed|poe_power|poe|power_cycle|rx|tx))?(?:_\d+)?$/;
+  const isPortEnt = (o) => /(?:^|_)(port|sfp)_\d+(?:_|$)/.test(o);
+  // enhetsnivå: objekt-ID (med eller uten duplikat-suffiks _2) eller translation_key – aldri port-entiteter
+  const fx = (list, d, re) => {
+    const e = list.find((x) => dom(x.entity_id) === d && !isPortEnt(obj(x.entity_id)) && (re.test(obj(x.entity_id)) || re.test(obj(x.entity_id).replace(/_\d+$/, '')) || (x.translation_key && re.test(x.translation_key))));
+    return e ? e.entity_id : undefined;
+  };
+  // Oppetid (tidsstempel eller varighet) → «23 d 4 t» · «4 t 12 min» · «12 min»
+  function oppetid(h, id) {
+    const s = stOf(h, id);
+    if (!okS(s)) return '–';
+    let sek = null;
+    if ((s.attributes && s.attributes.device_class === 'timestamp') || /^\d{4}-\d\d-\d\dT/.test(s.state)) { const t = Date.parse(s.state); if (!isNaN(t)) sek = Math.max(0, (Date.now() - t) / 1000); }
+    else { const v = parseFloat(s.state), u = String((s.attributes && s.attributes.unit_of_measurement) || 's').toLowerCase(); if (!isNaN(v)) sek = v * (u.startsWith('d') ? 86400 : u.startsWith('h') || u === 't' ? 3600 : u.startsWith('min') ? 60 : 1); }
+    if (sek == null) return String(s.state);
+    const d = Math.floor(sek / 86400), t = Math.floor((sek % 86400) / 3600), m = Math.floor((sek % 3600) / 60);
+    return d ? `${d} d ${t} t` : t ? `${t} t ${m} min` : `${m} min`;
+  }
+  // Link-hastighet → Mbit/s
+  const mbitOf = (h, id) => { const v = numOf(h, id); if (v == null) return null; const u = unitOf(h, id); return /^g/i.test(u) ? v * 1000 : /^k/i.test(u) ? v / 1000 : /^b/i.test(u) && !/^bit/i.test(u) ? v * 8e-6 : v; };
+  const spdTxt = (mb) => (mb == null || !(mb > 0) ? '–' : mb >= 1000 ? `${M.nf(mb / 1000, (mb / 1000) % 1 ? 1 : 0)} Gbit/s` : `${M.nf(mb)} Mbit/s`);
+  const spdCls = (mb) => (mb == null ? 'g' : mb >= 2500 ? 'x' : mb >= 1000 ? 'g' : 'f');
+  const SPC = { g: GR, x: BL, f: OR };
+  const fw = (h, id) => { const s = stOf(h, id); if (!s) return null; return { on: s.state === 'on', ver: (s.attributes && (s.attributes.installed_version || s.attributes.current_version)) || null, latest: s.attributes && s.attributes.latest_version }; };
+  const STATE_NB = { connected: 'Online', disconnected: 'Frakoblet', offline: 'Frakoblet', pending: 'Venter', upgrading: 'Oppgraderer', provisioning: 'Klargjør', adopting: 'Adopterer', heartbeat_missed: 'Mistet kontakt', firmware_mismatch: 'Feil fastvare', inform_error: 'Kontaktfeil', isolated: 'Isolert', deleting: 'Slettes', adoption_failed: 'Adopsjon feilet', getting_ready: 'Gjør klar', unavailable: 'Utilgjengelig', unknown: 'Ukjent' };
+  // PoE-budsjett etter modell (W) – brukes når hverken config poe_budget eller en budsjett-sensor finnes
+  const POE_MODEL = [[/pro.?max.?16.?poe/i, 180], [/pro.?max.?24.?poe/i, 400], [/pro.?max.?48.?poe/i, 720], [/pro.?8.?poe/i, 120], [/pro.?24.?poe/i, 400], [/pro.?48.?poe/i, 600],
+    [/enterprise.?8.?poe/i, 120], [/enterprise.?24.?poe/i, 400], [/enterprise.?48.?poe/i, 720], [/lite.?8.?poe/i, 52], [/lite.?16.?poe/i, 45], [/usw.?16.?poe/i, 42],
+    [/usw.?24.?poe/i, 95], [/usw.?48.?poe/i, 195], [/ultra.?210w/i, 210], [/ultra.?60w/i, 60], [/ultra/i, 42], [/flex.?2\.5g.?8.?poe/i, 60], [/(\d{2,3})w\b/i, null]];
+  const modelBudget = (modell) => { for (const [re, w] of POE_MODEL) { const m = String(modell || '').match(re); if (m) return w != null ? w : +m[1]; } return null; };
+
+  /* ------------------------------------------------------------ oppdagelse */
+  let MEMO = null;
+  function discover(hass, R, cfg) {
+    cfg = cfg || {};
+    const h = hass || {}, E = h.entities || {}, D = h.devices || {};
+    let per = R && R.per && R.per.unifi;
+    if (!per) {
+      per = {};
+      Object.values(E).forEach((e) => { if (e && e.platform === 'unifi' && !e.hidden && !e.hidden_by && !e.disabled_by && h.states && h.states[e.entity_id]) (per[e.device_id || '_'] = per[e.device_id || '_'] || []).push(e); });
+    }
+    const sig = JSON.stringify([Object.keys(per).map((k) => k + ':' + per[k].length), cfg.unifi_order || [], cfg.unifi_hidden || [], cfg.exclude || []]);
+    if (MEMO && MEMO.E === E && MEMO.D === D && MEMO.sig === sig) return MEMO.out;
+    const all = [];
+    for (const [dev, list] of Object.entries(per)) {
+      if (dev === '_') continue;
+      const d = D[dev] || {};
+      if (d.entry_type === 'service' || /wlan|network application|controller/i.test(d.model || '')) continue;
+      const modell = d.model || '', navn = d.name_by_user || d.name || modell || 'UniFi';
+      const f = (dd, re) => fx(list, dd, re);
+      const cpu = f('sensor', /cpu_utili[sz]ation$/), mem = f('sensor', /memory_utili[sz]ation$/);
+      const state = f('sensor', /(^|_)state$|device_state$/), restart = f('button', /(^|_)(restart|reboot)$/), upd = f('update', /./), led = f('light', /./);
+      const P = {};
+      list.forEach((e) => {
+        const o = obj(e.entity_id), dd = dom(e.entity_id), m = o.match(PORT_RE);
+        if (!m) return;
+        const sfp = m[1] === 'sfp', n = +m[2], kind = m[3], key = (sfp ? 'S' : '') + n;
+        const p = (P[key] = P[key] || { key, n, sfp, label: (sfp ? 'SFP ' : 'Port ') + n });
+        const set = (k) => { if (!p[k]) p[k] = e.entity_id; };
+        if (dd === 'switch' && !kind) set('en');
+        else if (dd === 'switch' && kind === 'poe') set('poe');
+        else if (dd === 'button' && kind === 'power_cycle') set('cyc');
+        else if (dd === 'sensor' && kind === 'poe_power') set('pw');
+        else if (dd === 'sensor' && (kind === 'link_speed' || kind === 'speed')) set('speed');
+        else if (dd === 'sensor' && (kind === 'rx' || kind === 'tx')) set(kind);
+      });
+      let ports = Object.values(P);
+      if (!cpu && !mem && !state && !restart && !upd && !ports.length && !led) continue; // klient (bare sporer/blokkering)
+      const LN = { cloudflare: 'Cloudflare', google: 'Google', microsoft: 'Microsoft' }, LO = Object.keys(LN);
+      const lat = list.filter((e) => dom(e.entity_id) === 'sensor' && /(^|_)wan\d?_latency(_\d+)?$/.test(obj(e.entity_id))).map((e) => {
+        const m = obj(e.entity_id).match(/(?:^|_)([a-z0-9]+)_wan(\d?)_latency(?:_\d+)?$/), k = m ? m[1] : 'wan';
+        return { id: e.entity_id, key: k, label: (LN[k] || tittel(k)) + (m && m[2] ? ' ' + m[2] : '') };
+      }).sort((a, b) => (LO.indexOf(a.key) + 99) % 99 - (LO.indexOf(b.key) + 99) % 99 || a.label.localeCompare(b.label, 'nb'));
+      const md = modell.toLowerCase();
+      const type = lat.length || /dream|udm|udr|ucg|uxg|usg|gateway|\bux\b|express|cloud gateway/.test(md) ? 'gw'
+        : ports.some((p) => !p.sfp) || /usw|switch|flex|\bus-|^us\d/.test(md) ? 'sw' : 'ap';
+      // tomme porter mellom 1 og høyeste nummer (og modellens portantall for switcher) vises som «Ledig»
+      const norm = ports.filter((p) => !p.sfp), maxN = norm.reduce((a, p) => Math.max(a, p.n), 0);
+      const mN = type === 'sw' ? +((modell.match(/\b(5|8|10|16|24|48)\b/) || [])[1] || 0) : 0;
+      for (let i = 1; i <= Math.max(maxN, mN); i++) if (!P[String(i)]) ports.push({ key: String(i), n: i, sfp: false, label: 'Port ' + i });
+      ports = ports.sort((a, b) => (a.sfp ? 1 : 0) - (b.sfp ? 1 : 0) || a.n - b.n);
+      // portnavn fra UniFi (vennlig navn uten enhetsnavn og «PoE»/«Power cycle»)
+      const reN = new RegExp('^' + navn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*', 'i');
+      ports.forEach((p) => {
+        const id = p.poe || p.en || p.cyc; const fn = id && h.states[id] && h.states[id].attributes && h.states[id].attributes.friendly_name;
+        const raw = fn ? String(fn).replace(reN, '').replace(/\s*(PoE|Power cycle|Strømsyklus|Link speed)$/i, '').trim() : '';
+        p.name = !raw || raw === id || /^[a-z_]+\.[a-z0-9_]+$/.test(raw) || /^(port|sfp\+?)\s*\d+$/i.test(raw) ? '' : raw;
+      });
+      const area = d.area_id && h.areas && h.areas[d.area_id] ? h.areas[d.area_id].name : '';
+      all.push({
+        id: dev, navn, modell, area, type, ports, lat,
+        tracker: f('device_tracker', /./), state, restart, upd, led, cpu, mem,
+        clients: list.filter((e) => dom(e.entity_id) === 'sensor' && !isPortEnt(obj(e.entity_id)) && /(^|_)clients$/.test(obj(e.entity_id).replace(/_\d+$/, '')) && !/ghz|wlan|guest/.test(obj(e.entity_id))).map((e) => e.entity_id)[0],
+        cpuTemp: f('sensor', /cpu_temperature$/), localTemp: f('sensor', /local_temperature$/),
+        temp: (list.find((e) => dom(e.entity_id) === 'sensor' && !isPortEnt(obj(e.entity_id)) && /(^|_)temperature$/.test(obj(e.entity_id).replace(/_\d+$/, '')) && !/(cpu|local)_temperature/.test(obj(e.entity_id))) || {}).entity_id,
+        uptime: f('sensor', /uptime$/), speedtest: f('button', /speed_?test/),
+        budget: f('sensor', /(ac_power_budget|poe_budget|power_budget)$/), usage: f('sensor', /(ac_power_consumption|poe_power_consumption|power_consumption)$/),
+      });
+    }
+    const ex = new Set(cfg.exclude || []), hid = new Set(cfg.unifi_hidden || []), ord = Array.isArray(cfg.unifi_order) ? cfg.unifi_order : [];
+    const rek = { gw: 0, sw: 1, ap: 2 };
+    all.sort((a, b) => {
+      const ia = ord.indexOf(a.id), ib = ord.indexOf(b.id);
+      if (ia !== -1 || ib !== -1) return (ia === -1 ? 1e6 : ia) - (ib === -1 ? 1e6 : ib);
+      return rek[a.type] - rek[b.type] || a.navn.localeCompare(b.navn, 'nb');
+    });
+    const devs = all.filter((x) => !hid.has(x.id) && !(x.tracker && ex.has(x.tracker)) && !(x.cpu && ex.has(x.cpu)));
+    const out = { all, devs, gw: devs.find((x) => x.type === 'gw') || null };
+    MEMO = { E, D, sig, out };
+    return out;
+  }
+
+  /* ------------------------------------------------------------ tilstand */
+  const PEND = {}; // optimistiske brytere: id → { want, t }
+  const pend = (h, id) => { const p = PEND[id], act = isOn(h, id); if (!p) return act; if (Date.now() - p.t > 15000 || act === p.want) { delete PEND[id]; return act; } return p.want; };
+  const offline = (h, d) => {
+    const st = stOf(h, d.state), tr = stOf(h, d.tracker);
+    if (st && st.state !== 'connected' && st.state !== 'unknown') return true;
+    if (tr && tr.state === 'not_home') return true;
+    return false;
+  };
+  const stateLabel = (h, d) => { const st = stOf(h, d.state); if (st) return STATE_NB[st.state] || tittel(st.state); const tr = stOf(h, d.tracker); return tr ? (tr.state === 'home' ? 'Online' : 'Frakoblet') : '–'; };
+  // Porter med tilstand: { …p, dis, up, mb, sp, poeCap, poeOn, w }
+  function portsOf(h, d) {
+    return d.ports.map((p) => {
+      const dis = !!p.en && pend(h, p.en) === false && okS(stOf(h, p.en));
+      const mb = mbitOf(h, p.speed);
+      let up = false;
+      if (!dis) {
+        if (p.speed && okS(stOf(h, p.speed))) up = mb > 0;
+        else if ((p.rx && okS(stOf(h, p.rx))) || (p.tx && okS(stOf(h, p.tx)))) up = (numOf(h, p.rx) || 0) + (numOf(h, p.tx) || 0) > 0;
+        else up = (numOf(h, p.pw) || 0) > 0;
+      }
+      const w = numOf(h, p.pw), poeCap = !!(p.poe || p.pw);
+      const poeOn = p.poe ? pend(h, p.poe) : (w || 0) > 0;
+      return { ...p, dis, up, mb, sp: dis ? 'off' : up ? spdCls(mb) : '', poeCap, poeOn, w, live: up && poeCap && (w || 0) > 0 };
+    });
+  }
+  const poeSum = (P) => P.reduce((a, p) => a + (p.w || 0), 0);
+  const budgetOf = (h, cfg, d) => {
+    const b = cfg && cfg.poe_budget;
+    if (b != null && typeof b === 'object' && b[d.id] != null && +b[d.id] > 0) return +b[d.id];
+    const sn = numOf(h, d.budget); if (sn != null && sn > 0) return sn;
+    const mb = modelBudget(d.modell); if (mb) return mb;
+    if (b != null && typeof b !== 'object' && +b > 0) return +b;
+    return null;
+  };
+
+  /* ------------------------------------------------------------ prosa */
+  function prosa(hass, R, cfg) {
+    const h = hass, X = discover(h, R, cfg), pill = (t) => `<span class="pp">${esc(t)}</span>`;
+    const off = X.devs.filter((d) => offline(h, d)).length;
+    const ov = cfg && cfg.overrides && cfg.overrides.unifi_clients;
+    let k = ov ? numOf(h, ov) : X.gw ? numOf(h, X.gw.clients) : null;
+    if (k == null && !ov) { const v = X.devs.filter((d) => d.type !== 'gw').map((d) => numOf(h, d.clients)).filter((x) => x != null); k = v.length ? v.reduce((a, b) => a + b, 0) : null; }
+    return `Nettet er ${pill(off ? `${off} ${off === 1 ? 'enhet' : 'enheter'} frakoblet` : 'helt oppe')} og ${pill(k == null ? '–' : `${M.nf(k)} ${k === 1 ? 'klient' : 'klienter'}`)} er tilkoblet.`;
+  }
+
+  /* ------------------------------------------------------------ WAN-latens: 24 timesnitt (history/history_during_period) */
+  const LAT = { key: '', t: 0, busy: false, data: {} };
+  function latLoad(host, ids) {
+    const h = host.hass, key = ids.join(',');
+    if (!ids.length || !h || !h.callWS || LAT.busy || host.isOpen === false) return;
+    if (LAT.key === key && Date.now() - LAT.t < TTL) return;
+    LAT.busy = true; LAT.key = key; LAT.t = Date.now();
+    Promise.resolve().then(() => M.history(h, ids, 24)).catch(() => ({})).then((r) => {
+      LAT.busy = false; LAT.data = r || {};
+      if (host.isConnected === false) return;
+      if (host.update) host.update(); else if (host.render) host.render();
+    });
+  }
+  // Tidsvektet snitt per klokketime: 23 hele timer bak + inneværende time («nå»)
+  function hourly(pts, now) {
+    const h0 = new Date(now); h0.setMinutes(0, 0, 0);
+    const start = h0.getTime() - 23 * 3600000, P = (pts || []).filter((p) => p && !isNaN(p.v)).sort((a, b) => a.t - b.t), out = [];
+    for (let i = 0; i < 24; i++) {
+      const a = start + i * 3600000, b = Math.min(a + 3600000, now);
+      let sum = 0, dur = 0;
+      for (let j = 0; j < P.length; j++) {
+        const t0 = Math.max(P[j].t, a), t1 = Math.min(j + 1 < P.length ? P[j + 1].t : now, b);
+        if (t1 > t0) { sum += P[j].v * (t1 - t0); dur += t1 - t0; }
+      }
+      out.push(dur > 0 ? sum / dur : null);
+    }
+    return { vals: out, start };
+  }
+  const latCol = (ms) => (ms > 60 ? RD : ms > 12 ? OR : GR);
+
+  /* ------------------------------------------------------------ deler */
+  const ic = (n, s, st) => M.icon(n, s, st || '');
+  const tg = (on, attrs, label) => `<button class="su-tg${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" ${attrs}><i></i></button>`;
+  const moreAttr = (id) => (id ? `data-su-act="more" data-su-id="${esc(id)}"` : 'data-su-act="none"');
+  const pctTxt = (h, id) => { const v = numOf(h, id); return v == null ? '–' : M.nf(Math.round(v)); };
+  const tempTxt = (h, id) => { const v = numOf(h, id); return v == null ? '–' : M.nf(Math.round(v)); };
+
+  // M · UDM
+  function udmHTML(host, X) {
+    const h = host.hass, g = X.gw;
+    if (!g) {
+      return `<div class="su-udm" data-key="su-udm"><section class="su-card su-dev"><div class="su-top"><span class="su-ic44">${ic('mdi:router-network', 22)}</span><span class="su-tt"><b class="su-ell">Gateway</b><span class="su-ell">Fant ingen UniFi-gateway · Velg integrasjon i Tilpass</span></span><span class="su-chip none"><i></i>–</span></div></section></div>`;
+    }
+    const off = offline(h, g), lbl = stateLabel(h, g), chip = !g.state && !g.tracker ? 'none' : off || lbl !== 'Online' ? 'warn' : 'ok';
+    const seg10 = (v, col) => Array.from({ length: 10 }, (_, i) => `<i style="background:${v != null && i < Math.max(1, Math.round(M.clamp(v, 0, 100) / 10)) ? col : S3}"></i>`).join('');
+    const meter = (l, id, unit, colF) => { const v = numOf(h, id); return `<button class="su-mt" ${moreAttr(id)}><span class="su-ml">${esc(l)}</span><span class="su-mv"><span class="num">${v == null ? '–' : M.nf(Math.round(v))}</span><span>${v == null ? '' : unit}</span></span><span class="su-seg">${seg10(v, colF(v || 0))}</span></button>`; };
+    const P = portsOf(h, g), upN = P.filter((p) => p.up).length;
+    const sfp = P.filter((p) => p.sfp && p.speed), sfpP = sfp.find((p) => p.up) || sfp[0];
+    const F = fw(h, g.upd);
+    const cl = numOf(h, g.clients), lt = numOf(h, g.localTemp);
+    const spec = (icon, l, v, id, cls) => `<button class="su-sp" ${moreAttr(id)}>${ic(icon, 20, `color:${TM}`)}<span class="su-spl">${esc(l)}</span><span class="su-spv${cls ? ' ' + cls : ''}">${esc(v)}</span></button>`;
+    const firstPort = (P.find((p) => p.speed) || P.find((p) => p.en) || {});
+    const specs = [
+      spec('mdi:account-multiple', 'Klienter', cl == null ? '–' : M.nf(cl), g.clients),
+      spec('mdi:clock-outline', 'Oppetid', oppetid(h, g.uptime), g.uptime),
+      spec('mdi:lan', 'Porter', P.length ? `${upN} / ${P.length}` : '–', firstPort.speed || firstPort.en),
+      spec('mdi:swap-vertical', 'SFP+', !sfpP ? '–' : sfpP.dis ? 'Av' : sfpP.up ? spdTxt(sfpP.mb) : 'Ledig', sfpP && sfpP.speed),
+      spec('mdi:thermometer', 'Lokal temp', lt == null ? '–' : `${M.nf(Math.round(lt))}°`, g.localTemp),
+      spec('mdi:check-decagram', 'Fastvare', !F ? '–' : F.on ? 'Ny' : 'Nyeste', g.upd, F && F.on ? 'warn' : ''),
+    ];
+    const dev = `<section class="su-card su-dev" data-key="su-udm-dev">
+        <div class="su-top"><span class="su-ic44">${ic('mdi:router-network', 22)}</span><span class="su-tt"><b class="su-ell">${esc(g.navn)}</b><span class="su-ell">${esc([g.modell, g.area].filter(Boolean).join(' · ') || '–')}</span></span>
+          <span class="su-chip ${chip}" ${moreAttr(g.state || g.tracker)}><i></i>${esc(chip === 'none' ? '–' : lbl)}</span></div>
+        <div class="su-mts">${meter('CPU', g.cpu, '%', (v) => (v > 85 ? RD : v > 65 ? OR : GR))}${meter('Minne', g.mem, '%', () => PU)}${meter('CPU-temp', g.cpuTemp || g.temp, '°C', (v) => (v > 75 ? RD : v > 60 ? OR : BL))}</div>
+        <div class="su-sps">${specs.join('')}</div></section>`;
+    // WAN-latens
+    latLoad(host, g.lat.map((l) => l.id));
+    const now = Date.now();
+    let tot = 0, nT = 0, t0 = null;
+    const rows = g.lat.map((l) => {
+      const cur = numOf(h, l.id), pts = (LAT.data[l.id] || []).slice();
+      if (cur != null) pts.push({ t: now, v: cur });
+      const H = hourly(pts, now); t0 = H.start;
+      H.vals.forEach((v) => { if (v != null) { tot += v; nT++; } });
+      const segs = H.vals.map((v, i) => `<i style="background:${v == null ? S3 : i === 23 ? latCol(v) : M.alpha(latCol(v), 0.5)}"></i>`).join('');
+      return `<button class="su-lr" ${moreAttr(l.id)}><span class="su-ll su-ell">${esc(l.label)}</span><span class="su-ls">${segs}</span><span class="su-lv"><span class="num">${cur == null ? '–' : M.nf(Math.round(cur))}</span><span>ms</span></span></button>`;
+    });
+    if (!nT) g.lat.forEach((l) => { const v = numOf(h, l.id); if (v != null) { tot += v; nT++; } });
+    const hh = t0 != null ? String(new Date(t0).getHours()).padStart(2, '0') + ':00' : '–';
+    const lat = `<section class="su-card su-lat" data-key="su-udm-lat"><div class="su-lh"><span>WAN-latens</span><span>siste 24 t · snitt ${nT ? M.nf(Math.round(tot / nT)) + ' ms' : '–'}</span></div>
+        ${rows.length ? rows.join('') + `<div class="su-lax"><span></span><span><span>${hh}</span><span>nå</span></span><span></span></div>` : '<div class="su-none">– · Fant ingen WAN-latens-sensorer</div>'}</section>`;
+    const upd = F && F.on;
+    const acts = `<div class="su-acts" data-key="su-udm-acts">
+        <button class="su-ap" data-su-act="go" data-su-tab="net" data-su-sub="switch" data-su-dev="${esc(g.id)}" data-su-hap="selection">${ic('mdi:lan', 20)}<span>Porter</span></button>
+        <button class="su-ap" ${g.upd ? `data-su-act="${upd ? 'install' : 'more'}" data-su-id="${esc(g.upd)}" data-su-name="${esc(g.navn)}"` : 'disabled'}>${ic(upd ? 'mdi:download' : 'mdi:tray-arrow-down', 20)}<span>${upd ? 'Oppdater' : 'Fastvare'}</span></button>
+        <button class="su-ap hot" ${g.restart ? `data-su-act="press" data-su-id="${esc(g.restart)}" data-su-confirm="${esc(`Starte ${g.navn} på nytt? Nettet blir borte noen minutter.`)}" data-su-toast="${esc(g.navn)} starter på nytt"` : 'disabled'}>${ic('mdi:restart', 20)}<span>Start på nytt</span></button></div>`;
+    return `<div class="su-udm" data-key="su-udm">${dev}${lat}${acts}</div>`;
+  }
+
+  // H · Enheter
+  function enheterHTML(host, X) {
+    const h = host.hass, ui = host.ui || {}, cfg = host.config || {}, L = X.devs;
+    if (!L.length) return `<section class="su-card su-devs"><div class="su-ch"><span>Enheter</span><span>–</span></div><div class="su-none in">– · Fant ingen UniFi-enheter</div></section>`;
+    const ICON = { gw: 'mdi:router-network', sw: 'mdi:lan', ap: 'mdi:wifi' };
+    let online = 0;
+    const rows = L.map((d) => {
+      const off = offline(h, d); if (!off) online++;
+      const P = portsOf(h, d), upN = P.filter((p) => p.up).length, poeCap = P.some((p) => p.poeCap), poe = poeSum(P), cl = numOf(h, d.clients);
+      const meta = off ? 'Frakoblet' : d.type === 'sw' ? (poeCap ? `${upN} porter · ${nf(poe, poe < 10 && poe % 1 ? 1 : 0)} W PoE` : `${upN} porter oppe`) : cl != null ? `${M.nf(cl)} ${cl === 1 ? 'klient' : 'klienter'}` : '–';
+      const open = ui.suDx === d.id;
+      return `<div class="su-dw${open ? ' open' : ''}" data-key="su-d-${esc(d.id)}"><button class="su-dr" data-su-act="dx" data-su-v="${esc(d.id)}" aria-expanded="${open}">
+          <span class="su-dic${off ? ' off' : ''}">${ic(ICON[d.type], 20)}</span>
+          <span class="su-tt"><b class="su-ell">${esc(d.navn)}</b><span class="su-ell">${esc(d.modell || '–')}</span></span>
+          <span class="su-dm${off ? ' off' : ''}">${esc(meta)}</span>${ic('mdi:chevron-down', 20, `color:${TM};transition:transform .2s;${open ? 'transform:rotate(180deg)' : ''}`)}</button>
+          ${open ? devDetail(h, cfg, d, P, off) : ''}</div>`;
+    }).join('');
+    return `<section class="su-card su-devs"><div class="su-ch"><span>Enheter</span><span>${online} av ${L.length} online</span></div>${rows}</section>`;
+  }
+  function devDetail(h, cfg, d, P, off) {
+    const st = (v, u, l, id) => `<button class="su-xt" ${moreAttr(id)}><span class="su-xv"><span class="num su-ell">${esc(v == null || v === '' ? '–' : v)}</span><span class="su-xu">${esc(v == null || v === '–' || v === '' ? '' : u || '')}</span></span><span class="su-xl su-ell">${esc(l)}</span></button>`;
+    const cl = numOf(h, d.clients), F = fw(h, d.upd), upN = P.filter((p) => p.up).length, poeP = P.filter((p) => p.poeCap), poe = poeSum(P);
+    const fwT = st(!F ? '–' : F.on ? 'Ny' : F.ver || '–', '', F && F.on ? 'Fastvare · oppdatering' : 'Fastvare', d.upd);
+    const tilst = st(off ? 'Frakoblet' : stateLabel(h, d), '', 'Tilstand', d.state || d.tracker);
+    const cpu = st(pctTxt(h, d.cpu), '%', 'CPU', d.cpu), mem = st(pctTxt(h, d.mem), '%', 'Minne', d.mem), kl = st(cl == null ? '–' : M.nf(cl), '', 'Klienter', d.clients);
+    const portUp = st(P.length ? `${upN} / ${P.length}` : '–', '', 'Porter oppe', (P.find((p) => p.speed) || {}).speed), up = st(off ? '–' : oppetid(h, d.uptime), '', 'Oppetid', d.uptime);
+    let stats;
+    if (d.type === 'gw') stats = [kl, cpu, mem, st(tempTxt(h, d.cpuTemp || d.temp), '°', 'CPU-temp', d.cpuTemp || d.temp), st(tempTxt(h, d.localTemp), '°', 'Lokal temp', d.localTemp), portUp, up, fwT, tilst];
+    else if (d.type === 'sw') stats = [kl, cpu, mem, portUp, ...(poeP.length ? [st(nf(poe, poe < 10 && poe % 1 ? 1 : 0), 'W', 'PoE', (poeP.find((p) => p.pw) || {}).pw)] : []), up, fwT, tilst];
+    else stats = [kl, cpu, mem, up, fwT, tilst];
+    let bars = '';
+    if (d.type === 'gw' && d.lat.length) {
+      bars = `<div class="su-xb">${d.lat.map((l) => { const v = numOf(h, l.id); return `<button class="su-xbr" ${moreAttr(l.id)}><span class="su-xbl su-ell">${esc(l.label)} WAN</span><span class="su-xbt"><i style="width:${v == null ? 0 : Math.min(100, v * 5)}%;background:${v != null && v > 30 ? OR : GR}"></i></span><span class="su-xbv num">${v == null ? '–' : M.nf(Math.round(v)) + ' ms'}</span></button>`; }).join('')}</div>`;
+    }
+    const tgs = [];
+    if (d.led) { const on = pend(h, d.led); tgs.push(`<div class="su-xgr">${ic('mdi:led-on', 20, `color:${T1b}`)}<span class="su-tt"><b>LED</b><span class="su-ell">${esc(d.led)}</span></span>${tg(on, `data-su-act="tgl" data-su-id="${esc(d.led)}"`, 'LED')}</div>`); }
+    const poeSw = poeP.map((p) => p.poe).filter(Boolean);
+    if (poeSw.length) {
+      const on = poeSw.every((id) => pend(h, id));
+      tgs.push(`<div class="su-xgr">${ic('mdi:flash', 20, `color:${T1b}`)}<span class="su-tt"><b>PoE på alle porter</b><span class="su-ell">${poeSw.length} PoE-porter · ${nf(poe, poe < 10 && poe % 1 ? 1 : 0)} W</span></span>${tg(on, `data-su-act="poeall" data-su-v="${esc(d.id)}"`, 'PoE på alle porter')}</div>`);
+    }
+    const acts = [];
+    const ab = (icon, label, attrs, hot) => `<button class="su-ab${hot ? ' hot' : ''}" ${attrs}>${ic(icon, 18)}${esc(label)}</button>`;
+    acts.push(ab('mdi:restart', 'Start på nytt', d.restart && !off ? `data-su-act="press" data-su-id="${esc(d.restart)}" data-su-confirm="${esc(`Starte ${d.navn} på nytt?`)}" data-su-toast="${esc(d.navn)} starter på nytt"` : 'disabled', true));
+    if (d.type === 'gw') acts.push(ab('mdi:speedometer', 'Fartstest', 'data-su-act="go" data-su-tab="net" data-su-sub="udm"'));
+    if (d.type !== 'ap' && P.some((p) => p.cyc)) acts.push(ab('mdi:power-cycle', 'PoE-sykle port', `data-su-act="go" data-su-tab="net" data-su-sub="switch" data-su-dev="${esc(d.id)}"`, true));
+    acts.push(ab('mdi:update', F && F.on ? 'Oppdater fastvare' : 'Fastvare', d.upd ? `data-su-act="${F && F.on ? 'install' : 'more'}" data-su-id="${esc(d.upd)}" data-su-name="${esc(d.navn)}"` : 'disabled'));
+    return `<div class="su-gx"><div class="su-xs">${stats.join('')}</div>${bars}${tgs.length ? `<div class="su-xg">${tgs.join('')}</div>` : ''}<div class="su-xa">${acts.join('')}</div></div>`;
+  }
+
+  // H/J/I · Switch
+  function switchHTML(host, X) {
+    const h = host.hass, ui = host.ui || {}, cfg = host.config || {};
+    const SW = X.devs.filter((d) => d.ports.length);
+    if (!SW.length) return `<section class="su-card su-sw"><div class="su-none">– · Fant ingen switcher med porter</div></section>`;
+    const info = SW.map((d) => { const P = portsOf(h, d); return { d, P, off: offline(h, d), up: P.filter((p) => p.up).length, poe: poeSum(P), hasPoe: P.some((p) => p.poeCap) }; });
+    const want = ui.dev || ui.suSw;
+    // kort-etikett = første ord i navnet; like første ord (f.eks. «Switch Garasje» / «Switch Kontor») → resten av navnet
+    const first = (d) => d.navn.split(/\s+/)[0], dup = (d) => info.filter((x) => first(x.d) === first(d)).length > 1;
+    const short = (d) => (dup(d) ? d.navn.split(/\s+/).slice(1).join(' ') || d.navn : first(d));
+    const cur = info.find((x) => x.d.id === want) || info.find((x) => !x.off) || info[0], d = cur.d; // standard: første tilkoblede
+    const grid = info.length > 1 ? `<div class="su-swg">${info.map((x) => {
+      const on = x === cur;
+      return `<button class="su-swc${on ? ' on' : ''}${x.off ? ' off' : ''}" data-su-act="swsel" data-su-v="${esc(x.d.id)}" aria-pressed="${on}"><span class="su-swn su-ell">${esc(short(x.d))}</span>
+        <span class="su-leds">${x.P.map((p) => `<i style="background:${x.off ? M.alpha(OR, 0.35) : SPC[p.sp] || CTRL}"></i>`).join('')}</span>
+        <span class="su-sws su-ell">${x.off ? 'Frakoblet' : `${x.up}/${x.P.length}${x.hasPoe ? ` · ${nf(x.poe, 0)} W` : ''}`}</span></button>`;
+    }).join('')}</div>` : '';
+    const bud = cur.hasPoe ? budgetOf(h, cfg, d) : null, pct = bud ? Math.min(100, (cur.poe / bud) * 100) : 0;
+    const sub = `${d.uptime ? `Oppetid ${oppetid(h, d.uptime)} · ` : ''}${cur.up} av ${cur.P.length} porter oppe`;
+    const poePill = cur.hasPoe ? `<span class="su-poe" ${moreAttr(d.usage || (cur.P.find((p) => p.pw) || {}).pw)}>${ic('mdi:flash', 18)}<span class="num">${nf(cur.poe, cur.poe < 10 && cur.poe % 1 ? 1 : 0)} / ${bud ? M.nf(bud) : '–'} W</span></span>` : '';
+    const poeBar = cur.hasPoe ? `<div class="su-pb"><i style="width:${pct.toFixed(1)}%;background:${pct > 80 ? RD : `color-mix(in srgb, ${OR} 70%, white)`}"></i></div>` : '';
+    const sel = cur.P.find((p) => p.key === String(ui.suPort));
+    const ports = cur.P.map((p) => {
+      const on = sel === p, col = SPC[p.sp];
+      return `<button class="su-pt${p.up ? ' up' : ''}${p.dis ? ' dis' : ''}${on ? ' sel' : ''}" data-su-act="port" data-su-port="${esc(p.key)}" data-su-dev="${esc(d.id)}" aria-pressed="${on}" aria-label="${esc(p.label)}${p.dis ? ', deaktivert' : p.up ? ', oppe' : ', ledig'}${p.live ? ', PoE' : ''}">
+        <i class="su-led" style="background:${p.up && col ? col : 'var(--ki-ctrl, #454545)'};${p.up && col ? `box-shadow:0 0 8px ${M.alpha(col, 0.6)}` : ''}"></i><span class="num">${esc(p.sfp ? 'S' + p.n : p.n)}</span>${ic('mdi:flash', 13, `position:absolute;bottom:6px;color:${OR};opacity:${p.live ? 1 : 0}`)}</button>`;
+    }).join('');
+    const legend = `<div class="su-lg"><span><i style="background:${BL}"></i>2,5 G+</span><span><i style="background:${GR}"></i>1 G</span><span><i style="background:${OR}"></i>100 M</span><span>${ic('mdi:flash', 14, `color:${OR}`)}PoE</span><span><i class="hatch"></i>Deaktivert</span></div>`;
+    return `<section class="su-card su-sw" data-key="su-sw">${grid}
+      <div class="su-swh"><span class="su-tt"><b class="su-ell">${esc(d.navn)}</b><span class="su-ell">${esc(cur.off ? 'Frakoblet' : sub)}</span></span>${poePill}</div>${poeBar}
+      <div class="su-pg" style="grid-template-columns:repeat(${Math.min(8, cur.P.length)},minmax(0,1fr))">${ports}</div>${legend}
+      ${sel ? portDetail(h, d, sel) : '<span class="su-pinfo">Trykk på en port for detaljer</span>'}</section>`;
+  }
+  const offTxt = (p) => `Slå av ${p.sfp ? 'SFP ' + p.n : 'port ' + p.n}? Enheten mister nett.`;
+  function portDetail(h, d, p) {
+    const col = p.dis || !p.up ? null : SPC[p.sp] || GR;
+    const status = p.dis ? 'Deaktivert' : p.up ? ['Tilkoblet', spdTxt(p.mb) === '–' ? null : spdTxt(p.mb), p.poeCap && p.poeOn ? 'PoE' : null].filter(Boolean).join(' · ') : 'Ingen kobling';
+    const icon = p.sfp ? 'mdi:swap-vertical' : p.poeCap ? 'mdi:power-plug' : 'mdi:lan';
+    const tile = (v, l, id) => `<button class="su-pdt" ${moreAttr(id)}><span class="su-ell">${esc(v)}</span><span>${esc(l)}</span></button>`;
+    const stats = [tile(!p.en ? (p.up ? 'Oppe' : '–') : p.dis ? 'Av' : p.up ? 'Oppe' : 'Ledig', 'Status', p.en),
+      tile(p.speed ? (p.up ? spdTxt(p.mb) : '–') : '–', 'Hastighet', p.speed),
+      p.poeCap ? tile(p.w != null && p.w > 0 ? `${M.nf(p.w, p.w < 10 ? 1 : 0)} W` : '–', 'PoE-strøm', p.pw) : tile(p.name || (p.up ? 'Ukjent' : '–'), 'Klient', p.en || p.speed)];
+    const tgs = [];
+    if (p.en) tgs.push(`<div class="su-xgr">${ic('mdi:ethernet', 20, `color:${T1b}`)}<span class="su-tt"><b>Port aktiv</b><span class="su-ell">${esc(p.en)}</span></span>${tg(!p.dis, `data-su-act="tgl" data-su-id="${esc(p.en)}" data-su-confirm="${esc(offTxt(p))}"`, 'Port aktiv')}</div>`);
+    if (p.poe) tgs.push(`<div class="su-xgr">${ic('mdi:flash', 20, `color:${T1b}`)}<span class="su-tt"><b>PoE</b><span class="su-ell">${esc(p.poe)}</span></span>${tg(p.poeOn, `data-su-act="tgl" data-su-id="${esc(p.poe)}" data-su-confirm="${esc(`Slå av PoE på ${p.label.toLowerCase()}? Enheten mister strøm.`)}"`, 'PoE')}</div>`);
+    const acts = [];
+    if (p.cyc) acts.push(`<button class="su-ab hot" data-su-act="press" data-su-id="${esc(p.cyc)}" data-su-confirm="${esc(`PoE-sykle ${p.label.toLowerCase()}? Enheten starter på nytt.`)}" data-su-toast="${esc(p.label)} PoE sykles">${ic('mdi:power-cycle', 18)}PoE-sykle</button>`);
+    if (p.speed || p.en) acts.push(`<button class="su-ab" ${moreAttr(p.speed || p.en)}>${ic('mdi:chart-line', 18)}Historikk</button>`);
+    return `<div class="su-pd" data-key="su-pd-${esc(d.id)}-${esc(p.key)}">
+        <div class="su-pdh"><span class="su-pdi" style="${col ? `background:${tone(col, 0.18)};color:${TXC(col)}` : ''}">${ic(icon, 20)}</span>
+          <span class="su-tt"><b class="su-ell">${esc(p.label + (p.name ? ' · ' + p.name : ''))}</b><span class="su-ell" style="color:${col ? TXC(col) : TM};font-weight:500">${esc(status)}</span></span>
+          <button class="su-pdx" data-su-act="pclose" title="Lukk" aria-label="Lukk">${ic('mdi:close', 18)}</button></div>
+        <div class="su-pds">${stats.join('')}</div>${tgs.length ? `<div class="su-xg">${tgs.join('')}</div>` : ''}${acts.length ? `<div class="su-xa">${acts.join('')}</div>` : ''}</div>`;
+  }
+
+  function html(host, sub, R) {
+    const X = discover(host.hass, R, host.config || {});
+    try {
+      if (sub === 'udm') return udmHTML(host, X);
+      if (sub === 'enheter') return enheterHTML(host, X);
+      if (sub === 'switch') return switchHTML(host, X);
+    } catch (e) { console.error('[ki-msh] serverUnifi', e); return `<section class="su-card"><div class="su-none">Kunne ikke tegne UniFi (${esc(e && e.message)})</div></section>`; }
+    return '';
+  }
+
+  /* ------------------------------------------------------------ handlinger */
+  const hap = (host, t) => (host && host.haptic ? host.haptic(t) : M.haptic(t));
+  const more = (host, id) => { if (!id) return; if (host && host.moreInfo) host.moreInfo(id); else M.moreInfo(host, id); };
+  const upd = (host) => (host.update ? host.update() : host.render && host.render());
+  // Bekreftelse: host.confirm(text) → Promise<bool>; reserve = portalt ark (fallgruve 1)
+  function ask(host, text) {
+    if (host && typeof host.confirm === 'function') return Promise.resolve(host.confirm(text)).then((v) => !!v);
+    return new Promise((res) => {
+      let done = false;
+      const api = M.overlay({ maxWidth: 420, guard: 250, css: `.su-q{display:flex;flex-direction:column;gap:14px;padding:6px 4px 4px}.su-q p{margin:0;font-size:16px;line-height:1.4;color:var(--ki-text, #fafafa)}
+        .su-qb{display:grid;grid-template-columns:1fr 1fr;gap:8px}.su-qb button{height:48px;border-radius:24px;font-size:15px;font-weight:500;border:0;cursor:pointer;color:var(--ki-text, #fafafa);background:var(--ki-surface, #3a3a3a)}
+        .su-qb .ok{background:${RD};color:var(--ki-on-accent, #232323)}`,
+      html: `<div class="su-q"><p>${esc(text)}</p><div class="su-qb"><button data-q="0">Avbryt</button><button class="ok" data-q="1">Bekreft</button></div></div>` });
+      const fin = (v) => { if (done) return; done = true; res(v); };
+      api.onClosed = () => fin(false);
+      api.body.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-q]'); if (!b) return; M.haptic(b.dataset.q === '1' ? 'heavy' : 'light'); fin(b.dataset.q === '1'); api.close(); });
+    });
+  }
+  const call = (host, d, s, data) => M.call(host.hass, d, s, data);
+  async function setSw(host, id, want, confirmTxt) {
+    if (!want && confirmTxt && !(await ask(host, confirmTxt))) return;
+    PEND[id] = { want, t: Date.now() }; upd(host); setTimeout(() => upd(host), 15100);
+    const D = dom(id);
+    return call(host, D === 'light' ? 'light' : D === 'switch' ? 'switch' : 'homeassistant', want ? 'turn_on' : 'turn_off', { entity_id: id }).catch(() => { delete PEND[id]; upd(host); });
+  }
+  async function press(host, id, confirmTxt, toast) {
+    if (confirmTxt && !(await ask(host, confirmTxt))) return;
+    return call(host, 'button', 'press', { entity_id: id }).then(() => { if (toast) M.toast(toast); }).catch(() => {});
+  }
+  function install(host, id, name) {
+    const s = stOf(host.hass, id);
+    if (!s || s.state !== 'on') return more(host, id);
+    return call(host, 'update', 'install', { entity_id: id }).then(() => M.toast(`${name || 'Fastvaren'} oppdateres`)).catch(() => {});
+  }
+  function findDev(st, id) { const X = discover(st.host.hass, st.R, st.host.config || {}); return X.devs.find((d) => d.id === id) || X.all.find((d) => d.id === id); }
+
+  async function onAct(st, b) {
+    const host = st.host, h = host.hass, dd = b.dataset, a = dd.suAct;
+    switch (a) {
+      case 'none': return;
+      case 'more': hap(host, 'light'); return more(host, dd.suId);
+      case 'dx': hap(host, 'light'); return host.setUI({ suDx: (host.ui || {}).suDx === dd.suV ? null : dd.suV });
+      case 'swsel': hap(host, 'selection'); return host.setUI({ suSw: dd.suV, dev: null, suPort: null });
+      case 'port': hap(host, 'selection'); return host.setUI({ suPort: String((host.ui || {}).suPort) === dd.suPort ? null : dd.suPort, suSw: dd.suDev, dev: null });
+      case 'pclose': hap(host, 'light'); return host.setUI({ suPort: null });
+      case 'go': hap(host, dd.suHap || 'selection'); return host.go ? host.go(dd.suTab, dd.suSub, dd.suDev ? { dev: dd.suDev, suSw: dd.suDev, suPort: null } : {}) : null;
+      case 'tgl': hap(host, 'medium'); return setSw(host, dd.suId, !pend(h, dd.suId), dd.suConfirm);
+      case 'poeall': {
+        hap(host, 'medium');
+        const d = findDev(st, dd.suV); if (!d) return;
+        const ids = d.ports.map((p) => p.poe).filter(Boolean), on = ids.every((id) => pend(h, id)), want = !on;
+        if (!want && !(await ask(host, `Slå av PoE på alle ${ids.length} porter på ${d.navn}? Enhetene mister strøm.`))) return;
+        ids.forEach((id) => { PEND[id] = { want, t: Date.now() }; });
+        upd(host); setTimeout(() => upd(host), 15100);
+        return call(host, 'switch', want ? 'turn_on' : 'turn_off', { entity_id: ids }).catch(() => { ids.forEach((id) => delete PEND[id]); upd(host); });
+      }
+      case 'press': hap(host, 'medium'); return press(host, dd.suId, dd.suConfirm, dd.suToast);
+      case 'install': hap(host, 'medium'); return install(host, dd.suId, dd.suName);
+      default: return;
+    }
+  }
+  // Hold 500 ms på en port → meny (portalt ark): port av/på, PoE av/på, PoE-sykle
+  function portMenu(st, devId, key) {
+    const host = st.host, h = host.hass, d = findDev(st, devId); if (!d) return;
+    const p = portsOf(h, d).find((x) => x.key === key); if (!p) return;
+    const items = [];
+    if (p.en) items.push(['en', p.dis ? 'mdi:ethernet' : 'mdi:ethernet-off', p.dis ? `Slå på ${p.label.toLowerCase()}` : `Slå av ${p.label.toLowerCase()}`, false]);
+    if (p.poe) items.push(['poe', 'mdi:flash', p.poeOn ? 'Slå av PoE' : 'Slå på PoE', false]);
+    if (p.cyc) items.push(['cyc', 'mdi:power-cycle', 'PoE-sykle', true]);
+    host.setUI({ suPort: key, suSw: devId, dev: null });
+    const api = M.overlay({ maxWidth: 420, guard: 300, css: `.su-mh{display:flex;flex-direction:column;gap:2px;padding:4px 4px 12px}.su-mh b{font-size:18px;font-weight:600;color:var(--ki-text, #fafafa)}.su-mh span{font-size:12px;color:var(--ki-text-mid, #979797)}
+      .su-ml{display:flex;flex-direction:column;gap:6px}.su-mi{display:flex;align-items:center;gap:12px;height:52px;padding:0 16px;border-radius:26px;border:0;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa);font-size:15px;font-weight:500;cursor:pointer;text-align:left}
+      .su-mi.hot{background:${tone(RD)};color:${TX.red}}.su-mi:active{transform:scale(.97)}.su-mn{padding:14px;border-radius:20px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-mid, #979797);font-size:13px}`,
+    html: `<div class="su-mh"><b>${esc(p.label)}</b><span>${esc(d.navn)}</span></div><div class="su-ml">${items.length ? items.map(([k, icn, l, hot]) => `<button class="su-mi${hot ? ' hot' : ''}" data-m="${k}">${ic(icn, 20)}${esc(l)}</button>`).join('') : '<div class="su-mn">– · Porten har ingen brytere i UniFi</div>'}</div>` });
+    api.body.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('[data-m]'); if (!b) return;
+      M.haptic('medium'); api.close();
+      const k = b.dataset.m;
+      if (k === 'en') setSw(host, p.en, p.dis, offTxt(p));
+      else if (k === 'poe') setSw(host, p.poe, !p.poeOn, `Slå av PoE på ${p.label.toLowerCase()}? Enheten mister strøm.`);
+      else if (k === 'cyc') press(host, p.cyc, `PoE-sykle ${p.label.toLowerCase()}? Enheten starter på nytt.`, `${p.label} PoE sykles`);
+    });
+    return api;
+  }
+
+  function bind(host, el, sub, R) {
+    if (!el) return;
+    el.__su = { host, sub, R };
+    if (el.__suB) return;
+    el.__suB = true;
+    const st = () => el.__su;
+    let hold = null, hx = 0, hy = 0, swallow = false;
+    const stopHold = () => { if (hold) { clearTimeout(hold); hold = null; } };
+    el.addEventListener('click', (e) => {
+      if (swallow) { swallow = false; e.stopPropagation(); e.preventDefault(); return; }
+      const b = e.target.closest && e.target.closest('[data-su-act]');
+      if (!b || b.disabled || !el.contains(b)) return;
+      e.stopPropagation();
+      onAct(st(), b);
+    });
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button) return;
+      const b = e.target.closest && e.target.closest('[data-su-port]'); if (!b) return;
+      hx = e.clientX; hy = e.clientY; stopHold();
+      hold = setTimeout(() => {
+        hold = null; swallow = true; setTimeout(() => { swallow = false; }, 700);
+        hap(st().host, 'medium');
+        portMenu(st(), b.dataset.suDev, b.dataset.suPort);
+      }, 500);
+    });
+    el.addEventListener('pointermove', (e) => { if (hold && (Math.abs(e.clientX - hx) > 8 || Math.abs(e.clientY - hy) > 8)) stopHold(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((n) => el.addEventListener(n, stopHold));
+    el.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('[data-su-port]')) e.preventDefault(); });
+  }
+
+  /* ------------------------------------------------------------ editor (Tilpass + getConfigElement – samme skjema) */
+  function editorFields(h, c) {
+    if (!h) return [];
+    c = c || {};
+    let X; try { X = discover(h, M.server && M.server.oppdag ? M.server.oppdag(h, c) : null, { ...c, unifi_hidden: [], exclude: [] }); } catch (e) { return []; }
+    if (!X.all.length) return [{ type: 'section', id: 'unifi', label: 'UniFi-enheter', icon: 'mdi:router-network', fields: [{ type: 'info', label: 'Fant ingen UniFi-enheter ennå.' }] }];
+    const T = { gw: 'Gateway', sw: 'Switch', ap: 'Aksesspunkt' };
+    const sws = X.all.filter((d) => d.ports.some((p) => p.poe || p.pw));
+    return [{ type: 'section', id: 'unifi', label: 'UniFi-enheter', icon: 'mdi:router-network', fields: [
+      { type: 'order', name: 'unifi_order', hiddenName: 'unifi_hidden', label: 'Enheter (rekkefølge og synlighet)', options: X.all.map((d) => [d.id, `${d.navn} · ${T[d.type]}`]) },
+      { type: 'info', label: 'Gjelder Enheter, Switch og UDM. Skjulte enheter telles ikke i setningen under toppkortet.' },
+      ...sws.map((d) => ({ type: 'number', name: 'poe_budget.' + d.id, label: `PoE-budsjett · ${d.navn} (W)`, min: 0, max: 3000, step: 1, auto: () => { const v = numOf(h, d.budget) || modelBudget(d.modell); return v == null ? null : v; }, placeholder: String(numOf(h, d.budget) || modelBudget(d.modell) || '') })),
+    ] }];
+  }
+
+  /* ------------------------------------------------------------ CSS (inkluderes i server-kortets shadow root) */
+  const css = `
+    .su-card{background:${S};border-radius:28px;min-width:0;color:${T}}
+    .su-ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .su-tt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left}
+    .su-tt b{font-size:14px;font-weight:500}.su-tt>span{font-size:12px;color:${TM}}
+    .su-none{padding:14px;border-radius:20px;background:${S2};color:${TM};font-size:13px}.su-none.in{margin:6px 12px 8px}
+    [data-su-act]{cursor:pointer}[data-su-act="none"]{cursor:default}
+    .su-ab[disabled],.su-ap[disabled],.su-tg[disabled]{opacity:.4;cursor:default}
+    .su-tg{width:46px;height:28px;border-radius:14px;flex:none;position:relative;background:${CTRL};transition:background .2s}
+    .su-tg i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:left .2s}
+    .su-tg.on{background:${GR}}.su-tg.on i{left:21px}
+    /* M · UDM */
+    .su-udm{display:flex;flex-direction:column;gap:8px}
+    .su-dev{padding:16px;display:flex;flex-direction:column;gap:16px}
+    .su-top{display:flex;align-items:center;gap:12px;min-width:0}
+    .su-top .su-tt{gap:2px}.su-top .su-tt b{font-size:16px;font-weight:600}
+    .su-ic44{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:${S2};color:${T1}}
+    .su-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:600;flex:none;white-space:nowrap}
+    .su-chip i{width:7px;height:7px;border-radius:4px;background:currentColor}
+    .su-chip.ok{background:${tone(GR)};color:${TX.green}}.su-chip.ok i{background:${GR}}
+    .su-chip.warn{background:${tone(OR)};color:${TX.orange}}.su-chip.warn i{background:${OR}}
+    .su-chip.none{background:${S2};color:${TM}}
+    .su-mts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:0 4px}
+    .su-mt{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;text-align:left;color:${T}}
+    .su-ml{font-size:13px;color:${T2}}
+    .su-mv{display:flex;align-items:baseline;gap:3px}.su-mv .num{font-size:40px;font-weight:300;line-height:1;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}.su-mv>span:last-child{font-size:13px;color:${TM}}
+    .su-seg{display:flex;gap:3px;margin-top:4px}.su-seg i{flex:1;height:8px;border-radius:2px;display:block}
+    .su-sps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .su-sp{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-radius:20px;background:${S2};min-width:0;color:${T};transition:transform .12s}
+    .su-sp:active{transform:scale(.97)}
+    .su-spl{flex:1;min-width:0;font-size:14px;color:${T2};text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .su-spv{font-size:16px;font-weight:600;flex:none;white-space:nowrap;font-variant-numeric:tabular-nums;color:${T}}.su-spv.warn{color:${TX.orange}}
+    .su-lat{padding:16px;display:flex;flex-direction:column;gap:12px}
+    .su-lh{display:flex;align-items:baseline;gap:8px}.su-lh>span:first-child{flex:1;font-size:17px;font-weight:600}.su-lh>span:last-child{font-size:12px;color:${TM};white-space:nowrap}
+    .su-lr{display:grid;grid-template-columns:88px minmax(0,1fr) 52px;align-items:center;gap:10px;width:100%;min-height:36px;text-align:left;color:${T}}
+    .su-ll{font-size:14px;color:${T1b}}
+    .su-ls{display:flex;gap:3px;height:22px;min-width:0}.su-ls i{flex:1;min-width:0;border-radius:3px;display:block}
+    .su-lv{display:flex;align-items:baseline;justify-content:flex-end;gap:2px}.su-lv .num{font-size:20px;font-variant-numeric:tabular-nums}.su-lv>span:last-child{font-size:11px;color:${TM}}
+    .su-lax{display:grid;grid-template-columns:88px minmax(0,1fr) 52px;gap:10px;font-size:11px;color:${T3t}}.su-lax>span:nth-child(2){display:flex;justify-content:space-between}
+    .su-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .su-ap{height:64px;border-radius:32px;display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;padding:0 12px;background:${S2};color:${T};transition:transform .12s}
+    .su-ap>span{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .su-ap:active{transform:scale(.96)}.su-ap.hot{background:${tone(RD)};color:${TX.red}}
+    /* H · Enheter */
+    .su-devs{padding:6px 0;display:flex;flex-direction:column}
+    .su-ch{display:flex;align-items:center;gap:10px;padding:8px 16px 4px}.su-ch>span:first-child{flex:1;font-size:15px;font-weight:600}.su-ch>span:last-child{font-size:12px;color:${TM};white-space:nowrap}
+    .su-dw{border-radius:20px;margin:0 6px;transition:background .2s}.su-dw.open{background:${S2}}
+    .su-dr{display:flex;align-items:center;gap:12px;min-height:56px;width:100%;padding:0 12px;text-align:left;color:${T}}
+    .su-dic{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:${S2};color:${T1b}}
+    .su-dw.open .su-dic{background:${S3}}
+    .su-dic.off{background:${tone(OR)};color:${TX.orange}}
+    .su-dm{font-size:12px;font-weight:500;white-space:nowrap;color:${TM}}.su-dm.off{color:${TX.orange}}
+    .su-gx{display:flex;flex-direction:column;gap:10px;padding:2px 12px 14px;animation:sufade .25s ease}
+    @keyframes sufade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+    @media (prefers-reduced-motion: reduce){.su-gx,.su-pd{animation:none}}
+    .su-xs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .su-xt{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:10px 12px;border-radius:16px;background:${S3};min-width:0;text-align:left;color:${T}}
+    .su-xv{display:flex;align-items:baseline;gap:2px;min-width:0}.su-xv .num{font-size:17px;font-variant-numeric:tabular-nums}.su-xu{font-size:11px;color:${TM}}
+    .su-xl{font-size:11px;color:${TM}}
+    .su-xb{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:${S3}}
+    .su-xbr{display:flex;align-items:center;gap:10px;font-size:12px;width:100%;text-align:left;color:${T}}
+    .su-xbl{width:104px;color:${T2};flex:none}
+    .su-xbt{flex:1;height:6px;border-radius:3px;background:${S2};overflow:hidden;display:flex}.su-xbt i{display:block;height:100%;border-radius:3px;transition:width .4s}
+    .su-xbv{width:76px;text-align:right;color:${T1b};white-space:nowrap;flex:none}
+    .su-xg{display:flex;flex-direction:column;border-radius:16px;background:${S3};padding:0 12px}
+    .su-xgr{display:flex;align-items:center;gap:10px;min-height:52px}.su-xgr+.su-xgr{border-top:1px solid ${LINE}}
+    .su-xgr b{font-size:13px;font-weight:500}.su-xgr .su-tt>span{font-size:11px}
+    .su-xa{display:flex;flex-wrap:wrap;gap:6px}
+    .su-ab{height:40px;padding:0 14px 0 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:${S2};color:${T1};transition:transform .12s}
+    .su-pd .su-ab{background:${CTRL}}
+    .su-ab:active{transform:scale(.96)}.su-ab.hot,.su-pd .su-ab.hot{background:${tone(RD)};color:${TX.red}}
+    /* J · Switch */
+    .su-sw{padding:16px;display:flex;flex-direction:column;gap:12px}
+    .su-swg{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px}
+    .su-swc{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;padding:10px 12px;border-radius:18px;background:${S3};box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.04));transition:background .2s,box-shadow .2s,transform .12s;text-align:left;color:${T}}
+    .su-swc:active{transform:scale(.97)}.su-swc.on{background:${S2};box-shadow:inset 0 0 0 1.5px ${PK}}
+    .su-swn{font-size:13px;font-weight:600;width:100%}
+    .su-leds{display:flex;gap:2px;width:100%}.su-leds i{flex:1;height:4px;border-radius:2px;display:block}
+    .su-sws{font-size:11px;color:${TM};max-width:100%}.su-swc.off .su-sws{color:${TX.orange}}
+    .su-swh{display:flex;align-items:flex-start;gap:10px;min-width:0}
+    .su-swh .su-tt{gap:3px}.su-swh .su-tt b{font-size:18px;font-weight:600;letter-spacing:-0.01em}.su-swh .su-tt>span{font-size:13px}
+    .su-poe{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px 0 10px;border-radius:18px;background:${tone(OR)};color:${TX.orange};font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+    .su-pb{height:8px;border-radius:4px;background:${S3};overflow:hidden}.su-pb i{display:block;height:100%;border-radius:4px;transition:width .4s}
+    .su-pg{display:grid;gap:6px}
+    .su-pt{height:60px;border-radius:14px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;padding:0;color:var(--ki-text-lo, #696969);background:${S3};box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.07));transition:box-shadow .15s,transform .12s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .su-pt.up{color:${T}}
+    .su-pt .num{font-size:15px;font-weight:500;line-height:1}
+    .su-pt:active{transform:scale(.95)}
+    .su-pt.dis{background:repeating-linear-gradient(135deg,${S} 0 4px,${S3} 4px 8px)}
+    .su-pt.sel{box-shadow:inset 0 0 0 2px ${PK}}
+    .su-led{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:18px;height:4px;border-radius:2px;display:block}
+    .su-lg{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;color:${TM}}
+    .su-lg>span{display:inline-flex;align-items:center;gap:6px}.su-lg i{width:12px;height:4px;border-radius:2px;display:block}
+    .su-lg i.hatch{height:12px;border-radius:3px;background:repeating-linear-gradient(135deg,${CTRL} 0 2px,transparent 2px 4px)}
+    .su-pinfo{font-size:12px;color:${T2};min-height:16px}
+    /* I · portdetaljer */
+    .su-pd{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:20px;background:${S2};animation:sufade .2s ease}
+    .su-pdh{display:flex;align-items:center;gap:10px;min-width:0}.su-pdh .su-tt b{font-size:15px;font-weight:600}
+    .su-pdi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:${CTRL};color:${T1b}}
+    .su-pdx{width:36px;height:36px;border-radius:18px;background:${CTRL};display:grid;place-items:center;flex:none;color:${T}}
+    .su-pds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .su-pdt{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:9px 10px;border-radius:14px;background:${S3};min-width:0;width:100%;text-align:left;color:${T}}
+    .su-pdt>span:first-child{font-size:15px;font-variant-numeric:tabular-nums}.su-pdt>span:last-child{font-size:11px;color:${TM}}
+    /* smale popuper (telefon): pillene og handlingene krymper litt så tekstene får plass – mål kortet, ikke vinduet */
+    .su-dev,.su-acts{container-type:inline-size}
+    @container (max-width: 400px){.su-sp{padding:0 12px;gap:8px}.su-spl{font-size:13px}.su-spv{font-size:15px}.su-ap{padding:0 6px;gap:4px}.su-ap>span{font-size:14px}}
+    @container (max-width: 330px){.su-sp>ha-icon,.su-ap>ha-icon{display:none}}
+  `;
+
+  M.serverUnifi = { css, discover, prosa, html, bind, editorFields, _hourly: hourly, _lat: LAT, _pend: PEND, _modelBudget: modelBudget };
+})();
+
+} catch (e) { console.error('[ki-msh] 58b-server-unifi.js', e); }
 
 /* ---- 59-avfall.js ---- */
 try {
