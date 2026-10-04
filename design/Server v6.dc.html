@@ -49,8 +49,10 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
   </sc-if>
   <sc-if value="{{ pickTabs }}" hint-placeholder-val="{{ false }}">
     <div style="display:flex;align-items:center;gap:8px">
-      <div style="flex:1;min-width:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:4px;border-radius:999px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
-        <sc-for list="{{ hosts }}" as="h" hint-placeholder-count="3"><button onClick="{{ h.tap }}" style="{{ h.tab }}">{{ h.name }}</button></sc-for>
+      <div style="flex:1;min-width:0;border-radius:999px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow:hidden">
+        <div onPointerDown="{{ tabStop }}" onTouchStart="{{ tabStop }}" onTouchMove="{{ tabStop }}" style="display:flex;gap:2px;padding:4px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain" onScroll="{{ tabFade }}" ref="{{ tabRef }}">
+          <sc-for list="{{ hosts }}" as="h" hint-placeholder-count="3"><button onClick="{{ h.tap }}" style="{{ h.tab }}">{{ h.name }}</button></sc-for>
+        </div>
       </div>
       <button onClick="{{ openCustom }}" title="Tilpass" style="{{ tabCog }}"><span class="ms" style="font-size:22px">settings</span></button>
     </div>
@@ -173,6 +175,42 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
     </div>
   </sc-if>
 
+  <sc-if value="{{ isQbit }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px;animation:fade .3s ease">
+      <sc-if value="{{ sec.qbTor }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#3a3a3a;border-radius:28px;padding:14px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px;padding:0 2px"><span class="ms" style="font-size:20px;color:#c7c7c7">download</span><span style="flex:1;font-size:15px;font-weight:600">Torrenter</span><span style="font-size:12px;color:#979797">{{ qb.tot }}</span></div>
+          <div style="display:flex;gap:3px;height:10px;border-radius:999px;overflow:hidden"><sc-for list="{{ qb.bar }}" as="b" hint-placeholder-count="4"><span style="{{ b }}"></span></sc-for></div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">
+            <sc-for list="{{ qb.tiles }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.tap }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px 14px;border-radius:18px;background:#404040;min-width:0;text-align:left" style-active="transform:scale(0.97)">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#afafaf"><span style="{{ t.dot }}"></span>{{ t.l }}</span>
+                <span style="font-size:24px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums">{{ t.n }}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">
+            <sc-for list="{{ qb.speed }}" as="v" hint-placeholder-count="2">
+              <button onClick="{{ v.tap }}" style="display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:18px;background:#404040;min-width:0" style-active="transform:scale(0.97)"><span style="{{ v.icS }}"><span class="ms" style="font-size:18px">{{ v.ic }}</span></span><span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0"><span style="font-size:16px;font-variant-numeric:tabular-nums">{{ v.v }} <span style="font-size:11px;color:#979797">MB/s</span></span><span style="font-size:11px;color:#979797">{{ v.l }}</span></span></button>
+            </sc-for>
+          </div>
+        </div>
+        <button onClick="{{ qb.altTap }}" style="background:#3a3a3a;border-radius:28px;display:flex;align-items:center;gap:12px;min-height:68px;padding:0 14px;text-align:left" style-active="transform:scale(0.98)">
+          <span style="{{ qb.altIcon }}"><span class="ms" style="font-size:20px">speed</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Alternativ hastighet</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ qb.altSub }}</span></span>
+          <span style="{{ qb.altTrack }}"><span style="{{ qb.altKnob }}"></span></span>
+        </button>
+      </sc-if>
+      <sc-if value="{{ sec.qbStat }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#3a3a3a;border-radius:28px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ qb.stats }}" as="x" hint-placeholder-count="6">
+            <button onClick="{{ x.tap }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:16px;background:#404040;min-width:0;text-align:left" style-active="transform:scale(0.97)"><span style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-variant-numeric:tabular-nums">{{ x.v }}</span><span style="font-size:11px;color:#979797">{{ x.l }}</span></button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ isUnraid }}" hint-placeholder-val="{{ true }}">
     <div style="display:flex;flex-direction:column;gap:8px;animation:fade .3s ease">
       <sc-if value="{{ sec.array }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:14px">
@@ -253,13 +291,54 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
   <sc-if value="{{ isUnifi }}" hint-placeholder-val="{{ false }}">
     <div style="display:flex;flex-direction:column;gap:8px;animation:fade .3s ease">
       <sc-if value="{{ sec.wan }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
-        <span style="grid-column:1 / -1;display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:15px;font-weight:600">Internett</span><span style="font-size:12px;color:#979797">Telia Fiber · 6 ms</span></span>
+        <span style="grid-column:1 / -1;display:flex;align-items:center;gap:8px"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600">Internett</span><button onClick="{{ stInfo.pingTap }}" style="align-self:flex-start;font-size:12px;color:#979797;font-variant-numeric:tabular-nums;white-space:nowrap">{{ stInfo.meta }}</button></span><button onClick="{{ stInfo.run }}" style="{{ stInfo.btn }}" style-active="transform:scale(0.96)"><span class="ms" style="font-size:16px">speed</span>Kjør test</button></span>
         <sc-for list="{{ wan }}" as="w" hint-placeholder-count="2">
-          <div style="display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:20px;background:#404040">
+          <button onClick="{{ w.tap }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;border-radius:20px;background:#404040;text-align:left;min-width:0" style-active="transform:scale(0.97)">
             <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#afafaf"><span class="ms" style="{{ w.iconS }}">{{ w.icon }}</span>{{ w.label }}</span>
             <span style="display:flex;align-items:baseline;gap:3px"><span style="font-size:28px;font-weight:300;font-variant-numeric:tabular-nums">{{ w.value }}</span><span style="font-size:12px;color:#979797">Mbit/s</span></span>
-          </div>
+          </button>
         </sc-for>
+      </div></sc-if>
+      <sc-if value="{{ sec.udm }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:8px">
+        <div style="background:#3a3a3a;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#404040;color:#e1e1e1"><span class="ms" style="font-size:22px">router</span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ udm.name }}</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ udm.sub }}</span></span>
+            <span style="{{ udm.chipS }}"><span style="{{ udm.dot }}"></span>{{ udm.state }}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:0 4px">
+            <sc-for list="{{ udm.meters }}" as="m" hint-placeholder-count="3">
+              <button onClick="{{ m.tap }}" style="display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;text-align:left">
+                <span style="font-size:13px;color:#afafaf">{{ m.l }}</span>
+                <span style="display:flex;align-items:baseline;gap:3px"><span style="font-size:40px;font-weight:300;line-height:1;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">{{ m.v }}</span><span style="font-size:13px;color:#979797">{{ m.u }}</span></span>
+                <span style="display:flex;gap:3px;margin-top:4px"><sc-for list="{{ m.segs }}" as="g" hint-placeholder-count="10"><span style="{{ g }}"></span></sc-for></span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+            <sc-for list="{{ udm.specs }}" as="x" hint-placeholder-count="6">
+              <button onClick="{{ x.tap }}" style="display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-radius:20px;background:#404040;min-width:0" style-active="transform:scale(0.97)">
+                <span class="ms" style="font-size:20px;color:#979797;flex:none">{{ x.icon }}</span>
+                <span style="flex:1;min-width:0;font-size:14px;color:#afafaf;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.l }}</span>
+                <span style="{{ x.vS }}">{{ x.v }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background:#3a3a3a;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="flex:1;font-size:17px;font-weight:600">WAN-latens</span><span style="font-size:12px;color:#979797">{{ udm.latAvg }}</span></div>
+          <sc-for list="{{ udm.lat }}" as="l" hint-placeholder-count="3">
+            <button onClick="{{ l.tap }}" style="display:grid;grid-template-columns:88px minmax(0,1fr) 52px;align-items:center;gap:10px;width:100%;min-height:36px;text-align:left">
+              <span style="font-size:14px;color:#c7c7c7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ l.l }}</span>
+              <span style="display:flex;gap:3px;height:22px"><sc-for list="{{ l.segs }}" as="g" hint-placeholder-count="24"><span style="{{ g }}"></span></sc-for></span>
+              <span style="display:flex;align-items:baseline;justify-content:flex-end;gap:2px"><span style="font-size:20px;font-variant-numeric:tabular-nums">{{ l.n }}</span><span style="font-size:11px;color:#979797">ms</span></span>
+            </button>
+          </sc-for>
+          <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 52px;gap:10px;font-size:11px;color:#7f7f7f"><span></span><span style="display:flex;justify-content:space-between"><span>{{ udm.t0 }}</span><span>nå</span></span><span></span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+          <sc-for list="{{ udm.actions }}" as="a" hint-placeholder-count="3"><button onClick="{{ a.tap }}" style="{{ a.style }}" style-active="transform:scale(0.96)"><span class="ms" style="font-size:20px;flex:none">{{ a.icon }}</span><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ a.label }}</span></button></sc-for>
+        </div>
       </div></sc-if>
       <sc-if value="{{ sec.devs }}" hint-placeholder-val="{{ true }}"><div style="background:#3a3a3a;border-radius:28px;padding:6px 0;display:flex;flex-direction:column">
         <div style="display:flex;align-items:center;gap:10px;padding:8px 16px 4px"><span style="flex:1;font-size:15px;font-weight:600">Enheter</span><span style="font-size:12px;color:#979797">{{ devSum }}</span></div>
@@ -288,7 +367,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
                     </sc-for>
                   </div>
                 </sc-if>
-                <div style="display:flex;flex-direction:column;border-radius:16px;background:#2f2f2f;padding:0 12px">
+                <sc-if value="{{ d.hasTog }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;border-radius:16px;background:#2f2f2f;padding:0 12px">
                   <sc-for list="{{ d.toggles }}" as="g" hint-placeholder-count="2">
                     <div style="{{ g.row }}">
                       <span class="ms" style="font-size:20px;color:#c7c7c7">{{ g.icon }}</span>
@@ -296,7 +375,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
                       <button onClick="{{ g.tap }}" style="{{ g.track }}"><span style="{{ g.knob }}"></span></button>
                     </div>
                   </sc-for>
-                </div>
+                </div></sc-if>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">
                   <sc-for list="{{ d.actions }}" as="a" hint-placeholder-count="3"><button onClick="{{ a.tap }}" style="{{ a.style }}" style-active="transform:scale(0.96)"><span class="ms" style="font-size:18px">{{ a.icon }}</span>{{ a.label }}</button></sc-for>
                 </div>
@@ -317,13 +396,48 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
             </sc-for>
           </div>
         </sc-if>
-        <div style="display:flex;align-items:center;gap:8px"><span style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:15px;font-weight:600">{{ swCur.name }}</span><span style="font-size:12px;color:#979797">{{ swCur.model }} · {{ swCur.loc }}</span></span><span style="font-size:12px;color:#979797;text-align:right">{{ portSum }}</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:18px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ swCur.name }}</span><span style="font-size:13px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ swCur.sub }}</span></span>
+          <sc-if value="{{ swCur.hasPoe }}" hint-placeholder-val="{{ false }}"><span style="flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px 0 10px;border-radius:18px;background:rgb(242 181 115 / 0.16);color:rgb(242 181 115);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums"><span class="ms" style="font-size:18px">bolt</span>{{ swCur.poeTxt }}</span></sc-if>
+        </div>
+        <sc-if value="{{ swCur.hasPoe }}" hint-placeholder-val="{{ false }}"><div style="height:8px;border-radius:4px;background:#2f2f2f;overflow:hidden"><div style="{{ swCur.poeBar }}"></div></div></sc-if>
         <div style="{{ swCur.grid }}">
           <sc-for list="{{ ports }}" as="p" hint-placeholder-count="16">
-            <button onClick="{{ p.tap }}" style="{{ p.tile }}"><span style="{{ p.led }}"></span><span>{{ p.n }}</span></button>
+            <button onClick="{{ p.tap }}" style="{{ p.tile }}" style-active="transform:scale(0.95)"><span style="{{ p.led }}"></span><span style="font-size:15px;font-weight:500;line-height:1">{{ p.n }}</span><span class="ms" style="{{ p.bolt }}">bolt</span></button>
           </sc-for>
         </div>
-        <span style="font-size:12px;color:#afafaf;min-height:16px">{{ portInfo }}</span>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;color:#979797">
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:12px;height:4px;border-radius:2px;background:rgb(115 185 242)"></span>2,5 G+</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:12px;height:4px;border-radius:2px;background:rgb(102 209 158)"></span>1 G</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:12px;height:4px;border-radius:2px;background:rgb(242 181 115)"></span>100 M</span>
+          <span style="display:inline-flex;align-items:center;gap:4px"><span class="ms" style="font-size:14px;color:rgb(242 181 115)">bolt</span>PoE</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:repeating-linear-gradient(135deg,#545454 0 2px,transparent 2px 4px)"></span>Deaktivert</span>
+        </div>
+        <sc-if value="{{ noPortSel }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:#afafaf;min-height:16px">{{ portInfo }}</span></sc-if>
+        <sc-if value="{{ pd.on }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:20px;background:#404040;animation:fade .2s ease">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="{{ pd.icS }}"><span class="ms" style="font-size:20px">{{ pd.icon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600">{{ pd.title }}</span><span style="{{ pd.stS }}">{{ pd.status }}</span></span>
+              <button onClick="{{ pd.close }}" title="Lukk" style="width:36px;height:36px;border-radius:18px;background:#545454;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:18px">close</span></button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+              <sc-for list="{{ pd.stats }}" as="x" hint-placeholder-count="3"><button onClick="{{ x.tap }}" style="display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:9px 10px;border-radius:14px;background:#2f2f2f;min-width:0;width:100%;box-sizing:border-box;text-align:left"><span style="font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">{{ x.v }}</span><span style="font-size:11px;color:#979797">{{ x.l }}</span></button></sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;border-radius:16px;background:#2f2f2f;padding:0 12px">
+              <sc-for list="{{ pd.toggles }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;align-items:center;gap:10px;min-height:52px;border-top:{{ g.bt }}">
+                  <span class="ms" style="font-size:20px;color:#c7c7c7">{{ g.icon }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:500">{{ g.label }}</span><span style="font-size:11px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.sub }}</span></span>
+                  <button onClick="{{ g.tap }}" style="{{ g.track }}"><span style="{{ g.knob }}"></span></button>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ pd.actions }}" as="a" hint-placeholder-count="1"><button onClick="{{ a.tap }}" style="{{ a.style }}" style-active="transform:scale(0.96)"><span class="ms" style="font-size:18px">{{ a.icon }}</span>{{ a.label }}</button></sc-for>
+            </div>
+          </div>
+        </sc-if>
       </div></sc-if>
       <sc-if value="{{ sec.cams }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
         <sc-for list="{{ cams }}" as="c" hint-placeholder-count="4">
@@ -353,7 +467,10 @@ const HOSTS0 = [
   { k: 'unraid', name: 'Unraid', icon: 'dns', M: [['CPU', '%', series(1, 22, 14), RD], ['Minne', '%', series(2, 58, 6), PU], ['CPU-temp', '°', series(3, 46, 5), OR]] },
   { k: 'pve', name: 'Proxmox', icon: 'view_in_ar', M: [['CPU', '%', series(4, 14, 9), RD], ['Minne', '%', series(5, 71, 4), PU], ['IO wait', '%', series(6, 2, 1.6), OR]] },
   { k: 'unifi', name: 'UniFi', icon: 'router', M: [['Ned', 'Mbit', series(7, 180, 120), BL], ['Opp', 'Mbit', series(8, 40, 30), GR], ['Klienter', '', series(9, 42, 4), PU]] }];
-const HOSTS = [{ ...HOSTS0[2], name: 'Nettverk' }, HOSTS0[1], HOSTS0[0], { k: 'ha', name: 'HA', icon: 'home', M: [['CPU', '%', series(10, 9, 6), RD], ['Minne', '%', series(11, 44, 3), PU], ['Disk', '%', series(12, 38, 0.6), OR]] }];
+const HOSTS = [{ ...HOSTS0[2], name: 'Nettverk' }, HOSTS0[1], HOSTS0[0], { k: 'ha', name: 'HA', icon: 'home', M: [['CPU', '%', series(10, 9, 6), RD], ['Minne', '%', series(11, 44, 3), PU], ['Disk', '%', series(12, 38, 0.6), OR]] },
+  { k: 'qbit', name: 'qBittorrent', icon: 'download', M: [['Ned', 'MB/s', series(13, 9, 7), BL], ['Opp', 'MB/s', series(14, 2.4, 1.6), GR], ['Aktive', '', series(15, 6, 2), PU]] }];
+const QB_T = [['active', 'Aktive', 'sensor.qbittorrent_active_torrents', 6, 'BL'], ['inactive', 'Inaktive', 'sensor.qbittorrent_inactive_torrents', 31, 'GY'], ['paused', 'Pauset', 'sensor.qbittorrent_paused_torrents', 4, 'OR'], ['errored', 'Feil', 'sensor.qbittorrent_errored_torrents', 1, 'RD']];
+const QB_S = [['Totalt lastet ned', 'sensor.qbittorrent_all_time_download', '4,82 TB'], ['Totalt lastet opp', 'sensor.qbittorrent_all_time_upload', '11,3 TB'], ['Ratio', 'sensor.qbittorrent_global_ratio', '2,34'], ['Alle torrenter', 'sensor.qbittorrent_all_torrents', '42'], ['Grense ned', 'sensor.qbittorrent_download_speed_limit', 'Ingen'], ['Grense opp', 'sensor.qbittorrent_upload_speed_limit', '5 MB/s']];
 const PVE2 = [[100, 'CT', 'dispatcharr', 0, 0, true], [102, 'CT', 'radio', 10, 21], [103, 'CT', 'tunarr', 0, 0, true], [104, 'CT', 'speedtest-tracker', 1, 17], [105, 'CT', 'zigbee2mqtt', 5, 17], [106, 'CT', 'frigate', 24, 61], [107, 'CT', 'adguard', 1, 12], [108, 'CT', 'nginx-proxy', 2, 14], [109, 'CT', 'uptime-kuma', 1, 9], [110, 'CT', 'vaultwarden', 0, 6], [200, 'VM', 'homeassistant', 6, 52], [201, 'VM', 'opnsense', 0, 0, true]];
 const ADDONS = [['mosquitto', 'Mosquitto broker', 'hub', 1, 3], ['zwave', 'Z-Wave JS UI', 'settings_input_antenna', 2, 6], ['esphome', 'ESPHome', 'memory', 0, 4], ['nodered', 'Node-RED', 'account_tree', 3, 9], ['vscode', 'Studio Code Server', 'code', 0, 0, true], ['samba', 'Samba share', 'folder_shared', 0, 1], ['ssh', 'Terminal & SSH', 'terminal', 0, 1], ['matter', 'Matter Server', 'device_hub', 1, 5], ['music', 'Music Assistant', 'library_music', 2, 7], ['backup', 'Google Drive Backup', 'backup', 0, 0, true]];
 const UPD = [['home', 'Home Assistant Core', '2026.9.3', '2026.10.0'], ['memory', 'ESPHome', '2026.9.1', '2026.9.2'], ['account_tree', 'Node-RED', '19.0.1', '19.0.2'], ['dns', 'Home Assistant OS', '16.2', null]];
@@ -361,33 +478,32 @@ const BAYS = [['P', 'Paritet', null, 36, 'par'], ['1', 'Disk 1', 90, 38], ['2', 
 const DOCK = [['plex', 'Plex', 'movie', 14], ['sonarr', 'Sonarr', 'tv', 2], ['radarr', 'Radarr', 'theaters', 2], ['qbit', 'qBittorrent', 'download', 6], ['jelly', 'Jellyseerr', 'search', 1], ['tautulli', 'Tautulli', 'insights', 1], ['nextcloud', 'Nextcloud', 'cloud', 3], ['immich', 'Immich', 'photo_library', 0, true], ['mqtt', 'Mosquitto', 'hub', 0]];
 const VMS = [['ubuntu', 'Ubuntu Server', 'terminal', 11, '4 vCPU · 8 GB'], ['win', 'Windows 11', 'desktop_windows', 0, '6 vCPU · 16 GB', true]];
 const PVE = [[100, 'VM', 'Home Assistant', 6, 52], [101, 'CT', 'AdGuard Home', 1, 28], [102, 'CT', 'Nginx Proxy Manager', 2, 34], [103, 'CT', 'Frigate', 24, 61], [104, 'VM', 'OPNsense', 0, 0, true]];
-const DEVS = [['router', 'Dream Machine Pro', 'UDM-Pro', '42 klienter', false, 'gw', { cpu: 14, ram: 61, temp: 52, up: '23 d 4 t', ip: '10.69.1.1', fw: '4.1.13' }],
-  ['wifi', 'AP Stue', 'U6-Pro', '14 klienter', false, 'ap', { cl: 14, ch: '36 / 6', tx: 'Auto', util5: 38, util2: 22, up: '11 d 2 t', ip: '10.69.1.21', fw: '6.6.77' }],
-  ['wifi', 'AP Loft', 'U6-Lite', '9 klienter', false, 'ap', { cl: 9, ch: '44 / 11', tx: 'Middels', util5: 21, util2: 31, up: '11 d 2 t', ip: '10.69.1.22', fw: '6.6.77' }],
-  ['wifi', 'AP Garasje', 'U6-Mesh', 'Frakoblet', true, 'ap', { cl: 0, ch: '–', tx: '–', util5: 0, util2: 0, up: 'Sist sett 2 t siden', ip: '10.69.1.23', fw: '6.6.65' }],
-  ['lan', 'Switch Pro 16 PoE', 'USW-Pro-16', '11 porter', false, 'sw', { poe: 48, poeMax: 180, temp: 44, fan: 'Stille', up: '41 d 9 t', ip: '10.69.1.2', fw: '7.1.26' }]];
+const DEVS = [['router', 'Oslo Dream Machine Pro', 'UDM-Pro · Server Rack', '41 klienter', false, 'gw', { id: 'oslo_dream_machine_pro', cl: 41, cpu: 14, ram: 61, temp: 52, ltemp: 41, lat: [['Cloudflare', 4], ['Google', 6], ['Microsoft', 9]], up: '23 d 4 t', fw: '4.1.13', upd: false }],
+  ['lan', 'Veien USW-24-G2 🛣️', 'USW-24-G2', '8 porter oppe', false, 'sw', { id: 'veien_usw_24_g2', cl: 9, cpu: 8, ram: 44, up: '41 d 9 t', fw: '7.1.26', upd: true }],
+  ['lan', 'Treets USW-24-PoE 🌳', 'USW-24-PoE', '13 porter · 62 W PoE', false, 'sw', { id: 'treets_usw_24_poe', cl: 14, cpu: 11, ram: 52, poe: 62, poeMax: 95, up: '41 d 9 t', fw: '7.1.26', upd: false }],
+  ['lan', 'Spisebord USW Flex Mini 🏓', 'USW-Flex-Mini', '4 porter oppe', false, 'sw', { id: 'spisebord_usw_flex_mini', cl: 3, cpu: 4, ram: 38, up: '12 d 6 t', fw: '2.1.6', upd: false, led: true }],
+  ['wifi', 'Fuglen U7 Pro XG 🐦', 'U7-Pro-XG', '18 klienter', false, 'ap', { id: 'fuglen_u7_pro_xg', cl: 18, cpu: 9, ram: 47, up: '11 d 2 t', fw: '8.0.21', upd: false, led: true }],
+  ['wifi', 'Posten U7 Lite 📯', 'U7-Lite', '7 klienter', false, 'ap', { id: 'posten_u7_lite', cl: 7, cpu: 6, ram: 41, up: '11 d 2 t', fw: '8.0.21', upd: true, led: true }]];
 const CAMS = [['Inngang', true], ['Hage', true], ['Garasje', false], ['Ringeklokke', true]];
-const PORTS_MAIN = [[1, 'g', 'UDM-Pro uplink'], [2, 'g', 'AP Stue', true], [3, 'g', 'AP Loft', true], [4, 'f', 'Kamera Inngang', true], [5, 'f', 'Kamera Hage', true], [6, 'x', 'Unraid Tower'], [7, 'x', 'pve01'], [8, 'g', 'Stue TV'], [9, '', ''], [10, 'g', 'Kontor PC'], [11, 'f', 'Ringeklokke', true], [12, '', ''], [13, 'g', 'Hue Bridge'], [14, 'off', 'Deaktivert'], [15, '', ''], [16, 'g', 'Garasje AP', true]];
-const SWITCHES = [
-  { name: 'Switch Pro 16 PoE', model: 'USW-Pro-16-PoE', loc: 'Rack', poe: 48, poeMax: 180, ports: PORTS_MAIN },
-  { name: 'Switch Stue', model: 'USW-Lite-8-PoE', loc: 'Stue · TV-benk', poe: 9, poeMax: 52, ports: [[1, 'g', 'Uplink · Pro 16'], [2, 'g', 'Apple TV'], [3, 'g', 'Stue TV'], [4, 'g', 'Sonos Arc'], [5, 'f', 'Hue Bridge', true], [6, '', ''], [7, 'g', 'PS5'], [8, '', '']] },
-  { name: 'Switch Garasje', model: 'USW-Flex-Mini', loc: 'Garasje', poe: 0, poeMax: 0, off: true, ports: [[1, 'off', 'Uplink · Pro 16'], [2, '', ''], [3, '', ''], [4, '', ''], [5, '', '']] }];
+const PORTS_MAIN = []; const SWITCHES = [{"name":"Oslo Dream Machine Pro","model":"UDM-Pro","loc":"Server Rack","id":"oslo_dream_machine_pro","poe":0,"poeMax":0,"ports":[[1,"g","",false],[2,"g","",false],[3,"g","",false],[4,"g","",false],[5,"g","",false],[6,"g","",false],[7,"g","",false],[8,"g","",false],[9,"g","",false],["S1","x","",false],["S2","x","",false]]},{"name":"Veien USW-24-G2 🛣️","model":"USW-24-G2","loc":"Veien","id":"veien_usw_24_g2","poe":0,"poeMax":0,"ports":[[1,"","",false],[2,"g","",false],[3,"","",false],[4,"","",false],[5,"g","",false],[6,"","",false],[7,"g","",false],[8,"","",false],[9,"","",false],[10,"g","",false],[11,"","",false],[12,"","",false],[13,"g","",false],[14,"","",false],[15,"g","",false],[16,"","",false],[17,"","",false],[18,"","",false],[19,"g","",false],[20,"","",false],[21,"g","",false],[22,"","",false],[23,"","",false],[24,"","",false],["S1","","",false],["S2","","",false]]},{"name":"Treets USW-24-PoE 🌳","model":"USW-24-PoE","loc":"Treet","id":"treets_usw_24_poe","poe":62,"poeMax":95,"ports":[[1,"g","",true],[2,"g","",true],[3,"","",true],[4,"","",true],[5,"g","",true],[6,"g","",true],[7,"g","",true],[8,"g","",true],[9,"g","",true],[10,"","",true],[11,"g","",true],[12,"g","",true],[13,"","",true],[14,"","",true],[15,"g","",true],[16,"g","",true],[17,"","",false],[18,"","",false],[19,"g","",false],[20,"","",false],[21,"g","",false],[22,"","",false],[23,"g","",false],[24,"g","",false],["S1","","",false],["S2","","",false]]},{"name":"Spisebord USW Flex Mini 🏓","model":"USW-Flex-Mini","loc":"Spisebord","id":"spisebord_usw_flex_mini","poe":0,"poeMax":0,"ports":[[1,"g","",false],[2,"","",false],[3,"g","",false],[4,"g","",false],[5,"g","",false]]}];
 class Component extends DCLogic {
   state = { devOpen: null, devFlag: {}, sub: {}, host: 0, metric: {}, scrub: null, dock: {}, vm: {}, pve: {}, port: null, arrOn: true, hold: 0, toast: null };
   tst(m) { this.setState({ toast: m }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: null }), 1600); }
-  componentWillUnmount() { clearTimeout(this._t); cancelAnimationFrame(this._raf); }
+  fadeTabs(el) { if (!el) return; const L = el.scrollLeft > 2, R = el.scrollLeft + el.clientWidth < el.scrollWidth - 2, m = (L || R) ? `linear-gradient(90deg,${L ? 'transparent 0,#000 18px' : '#000 0'},${R ? '#000 calc(100% - 18px),transparent 100%' : '#000 100%'})` : 'none'; el.style.maskImage = m; el.style.webkitMaskImage = m; }
+  componentDidUpdate() { this._tabEl && this.fadeTabs(this._tabEl); }
+  componentWillUnmount() { clearTimeout(this._st); clearTimeout(this._t); cancelAnimationFrame(this._raf); }
   renderVals() {
     const s = this.state, P = this.props, cards = (P.velger ?? 'Faner') === 'Kort', H = HOSTS[s.host], mi = s.metric[s.host] || 0, tabH = P.tabHoyde ?? 44;
     const dockRun = DOCK.filter(d => s.dock[d[0]] ?? !d[4]).length, pveRun = PVE2.filter(g => (s.run || {})['pvep' + g[0]] ?? !g[5]).length;
     const updN = UPD.filter(u => u[3] && !(s.upd || {})[u[1]]).length;
-    const ST = { unraid: s.arrOn ? { t: 'Alt OK', ok: true } : { t: 'Array stoppet', ok: false }, pve: { t: pveRun + ' av ' + PVE2.length + ' kjører', ok: true }, unifi: { t: 'Online', ok: true }, ha: updN ? { t: updN + (updN === 1 ? ' oppdatering' : ' oppdateringer'), ok: false } : { t: 'Oppdatert', ok: true } }, status = HOSTS.map(h => ST[h.k]);
-    const hosts = HOSTS.map((h, i) => { const on = s.host === i, v = h.M[0][2][47], pct = h.k === 'unifi' ? Math.min(100, v / 10) : v, st = status[i];
-      return { name: h.name, icon: h.icon, sub: h.k === 'unifi' ? Math.round(v) + ' Mbit ned' : h.M[0][0] + ' ' + Math.round(v) + ' %', ringCol: st.ok ? h.M[0][3] : OR, dash: `${(pct / 100) * 106.8} 106.8`,
-        tap: () => { hap(); this.setState({ host: i, scrub: null, port: null }); },
+    const ST = { unraid: s.arrOn ? { t: 'Alt OK', ok: true } : { t: 'Array stoppet', ok: false }, pve: { t: pveRun + ' av ' + PVE2.length + ' kjører', ok: true }, unifi: { t: 'Online', ok: true }, ha: updN ? { t: updN + (updN === 1 ? ' oppdatering' : ' oppdateringer'), ok: false } : { t: 'Oppdatert', ok: true }, qbit: { t: 'Tilkoblet', ok: true } }, status = HOSTS.map(h => ST[h.k]);
+    const hosts = HOSTS.map((h, i) => { const on = s.host === i, v = h.M[0][2][47], pct = h.k === 'unifi' ? Math.min(100, v / 10) : h.k === 'qbit' ? Math.min(100, v * 5) : v, st = status[i];
+      return { name: h.name, icon: h.icon, sub: h.k === 'unifi' ? Math.round(v) + ' Mbit ned' : h.k === 'qbit' ? fmt(v.toFixed(1)) + ' MB/s ned' : h.M[0][0] + ' ' + Math.round(v) + ' %', ringCol: st.ok ? h.M[0][3] : OR, dash: `${(pct / 100) * 106.8} 106.8`,
+        tap: e => { hap(); this.setState({ host: i, scrub: null, port: null }); const b = e && e.currentTarget, sc = b && b.parentElement; if (sc && sc.scrollWidth > sc.clientWidth) sc.scrollTo({ left: b.offsetLeft - (sc.clientWidth - b.offsetWidth) / 2, behavior: 'smooth' }); },
         dot: { width: 8, height: 8, borderRadius: 4, background: st.ok ? GR : OR, boxShadow: '0 0 0 3px ' + a(st.ok ? GR : OR, 0.2) },
         subS: { fontSize: 12, color: '#979797', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' },
         card: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 24, minWidth: 0, background: on ? '#404040' : '#3a3a3a', boxShadow: on ? 'inset 0 0 0 1.5px ' + PINK : 'inset 0 0 0 1px rgba(255,255,255,0.05)', transition: 'background .2s, box-shadow .2s, transform .12s' },
-        tab: { height: tabH, minWidth: 0, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: on ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: on ? '#3a3a3a' : '#c7c7c7', transition: 'background .2s' } }; });
+        tab: { height: tabH, flex: '1 0 auto', minWidth: 84, padding: '0 16px', scrollSnapAlign: 'center', borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: on ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: on ? '#3a3a3a' : '#c7c7c7', transition: 'background .2s' } }; });
     const M = H.M[mi], data = M[2], max = Math.max(...data) * 1.15 || 1, min = Math.min(...data) * 0.7;
     const pts = data.map((v, i) => [(i / 47) * 300, 80 - ((v - min) / (max - min)) * 66]);
     const line = 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L'), idx = s.scrub ?? 47;
@@ -429,44 +545,51 @@ class Component extends DCLogic {
         cpu: { display: 'block', height: '100%', width: (on ? Math.max(3, cpu * 2) : 0) + '%', background: BL }, ram: { display: 'block', height: '100%', width: (on ? ram : 0) + '%', background: PU },
         tap: () => { hap(); this.setState({ pve: { ...s.pve, [id]: !on } }); this.tst(name + (on ? ' slås av' : ' startes')); } }; });
     const pveStore = [['local-lvm', 38, '362 av 952 GB'], ['nas-backup', 61, '2,4 av 4 TB'], ['local', 12, '11 av 94 GB']].map(([name, p, meta]) => ({ name, meta, bar: { width: p + '%', background: p >= 80 ? OR : BL, borderRadius: 4 } }));
-    const wanN = HOSTS.find(h => h.k === 'unifi').M, wan = [['arrow_downward', 'Ned', BL, wanN[0][2][47]], ['arrow_upward', 'Opp', GR, wanN[1][2][47]]].map(([icon, label, c, v]) => ({ icon, label, value: String(Math.round(v)), iconS: { fontSize: 16, color: c } }));
+    const wanN = HOSTS.find(h => h.k === 'unifi').M, ST_ = s.stRun ? null : (s.stRes || { d: 912.4, u: 486.1, p: 6, t: '14:10' }), wan = [['arrow_downward', 'Ned', BL, ST_ && ST_.d, 'sensor.speedtest_download'], ['arrow_upward', 'Opp', GR, ST_ && ST_.u, 'sensor.speedtest_upload']].map(([icon, label, c, v, eid]) => ({ icon, label, value: v == null ? '–' : String(Math.round(v)), iconS: { fontSize: 16, color: c }, tap: () => { hap('light'); this.tst('Speedtest ' + label.toLowerCase() + ' · ' + eid); } }));
+    const stInfo = { meta: s.stRun ? 'Måler …' : 'Ping ' + ST_.p + ' ms · målt ' + ST_.t, running: !!s.stRun, pingTap: () => { hap('light'); this.tst('Speedtest ping · sensor.speedtest_ping'); },
+      run: () => { if (s.stRun) return; hap('medium'); this.setState({ stRun: true }); clearTimeout(this._st); this._st = setTimeout(() => { const n = new Date(); this.setState({ stRun: false, stRes: { d: 880 + Math.random() * 60, u: 470 + Math.random() * 30, p: 5 + Math.round(Math.random() * 3), t: String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0') } }); hap('success'); this.tst('Speedtest ferdig'); }, 2600); },
+      btn: { height: 32, padding: '0 12px 0 10px', borderRadius: 16, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, flex: 'none', background: s.stRun ? '#404040' : 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)', color: s.stRun ? '#afafaf' : '#3a3a3a' } };
     const devs = DEVS.map(([icon, name, model, meta, off, kind, X]) => { const k = name, open = s.devOpen === k, F = s.devFlag[k] || {}, isOn = (f, d) => F[f] ?? d;
       const swS = on => ({ track: { width: 46, height: 28, borderRadius: 14, flex: 'none', position: 'relative', background: on ? GR : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 22, height: 22, borderRadius: 11, background: '#fafafa', transition: 'left .2s' } });
       const tg = (f, icon, label, sub, def) => { const on = isOn(f, def); return { icon, label, sub, ...swS(on), row: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, borderTop: '1px solid rgba(255,255,255,0.05)' }, tap: () => { hap(); this.setState({ devFlag: { ...s.devFlag, [k]: { ...F, [f]: !on } } }); this.tst(label + (on ? ' av' : ' på')); } }; };
       const st = (v, u, l) => ({ v: String(v), u, l });
-      const stats = kind === 'gw' ? [st(X.cpu, '%', 'CPU'), st(X.ram, '%', 'Minne'), st(X.temp, '°', 'Temp'), st(42, '', 'Klienter'), st(X.up, '', 'Oppetid'), st(X.fw, '', 'Firmware')]
-        : kind === 'ap' ? [st(X.cl, '', 'Klienter'), st(X.ch, '', 'Kanal 5 / 2,4'), st(X.tx, '', 'Sendestyrke'), st(off ? '–' : '−' + (52 + X.cl), 'dBm', 'Snitt signal'), st(X.up, '', off ? 'Status' : 'Oppetid'), st(X.fw, '', 'Firmware')]
-        : [st(X.poe, 'W', 'PoE av ' + X.poeMax + ' W'), st(X.temp, '°', 'Temp'), st(X.fan, '', 'Vifte'), st('11 / 16', '', 'Porter oppe'), st(X.up, '', 'Oppetid'), st(X.fw, '', 'Firmware')];
+      const SWd = SWITCHES.find(w => w.id === X.id), upN = SWd ? SWd.ports.filter(q => q[1]).length + ' / ' + SWd.ports.length : '–', fwS = st(X.upd ? 'Ny' : X.fw, '', X.upd ? 'Fastvare · oppdatering' : 'Fastvare');
+      const stats = kind === 'gw' ? [st(X.cl, '', 'Klienter'), st(X.cpu, '%', 'CPU'), st(X.ram, '%', 'Minne'), st(X.temp, '°', 'CPU-temp'), st(X.ltemp, '°', 'Lokal temp'), st(upN, '', 'Porter oppe'), st(X.up, '', 'Oppetid'), fwS, st('Online', '', 'Tilstand')]
+        : kind === 'ap' ? [st(X.cl, '', 'Klienter'), st(X.cpu, '%', 'CPU'), st(X.ram, '%', 'Minne'), st(X.up, '', 'Oppetid'), fwS, st(off ? 'Frakoblet' : 'Online', '', 'Tilstand')]
+        : [st(X.cl, '', 'Klienter'), st(X.cpu, '%', 'CPU'), st(X.ram, '%', 'Minne'), st(upN, '', 'Porter oppe'), ...(X.poeMax ? [st(X.poe, 'W', 'PoE')] : []), st(X.up, '', 'Oppetid'), fwS, ...(X.poeMax ? [] : [st('Online', '', 'Tilstand')])];
       const bands = kind === 'ap' ? [['5 GHz', X.util5], ['2,4 GHz', X.util2]].map(([l, p]) => ({ l, v: p + ' % bruk', bar: { width: p + '%', background: p > 60 ? OR : BL, borderRadius: 3 } }))
-        : kind === 'gw' ? [['Ned', 72], ['Opp', 18]].map(([l, p]) => ({ l, v: Math.round(p * 10) + ' Mbit', bar: { width: p + '%', background: l === 'Ned' ? BL : GR, borderRadius: 3 } })) : [];
-      const toggles = kind === 'gw' ? [tg('ids', 'shield', 'Trusselbeskyttelse', 'IDS/IPS · 3 blokkert i dag', true), tg('ad', 'block', 'Annonseblokkering', 'Gjelder alle nett', true), tg('guest', 'wifi_tethering', 'Gjestenett', 'Gjest · 2 klienter', false)]
-        : kind === 'ap' ? [tg('led', 'light_mode', 'LED-lys', 'Ring på enheten', true), tg('wlan', 'wifi', 'Wi-Fi sending', 'Alle SSID-er', !off), tg('guest', 'wifi_tethering', 'Gjestenett', 'Kun dette AP-et', false)]
-        : [tg('led', 'light_mode', 'LED-lys', 'Port-LED-er', true), tg('poeAll', 'bolt', 'PoE', 'Strøm ut på alle PoE-porter', true)];
+        : kind === 'gw' ? X.lat.map(([l, ms]) => ({ l: l + ' WAN', v: ms + ' ms', bar: { width: Math.min(100, ms * 5) + '%', background: ms > 30 ? OR : GR, borderRadius: 3 } })) : [];
+      const toggles = [...(X.led ? [tg('led', 'light_mode', 'LED', 'light.' + X.id + '_led', true)] : []), ...(X.poeMax ? [tg('poeAll', 'bolt', 'PoE på alle porter', '16 PoE-porter · ' + X.poe + ' W', true)] : [])];
       const act = (icon, label, msg, hot) => ({ icon, label, tap: () => { hap(hot ? 'medium' : 'light'); this.tst(msg); }, style: { height: 40, padding: '0 14px 0 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, background: hot ? a(RD, 0.16) : '#404040', color: hot ? RD : '#e1e1e1' } });
-      const actions = [act('restart_alt', 'Start på nytt', name + ' starter på nytt', true), act('my_location', 'Finn', name + ' blinker'), ...(kind === 'ap' ? [act('tune', 'Optimaliser kanal', 'Kanalskanning startet')] : kind === 'gw' ? [act('speed', 'Fartstest', 'Fartstest kjører…')] : [act('power', 'PoE-sykle alle', 'PoE-porter sykles', true)]), act('system_update', 'Oppdater', X.fw + ' er nyeste')];
-      return { icon, name, model, meta, open, stats, bands, hasBand: bands.length > 0, toggles, actions,
+      const actions = [act('restart_alt', 'Start på nytt', name + ' starter på nytt', true), ...(kind === 'gw' ? [act('speed', 'Fartstest', 'Fartstest kjører…')] : []), ...(X.poeMax ? [act('power', 'PoE-sykle port', 'Velg port i Switch-fanen', true)] : []), act('system_update', X.upd ? 'Oppdater fastvare' : 'Fastvare', X.upd ? 'Fastvare installeres' : X.fw + ' er nyeste')];
+      return { icon, name, model, meta, open, stats, bands, hasBand: bands.length > 0, toggles, hasTog: toggles.length > 0, actions,
         tap: () => { hap(); this.setState({ devOpen: open ? null : k }); },
         wrap: { borderRadius: 20, margin: '0 6px', background: open ? '#404040' : 'transparent', transition: 'background .2s' },
         chev: { fontSize: 20, color: '#979797', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }, ic: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: off ? a(OR, 0.16) : '#404040', color: off ? OR : '#c7c7c7' }, metaS: { fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', color: off ? OR : '#979797' } }; });
     const SPD = { g: GR, x: BL, f: OR };
     const swI = Math.min(s.swSel || 0, SWITCHES.length - 1), SWc = SWITCHES[swI], PORTS = SWc.ports;
     const swList = SWITCHES.map((w, i) => { const on = i === swI, up = w.ports.filter(p => ({ g: 1, x: 1, f: 1 })[p[1]]).length;
-      return { name: w.name, short: w.name.replace(/^Switch\s+/, ''), sub: w.off ? 'Frakoblet' : up + '/' + w.ports.length + (w.poeMax ? ' · ' + w.poe + ' W' : ''),
+      return { name: w.name, short: w.name.split(' ')[0], sub: w.off ? 'Frakoblet' : up + '/' + w.ports.length + (w.poeMax ? ' · ' + w.poe + ' W' : ''),
         leds: w.ports.map(p => ({ s: { flex: 1, height: 4, borderRadius: 2, background: w.off ? a(OR, 0.35) : ({ g: GR, x: BL, f: OR })[p[1]] || '#545454' } })), tap: () => { hap('selection'); this.setState({ swSel: i, port: null }); },
         style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, minWidth: 0, padding: '10px 12px', borderRadius: 18, background: on ? '#404040' : '#2f2f2f', boxShadow: on ? 'inset 0 0 0 1.5px ' + PINK : 'inset 0 0 0 1px rgba(255,255,255,0.04)', transition: 'background .2s, box-shadow .2s' },
         ic: { width: 38, height: 38, borderRadius: 19, flex: 'none', display: 'grid', placeItems: 'center', background: w.off ? a(OR, 0.18) : on ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : '#404040', color: w.off ? OR : on ? '#3a3a3a' : '#c7c7c7' },
         subS: { fontSize: 11, whiteSpace: 'nowrap', color: w.off ? OR : '#979797' } }; });
-    const swCur = { name: SWc.name, model: SWc.model, loc: SWc.loc, grid: { display: 'grid', gridTemplateColumns: 'repeat(' + Math.min(8, PORTS.length) + ',minmax(0,1fr))', gap: 5 } };
-    const ports = PORTS.map(([n, sp, dev, poe]) => { const sel = s.port === n, up = !!SPD[sp];
+    const swDev = DEVS.find(d => d[6] && d[6].id === SWc.id), swUp = PORTS.filter(q => SPD[q[1]] && !(s.portOff || {})[(SWc.id || SWc.name) + q[0]]).length, poePct = SWc.poeMax ? Math.min(100, SWc.poe / SWc.poeMax * 100) : 0;
+    const swCur = { name: SWc.name, model: SWc.model, loc: SWc.loc, sub: (swDev ? 'Oppetid ' + swDev[6].up + ' · ' : '') + swUp + ' av ' + PORTS.length + ' porter oppe', hasPoe: !!SWc.poeMax, poeTxt: SWc.poe + ' / ' + SWc.poeMax + ' W',
+      poeBar: { width: poePct + '%', height: '100%', borderRadius: 4, background: poePct > 80 ? RD : 'rgb(245 205 160)', transition: 'width .4s' },
+      grid: { display: 'grid', gridTemplateColumns: 'repeat(' + Math.min(8, PORTS.length) + ',minmax(0,1fr))', gap: 6 } };
+    const POFF = s.portOff || {}, swK = SWc.id || SWc.name, PORTS2 = PORTS.map(q => POFF[swK + q[0]] ? [q[0], 'off', q[2], q[3]] : q);
+    const ports = PORTS2.map(([n, sp, dev, poe]) => { const sel = s.port === n, up = !!SPD[sp];
       return { n: String(n), tap: () => { hap('selection'); this.setState({ port: sel ? null : n }); },
-        tile: { height: 40, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 11, fontWeight: 500, color: up ? '#e1e1e1' : '#696969', background: sp === 'off' ? 'repeating-linear-gradient(135deg,#3f3f3f 0 3px,#333 3px 6px)' : sel ? '#545454' : '#2f2f2f', boxShadow: sel ? 'inset 0 0 0 1.5px ' + PINK : poe ? 'inset 0 -2px 0 ' + a(OR, 0.7) : 'none' },
-        led: { width: 14, height: 3, borderRadius: 2, background: up ? SPD[sp] : '#454545' } }; });
-    const pSel = PORTS.find(p => p[0] === s.port);
-    const portInfo = pSel ? `Port ${pSel[0]} · ${pSel[1] === 'off' ? 'Deaktivert' : pSel[2] || 'Ledig'}${SPD[pSel[1]] ? ' · ' + ({ g: '1 G', x: '2,5 G', f: '100 M' })[pSel[1]] : ''}${pSel[3] ? ' · PoE' : ''}` : 'Grønn 1 G · blå 2,5 G · oransje 100 M · strek under = PoE';
+        tile: { height: 60, borderRadius: 14, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, minWidth: 0, padding: 0, color: up ? '#fafafa' : '#696969', background: sp === 'off' ? 'repeating-linear-gradient(135deg,#3a3a3a 0 4px,#2f2f2f 4px 8px)' : '#2f2f2f', boxShadow: sel ? 'inset 0 0 0 2px rgb(242 133 201)' : 'inset 0 0 0 1px rgba(255,255,255,0.07)', transition: 'box-shadow .15s, transform .12s' },
+        led: { position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', width: 18, height: 4, borderRadius: 2, background: up ? SPD[sp] : '#454545', boxShadow: up ? '0 0 8px ' + a(SPD[sp], 0.6) : 'none' },
+        bolt: { position: 'absolute', bottom: 6, fontSize: 13, color: 'rgb(242 181 115)', opacity: poe && up ? 1 : 0 } }; });
+    const pSel = PORTS2.find(p => p[0] === s.port);
+    const portInfo = pSel ? `${typeof pSel[0] === 'string' ? 'SFP ' + pSel[0].slice(1) : 'Port ' + pSel[0]} · ${pSel[1] === 'off' ? 'Deaktivert' : pSel[2] || (SPD[pSel[1]] ? 'Tilkoblet' : 'Ledig')}${SPD[pSel[1]] ? ' · ' + ({ g: '1 G', x: '2,5 G', f: '100 M' })[pSel[1]] : ''}${pSel[3] ? ' · PoE' : ''}` : 'Trykk på en port for detaljer';
     const cams = CAMS.map(([name, rec]) => ({ name, state: rec ? 'Opptak' : 'Pause', rec: { position: 'relative', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, height: 22, padding: '0 8px', borderRadius: 11, fontSize: 11, fontWeight: 600, background: 'rgba(0,0,0,0.35)', color: rec ? '#fafafa' : '#afafaf' }, recDot: { width: 6, height: 6, borderRadius: 3, background: rec ? RD : '#7f7f7f' } }));
-    const SUBS = { unifi: [['Internett', ['wan']], ['Enheter', ['devs']], ['Switch', ['sw']]], pve: [['Gjester', ['glist']], ['Lagring', ['pstore']], ['Backup', ['backup']]], unraid: [['Array', ['array']], ['Gjester', ['glist']]], ha: [['Tillegg', ['glist']], ['Oppdateringer', ['haUpd']], ['System', ['haSys']]] };
+    const SUBS = { unifi: [['UDM', ['wan', 'udm']], ['Enheter', ['devs']], ['Switch', ['sw']]], pve: [['Gjester', ['glist']], ['Lagring', ['pstore']], ['Backup', ['backup']]], unraid: [['Array', ['array']], ['Gjester', ['glist']]], ha: [['Tillegg', ['glist']], ['Oppdateringer', ['haUpd']], ['System', ['haSys']]], qbit: [['Torrenter', ['qbTor']], ['Statistikk', ['qbStat']]] };
     const SL = SUBS[H.k], si = Math.min(s.sub[H.k] || 0, SL.length - 1), on = SL[si][1];
-    const sec = {}; ['array', 'docker', 'vm', 'guests', 'pstore', 'backup', 'wan', 'devs', 'sw', 'cams', 'glist', 'haUpd', 'haSys'].forEach(k => { sec[k] = on.includes(k); });
+    const sec = {}; ['array', 'docker', 'vm', 'guests', 'pstore', 'backup', 'wan', 'devs', 'sw', 'cams', 'glist', 'haUpd', 'haSys', 'qbTor', 'qbStat', 'udm'].forEach(k => { sec[k] = on.includes(k); });
     const subs = SL.map(([label], i) => ({ label, tap: () => { hap('selection'); this.setState({ sub: { ...s.sub, [H.k]: i }, port: null }); },
       style: { height: 38, minWidth: 0, borderRadius: 19, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: si === i ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: si === i ? '#3a3a3a' : '#c7c7c7', transition: 'background .2s' } }));
     const hk = H.k, RUN = s.run || {}, items = hk === 'pve' ? PVE2.map(([id, kind, name, cpu, ram, off]) => ({ key: 'p' + id, kind, tag: kind + ' ' + id, name, icon: kind === 'VM' ? 'desktop_windows' : 'deployed_code', cpu, ram, off }))
@@ -522,12 +645,54 @@ class Component extends DCLogic {
     const prose = hk === 'unraid' ? { a: 'Arrayet er', c1: s.arrOn ? 'startet' : 'stoppet', b: 'og lagringen er', c2: (s.arrOn ? 65 : 0) + ' % full', c: '.' }
       : hk === 'pve' ? { a: 'Proxmox kjører', c1: pveRun + ' av ' + PVE2.length + ' gjester', b: 'og lagringen er', c2: '38 % full', c: '.' }
       : hk === 'ha' ? { a: 'Home Assistant har', c1: updN ? updN + ' oppdateringer' : 'ingen oppdateringer', b: 'og', c2: items.filter(isRun).length + ' tillegg', c: ' kjører.' }
-      : { a: 'Nettet er', c1: devOff ? devOff + ' enhet frakoblet' : 'helt oppe', b: 'og', c2: '42 klienter', c: ' er tilkoblet.' };
-    return { prose, showProse: P.prosa ?? true, gl, upd, updSum: updLeft ? updLeft + ' tilgjengelig' : 'Alt oppdatert', haSys, haActs, isHa: hk === 'ha', sec, subs, pickCards: cards, pickTabs: !cards, hosts, hero, openCustom: () => { hap(); this.tst('Tilpass server'); },
+      : hk === 'qbit' ? { a: 'qBittorrent laster ned med', c1: fmt(H.M[0][2][47].toFixed(1)) + ' MB/s', b: 'og har', c2: QB_T[0][3] + ' aktive torrenter', c: '.' }
+      : { a: 'Nettet er', c1: devOff ? devOff + ' enhet frakoblet' : 'helt oppe', b: 'og', c2: DEVS[0][6].cl + ' klienter', c: ' er tilkoblet.' };
+    const QC = { BL, GR, OR, RD, GY: '#7f7f7f' }, qbTot = QB_T.reduce((t, x) => t + x[3], 0), qbAlt = !!s.qbAlt, mi2 = (eid, name) => () => { hap('light'); this.tst(name + ' · ' + eid); };
+    const qb = { tot: qbTot + ' totalt', alt: qbAlt, altSub: qbAlt ? 'På · 1 MB/s ned · 0,5 MB/s opp' : 'Av · bruker vanlige grenser',
+      altTap: () => { hap('medium'); this.setState({ qbAlt: !qbAlt }); this.tst(qbAlt ? 'Alternativ hastighet av' : 'Alternativ hastighet på'); },
+      altTrack: { width: 52, height: 32, borderRadius: 16, flex: 'none', position: 'relative', background: qbAlt ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : '#545454', transition: 'background .2s' },
+      altKnob: { position: 'absolute', top: 4, left: qbAlt ? 24 : 4, width: 24, height: 24, borderRadius: 12, background: '#fafafa', transition: 'left .2s cubic-bezier(.34,1.4,.64,1)' },
+      altIcon: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: qbAlt ? a(PINK, 0.18) : '#404040', color: qbAlt ? PINK : '#c7c7c7' },
+      bar: QB_T.map(x => ({ flex: Math.max(x[3], 0.5), background: QC[x[4]], minWidth: 4 })),
+      tiles: QB_T.map(([k, l, eid, n, c]) => ({ l, n: String(n), tap: mi2(eid, l), dot: { width: 8, height: 8, borderRadius: 4, flex: 'none', background: QC[c] } })),
+      stats: QB_S.map(([l, eid, v]) => ({ l, v, tap: mi2(eid, l) })),
+      speed: [['Ned', 'sensor.qbittorrent_download_speed', H.k === 'qbit' ? fmt(H.M[0][2][47].toFixed(1)) : '–', 'arrow_downward', BL], ['Opp', 'sensor.qbittorrent_upload_speed', H.k === 'qbit' ? fmt(H.M[1][2][47].toFixed(1)) : '–', 'arrow_upward', GR]].map(([l, eid, v, ic, c]) => ({ l, v, ic, tap: mi2(eid, 'Hastighet ' + l.toLowerCase()), icS: { width: 32, height: 32, borderRadius: 16, flex: 'none', display: 'grid', placeItems: 'center', background: a(c, 0.16), color: c } })) };
+    const udm = (() => { const X = DEVS[0][6], id = X.id, mi = (eid, l) => () => { hap('light'); this.tst(l + ' · ' + eid); };
+      const ports = SWITCHES[0].ports, upN = ports.filter(q => SPD[q[1]]).length;
+      const seg10 = (pct, col) => Array.from({ length: 10 }, (_, i) => ({ flex: 1, height: 8, borderRadius: 2, background: i < Math.max(1, Math.round(pct / 10)) ? col : '#2f2f2f' }));
+      const meter = (v, u, l, eid, pct, col) => ({ v: String(v), u, l, segs: seg10(pct, col), tap: mi('sensor.' + id + '_' + eid, l) });
+      const spec = (icon, l, v, eid, hi) => ({ icon, l, v, tap: mi(eid, l), vS: { fontSize: 16, fontWeight: 600, flex: 'none', color: hi || '#fafafa', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' } });
+      const act = (icon, label, tap, hot) => ({ icon, label, tap, style: { height: 64, borderRadius: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minWidth: 0, padding: '0 12px', background: hot ? a(RD, 0.16) : '#404040', color: hot ? RD : '#fafafa' } });
+      const lc = ms => ms > 60 ? RD : ms > 12 ? OR : GR, avg = Math.round(X.lat.reduce((t, x) => t + x[1], 0) / X.lat.length);
+      const hist = (seed, base) => Array.from({ length: 24 }, (_, i) => { const r = Math.sin(seed * 7.1 + i * 2.3) * 0.5 + Math.sin(seed + i * 0.7) * 0.5; return i === 23 ? base : Math.max(1, Math.round(base + r * base * 1.1 + (r > 0.85 ? 60 : 0))); });
+      const now = new Date(), t0 = String((now.getHours() + 1) % 24).padStart(2, '0') + ':00';
+      return { name: 'Dream Machine Pro', sub: 'UDM-Pro · Server Rack', state: 'Online', t0,
+        chipS: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 28, padding: '0 12px', borderRadius: 14, fontSize: 12, fontWeight: 600, flex: 'none', background: a(GR, 0.16), color: GR }, dot: { width: 7, height: 7, borderRadius: 4, background: GR },
+        meters: [meter(X.cpu, '%', 'CPU', 'cpu_utilisation_2', X.cpu, X.cpu > 85 ? RD : X.cpu > 65 ? OR : GR), meter(X.ram, '%', 'Minne', 'memory_utilisation_2', X.ram, X.ram > 85 ? RD : PU), meter(X.temp, '°C', 'CPU-temp', 'cpu_temperature_2', X.temp, X.temp > 75 ? RD : X.temp > 60 ? OR : BL)],
+        specs: [spec('group', 'Klienter', String(X.cl), 'sensor.' + id + '_clients'), spec('schedule', 'Oppetid', X.up, 'sensor.' + id + '_uptime_2'), spec('lan', 'Porter', upN + ' / ' + ports.length, 'sensor.' + id + '_port_1_link_speed'), spec('swap_vert', 'SFP+', '10 Gbit/s', 'sensor.' + id + '_sfp_1_link_speed'), spec('device_thermostat', 'Lokal temp', X.ltemp + '°', 'sensor.' + id + '_local_temperature'), spec('verified', 'Fastvare', X.upd ? 'Ny' : 'Nyeste', 'update.' + id + '_firmware', X.upd ? OR : null)],
+        latAvg: 'siste 24 t · snitt ' + avg + ' ms',
+        lat: X.lat.map(([l, ms], k) => ({ l, n: String(ms), tap: mi('sensor.' + id + '_' + l.toLowerCase() + '_wan_latency', l + ' latens'),
+          segs: hist(k + 1, ms).map((v, i) => ({ flex: 1, borderRadius: 3, minWidth: 0, background: i === 23 ? lc(v) : a(lc(v), 0.5) })) })),
+        actions: [act('lan', 'Porter', () => { hap('selection'); this.setState({ sub: { ...s.sub, unifi: 2 }, swSel: 0, port: null }); }), act('system_update', X.upd ? 'Oppdater' : 'Fastvare', () => { hap('light'); this.tst(X.upd ? 'Fastvare installeres' : X.fw + ' er nyeste'); }), act('restart_alt', 'Start på nytt', () => { hap('medium'); this.tst('Dream Machine Pro starter på nytt'); }, true)] }; })();
+    const pd = (() => { if (!pSel) return { on: false };
+      const [n, sp, dev, poe] = pSel, raw = PORTS.find(q => q[0] === n), isSfp = typeof n === 'string', pn = isSfp ? 'sfp_' + n.slice(1) : 'port_' + n, base = SWc.id || 'switch', off = sp === 'off', up = !!SPD[sp];
+      const spdL = ({ g: '1 Gbit/s', x: isSfp ? '10 Gbit/s' : '2,5 Gbit/s', f: '100 Mbit/s' })[sp] || '–', PP = s.portPoe || {}, poeOn = poe && (PP[swK + n] ?? true), w = poe && up && poeOn ? fmt((2 + ((typeof n === 'number' ? n : 3) * 1.7) % 9).toFixed(1)) : '0';
+      const sw = on => ({ track: { width: 46, height: 28, borderRadius: 14, flex: 'none', position: 'relative', background: on ? GR : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 22, height: 22, borderRadius: 11, background: '#fafafa', transition: 'left .2s' } });
+      const mi = (eid, l) => () => { hap('light'); this.tst(l + ' · ' + eid); };
+      const stats = [{ v: off ? 'Av' : up ? 'Oppe' : 'Ledig', l: 'Status', tap: mi('switch.' + base + '_' + pn, 'Port') }, { v: up ? spdL : '–', l: 'Hastighet', tap: mi('sensor.' + base + '_' + pn + '_link_speed', 'Hastighet') }, poe ? { v: w === '0' ? '–' : w + ' W', l: 'PoE-strøm', tap: mi('sensor.' + base + '_' + pn + '_poe_power', 'PoE') } : { v: dev || (up ? 'Ukjent' : '–'), l: 'Klient', tap: mi('switch.' + base + '_' + pn, 'Klient') }];
+      const toggles = [{ icon: 'settings_ethernet', label: 'Port aktiv', sub: 'switch.' + base + '_' + pn, bt: 'none', ...sw(!off), tap: () => { hap('medium'); this.setState({ portOff: { ...POFF, [swK + n]: !off } }); this.tst((isSfp ? 'SFP ' + n.slice(1) : 'Port ' + n) + (off ? ' slått på' : ' slått av')); } },
+        ...(poe ? [{ icon: 'bolt', label: 'PoE', sub: 'switch.' + base + '_' + pn + '_poe', bt: '1px solid rgba(255,255,255,0.05)', ...sw(poeOn), tap: () => { hap('medium'); this.setState({ portPoe: { ...PP, [swK + n]: !poeOn } }); this.tst('PoE ' + (poeOn ? 'av' : 'på') + ' · port ' + n); } }] : [])];
+      const act = (icon, label, msg, hot) => ({ icon, label, tap: () => { hap(hot ? 'medium' : 'light'); this.tst(msg); }, style: { height: 40, padding: '0 14px 0 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 500, background: hot ? a(RD, 0.16) : '#545454', color: hot ? RD : '#e1e1e1' } });
+      const actions = [...(poe ? [act('power', 'PoE-sykle', 'Port ' + n + ' PoE sykles', true)] : []), act('show_chart', 'Historikk', 'Historikk · sensor.' + base + '_' + pn + '_link_speed')];
+      const col = off ? '#7f7f7f' : up ? SPD[sp] : '#7f7f7f';
+      return { on: true, title: (isSfp ? 'SFP ' + n.slice(1) : 'Port ' + n) + (dev ? ' · ' + dev : ''), status: off ? 'Deaktivert' : up ? 'Tilkoblet · ' + spdL + (poe && poeOn ? ' · PoE' : '') : 'Ingen kobling', icon: isSfp ? 'settings_input_hdmi' : poe ? 'power' : 'lan',
+        icS: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: up && !off ? a(col, 0.18) : '#545454', color: up && !off ? col : '#c7c7c7' }, stS: { fontSize: 12, color: up && !off ? col : '#979797', fontWeight: 500 },
+        stats, toggles, actions, close: () => { hap('light'); this.setState({ port: null }); } }; })();
+    return { udm, pd, noPortSel: !pSel, stInfo, tabStop: e => e.stopPropagation(), tabFade: e => this.fadeTabs(e.currentTarget), tabRef: this._tabRef || (this._tabRef = el => { this._tabEl = el; if (el) requestAnimationFrame(() => this.fadeTabs(el)); }), qb, isQbit: hk === 'qbit', prose, showProse: P.prosa ?? true, gl, upd, updSum: updLeft ? updLeft + ' tilgjengelig' : 'Alt oppdatert', haSys, haActs, isHa: hk === 'ha', sec, subs, pickCards: cards, pickTabs: !cards, hosts, hero, openCustom: () => { hap(); this.tst('Tilpass server'); },
       tabCog: { width: tabH + 8, height: tabH + 8, borderRadius: 999, flex: 'none', background: '#3a3a3a', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', display: 'grid', placeItems: 'center' },
       isUnraid: H.k === 'unraid', isPve: H.k === 'pve', isUnifi: H.k === 'unifi',
       arr, bays, docker, dockSum: (s.arrOn ? DOCK.filter(d => s.dock[d[0]] ?? !d[4]).length : 0) + ' av ' + DOCK.length + ' kjører', vms, vmSum: vms.filter(v => v.meta !== 'Av').length + ' av ' + vms.length + ' på',
-      guests, pveSum: pveRun + ' av ' + PVE2.length + ' kjører', pveStore, wan, devs, devSum: '4 av 5 online', ports, portSum: SWc.off ? 'Frakoblet' : PORTS.filter(p => SPD[p[1]]).length + ' av ' + PORTS.length + ' oppe' + (SWc.poeMax ? ' · ' + SWc.poe + ' / ' + SWc.poeMax + ' W PoE' : ''), swList, swCur, multiSw: SWITCHES.length > 1, portInfo, cams,
+      guests, pveSum: pveRun + ' av ' + PVE2.length + ' kjører', pveStore, wan, devs, devSum: DEVS.filter(d => !d[4]).length + ' av ' + DEVS.length + ' online', ports, portSum: SWc.off ? 'Frakoblet' : PORTS.filter(p => SPD[p[1]]).length + ' av ' + PORTS.length + ' oppe' + (SWc.poeMax ? ' · ' + SWc.poe + ' / ' + SWc.poeMax + ' W PoE' : ''), swList, swCur, multiSw: SWITCHES.length > 1, portInfo, cams,
       hasToast: !!s.toast, toast: s.toast };
   }
 }

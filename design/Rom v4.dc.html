@@ -77,7 +77,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
           </div>
           <sc-for list="{{ coverRest }}" as="cv" hint-placeholder-count="1">
             <div style="display:flex;align-items:center;gap:14px;padding:0 6px 0 10px">
-              <span style="font-size:14px;font-weight:500;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis">{{ cv.name }}</span>
+              <span style="flex:0 0 112px;font-size:14px;font-weight:500;line-height:1.2;overflow-wrap:anywhere;text-wrap:balance">{{ cv.name }}</span>
               <div onPointerDown="{{ cv.down }}" onPointerMove="{{ cv.move }}" onPointerUp="{{ cv.up }}" style="position:relative;flex:1;height:28px;display:flex;align-items:center;touch-action:none;cursor:pointer">
           <span style="position:absolute;left:0;right:0;height:8px;border-radius:4px;background:#282828"></span>
           <span style="{{ cv.fill }}"></span>
@@ -109,7 +109,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
       <span class="ms" style="{{ ac.lys.chev }}">expand_more</span>
     </button>
     <sc-if value="{{ ac.lys.open }}" hint-placeholder-val="{{ false }}">
-      <div style="padding:0 8px 8px">
+      <div style="padding:4px 14px 14px">
         <div style="display:flex;flex-direction:column;gap:10px;padding:0 8px 6px">
           <sc-for list="{{ lights }}" as="l" hint-placeholder-count="4">
             <div style="display:flex;flex-direction:column;gap:8px">
@@ -145,7 +145,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
       <span class="ms" style="{{ ac.dev.chev }}">expand_more</span>
     </button>
     <sc-if value="{{ ac.dev.open }}" hint-placeholder-val="{{ false }}">
-      <div style="padding:0 8px 8px">
+      <div style="padding:4px 14px 14px">
         <div style="display:flex;flex-direction:column;gap:8px">
           <sc-for list="{{ devices }}" as="d" hint-placeholder-count="2">
             <button onClick="{{ d.toggle }}" data-ent-domain="switch" data-ent-name="{{ d.name }}" style="{{ d.pill }}" style-active="transform:scale(0.98)">
@@ -170,7 +170,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
       <span class="ms" style="{{ ac.klima.chev }}">expand_more</span>
     </button>
     <sc-if value="{{ ac.klima.open }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 8px 8px">
         <div data-snap="1" onScroll="{{ climSw.onScroll }}" style="width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:26px">
           <sc-for list="{{ climCards }}" as="k" hint-placeholder-count="1">
             <div style="{{ k.card }}">
@@ -184,7 +184,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
             </div>
           </sc-for>
         </div>
-        <div style="display:flex;gap:8px;height:14px;align-items:center"><sc-for list="{{ climSw.dots }}" as="d" hint-placeholder-count="0"><span style="{{ d }}"></span></sc-for></div>
+        <sc-if value="{{ climSw.multi }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px;height:12px;align-items:center"><sc-for list="{{ climSw.dots }}" as="d" hint-placeholder-count="0"><span style="{{ d }}"></span></sc-for></div></sc-if>
       </div>
     </sc-if>
   </section></div>
@@ -202,14 +202,14 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
         <div data-snap="1" onScroll="{{ mediaSw.onScroll }}" style="width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:26px">
           <sc-for list="{{ media }}" as="m" hint-placeholder-count="1">
             <div style="display:flex;flex-direction:column;flex:none;width:100%;scroll-snap-align:start">
-              <div style="position:relative;padding:20px 20px 16px;border-radius:26px;background:#2a2a2a">
-                <span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:#afafaf">{{ m.title }}</span><span style="font-size:17px;font-weight:500">{{ m.state }}</span></span>
-                <span style="position:absolute;right:8px;top:8px;width:60px;height:60px;border-radius:30px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:28px;font-variation-settings:'FILL' 1">speaker</span></span>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px">
-                  <button onClick="{{ m.power }}" style="width:44px;height:44px;display:grid;place-items:center"><span class="ms" style="font-size:22px">power_settings_new</span></button>
-                  <button style="width:44px;height:44px;display:grid;place-items:center"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">skip_previous</span></button>
-                  <button onClick="{{ m.play }}" style="width:64px;height:64px;border-radius:32px;background:#404040;display:grid;place-items:center" style-active="transform:scale(0.94)"><span class="ms" style="font-size:32px;font-variation-settings:'FILL' 1">{{ m.playIcon }}</span></button>
-                  <button style="width:44px;height:44px;display:grid;place-items:center"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">skip_next</span></button>
+              <div style="{{ m.pc.box }}">
+                <span style="display:flex;flex-direction:column;gap:4px;min-width:0;padding-right:62px"><span style="{{ m.pc.dev }}">{{ m.title }}</span><span style="font-size:16px;font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.pc.track }}</span></span>
+                <span style="{{ m.pc.art }}"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">album</span></span>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px">
+                  <button onClick="{{ m.power }}" style="{{ m.pc.btn }}"><span class="ms" style="font-size:22px">power_settings_new</span></button>
+                  <button style="{{ m.pc.btn }}"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">skip_previous</span></button>
+                  <button onClick="{{ m.play }}" style="{{ m.pc.play }}" style-active="transform:scale(0.94)"><span class="ms" style="font-size:28px;font-variation-settings:'FILL' 1">{{ m.playIcon }}</span></button>
+                  <button style="{{ m.pc.btn }}"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">skip_next</span></button>
                   <button style="width:44px;height:44px;display:grid;place-items:center"><span class="ms" style="font-size:24px">more_horiz</span></button>
                 </div>
               </div>
@@ -239,7 +239,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
       <span class="ms" style="{{ ac.sens.chev }}">expand_more</span>
     </button>
     <sc-if value="{{ ac.sens.open }}" hint-placeholder-val="{{ false }}">
-      <div style="padding:0 8px 8px">
+      <div style="padding:4px 14px 14px">
         <div style="display:flex;flex-direction:column;gap:8px">
           <sc-for list="{{ sensors }}" as="z" hint-placeholder-count="2">
             <div style="{{ z.pill }}">
@@ -263,7 +263,15 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
         <button onClick="{{ ed.reset }}" style="height:40px;padding:0 14px;border-radius:20px;background:#404040;font-size:14px;font-weight:500">Nullstill</button>
         <button onClick="{{ ed.close }}" style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:14px;font-weight:600">Ferdig</button>
       </div>
-      <button onClick="{{ ed.acc.space.go }}" style="{{ ed.acc.space.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.space.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.space.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.space.meta }}</span><span class="ms" style="{{ ed.acc.space.chev }}">expand_more</span></button>
+      <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;flex:none">
+        <sc-for list="{{ ed.tabs }}" as="tb" hint-placeholder-count="4"><button onClick="{{ tb.go }}" style="{{ tb.style }}"><span class="ms" style="{{ tb.iconS }}">{{ tb.icon }}</span>{{ tb.label }}</button></sc-for>
+      </div>
+      <sc-if value="{{ ed.isEnt }}" hint-placeholder-val="{{ false }}">
+        <div data-glass-drag="x" style="display:flex;gap:2px;padding:3px;border-radius:19px;background:#2a2a2a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);flex:none">
+          <sc-for list="{{ ed.subs }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ ed.acc.space.open }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;padding:6px 6px 0"><span style="flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ ed.acc.space.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.space.meta }}</span></div></sc-if>
       <sc-if value="{{ ed.acc.space.open }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;gap:16px;padding:14px 16px;border-radius:24px;background:#404040">
         <sc-for list="{{ ed.spacing }}" as="g" hint-placeholder-count="3">
@@ -275,7 +283,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
         </sc-for>
       </div>
       </sc-if>
-      <button onClick="{{ ed.acc.secs.go }}" style="{{ ed.acc.secs.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.secs.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.secs.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.secs.meta }}</span><span class="ms" style="{{ ed.acc.secs.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.secs.open }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;padding:6px 6px 0"><span style="flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ ed.acc.secs.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.secs.meta }}</span></div></sc-if>
       <sc-if value="{{ ed.acc.secs.open }}" hint-placeholder-val="{{ false }}">
       <sc-for list="{{ ed.secs }}" as="r" hint-placeholder-count="5">
         <div style="{{ r.row }}">
@@ -287,7 +295,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
         </div>
       </sc-for>
       </sc-if>
-      <button onClick="{{ ed.acc.lys.go }}" style="{{ ed.acc.lys.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.lys.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.lys.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.lys.meta }}</span><span class="ms" style="{{ ed.acc.lys.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.lys.open }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;padding:6px 6px 0"><span style="flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ ed.acc.lys.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.lys.meta }}</span></div></sc-if>
       <sc-if value="{{ ed.acc.lys.open }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;padding:4px 12px;border-radius:24px;background:#404040">
         <div style="display:flex;gap:6px;padding:8px 0 6px"><button onClick="{{ ed.acc.lys.allOn }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Vis alle</button><button onClick="{{ ed.acc.lys.allOff }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Skjul alle</button></div>
@@ -320,7 +328,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
         </div>
       </div>
       </sc-if>
-      <button onClick="{{ ed.acc.dev.go }}" style="{{ ed.acc.dev.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.dev.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.dev.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.dev.meta }}</span><span class="ms" style="{{ ed.acc.dev.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.dev.open }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;padding:6px 6px 0"><span style="flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ ed.acc.dev.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.dev.meta }}</span></div></sc-if>
       <sc-if value="{{ ed.acc.dev.open }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;padding:4px 12px;border-radius:24px;background:#404040">
         <div style="display:flex;gap:6px;padding:8px 0 6px"><button onClick="{{ ed.acc.dev.allOn }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Vis alle</button><button onClick="{{ ed.acc.dev.allOff }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Skjul alle</button></div>
@@ -345,7 +353,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
         </div>
       </div>
       </sc-if>
-      <button onClick="{{ ed.acc.sens.go }}" style="{{ ed.acc.sens.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.sens.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.sens.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.sens.meta }}</span><span class="ms" style="{{ ed.acc.sens.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.sens.open }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;padding:6px 6px 0"><span style="flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ ed.acc.sens.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.sens.meta }}</span></div></sc-if>
       <sc-if value="{{ ed.acc.sens.open }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;padding:4px 12px;border-radius:24px;background:#404040">
         <div style="display:flex;gap:6px;padding:8px 0 6px"><button onClick="{{ ed.acc.sens.allOn }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Vis alle</button><button onClick="{{ ed.acc.sens.allOff }}" style="height:30px;padding:0 12px;border-radius:15px;background:#545454;font-size:12px;font-weight:500">Skjul alle</button></div>
@@ -369,7 +377,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
         </div>
       </div>
       </sc-if>
-      <button onClick="{{ ed.acc.klima.go }}" style="{{ ed.acc.klima.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.klima.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.klima.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.klima.meta }}</span><span class="ms" style="{{ ed.acc.klima.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.klima.open }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;padding:6px 6px 0"><span style="flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ ed.acc.klima.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.klima.meta }}</span></div></sc-if>
       <sc-if value="{{ ed.acc.klima.open }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#404040">
         <sc-for list="{{ ed.picks }}" as="p" hint-placeholder-count="3">
@@ -419,7 +427,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
         </div>
       </div>
       </sc-if>
-      <button onClick="{{ ed.acc.ovr.go }}" style="{{ ed.acc.ovr.head }}"><span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 1">{{ ed.acc.ovr.icon }}</span><span style="flex:1;min-width:0;text-align:left;font-size:15px;font-weight:600">{{ ed.acc.ovr.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.ovr.meta }}</span><span class="ms" style="{{ ed.acc.ovr.chev }}">expand_more</span></button>
+      <sc-if value="{{ ed.acc.ovr.open }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;padding:6px 6px 0"><span style="flex:1;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ ed.acc.ovr.title }}</span><span style="font-size:12px;color:#979797;white-space:nowrap">{{ ed.acc.ovr.meta }}</span></div></sc-if>
       <sc-if value="{{ ed.acc.ovr.open }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;padding:4px 12px;border-radius:24px;background:#404040">
         <span style="font-size:11px;color:#7f7f7f;line-height:1.5;padding:8px 0 4px">Tomt felt = standard. Bruk {state}, {w} og {name}, eller kode: [[[ return state === 'på' ? '#7fd6a0' : '#404040' ]]]</span>
@@ -434,11 +442,14 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
               <sc-for list="{{ e.fields }}" as="f" hint-placeholder-count="6">
                 <div style="display:flex;flex-direction:column;gap:6px">
                   <span style="font-size:12px;color:#979797">{{ f.label }}</span>
-                  <input value="{{ f.val }}" onChange="{{ f.set }}" placeholder="{{ f.ph }}" style="height:40px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:13px;min-width:0"></input>
+                  <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}"><input value="{{ f.val }}" onChange="{{ f.set }}" placeholder="{{ f.ph }}" style="height:40px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:13px;min-width:0"></input></sc-if>
+                  <sc-if value="{{ f.isSel }}" hint-placeholder-val="{{ false }}"><div style="position:relative;display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:12px;background:#282828"><span class="ms" style="font-size:18px;color:#afafaf">bolt</span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.selName }}</span><span style="font-size:11px;color:#7f7f7f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.selSub }}</span></span><span class="ms" style="font-size:20px;color:#979797">expand_more</span><select value="{{ f.val }}" onChange="{{ f.set }}" style="position:absolute;inset:0;opacity:0;cursor:pointer;font-size:16px"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4"><option value="{{ o.id }}">{{ o.label }}</option></sc-for></select></div></sc-if>
+                  <sc-if value="{{ f.isNum }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px"><div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:18px;background:#282828"><button onClick="{{ f.dec }}" style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;color:#c7c7c7"><span class="ms" style="font-size:18px">remove</span></button><span style="min-width:56px;text-align:center;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">{{ f.numLabel }}</span><button onClick="{{ f.inc }}" style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;color:#c7c7c7"><span class="ms" style="font-size:18px">add</span></button></div><span style="flex:1;font-size:11px;color:#7f7f7f;line-height:1.4">{{ f.hint }}</span></div></sc-if>
                   <sc-if value="{{ f.canPick }}" hint-placeholder-val="{{ false }}"><button onClick="{{ f.pick }}" style="align-self:flex-start;height:32px;padding:0 12px;border-radius:16px;background:#282828;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#c7c7c7"><span class="ms" style="font-size:16px">{{ f.pickIcon }}</span>{{ f.pickLabel }}</button></sc-if>
                   <sc-if value="{{ f.isCol }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;flex-wrap:wrap;padding:2px"><sc-for list="{{ f.sw }}" as="o" hint-placeholder-count="9"><button onClick="{{ o.go }}" style="{{ o.style }}"></button></sc-for></div></sc-if>
                 </div>
               </sc-for>
+              <sc-if value="{{ e.hasPrev }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#282828"><span class="ms" style="font-size:18px;color:#979797">visibility</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:#7f7f7f">Forhåndsvisning nå</span><span style="font-size:13px;font-weight:500">{{ e.prev }}</span></span></div></sc-if>
               <button onClick="{{ e.reset }}" style="height:40px;border-radius:20px;background:#404040;font-size:13px;font-weight:500">Tilbakestill kortet</button>
             </div>
           </sc-if>
@@ -500,6 +511,7 @@ const ADD_CAND = { lys: [['light.gang_tak', 'Gang tak'], ['light.trapp_led', 'Tr
   dev: [['switch.avfukter', 'Avfukter'], ['switch.luftrenser', 'Luftrenser'], ['switch.julelys', 'Julelys'], ['switch.varmekabel', 'Varmekabel'], ['switch.billader', 'Billader']],
   sens: [['binary_sensor.vindu_kjokken', 'Vindu kjøkken'], ['binary_sensor.roykvarsler_gang', 'Røykvarsler gang'], ['binary_sensor.bevegelse_trapp', 'Bevegelse trapp'], ['binary_sensor.vannlekkasje', 'Vannlekkasje']] };
 const addName = (k, e) => (ADD_CAND[k].find(x => x[0] === e) || [e, (e.split('.')[1] || e).replace(/_/g, ' ')])[1];
+const HA_POWER = [['sensor.stue_stikk_1_power', 'Stue stikk 1', '124 W'], ['sensor.piano_plugg_power', 'Piano plugg', '0 W'], ['sensor.server_rack_ups_load', 'Server rack UPS', '86 W'], ['sensor.tv_stue_power', 'TV stue', '72 W'], ['sensor.shelly_plug_s_power', 'Shelly Plug S', '3 W']];
 class Component extends DCLogic {
   state = this.init();
   init() {
@@ -517,13 +529,13 @@ class Component extends DCLogic {
     this.setState(s => k === 'lys' ? { lights: s.lights.filter(x => x.eid !== e) } : k === 'dev' ? { devices: s.devices.filter(x => x.eid !== e) } : { sensors: s.sensors.filter(x => x[3] !== e) }); }
   renderVals() {
     const o = this.renderVals0(), s = this.state, c = s.cfg, H = c.hidden;
-    const gap = c.gap ?? 8, pT = c.padT ?? 20, pB = c.padB ?? 40;
+    const gap = c.gap ?? 8, pT = c.padT ?? -4, pB = c.padB ?? 40;
     o.rootStyle = { boxSizing: 'border-box', width: '100%', maxWidth: 420, minHeight: '100vh', margin: '0 auto', background: '#282828', padding: `${pT}px 14px ${pB}px`, display: 'flex', flexDirection: 'column', gap };
-    o.spacingVals = [['gap', 'Mellom seksjonene', 'height', gap, 48, [['Tett', 4], ['Standard', 8], ['Luftig', 18]]], ['padT', 'Fra popup-headeren til første kort', 'vertical_align_top', pT, 120, [['Inntil', -4], ['Tett', 6], ['Standard', 20], ['Luftig', 44]], -4, 4], ['padB', 'Luft i bunnen', 'vertical_align_bottom', pB, 160, [['Ingen', 0], ['Standard', 40], ['Stor', 96]]]].map(([key, label, icon, val, max, pr, min = 0, off = 0]) => ({ label, icon, val, max, min, shown: val + off,
+    o.spacingVals = [['gap', 'Mellom seksjonene', 'height', gap, 48, [['Tett', 4], ['Standard', 8], ['Luftig', 18]]], ['padT', 'Fra popup-headeren til første kort', 'vertical_align_top', pT, 120, [['Standard', -4], ['Litt', 6], ['Luftig', 20], ['Ekstra', 44]], -4, 4], ['padB', 'Luft i bunnen', 'vertical_align_bottom', pB, 160, [['Ingen', 0], ['Standard', 40], ['Stor', 96]]]].map(([key, label, icon, val, max, pr, min = 0, off = 0]) => ({ label, icon, val, max, min, shown: val + off,
       set: e => this.setCfg({ [key]: +e.target.value }),
       presets: pr.map(([l, v]) => ({ label: l, go: () => this.setCfg({ [key]: v }), style: { height: 30, padding: '0 12px', borderRadius: 15, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: val === v ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : '#545454', color: val === v ? '#3a3a3a' : '#fafafa' } })) }));
     const sw = on => ({ track: { position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: on ? 'rgb(102 209 158)' : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: on ? '#3a3a3a' : '#c7c7c7', transition: 'left .2s' } });
-    const swp = (key, n) => ({ onScroll: e => { const el = e.currentTarget, i = Math.round(el.scrollLeft / el.clientWidth); if (i !== (this.state[key] || 0)) this.setState({ [key]: i }); }, dots: n > 1 ? Array.from({ length: n }, (_, i) => ({ width: (i === Math.min(s[key] || 0, n - 1)) ? 12 : 10, height: (i === Math.min(s[key] || 0, n - 1)) ? 12 : 10, borderRadius: 6, background: (i === Math.min(s[key] || 0, n - 1)) ? '#7f7f7f' : '#545454', transition: 'background .2s' })) : [] });
+    const swp = (key, n) => ({ onScroll: e => { const el = e.currentTarget, i = Math.round(el.scrollLeft / el.clientWidth); if (i !== (this.state[key] || 0)) this.setState({ [key]: i }); }, multi: n > 1, dots: n > 1 ? Array.from({ length: n }, (_, i) => ({ width: (i === Math.min(s[key] || 0, n - 1)) ? 12 : 10, height: (i === Math.min(s[key] || 0, n - 1)) ? 12 : 10, borderRadius: 6, background: (i === Math.min(s[key] || 0, n - 1)) ? '#7f7f7f' : '#545454', transition: 'background .2s' })) : [] });
     const updC = (i, dv) => this.setState(st => ({ climate: st.climate.map((x, j) => j === i ? { ...x, set: Math.max(MIN, Math.min(MAX, x.set + dv)) } : x) }));
     const nfx = (v, d) => v.toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d });
     o.climCards = [...s.climate.map((k, i) => ({ name: k.name, sub: `${k.w} W`, temp: nfx(k.t, 0), hum: nfx(k.h, 0), set: nfx(k.set, Number.isInteger(k.set) ? 0 : 1), up: () => updC(i, 0.5), down: () => updC(i, -0.5) })),
@@ -540,7 +552,7 @@ class Component extends DCLogic {
       { o._kEd = {}; const setK = p => this.setCfg({ klimaLook: { ...K, ...p } }), swc = (v, on, go) => ({ v, go, style: { width: 32, height: 32, borderRadius: 16, background: v, boxShadow: on ? '0 0 0 3px #282828, 0 0 0 5px #fafafa' : 'inset 0 0 0 1px rgba(255,255,255,0.2)' } });
         o._kEd.klimaLook = [{ label: 'Bakgrunn', opts: ['#2a2a2a', '#282828', '#404040', 'rgb(62 44 54)', 'rgb(40 52 64)', 'rgb(42 58 50)', 'rgb(64 56 38)'].map(v => swc(v, K.bg === v, () => setK({ bg: v }))) },
           { label: 'Knappfarge', opts: [DEFR, 'rgb(242 133 201)', 'rgb(242 128 115)', 'rgb(242 181 115)', 'rgb(242 210 111)', 'rgb(102 209 158)', 'rgb(115 185 242)', 'rgb(173 153 230)'].map(v => swc(v, K.ring === v, () => setK({ ring: v }))) }];
-        { const GL = { t: C.amber, h: C.blue, fill: 0.2, w: 2, ...(c.graphLook || {}) }, setG = p => this.setCfg({ graphLook: { ...GL, ...p } }), PAL = [C.amber, C.pink, C.red, C.yellow, C.green, C.blue, 'rgb(173 153 230)', '#fafafa'];
+        { const GL = { t: C.red, h: C.blue, fill: 0.2, w: 2, ...(c.graphLook || {}) }, setG = p => this.setCfg({ graphLook: { ...GL, ...p } }), PAL = [C.amber, C.pink, C.red, C.yellow, C.green, C.blue, 'rgb(173 153 230)', '#fafafa'];
           o._kEd.graphCols = [['t', 'Linje · temperatur'], ['h', 'Linje · fukt']].map(([k, label]) => ({ label, opts: PAL.map(v => swc(v, GL[k] === v, () => setG({ [k]: v }))) }))
             .concat([{ label: 'Fyll under linjen', opts: [{ v: 'Samme som linjen', go: () => setG({ area: 'line' }), style: { width: 32, height: 32, borderRadius: 16, background: 'conic-gradient(' + C.amber + ' 0 50%, ' + C.blue + ' 0)', boxShadow: !GL.area || GL.area === 'line' ? '0 0 0 3px #282828, 0 0 0 5px #fafafa' : 'inset 0 0 0 1px rgba(255,255,255,0.2)' } }].concat(PAL.map(v => swc(v, GL.area === v, () => setG({ area: v })))) }]);
           const seg = (label, key, opts) => ({ label, opts: opts.map(([l, v]) => ({ label: l, go: () => setG({ [key]: v }), style: { height: 34, padding: '0 12px', borderRadius: 14, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: GL[key] === v ? PINK : 'transparent', color: GL[key] === v ? '#5a3a48' : '#afafaf' } })) });
@@ -567,7 +579,7 @@ class Component extends DCLogic {
         sl: { flex: 1, minWidth: 0, height: 40, display: 'flex', alignItems: 'center', gap: 6, touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
         slFill: { flex: `${L.v} 1 0`, height: 34, borderRadius: '14px 5px 5px 14px', display: L.v > 0 ? 'block' : 'none', background: T === 'color' ? `hsl(${L.hue ?? 30} 85% 72%)` : T === 'ct' && (L.ct ?? 3500) > 4500 ? '#f3ebe0' : '#ffc896', transition: this.d?.moved ? 'none' : 'flex-grow .3s' },
         slHandle: { width: 4, height: 40, borderRadius: 2, flex: 'none', background: '#b08a68' },
-        slTrack: { flex: `${100 - L.v} 1 0`, height: 34, borderRadius: '5px 14px 14px 5px', display: L.v < 100 ? 'block' : 'none', background: '#6b5b50', transition: this.d?.moved ? 'none' : 'flex-grow .3s' },
+        slTrack: { flex: `${100 - L.v} 1 0`, height: 34, borderRadius: '5px 14px 14px 5px', display: L.v < 100 ? 'block' : 'none', background: '#695b51', transition: this.d?.moved ? 'none' : 'flex-grow .3s' },
         offLine: { width: 4, alignSelf: 'stretch', borderRadius: 2, background: '#b08a68', flex: 'none', display: on ? 'none' : 'block' },
         handle: { display: on ? 'block' : 'none', position: 'absolute', top: 9, bottom: 9, width: 3, borderRadius: 2, left: `max(10px, calc(${L.v}% - 12px))`, background: 'rgba(255,255,255,0.75)', transition: this.d?.moved ? 'none' : 'left .3s', pointerEvents: 'none' },
         swBar: { position: 'relative', height: 48, width: '100%', borderRadius: 24, background: '#695b51', display: 'flex', alignItems: 'center', padding: 4, boxSizing: 'border-box', cursor: 'pointer' },
@@ -622,7 +634,8 @@ class Component extends DCLogic {
     { const A = s.edAcc || {}, E = o.ed.ents, grp = kind => E.filter(e => e.kind === kind).map((e, i) => ({ ...e, row: { ...e.row, borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' } }));
       const keysOf = kind => [...(kind === 'Lys' ? s.lights.map(l => 'l:' + l.name) : s.devices.map(d => 'd:' + d.name))];
       const bulk = (kind, hide) => this.setCfg({ hideEnt: { ...c.hideEnt, ...Object.fromEntries(keysOf(kind).map(k => [k, hide])) } });
-      const acc = (k, title, icon, meta, extra) => { const open = !!A[k]; return { title, icon, meta, open, go: () => this.setState(st => ({ edAcc: { ...(st.edAcc || {}), [k]: !open } })),
+      const TABOF = { space: 'oppsett', secs: 'oppsett', lys: 'ent', dev: 'ent', sens: 'ent', klima: 'klima', ovr: 'kort' }, ET = s.edTab || 'oppsett', ES = s.edSub || 'lys';
+      const acc = (k, title, icon, meta, extra) => { const open = TABOF[k] === ET && (ET !== 'ent' || ES === k); return { title, icon, meta, open, go: () => this.setState(st => ({ edAcc: { ...(st.edAcc || {}), [k]: !open } })),
         head: { display: 'flex', alignItems: 'center', gap: 12, height: 56, padding: '0 14px 0 16px', borderRadius: 28, background: open ? '#404040' : '#2a2a2a', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)', marginTop: 4 },
         chev: { fontSize: 22, color: '#979797', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .25s' }, ...extra }; };
       const vis = kind => { const it = grp(kind), on = it.filter(e => !c.hideEnt[(kind === 'Lys' ? 'l:' : 'd:') + e.name]).length; return `${on} av ${it.length} vises`; };
@@ -634,6 +647,10 @@ class Component extends DCLogic {
           typed, typedLabel: 'Legg til «' + ql + '»', addTyped: () => this.addEnt(k, ql) }; };
       const sensItems = s.sensors.map((z, i) => { const key = 's:' + z[0], on = !c.hideEnt[key]; return { name: z[0], icon: z[1], kind: on ? 'Sensor' : 'Sensor · skjult', ...sw(on), go: () => this.setCfg({ hideEnt: { ...c.hideEnt, [key]: on } }), row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none', opacity: on ? 1 : 0.6 } }; });
       Object.assign(o.ed, o._kEd || {});
+      const PKs = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+      o.ed.tabs = [['oppsett', 'Oppsett', 'view_agenda'], ['ent', 'Entiteter', 'lightbulb'], ['klima', 'Klima', 'thermostat'], ['kort', 'Kort', 'edit']].map(([k, label, icon]) => ({ label, icon, go: () => { window.haptic && window.haptic('light'); this.setState({ edTab: k }); }, iconS: { fontSize: 18, fontVariationSettings: "'FILL' 1" }, style: { height: 44, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: ET === k ? PKs : 'transparent', color: ET === k ? '#2a1720' : '#afafaf' } }));
+      o.ed.isEnt = ET === 'ent';
+      o.ed.subs = [['lys', `Lys · ${s.lights.length}`], ['dev', `Enheter · ${s.devices.length}`], ['sens', `Sensorer · ${s.sensors.length}`]].map(([k, label]) => ({ label, go: () => this.setState({ edSub: k }), style: { flex: 1, height: 34, borderRadius: 16, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: ES === k ? '#404040' : 'transparent', color: ES === k ? '#fafafa' : '#979797' } }));
       o.ed.acc = { space: acc('space', 'Mellomrom', 'space_bar', `${c.gap ?? 18} px mellom`),
         secs: acc('secs', 'Seksjoner', 'view_agenda', `${c.order.filter(k => !H[k]).length} av ${c.order.length} vises`),
         lys: acc('lys', 'Lys', 'lightbulb', vis('Lys'), { types: s.lights.map(l => { const cur = (c.ltype || {})[l.name] || ''; return { name: l.name, auto: 'Auto: ' + (LT_NAMES.find(x => x[0] === LT_AUTO(l.name)) || [])[1], value: cur, opts: LT_NAMES.map(([v, lb]) => ({ v, l: lb })), set: e => { const n = { ...(c.ltype || {}) }; if (e.target.value) n[l.name] = e.target.value; else delete n[l.name]; this.setCfg({ ltype: n }); } }; }), items: grp('Lys'), allOn: () => bulk('Lys', false), allOff: () => bulk('Lys', true), add: addUI('lys') }),
@@ -641,10 +658,13 @@ class Component extends DCLogic {
         sens: acc('sensadd', 'Sensorer', 'sensors', `${sensItems.filter(e => e.kind === 'Sensor').length} av ${sensItems.length} vises`, { items: sensItems, add: addUI('sens'), allOn: () => this.setCfg({ hideEnt: { ...c.hideEnt, ...Object.fromEntries(s.sensors.map(z => ['s:' + z[0], false])) } }), allOff: () => this.setCfg({ hideEnt: { ...c.hideEnt, ...Object.fromEntries(s.sensors.map(z => ['s:' + z[0], true])) } }) }),
         ovr: acc('ovr', 'Utseende på kort', 'palette', `${Object.keys(c.ovr || {}).length} overstyrt`, { items: [...s.devices.map(d => ['d:' + d.name, d.name, d.icon, 'Enhet', d.on ? 'på' : 'av']), ...s.sensors.map(z => ['s:' + z[0], z[0], z[1], 'Sensor', z[2]])].map(([key, name, icon, kind, st], i) => { const open = s.ovrSel === key, ov = (c.ovr || {})[key] || {}, setF = (f, v) => { const n = { ...ov, [f]: v }; Object.keys(n).forEach(x => { if (n[x] === '') delete n[x]; }); const all = { ...(c.ovr || {}) }; if (Object.keys(n).length) all[key] = n; else delete all[key]; this.setCfg({ ovr: all }); };
           const SW = ['#404040', '#282828', PINK, C.green, C.blue, C.yellow, C.amber, C.red, '#fafafa'];
+          const PX = (() => { if (kind !== 'Enhet') return { hasPrev: false }; const d = s.devices.find(x => 'd:' + x.name === key) || {}, PW = [['', 'Automatisk', 'sensor.' + slug(name) + '_effekt'], ...HA_POWER, ['none', 'Ingen effektsensor', 'Bare av/på fra bryteren']], cur = PW.find(p => p[0] === (ov.power || '')) || [ov.power, ov.power, 'Egen'], thr = ov.thr ?? 5, w = d.w || 0, isOn = ov.power === 'none' ? !!d.on : d.on && w > thr, fmt = x => String(x || '').replace('{w}', w).replace('{name}', name);
+            return { hasPrev: true, prev: isOn ? fmt(ov.onText || 'På · {w} W') : fmt(ov.offText || 'Av'), _pw: { isSel: true, isText: false, isNum: false, selName: cur[1], selSub: cur[2], opts: PW.map(([id, l, sub]) => ({ id, label: `${l} · ${sub}` })) }, _thr: { isNum: true, isText: false, isSel: false, numLabel: `${thr} W`, hint: `Regnes som «på» over ${thr} W. Under = «av» (standby).`, dec: () => setF('thr', Math.max(0, thr - 1)), inc: () => setF('thr', thr + 1) } }; })();
           return { name, icon, kind: `${kind} · ${st}${Object.keys(ov).length ? ' · overstyrt' : ''}`, open, go: () => this.setState({ ovrSel: open ? null : key }),
             row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none', width: '100%' },
             reset: () => { const all = { ...(c.ovr || {}) }; delete all[key]; this.setCfg({ ovr: all }); },
-            fields: open ? [['name', 'Navn', name, false], ['label', 'Label', kind === 'Enhet' ? 'På · {w} W' : '{state}', false], ['icon', 'Ikon', icon, false], ['iconCol', 'Ikonfarge', '#282828', true], ['bg', 'Bakgrunn', '#404040', true], ['cell', 'Ikoncelle', '#282828', true]].map(([f, label, ph, isCol]) => ({ label, ph, val: ov[f] || '', set: e => setF(f, e.target.value), isCol, canPick: isCol || f === 'icon', pickLabel: isCol ? 'Tema- og HA-farger' : 'Alle ikoner · mdi, phu …', pickIcon: isCol ? 'palette' : 'apps', pick: () => window.HAPick && (isCol ? HAPick.color({ value: ov[f] || '', onPick: (c, t) => setF(f, t) }) : HAPick.icon({ value: ov[f] || '', onPick: v => setF(f, v) })),
+            ...PX,
+            fields: open ? [['name', 'Navn', name, false], ...(kind === 'Enhet' ? [['power', 'Effektsensor', '', false], ['thr', 'Terskel for «på»', '', false], ['onText', 'Tekst når på', 'På · {w} W', false], ['offText', 'Tekst når av', 'Av', false]] : [['label', 'Label', '{state}', false]]), ['icon', 'Ikon', icon, false], ['iconCol', 'Ikonfarge', '#282828', true], ['bg', 'Bakgrunn', '#404040', true], ['cell', 'Ikoncelle', '#282828', true]].map(([f, label, ph, isCol]) => ({ ...(f === 'power' ? PX._pw : f === 'thr' ? PX._thr : {}), label, ph, val: ov[f] ?? '', set: e => setF(f, e.target.value), isCol, isText: f !== 'power' && f !== 'thr', isSel: f === 'power', isNum: f === 'thr', canPick: isCol || f === 'icon', pickLabel: isCol ? 'Tema- og HA-farger' : 'Alle ikoner · mdi, phu …', pickIcon: isCol ? 'palette' : 'apps', pick: () => window.HAPick && (isCol ? HAPick.color({ value: ov[f] || '', onPick: (c, t) => setF(f, t) }) : HAPick.icon({ value: ov[f] || '', onPick: v => setF(f, v) })),
               sw: isCol ? SW.map(col => ({ go: () => setF(f, col), style: { width: 28, height: 28, borderRadius: 14, flex: 'none', background: col, boxShadow: ov[f] === col ? '0 0 0 2px #404040, 0 0 0 4px #fafafa' : 'inset 0 0 0 1px rgba(255,255,255,0.2)' } })) : [] })) : [] }; }) }),
         klima: acc('klima', 'Klima-kort', 'thermostat', c.thermo ? ((HA_ENTS.find(t => t[0] === c.thermo) || THERMO.find(t => t[0] === c.thermo) || [0, c.thermo])[1]) : 'Standard') }; }
     return o;
@@ -707,7 +727,7 @@ class Component extends DCLogic {
         labelStyle: { fontSize: 14, fontWeight: 400, whiteSpace: 'nowrap' } }; }),
       hasLights: s.lights.length > 0, lightSum: `${on} på - ${s.lights.length - on} av`,
       lights: s.lights.map((l, i) => ({ name: l.name, pct: `${l.v}%`,
-        bar: { position: 'relative', flex: 1, height: 40, borderRadius: 20, overflow: 'hidden', background: '#545454', touchAction: 'none', cursor: 'pointer' },
+        bar: { position: 'relative', flex: 1, height: 40, borderRadius: 20, overflow: 'hidden', background: '#695b51', touchAction: 'none', cursor: 'pointer' },
         barFill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${l.v}%`, background: 'linear-gradient(90deg, #a07c5c, #d8b07e)', transition: this.d?.moved ? 'none' : 'width .3s' }, val: l.v ? `${l.v} %` : 'Av', ...this.drag(v => this.setLight(i, v), () => this.setLight(i, l.v ? 0 : 70)),
         pill: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 12px 0 6px', borderRadius: 28, background: '#404040', touchAction: 'none', cursor: 'pointer', userSelect: 'none' },
         fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: `${l.v}%`, background: `linear-gradient(90deg, ${a(C.yellow, 0.18)}, ${a(C.yellow, 0.42)})`, transition: this.d?.moved ? 'none' : 'width .35s cubic-bezier(.34,1.2,.64,1)' },
@@ -715,22 +735,30 @@ class Component extends DCLogic {
         valStyle: { fontSize: 11, color: l.v ? '#c7c7c7' : '#696969', fontVariantNumeric: 'tabular-nums' } })),
       hasDevices: s.devices.length > 0, watt,
       devices: s.devices.map((d, i) => { const P = profOf(d.name), act = P && d.on && d.w > P.thr, ent = 'sensor.' + slug(d.name) + '_effekt';
-        const base = { name: d.name, icon: d.icon, sub: d.on ? `På · ${d.w} W` : 'Av', ent,
+        const OV = ((this.state.cfg || {}).ovr || {})['d:' + d.name] || {}, thr = OV.thr ?? 5, onNow = OV.power === 'none' ? d.on : d.on && d.w > (OV.thr != null ? thr : -1), fmt = x => String(x).replace('{w}', d.w).replace('{name}', d.name);
+        const base = { name: d.name, icon: d.icon, sub: (OV.onText || OV.offText || OV.thr != null || OV.power) ? (onNow ? fmt(OV.onText || 'På · {w} W') : fmt(OV.offText || 'Av')) : d.on ? `På · ${d.w} W` : 'Av', ent: OV.power && OV.power !== 'none' ? OV.power : ent,
         toggle: () => this.setState(st => ({ devices: st.devices.map((x, j) => j === i ? { ...x, on: !x.on, w: !x.on && P && x.w <= P.thr ? P.def : x.w } : x) })),
         iconStyle: { fontSize: 24, width: 24, height: 24, overflow: 'hidden', lineHeight: 1, fontVariationSettings: "'FILL' 1", display: 'inline-block' },
-        pill: { display: 'flex', alignItems: 'center', gap: 14, height: 66, padding: '0 16px 0 5px', borderRadius: 33, background: d.on ? PINK : '#404040', color: d.on ? '#3a3a3a' : '#fafafa', transition: 'background .25s, transform .2s' },
-        iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: d.on ? 'rgba(42,23,32,0.12)' : '#282828', color: d.on ? '#3a3a3a' : '#afafaf', transition: 'background .25s' },
+        pill: { display: 'flex', alignItems: 'center', gap: 14, height: 66, padding: '0 16px 0 5px', borderRadius: 33, background: d.on ? PINK : '#2f2f2f', color: d.on ? '#3a3a3a' : '#fafafa', transition: 'background .25s, transform .2s' },
+        iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: d.on ? 'rgba(42,23,32,0.12)' : '#3a3a3a', boxShadow: d.on ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.06)', color: d.on ? '#3a3a3a' : '#e1e1e1', transition: 'background .25s' },
         subStyle: { fontSize: 12, color: d.on ? 'rgba(42,23,32,0.75)' : '#979797' } };
         if (!P) return base;
-        return { ...base, icon: P.icon, sub: act ? `${P.verb} · ${d.w.toLocaleString('nb-NO')} W` : d.on ? (d.w > 0 ? `Hviler · ${d.w} W` : 'På · 0 W') : 'Av',
-          pill: { ...base.pill, background: act ? P.col : '#404040', color: act ? '#1f1f1f' : '#fafafa', boxShadow: 'none' },
-          iconWrap: { ...base.iconWrap, background: act ? 'rgba(0,0,0,0.12)' : '#282828', color: act ? '#1f1f1f' : P.col },
+        return { ...base, icon: P.icon, sub: (OV.onText || OV.offText || OV.thr != null || OV.power) ? base.sub : act ? `${P.verb} · ${d.w.toLocaleString('nb-NO')} W` : d.on ? (d.w > 0 ? `Hviler · ${d.w} W` : 'På · 0 W') : 'Av',
+          pill: { ...base.pill, background: act ? P.col : '#2f2f2f', color: act ? '#1f1f1f' : '#fafafa', boxShadow: 'none' },
+          iconWrap: { ...base.iconWrap, background: act ? 'rgba(0,0,0,0.12)' : '#3a3a3a', boxShadow: act ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.06)', color: act ? '#1f1f1f' : '#e1e1e1' },
           iconStyle: { ...base.iconStyle, animation: act ? `${P.anim} ${P.anim === 'spinn' ? '1.6s linear' : P.anim === 'rist' ? '.5s ease-in-out' : '1.4s ease-in-out'} infinite` : 'none' },
           subStyle: { fontSize: 12, fontWeight: act ? 600 : 400, color: act ? 'rgba(31,31,31,0.8)' : '#979797' } }; }),
       media: s.media.map((x, i) => { const upd = f => this.setState(st => ({ media: st.media.map((y, j) => j === i ? { ...y, ...f(y) } : y) }));
         return { title: x.name, state: x.playing ? 'Spiller' : 'Av', volPct: x.vol, power: () => upd(y => ({ playing: false })),
           knob: { position: 'absolute', left: `calc(${x.vol}% - 11px)`, width: 22, height: 22, borderRadius: 11, background: '#fafafa', boxShadow: '0 2px 6px rgba(0,0,0,0.4)' }, sub: x.playing ? `Spiller · Spotify · ${x.vol} %` : `Pauset · ${x.vol} %`, playIcon: x.playing ? 'pause' : 'play_arrow', play: () => upd(y => ({ playing: !y.playing })),
           ...this.drag(v => upd(() => ({ vol: v })), () => {}),
+          pc: (() => { const p = x.playing, bt = p ? 'rgba(42,23,32,0.08)' : '#3a3a3a';
+            return { track: p ? 'Midnight Oil – Beds Are Burning' : 'Av',
+              box: { position: 'relative', boxSizing: 'border-box', padding: '18px 16px 14px 20px', borderRadius: 26, overflow: 'hidden', background: p ? PINK : '#2a2a2a', color: p ? '#2a1720' : '#fafafa', transition: 'background .3s' },
+              dev: { fontSize: 13, color: p ? 'rgba(42,23,32,0.7)' : '#afafaf' },
+              art: { position: 'absolute', top: 8, right: 8, width: 54, height: 54, borderRadius: 27, display: 'grid', placeItems: 'center', background: p ? 'rgb(28 22 20)' : '#404040', color: p ? 'rgb(242 181 115)' : '#979797' },
+              btn: { width: 42, height: 42, borderRadius: 21, display: 'grid', placeItems: 'center', background: bt },
+              play: { width: 56, height: 56, borderRadius: 28, display: 'grid', placeItems: 'center', background: bt } }; })(),
           card: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px 10px 10px', borderRadius: 36, background: x.playing ? `linear-gradient(90deg, ${a(C.green, 0.16)}, #3a3a3a)` : '#3a3a3a', transition: 'background .4s' },
           art: { width: 52, height: 52, borderRadius: 26, flex: 'none', display: 'grid', placeItems: 'center', background: x.playing ? C.green : '#404040', color: x.playing ? '#282828' : '#979797' },
           fill: { position: 'absolute', left: 0, height: 8, width: `${x.vol}%`, borderRadius: 4, background: 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' } }; }),
@@ -743,15 +771,15 @@ class Component extends DCLogic {
       cFill: { position: 'absolute', left: 0, height: 8, borderRadius: 4, width: `${s.curtain ?? 0}%`, background: 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)', transition: this.d?.moved ? 'none' : 'width .3s' },
       cKnob: { position: 'absolute', left: `calc(${s.curtain ?? 0}% - 11px)`, width: 22, height: 22, borderRadius: 11, background: '#fafafa', boxShadow: '0 2px 6px rgba(0,0,0,0.4)', transition: this.d?.moved ? 'none' : 'left .3s' },
       sensors: s.sensors.map(([name, icon, st], i) => { const hot = !quiet(st); return { name, icon, state: st,
-        pill: { display: 'flex', alignItems: 'center', gap: 14, height: 66, padding: '0 16px 0 5px', borderRadius: 33, background: hot ? 'rgb(102 209 158)' : '#404040', color: hot ? '#3a3a3a' : '#fafafa' },
-        iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: hot ? 'rgba(0,0,0,0.1)' : '#282828' },
-        subStyle: { fontSize: 12, color: hot ? 'rgba(31,42,36,0.75)' : '#979797' },
-        stateStyle: { fontSize: 12, fontWeight: 500, padding: '4px 9px', borderRadius: 10, whiteSpace: 'nowrap', background: hot ? a(C.blue, 0.16) : '#3a3a3a', color: hot ? '#fafafa' : '#7f7f7f' } }; }),
+        pill: { display: 'flex', alignItems: 'center', gap: 14, height: 66, padding: '0 16px 0 5px', borderRadius: 33, background: hot ? 'rgb(102 209 158)' : '#2f2f2f', color: hot ? '#1c2a22' : '#fafafa' },
+        iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: hot ? 'rgba(255,255,255,0.35)' : '#404040', color: hot ? '#1c2a22' : '#fafafa', boxShadow: hot ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.06)' },
+        subStyle: { fontSize: 12, color: hot ? 'rgba(28,42,34,0.78)' : '#979797' },
+        stateStyle: { fontSize: 12, fontWeight: 600, padding: '4px 9px', borderRadius: 10, whiteSpace: 'nowrap', background: hot ? 'rgba(28,42,34,0.14)' : '#3a3a3a', color: hot ? '#1c2a22' : '#7f7f7f' } }; }),
       tempRange: `${nf(mn)}–${nf(mx)}°`,
       ...(() => {
         const lit = on > 0, hc = heating ? C.red : lit ? C.yellow : C.blue;
         const rawH = temps.map((t, i) => -(t - mn) * 2.2 + Math.sin(i * 1.3) * 1.2), hums = rawH.map(v => v - rawH[24] + hum);
-        const GL = { t: C.amber, h: C.blue, fill: 0.2, w: 2, ...((s.cfg || {}).graphLook || {}) }, isT = (s.gTab || 't') === 't', ser = isT ? temps : hums, gc = isT ? GL.t : GL.h;
+        const GL = { t: C.red, h: C.blue, fill: 0.2, w: 2, ...((s.cfg || {}).graphLook || {}) }, isT = (s.gTab || 't') === 't', ser = isT ? temps : hums, gc = isT ? GL.t : GL.h;
         const lo = Math.floor(Math.min(...ser) - (isT ? 0.3 : 2)), hi = Math.ceil(Math.max(...ser) + (isT ? 0.3 : 2));
         const X = i => (i / 24 * 300).toFixed(1), Y = v => (92 - (v - lo) / (hi - lo) * 72).toFixed(1);
         const pts = ser.map((v, i) => `${X(i)},${Y(v)}`).join(' '), sel = s.gSel ?? 24;
