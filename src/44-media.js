@@ -842,7 +842,7 @@
   };
   // 47 G · Tilpass media → Faner (Media v4 cfgIsFaner): tekst, forhåndsvisning (live, på --ki-bg) av fanelinja øverst med
   // samme HTML/CSS som kortet (tabBarHTML/tabBarCSS, aktiv = startfanen), og tre kort med segmenter (tabSegs/segBoxM/segOptM).
-  const startOf = (c) => { const v = M.startTab ? M.startTab.value(c, startLegacy) : (c.start_tab || startLegacy(c)); return v === 'last' ? null : v && TABS.some((t) => t[0] === v) ? v : tabOrder(c).vis[0]; };
+  const startOf = (c) => { const v = M.startTab ? M.startTab.value(c, startLegacy) : (c.start_tab || startLegacy(c)); return v === 'last' ? 'last' : v && TABS.some((t) => t[0] === v) ? v : tabOrder(c).vis[0]; };
   const tabPreview = () => ({
     type: 'html',
     html: (h, c) => {
@@ -857,7 +857,7 @@
   const SEGS = [
     ['style', 'Fanestil', [['kontur', 'Kontur'], ['fylt', 'Fylt'], ['glass', 'Glass'], ['strek', 'Understrek'], ['chips', 'Chips']]],
     ['mode', 'Faner viser', [['tekst', 'Tekst'], ['ikon', 'Ikoner'], ['aktiv', 'Ikon + aktiv'], ['begge', 'Begge']]],
-    ['start', 'Startfane', TABS],
+    ['start', 'Startfane', [...TABS, ['last', 'Sist brukte']]], // 47 G: «Sist brukte» = start_tab 'last' (felles MSH.startTab)
   ];
   const tabSegs = () => ({
     type: 'html',
