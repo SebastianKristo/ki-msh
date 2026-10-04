@@ -221,7 +221,7 @@ const span = pc.length ? (Date.parse(pc[0][2]) - Date.parse(pc[0][1])) / 8640000
 ok('42.1 Posten-kortet henter leveringskalenderen bare for de 14 dagene som vises (fra i dag)', pc.length === 1 && pc[0][0] === `calendars/calendar.${J}_leveringer` && span >= 12 && span <= 15, { cal: D.cal, span });
 if (D.red) {
   const SD = await p.evaluate(async () => { sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(200); const r = [...sr().querySelectorAll('.pnday')].map((x) => [...x.querySelectorAll('b,.evc>span')].map((y) => y.textContent.trim()).join(' | ')); sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(150); return r; });
-  ok('42.1 Valgt dag med levering → raden for den dagen (vindu · status)', SD.length === 1 && /^PostNord · Pakke UC333333333SE \| \S+ \d+\. [a-z]+ 9–12 · Under transport$/.test(SD[0]), SD);
+  ok('42.1 Valgt dag med levering → raden for den dagen (vindu · status)', SD.length === 1 && /^PostNord · Pakke UC333333333SE \| (?:I dag|I morgen|\S+ \d+\. [a-z]+) 9–12 · Under transport$/.test(SD[0]), SD);
 }
 
 // ---------------------------------------------------------------- 42.3 entity_registry_updated
