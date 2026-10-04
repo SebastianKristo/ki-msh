@@ -735,6 +735,9 @@
     }
     afterRender() {
       const R = this.shadowRoot;
+      // «Inkludert i prisen»-pillene (touch-action pan-y, hold → more-info): gestene skal ikke nå Bubble-popupen (fallgruve 2).
+      // Boble-fasen – basekortets hold-lytter (capture på shadowRoot) får dem fortsatt.
+      R.querySelectorAll('.tg').forEach((el) => { if (el.__tgStop) return; el.__tgStop = true; const st = (e) => e.stopPropagation(); el.addEventListener('pointerdown', st); el.addEventListener('touchstart', st, { passive: true }); el.addEventListener('touchmove', st, { passive: true }); });
       const row = R.querySelector('[data-tabbar]');
       if (row && M.tabRow) {
         M.tabRow(this, row, { active: () => { const V = visTabs(this.config); return V.includes(this._ui.tab) ? this._ui.tab : V[0]; }, order: () => orderOf(this.config), save: (full) => this.setCfg({ order: full }) });

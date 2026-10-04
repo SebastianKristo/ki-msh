@@ -7027,13 +7027,19 @@ try {
     constructor(row, o) {
       this.row = row; this.o = o || {}; this.p = null; this.at = 0; this.synth = false;
       const cap = { capture: true };
+      // Fallgruve 2: fanene har touch-action pan-x → gestene skal ikke nå Bubble-popupen (swipe-to-close). Boble-fasen på
+      // raden: kortets egne capture-lyttere (hold → more-info på shadowRoot) får fortsatt hendelsene.
+      const stop = (e) => e.stopPropagation();
+      row.addEventListener('pointerdown', stop);
+      row.addEventListener('touchstart', stop, { passive: true });
+      row.addEventListener('touchmove', stop, { passive: true });
       row.addEventListener('pointerdown', (e) => this._down(e), cap);
       row.addEventListener('pointerup', (e) => this._up(e), cap);
       row.addEventListener('pointercancel', (e) => this._cancel(e), cap);
       row.addEventListener('click', (e) => {
-        if (this.synth || Date.now() - this.at >= P_EAT) return;
-        if (!this._btn(e, true)) return;
-        e.stopImmediatePropagation(); e.preventDefault(); // pekeren har allerede valgt fanen
+        if (!this.eating(e)) return;
+        this.eatB = null;
+        e.stopImmediatePropagation(); e.preventDefault(); // pekeren har allerede valgt fanen (bare dette trykkets eget click)
       }, cap);
     }
     items() { return (this.o.items ? Array.from(this.o.items() || []) : ownTabs(this.row)).filter((b) => b && b.isConnected && !(b.matches && b.matches(FIXED))); }
@@ -7055,6 +7061,12 @@ try {
       let best = null, bd = P_NEAR + 0.01;
       its.forEach((b) => { const r = b.getBoundingClientRect(), d = e.clientX < r.left ? r.left - e.clientX : e.clientX > r.right ? e.clientX - r.right : 0; if (d < bd && e.clientY >= r.top - 12 && e.clientY <= r.bottom + 12) { bd = d; best = b; } });
       return best;
+    }
+    // Pekerens eget click etter et valg på pointerup: samme fane, innen 400 ms, én gang. Et nytt trykk på en annen fane slipper gjennom.
+    eating(e) {
+      if (this.synth || !this.eatB || Date.now() - this.at >= P_EAT) return false;
+      const b = e ? this._btn(e, true) : this.eatB;
+      return !!b && b === this.eatB;
     }
     busy() { return !!window.__tabReorder || !!(this.o.busy && this.o.busy()); }
     _down(e) {
@@ -7081,6 +7093,7 @@ try {
     }
     pick(b) {
       this.at = Date.now();
+      this.eatB = b;
       if (!b || !b.isConnected || b.disabled || this.active(b)) return false;
       // Popups: «light» (fasit Kalender v2). Utenfor popups (Hjem-fanene) beholdes knappens egen data-haptic.
       const own = b.getAttribute('data-haptic');
@@ -7093,8 +7106,7 @@ try {
         this.synth = false;
         if (h == null) b.removeAttribute('data-haptic'); else b.setAttribute('data-haptic', h);
       }
-      if (M.glassDragEnd) M.glassDragEnd(); // trykk-animasjonen (MSH.glassTap) er vist – ikke én gang til på pekerens eget click
-      return true;
+      return true; // trykk-animasjonen (MSH.glassTap) vises på det syntetiske clicket; pekerens eget click slås av i glassTap (eating)
     }
   }
   M.tabPress = function (row, o) {
@@ -7505,7 +7517,7 @@ try {
     if (T) { T.opts = { ...T.opts, ...(opts || {}) }; T.refresh(); return T; }
     T = row.__tabReorder = new TabReorder(row, opts || {});
     // Liquid glass ved trykk (Fiks 4 · 3): alle fanerader får MSH.glassTap (glassTap: false = av)
-    if (M.glassTap) M.glassTap(row, { axis: 'x', items: () => T.items(), enabled: () => T.o.glassTap !== false && !window.__tabReorder });
+    if (M.glassTap) M.glassTap(row, { axis: 'x', items: () => T.items(), enabled: () => T.o.glassTap !== false && !window.__tabReorder && !(T.press && T.press.eating()) });
     T.refresh();
     return T;
   };
@@ -55476,6 +55488,9 @@ try {
     }
     afterRender() {
       const R = this.shadowRoot;
+      // «Inkludert i prisen»-pillene (touch-action pan-y, hold → more-info): gestene skal ikke nå Bubble-popupen (fallgruve 2).
+      // Boble-fasen – basekortets hold-lytter (capture på shadowRoot) får dem fortsatt.
+      R.querySelectorAll('.tg').forEach((el) => { if (el.__tgStop) return; el.__tgStop = true; const st = (e) => e.stopPropagation(); el.addEventListener('pointerdown', st); el.addEventListener('touchstart', st, { passive: true }); el.addEventListener('touchmove', st, { passive: true }); });
       const row = R.querySelector('[data-tabbar]');
       if (row && M.tabRow) {
         M.tabRow(this, row, { active: () => { const V = visTabs(this.config); return V.includes(this._ui.tab) ? this._ui.tab : V[0]; }, order: () => orderOf(this.config), save: (full) => this.setCfg({ order: full }) });

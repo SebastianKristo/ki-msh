@@ -202,6 +202,7 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
 | `tab_order · tab_hidden` | rekkefølge/synlighet: hjem, forste, andre, ute, uten_etasje, aktuelt, batterier |  |
+| `toasts` | Bekreftelsespille · boolean | Faner |
 | `tab_labels.hjem` | Navn · Hjem | Faner |
 | `tab_labels.forste` | Navn · 1. etg | Faner |
 | `tab_labels.andre` | Navn · 2. etg | Faner |
@@ -232,12 +233,14 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `layout.hjem.side.kjokken` | Kolonne · Kjøkken (L \| R) | Rom og snarveier · Hjem |
 | `layout.hjem.side.bad` | Kolonne · Bad (L \| R) | Rom og snarveier · Hjem |
 | `slides.hjem.L.cal` | Sveip-kort · venstre karusell · Kalender · boolean | Rom og snarveier · Hjem |
-| `slides.hjem.R.cal` | Sveip-kort · høyre karusell · Kalender · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.L.arr` | Sveip-kort · venstre karusell · Kommer i dag · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.L.vaer` | Sveip-kort · venstre karusell · Vær · boolean | Rom og snarveier · Hjem |
-| `slides.hjem.R.vaer` | Sveip-kort · høyre karusell · Vær · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.L.strom` | Sveip-kort · venstre karusell · Strøm · boolean | Rom og snarveier · Hjem |
-| `slides.hjem.R.strom` | Sveip-kort · høyre karusell · Strøm · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.L.trash` | Sveip-kort · venstre karusell · Søppel · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.R.cal` | Sveip-kort · høyre karusell · Kalender · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.R.arr` | Sveip-kort · høyre karusell · Kommer i dag · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.R.vaer` | Sveip-kort · høyre karusell · Vær · boolean | Rom og snarveier · Hjem |
+| `slides.hjem.R.strom` | Sveip-kort · høyre karusell · Strøm · boolean | Rom og snarveier · Hjem |
 | `slides.hjem.R.trash` | Sveip-kort · høyre karusell · Søppel · boolean | Rom og snarveier · Hjem |
 | `carousel.hjem.L.dots` | Vis prikker · venstre karusell · boolean | Rom og snarveier · Hjem |
 | `carousel.hjem.R.dots` | Vis prikker · høyre karusell · boolean | Rom og snarveier · Hjem |
@@ -378,6 +381,8 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `tile_cfg.lock.state_text.unknown.title` | unknown · tittel | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
 | `tile_cfg.lock.state_text.unknown.sub` | unknown · undertekst | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås › Tekst per tilstand |
 | `tile_cfg.lock.popup_hash` | Popup (popup_hash) · trykk på kortet · hash | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
+| `tile_cfg.lock.lock_sort` | Rekkefølge (unlocked \| default \| popup) | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
+| `tile_cfg.lock.lock_default` | Standard-lås (lock.bod \| lock.inngangsdor) | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.tap_icon` | Trykk på ikonet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.tap_card` | Trykk på kortet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
 | `tile_cfg.lock.hold_icon` | Hold på ikonet · tap | Snarveier · soner, entitet og handlinger › Venstre · over rommene › Dørlås |
@@ -652,7 +657,6 @@ Fanerad (Hjem, etasjer, Aktuelt, Batterier) med sveipbare romkort, kortliste, sn
 | `rooms.garasje.climate` | Termostat · entity | Rom · Garasje |
 | `rooms.garasje.badges_own` | Egne varsel-vilkår · boolean | Rom · Garasje |
 | `layout_mode` | Layout (auto \| mobil \| stor) | Layout |
-| `toasts` | Bekreftelsesmeldinger (f.eks. «Garasjeporten åpnes») · boolean | Layout |
 
 ## `msh-hjem-card`
 
@@ -1071,87 +1075,7 @@ Sveipbar «nå spilles»-karusell med omslag for valgt fane. Første kort i Medi
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `players.stue_tv.type` | Type (auto \| tv \| musikk \| skjul) | Stue TV · TV · Stue |
-| `players.stue_tv.name` | Navn | Stue TV · TV · Stue |
-| `players.stue_tv.icon` | Ikon · icon | Stue TV · TV · Stue |
-| `players.stue_tv.platform` | Plattform (apple \| google) | Stue TV · TV · Stue |
-| `players.stue_tv.remote_style` | Fjernkontroll (kompakt \| sirkel) | Stue TV · TV · Stue |
-| `players.stue_tv.remote` | Fjernkontroll (remote) · entity | Stue TV · TV · Stue |
-| `players.stue_tv.back_hold_action` | Hold Tilbake · action | Stue TV · TV · Stue |
-| `players.stue_tv.home_hold_action` | Hold Hjem · action | Stue TV · TV · Stue |
-| `players.stue_tv.menu_hold_action` | Hold Meny · action | Stue TV · TV · Stue |
-| `players.stue_tv.volume` | Volum styres av (media \| buttons) | Stue TV · TV · Stue |
-| `players.stue_tv.volume_up` | Volum opp · entity | Stue TV · TV · Stue |
-| `players.stue_tv.volume_down` | Volum ned · entity | Stue TV · TV · Stue |
-| `players.stue_tv.volume_mute` | Demp · entity | Stue TV · TV · Stue |
-| `players.stue_tv.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Stue TV · TV · Stue |
-| `players.stue_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Stue TV · TV · Stue |
-| `players.stue_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Stue TV · TV · Stue |
-| `watch_time.stue_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Stue TV · TV · Stue |
-| `watch_time.stue_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Stue TV · TV · Stue |
-| `players.soverom_tv.type` | Type (auto \| tv \| musikk \| skjul) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.name` | Navn | Soverom TV · TV · Soverom |
-| `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
-| `players.soverom_tv.platform` | Plattform (apple \| google) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.remote_style` | Fjernkontroll (kompakt \| sirkel) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.remote` | Fjernkontroll (remote) · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.back_hold_action` | Hold Tilbake · action | Soverom TV · TV · Soverom |
-| `players.soverom_tv.home_hold_action` | Hold Hjem · action | Soverom TV · TV · Soverom |
-| `players.soverom_tv.menu_hold_action` | Hold Meny · action | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume` | Volum styres av (media \| buttons) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume_up` | Volum opp · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume_down` | Volum ned · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume_mute` | Demp · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Soverom TV · TV · Soverom |
-| `watch_time.soverom_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Soverom TV · TV · Soverom |
-| `watch_time.soverom_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Soverom TV · TV · Soverom |
-| `players.plex_stue.type` | Type (auto \| tv \| musikk \| skjul) | Plex (Stue) · TV |
-| `players.plex_stue.name` | Navn | Plex (Stue) · TV |
-| `players.plex_stue.icon` | Ikon · icon | Plex (Stue) · TV |
-| `players.plex_stue.platform` | Plattform (apple \| google) | Plex (Stue) · TV |
-| `players.plex_stue.remote_style` | Fjernkontroll (kompakt \| sirkel) | Plex (Stue) · TV |
-| `players.plex_stue.remote` | Fjernkontroll (remote) · entity | Plex (Stue) · TV |
-| `players.plex_stue.back_hold_action` | Hold Tilbake · action | Plex (Stue) · TV |
-| `players.plex_stue.home_hold_action` | Hold Hjem · action | Plex (Stue) · TV |
-| `players.plex_stue.menu_hold_action` | Hold Meny · action | Plex (Stue) · TV |
-| `players.plex_stue.volume` | Volum styres av (media \| buttons) | Plex (Stue) · TV |
-| `players.plex_stue.volume_up` | Volum opp · entity | Plex (Stue) · TV |
-| `players.plex_stue.volume_down` | Volum ned · entity | Plex (Stue) · TV |
-| `players.plex_stue.volume_mute` | Demp · entity | Plex (Stue) · TV |
-| `players.plex_stue.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Plex (Stue) · TV |
-| `players.plex_stue.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Plex (Stue) · TV |
-| `players.plex_stue.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Plex (Stue) · TV |
-| `watch_time.plex_stue.i_dag` | Seertid i dag (Album-kortet) · entity | Plex (Stue) · TV |
-| `watch_time.plex_stue.maned` | Seertid denne måneden (Album-kortet) · entity | Plex (Stue) · TV |
-| `players.prosjektor.type` | Type (auto \| tv \| musikk \| skjul) | Prosjektor · TV |
-| `players.prosjektor.name` | Navn | Prosjektor · TV |
-| `players.prosjektor.icon` | Ikon · icon | Prosjektor · TV |
-| `players.prosjektor.platform` | Plattform (apple \| google) | Prosjektor · TV |
-| `players.prosjektor.remote_style` | Fjernkontroll (kompakt \| sirkel) | Prosjektor · TV |
-| `players.prosjektor.remote` | Fjernkontroll (remote) · entity | Prosjektor · TV |
-| `players.prosjektor.back_hold_action` | Hold Tilbake · action | Prosjektor · TV |
-| `players.prosjektor.home_hold_action` | Hold Hjem · action | Prosjektor · TV |
-| `players.prosjektor.menu_hold_action` | Hold Meny · action | Prosjektor · TV |
-| `players.prosjektor.volume` | Volum styres av (media \| buttons) | Prosjektor · TV |
-| `players.prosjektor.volume_up` | Volum opp · entity | Prosjektor · TV |
-| `players.prosjektor.volume_down` | Volum ned · entity | Prosjektor · TV |
-| `players.prosjektor.volume_mute` | Demp · entity | Prosjektor · TV |
-| `players.prosjektor.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Prosjektor · TV |
-| `players.prosjektor.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Prosjektor · TV |
-| `players.prosjektor.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Prosjektor · TV |
-| `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
-| `watch_time.prosjektor.maned` | Seertid denne måneden (Album-kortet) · entity | Prosjektor · TV |
-| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk | Faner |
-| `exclude · include.{spillere}` | skjul / legg til |  |
-| `area` | Begrens til område · area |  |
-| `now_playing.style` | Spilles nå-kort (album \| detailed) |  |
-| `card_height` | Kortets høyde (Detaljert) · range |  |
-| `vol_style` | Volum-stil · Musikk (pille \| trinn \| user) |  |
-| `vol_style_tv` | Volum-stil · TV (trinn \| knapper \| user) |  |
-| `remote_swipe` | Sveip på styreflaten · boolean |  |
-| `toasts` | Bekreftelsesmeldinger · boolean |  |
+| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
 
 ## `msh-media-card`
 
@@ -1159,87 +1083,7 @@ Faner (TV/Musikk), apper/kilder, transport eller fjernkontroll og volum for alle
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|
-| `players.stue_tv.type` | Type (auto \| tv \| musikk \| skjul) | Stue TV · TV · Stue |
-| `players.stue_tv.name` | Navn | Stue TV · TV · Stue |
-| `players.stue_tv.icon` | Ikon · icon | Stue TV · TV · Stue |
-| `players.stue_tv.platform` | Plattform (apple \| google) | Stue TV · TV · Stue |
-| `players.stue_tv.remote_style` | Fjernkontroll (kompakt \| sirkel) | Stue TV · TV · Stue |
-| `players.stue_tv.remote` | Fjernkontroll (remote) · entity | Stue TV · TV · Stue |
-| `players.stue_tv.back_hold_action` | Hold Tilbake · action | Stue TV · TV · Stue |
-| `players.stue_tv.home_hold_action` | Hold Hjem · action | Stue TV · TV · Stue |
-| `players.stue_tv.menu_hold_action` | Hold Meny · action | Stue TV · TV · Stue |
-| `players.stue_tv.volume` | Volum styres av (media \| buttons) | Stue TV · TV · Stue |
-| `players.stue_tv.volume_up` | Volum opp · entity | Stue TV · TV · Stue |
-| `players.stue_tv.volume_down` | Volum ned · entity | Stue TV · TV · Stue |
-| `players.stue_tv.volume_mute` | Demp · entity | Stue TV · TV · Stue |
-| `players.stue_tv.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Stue TV · TV · Stue |
-| `players.stue_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Stue TV · TV · Stue |
-| `players.stue_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Stue TV · TV · Stue |
-| `watch_time.stue_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Stue TV · TV · Stue |
-| `watch_time.stue_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Stue TV · TV · Stue |
-| `players.soverom_tv.type` | Type (auto \| tv \| musikk \| skjul) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.name` | Navn | Soverom TV · TV · Soverom |
-| `players.soverom_tv.icon` | Ikon · icon | Soverom TV · TV · Soverom |
-| `players.soverom_tv.platform` | Plattform (apple \| google) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.remote_style` | Fjernkontroll (kompakt \| sirkel) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.remote` | Fjernkontroll (remote) · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.back_hold_action` | Hold Tilbake · action | Soverom TV · TV · Soverom |
-| `players.soverom_tv.home_hold_action` | Hold Hjem · action | Soverom TV · TV · Soverom |
-| `players.soverom_tv.menu_hold_action` | Hold Meny · action | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume` | Volum styres av (media \| buttons) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume_up` | Volum opp · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume_down` | Volum ned · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume_mute` | Demp · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Soverom TV · TV · Soverom |
-| `players.soverom_tv.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Soverom TV · TV · Soverom |
-| `players.soverom_tv.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Soverom TV · TV · Soverom |
-| `watch_time.soverom_tv.i_dag` | Seertid i dag (Album-kortet) · entity | Soverom TV · TV · Soverom |
-| `watch_time.soverom_tv.maned` | Seertid denne måneden (Album-kortet) · entity | Soverom TV · TV · Soverom |
-| `players.plex_stue.type` | Type (auto \| tv \| musikk \| skjul) | Plex (Stue) · TV |
-| `players.plex_stue.name` | Navn | Plex (Stue) · TV |
-| `players.plex_stue.icon` | Ikon · icon | Plex (Stue) · TV |
-| `players.plex_stue.platform` | Plattform (apple \| google) | Plex (Stue) · TV |
-| `players.plex_stue.remote_style` | Fjernkontroll (kompakt \| sirkel) | Plex (Stue) · TV |
-| `players.plex_stue.remote` | Fjernkontroll (remote) · entity | Plex (Stue) · TV |
-| `players.plex_stue.back_hold_action` | Hold Tilbake · action | Plex (Stue) · TV |
-| `players.plex_stue.home_hold_action` | Hold Hjem · action | Plex (Stue) · TV |
-| `players.plex_stue.menu_hold_action` | Hold Meny · action | Plex (Stue) · TV |
-| `players.plex_stue.volume` | Volum styres av (media \| buttons) | Plex (Stue) · TV |
-| `players.plex_stue.volume_up` | Volum opp · entity | Plex (Stue) · TV |
-| `players.plex_stue.volume_down` | Volum ned · entity | Plex (Stue) · TV |
-| `players.plex_stue.volume_mute` | Demp · entity | Plex (Stue) · TV |
-| `players.plex_stue.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Plex (Stue) · TV |
-| `players.plex_stue.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Plex (Stue) · TV |
-| `players.plex_stue.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Plex (Stue) · TV |
-| `watch_time.plex_stue.i_dag` | Seertid i dag (Album-kortet) · entity | Plex (Stue) · TV |
-| `watch_time.plex_stue.maned` | Seertid denne måneden (Album-kortet) · entity | Plex (Stue) · TV |
-| `players.prosjektor.type` | Type (auto \| tv \| musikk \| skjul) | Prosjektor · TV |
-| `players.prosjektor.name` | Navn | Prosjektor · TV |
-| `players.prosjektor.icon` | Ikon · icon | Prosjektor · TV |
-| `players.prosjektor.platform` | Plattform (apple \| google) | Prosjektor · TV |
-| `players.prosjektor.remote_style` | Fjernkontroll (kompakt \| sirkel) | Prosjektor · TV |
-| `players.prosjektor.remote` | Fjernkontroll (remote) · entity | Prosjektor · TV |
-| `players.prosjektor.back_hold_action` | Hold Tilbake · action | Prosjektor · TV |
-| `players.prosjektor.home_hold_action` | Hold Hjem · action | Prosjektor · TV |
-| `players.prosjektor.menu_hold_action` | Hold Meny · action | Prosjektor · TV |
-| `players.prosjektor.volume` | Volum styres av (media \| buttons) | Prosjektor · TV |
-| `players.prosjektor.volume_up` | Volum opp · entity | Prosjektor · TV |
-| `players.prosjektor.volume_down` | Volum ned · entity | Prosjektor · TV |
-| `players.prosjektor.volume_mute` | Demp · entity | Prosjektor · TV |
-| `players.prosjektor.hide_sources` | Skjul apper i autokonfig (kommaseparert) | Prosjektor · TV |
-| `players.prosjektor.volume_sensor` | Volum-sensor (faktisk nivå) · entity | Prosjektor · TV |
-| `players.prosjektor.watch` | Skjermtid i dag (sensor, første brukes i kortet) · entities | Prosjektor · TV |
-| `watch_time.prosjektor.i_dag` | Seertid i dag (Album-kortet) · entity | Prosjektor · TV |
-| `watch_time.prosjektor.maned` | Seertid denne måneden (Album-kortet) · entity | Prosjektor · TV |
-| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk | Faner |
-| `exclude · include.{spillere}` | skjul / legg til |  |
-| `area` | Begrens til område · area |  |
-| `now_playing.style` | Spilles nå-kort (album \| detailed) |  |
-| `card_height` | Kortets høyde (Detaljert) · range |  |
-| `vol_style` | Volum-stil · Musikk (pille \| trinn \| user) |  |
-| `vol_style_tv` | Volum-stil · TV (trinn \| knapper \| user) |  |
-| `remote_swipe` | Sveip på styreflaten · boolean |  |
-| `toasts` | Bekreftelsesmeldinger · boolean |  |
+| `tab_order · hidden_tabs` | rekkefølge/synlighet: tv, musikk |  |
 | `gap` | 4 / 8 / 18 px |  |
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
