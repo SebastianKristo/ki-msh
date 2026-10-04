@@ -31,7 +31,7 @@
  *   < 450 ms; pointercancel innen 250 ms bytter likevel. click er reserve (tastatur), men ignoreres innen 400 ms etter et
  *   pekervalg (ingen dobbel haptic / dobbelt bytte). Aldri under hold-for-å-omorganisere (window.__tabReorder) eller dra.
  *   Hele knappen + sporets padding/mellomrom (nærmeste fane ≤ 10 px) er trykkflate; fanene får touch-action: pan-x og
- *   ingen tap-highlight. Haptic «light» kun ved faktisk bytte (trykk på aktiv fane = ingenting); valget skjer som et
+ *   ingen tap-highlight. Haptic «light» (i popups; ellers knappens data-haptic) kun ved faktisk bytte (aktiv fane = ingenting); valget skjer som et
  *   syntetisk click på knappen med data-haptic midlertidig «off», så kortets egen click-kode bytter fanen.
  */
 (function () {
@@ -123,6 +123,7 @@
   /* ---------------- Fiks 47 E · trykk (pointerup/pointercancel) */
   const P_MOVE = 14, P_MS = 450, P_CANCEL = 250, P_EAT = 400, P_NEAR = 10;
   const ownTabs = (row) => Array.from(row.children).filter((b) => (b.tagName === 'BUTTON' || b.getAttribute('role') === 'tab') && !(b.matches && b.matches(FIXED)));
+  const inPopup = (el) => { let n = el, d = 0; while (n && d++ < 80) { if (n.localName === 'bubble-card' || (n.classList && n.classList.contains('bubble-pop-up'))) return true; n = n.parentNode || n.host; } return false; };
   class TabPress {
     constructor(row, o) {
       this.row = row; this.o = o || {}; this.p = null; this.at = 0; this.synth = false;
@@ -182,7 +183,9 @@
     pick(b) {
       this.at = Date.now();
       if (!b || !b.isConnected || b.disabled || this.active(b)) return false;
-      M.haptic('light');
+      // Popups: «light» (fasit Kalender v2). Utenfor popups (Hjem-fanene) beholdes knappens egen data-haptic.
+      const own = b.getAttribute('data-haptic');
+      M.haptic(inPopup(this.row) || !own || own === 'off' ? 'light' : own);
       if (this.o.select) { this.o.select(b); return true; }
       const h = b.getAttribute('data-haptic');
       b.setAttribute('data-haptic', 'off');

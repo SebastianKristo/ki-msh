@@ -60,13 +60,14 @@
     try {
       const o = JSON.parse(localStorage.getItem(LSP + k) || 'null');
       if (!o || Date.now() - (o.t || 0) > TTL) return null;
-      return { poster: o.p || null, fanart: o.f || null };
+      return { poster: o.p || null, fanart: o.f || null, t: o.t };
     } catch (e) { return null; }
   }
   function remember(title, o) {
     const k = norm(title);
     if (!k || !o || (!o.poster && !o.fanart)) return;
     const cur = cached(title) || {};
+    if (cur.t && Date.now() - cur.t < TTL / 2 && (o.poster || null) === (cur.poster || null) && (!o.fanart || o.fanart === cur.fanart)) return; // uendret og fersk
     try { localStorage.setItem(LSP + k, JSON.stringify({ p: o.poster || cur.poster || null, f: o.fanart || cur.fanart || null, t: Date.now() })); } catch (e) { /* */ }
   }
 
@@ -120,7 +121,7 @@
       const c = cached(title);
       if (c) { poster = poster || img(h, c.poster); fanart = fanart || img(h, c.fanart); if (!via && (poster || fanart)) via = 'cache'; }
     }
-    if (poster || fanart) remember(title, { poster, fanart });
+    if ((poster || fanart) && via !== 'cache') remember(title, { poster, fanart });
     dbg(source, title, via || 'plassholder', poster || '', fanart || '');
     return { poster, fanart };
   }
