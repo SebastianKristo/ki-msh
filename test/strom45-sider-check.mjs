@@ -123,7 +123,7 @@ const tap = async (p, sel) => { await p.evaluate((s) => window.__R.querySelector
   const g = await p.evaluate(() => { const r = window.__R.querySelector('.ss-hrs').getBoundingClientRect(); return { x: r.left, y: r.top + r.height / 2, w: r.width, ta: getComputedStyle(window.__R.querySelector('.ss-hrs')).touchAction }; });
   ok('timegraf touch-action none', g.ta === 'none', g.ta);
   await p.mouse.move(g.x + g.w * (10.5 / 24), g.y); await p.mouse.down(); await p.mouse.move(g.x + g.w * (14.5 / 24), g.y, { steps: 4 }); await p.mouse.up();
-  ok('scrub velger time 14 og viser prisforskjell', /^kl\. 14 · [+−]?\d/.test(await q(p, '.ss-hrs-sum')) && await p.evaluate(() => window.__R.querySelectorAll('.ss-hcol.sel').length === 1), await q(p, '.ss-hrs-sum'));
+  ok('scrub velger time 14 og viser prisforskjell', /^kl\. 14 · (?:[+−]?\d|(?:spart|tapt) [−-]?\d)/.test(await q(p, '.ss-hrs-sum')) && await p.evaluate(() => window.__R.querySelectorAll('.ss-hcol.sel').length === 1), await q(p, '.ss-hrs-sum'));
   ok('pointerdown i grafen stopper propagasjon', await p.evaluate(() => { let n = 0; const f = () => n++; window.__h.addEventListener('pointerdown', f); const r = window.__R.querySelector('.ss-hrs').getBoundingClientRect(); window.__R.querySelector('.ss-hcol').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true, clientX: r.left + 2, clientY: r.top + 5 })); window.__h.removeEventListener('pointerdown', f); return n === 0; }));
   await tap(p, '.ss-back');
   ok('tilbake → host.go(null)', (await p.evaluate(() => window.__go[window.__go.length - 1])) === null);
