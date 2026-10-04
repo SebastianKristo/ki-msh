@@ -346,7 +346,7 @@
     // kort-etikett = første ord i navnet; like første ord (f.eks. «Switch Garasje» / «Switch Kontor») → resten av navnet
     const first = (d) => d.navn.split(/\s+/)[0], dup = (d) => info.filter((x) => first(x.d) === first(d)).length > 1;
     const short = (d) => (dup(d) ? d.navn.split(/\s+/).slice(1).join(' ') || d.navn : first(d));
-    const cur = info.find((x) => x.d.id === want) || info[0], d = cur.d;
+    const cur = info.find((x) => x.d.id === want) || info.find((x) => !x.off) || info[0], d = cur.d; // standard: første tilkoblede
     const grid = info.length > 1 ? `<div class="su-swg">${info.map((x) => {
       const on = x === cur;
       return `<button class="su-swc${on ? ' on' : ''}${x.off ? ' off' : ''}" data-su-act="swsel" data-su-v="${esc(x.d.id)}" aria-pressed="${on}"><span class="su-swn su-ell">${esc(short(x.d))}</span>
@@ -539,7 +539,7 @@
     .su-tt b{font-size:14px;font-weight:500}.su-tt>span{font-size:12px;color:${TM}}
     .su-none{padding:14px;border-radius:20px;background:${S2};color:${TM};font-size:13px}.su-none.in{margin:6px 12px 8px}
     [data-su-act]{cursor:pointer}[data-su-act="none"]{cursor:default}
-    button[disabled]{opacity:.4;cursor:default}
+    .su-ab[disabled],.su-ap[disabled],.su-tg[disabled]{opacity:.4;cursor:default}
     .su-tg{width:46px;height:28px;border-radius:14px;flex:none;position:relative;background:${CTRL};transition:background .2s}
     .su-tg i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .su-tg.on{background:${GR}}.su-tg.on i{left:21px}

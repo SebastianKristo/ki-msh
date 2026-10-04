@@ -145,7 +145,8 @@ const PR = await p.evaluate(() => {
     pbg: pills[0] && getComputedStyle(pills[0]).backgroundColor, pfg: pills[0] && getComputedStyle(pills[0]).color, prad: pills[0] && getComputedStyle(pills[0]).borderRadius, kids: [...pe.children].map((x) => x.tagName).join(), lines: Math.round(pe.getBoundingClientRect().height / parseFloat(cs.lineHeight)) };
 });
 ok('prosa: ÉN <p> (display block, 16/1.9, #e1e1e1), ingen flex/grid', PR.n === 1 && PR.tag === 'P' && PR.disp === 'block' && PR.fs === '16px/30.4px' && PR.col === 'rgb(225, 225, 225)', PR);
-ok('prosa: «Nettet er [2 enheter frakoblet] og [4 klienter] er tilkoblet.»', PR.txt === 'Nettet er 2 enheter frakoblet og 4 klienter er tilkoblet.' && PR.pills.join('|') === '2 enheter frakoblet|4 klienter', PR);
+// Fiks 50 H: prosaen kommer fra M.serverUnifi – klienter = gatewayens clients-sensor (mangler i mocken → sum av switch/AP: 3 + 11 + 0)
+ok('prosa: «Nettet er [2 enheter frakoblet] og [14 klienter] er tilkoblet.»', PR.txt === 'Nettet er 2 enheter frakoblet og 14 klienter er tilkoblet.' && PR.pills.join('|') === '2 enheter frakoblet|14 klienter', PR);
 ok('prosa-piller er inline (invers #fafafa/#141414, r999) – bare <span>-barn', PR.pd === 'inline,inline' && PR.pbg === 'rgb(250, 250, 250)' && PR.pfg === 'rgb(20, 20, 20)' && PR.kids === 'SPAN,SPAN' && PR.lines <= 3, PR);
 const SB = await p.evaluate(() => ({ labels: __A('.subs .sb').map(__t), on: __t(__R('.subs .sb.on')), h: Math.round(__R('.subs .sb').getBoundingClientRect().height), bg: __cs('.subs', 'backgroundColor') + '|' + __cs('.subs', 'borderRadius'), onBg: getComputedStyle(__R('.subs .sb.on')).backgroundImage }));
 ok('underfaner Nettverk: UDM · Enheter · Switch (Fiks 50 K; ingen Kameraer), 38 px, spor #3a3a3a r22, aktiv rosa', SB.labels.join() === 'UDM,Enheter,Switch' && SB.on === 'UDM' && SB.h === 38 && SB.bg === 'rgb(58, 58, 58)|22px' && /gradient/.test(SB.onBg), SB);
@@ -156,34 +157,36 @@ const W = await p.evaluate(() => ({ t: __t(__R('.wan .ct')) + '|' + __t(__R('.wa
 ok('Internett: tittel + «– · Velg entitet» (SpeedTest mangler), fliser Ned – / Opp – Mbit/s (#404040 r20, 28/300)', W.t === 'Internett|– · Velg entitet' && W.tiles.join('|') === 'Ned–Mbit/s|Opp–Mbit/s' && W.bg === 'rgb(64, 64, 64)|20px' && W.vf === '28px/300', W);
 await shot(p, 'net-internett');
 await sub(p, 'enheter');
-let D = await p.evaluate(() => ({ head: __A('.devs .ch > span').map(__t).join('|'), names: __A('.devs .dr b').map(__t), metas: __A('.devs .dm').map(__t), offCol: (__A('.devs .dm.off')[0] && __rgb(getComputedStyle(__A('.devs .dm.off')[0]).color)) }));
+// Fiks 50 H/I/J: Enheter og Switch tegnes av M.serverUnifi (src/58b-server-unifi.js, klasser su-*)
+let D = await p.evaluate(() => ({ head: __A('.su-devs .su-ch > span').map(__t).join('|'), names: __A('.su-devs .su-dr b').map(__t), metas: __A('.su-devs .su-dm').map(__t), offCol: (__A('.su-devs .su-dm.off')[0] && __rgb(getComputedStyle(__A('.su-devs .su-dm.off')[0]).color)) }));
 ok('Enheter: gateway, switcher, AP-er, ingen Protect-kameraer (brukervalg 35), «x av y online»', ['UDM Pro', 'Switch Kontor', 'Switch Stue', 'Switch Garasje', 'AP Stue', 'AP Loft'].every((n) => D.names.includes(n)) && !D.names.includes('Innkjørsel') && /^Enheter\|\d+ av \d+ online$/.test(D.head), D);
 ok('Enheter: «Frakoblet» i oransje, klienter som undertekst', D.metas[D.names.indexOf('AP Loft')] === 'Frakoblet' && D.offCol === '242,181,115' && D.metas[D.names.indexOf('AP Stue')] === '11 klienter', D);
-await click(p, '.devs .dr[data-v="dev_udm"]');
-D = await p.evaluate(() => { const w = __R('.devs .dw.open'); return w && { bg: getComputedStyle(w).backgroundColor, stats: [...w.querySelectorAll('.xt .xl')].map(__t), vals: [...w.querySelectorAll('.xt .xv')].map(__t), acts: [...w.querySelectorAll('.xa .ab')].map(__t), tg: [...w.querySelectorAll('.xgr b')].map(__t) }; });
-ok('Enheter utvidet (gateway, #404040): 6 fliser CPU/Minne/Temp/Klienter/Oppetid/Firmware + handlinger', D && D.bg === 'rgb(64, 64, 64)' && D.stats.join() === 'CPU,Minne,Temp,Klienter,Oppetid,Firmware' && D.vals.slice(0, 3).join() === '18%,54%,52°' && D.vals[5] === '4.1.13' && D.acts.join() === 'Start på nytt,Finn,Oppdater', D);
-await click(p, '.devs .dr[data-v="dev_ap1"]');
-D = await p.evaluate(() => { const w = __R('.devs .dw.open'); return { n: __A('.devs .dw.open').length, stats: [...w.querySelectorAll('.xt .xl')].map(__t), bars: [...w.querySelectorAll('.xbr')].map(__t), tg: [...w.querySelectorAll('.xgr b')].map(__t), acts: [...w.querySelectorAll('.xa .ab')].map(__t) }; });
-ok('AP utvidet: Klienter/Kanal/Sendestyrke …, båndstolper 5/2,4 GHz, «LED-lys»-bryter, én rad åpen', D.n === 1 && D.stats[0] === 'Klienter' && D.stats[1] === 'Kanal' && D.bars.join('|') === '5 GHz7 klienter|2,4 GHz4 klienter' && D.tg.join() === 'LED-lys' && D.acts.includes('Finn'), D);
+await click(p, '.su-devs .su-dr[data-su-v="dev_udm"]');
+D = await p.evaluate(() => { const w = __R('.su-devs .su-dw.open'); return w && { bg: getComputedStyle(w).backgroundColor, stats: [...w.querySelectorAll('.su-xt .su-xl')].map(__t), vals: [...w.querySelectorAll('.su-xt .su-xv')].map(__t), bars: [...w.querySelectorAll('.su-xbr')].length, acts: [...w.querySelectorAll('.su-xa .su-ab')].map(__t), tg: [...w.querySelectorAll('.su-xgr b')].map(__t) }; });
+ok('Enheter utvidet (gateway, #404040): 9 fliser Klienter/CPU/Minne/CPU-temp/Lokal temp/Porter oppe/Oppetid/Fastvare/Tilstand, latens-barer, handlinger', D && D.bg === 'rgb(64, 64, 64)' && D.stats.join() === 'Klienter,CPU,Minne,CPU-temp,Lokal temp,Porter oppe,Oppetid,Fastvare,Tilstand' && D.vals.slice(1, 4).join() === '18%,54%,52°' && D.vals[7] === '4.1.13' && D.bars === 2 && D.acts.join() === 'Start på nytt,Fartstest,Fastvare', D);
+await click(p, '.su-devs .su-dr[data-su-v="dev_ap1"]');
+D = await p.evaluate(() => { const w = __R('.su-devs .su-dw.open'); return { n: __A('.su-devs .su-dw.open').length, stats: [...w.querySelectorAll('.su-xt .su-xl')].map(__t), tg: [...w.querySelectorAll('.su-xgr b')].map(__t), acts: [...w.querySelectorAll('.su-xa .su-ab')].map(__t) }; });
+ok('AP utvidet: Klienter/CPU/Minne/Oppetid/Fastvare/Tilstand, «LED»-bryter, ingen «Finn», én rad åpen', D.n === 1 && D.stats.join() === 'Klienter,CPU,Minne,Oppetid,Fastvare,Tilstand' && D.tg.join() === 'LED' && !D.acts.includes('Finn'), D);
 await shot(p, 'net-enheter-utvidet');
 await clearCalls(p);
-await click(p, '.devs .dw.open .xgr .tg');
-ok('LED-lys-bryteren veksler light.ap_stue_led', (await calls(p)).some((c) => /^(light|homeassistant)\.toggle:.*ap_stue_led/.test(c)), await calls(p));
+await click(p, '.su-devs .su-dw.open .su-xgr .su-tg');
+ok('LED-bryteren slår av light.ap_stue_led', (await calls(p)).some((c) => /^light\.turn_off:.*ap_stue_led/.test(c)), await calls(p));
 await sub(p, 'switch');
-let SW = await p.evaluate(() => ({ cards: __A('.swg .swc').map((x) => ({ n: __t(x.querySelector('.swn')), s: __t(x.querySelector('.sws')), on: x.classList.contains('on'), leds: x.querySelectorAll('.leds i').length, sh: getComputedStyle(x).boxShadow, ledBg: [...x.querySelectorAll('.leds i')].map((i) => __rgb(getComputedStyle(i).backgroundColor)), ledA: [...x.querySelectorAll('.leds i')].map((i) => +(MSH.theme.parse(getComputedStyle(i).backgroundColor)[3]).toFixed(2)) })),
-  grid: __cs('.swg', 'gridTemplateColumns'), head: __A('.swh .col > *').map(__t).join('|'), pcols: getComputedStyle(__R('.pg')).gridTemplateColumns.split(' ').length, ports: __A('.pg .pt').length, info: __t(__R('.pinfo')) }));
-ok('flere switcher: rutenett av switch-kort (auto-fit 100 px), navn uten «Switch », «oppe/total · W PoE»', SW.cards.length === 3 && SW.cards.map((c) => c.n).join() === 'Kontor,Stue,Garasje' && SW.cards[0].s === '4/8 · 12 W PoE' && SW.cards[1].s === '5/8 · 9 W PoE', SW);
-ok('valgt switch = rosa kant, frakoblet = «Frakoblet» + oransje stripe', SW.cards[0].on && /242, 133, 201/.test(SW.cards[0].sh) && SW.cards[2].s === 'Frakoblet' && SW.cards[2].ledBg.every((x) => x === '242,181,115') && SW.cards[2].ledA.every((a) => a === 0.35), SW);
-ok('LED-stripe: én strek per port etter hastighet (Stue: blå 2,5 G, grønn 1 G, oransje 100 M, grå ledig)', SW.cards[1].leds === 8 && SW.cards[1].ledBg[0] === '115,185,242' && SW.cards[1].ledBg[1] === '102,209,158' && SW.cards[1].ledBg[3] === '242,181,115' && SW.cards[1].ledBg[4] === '84,84,84', SW.cards[1]);
-ok('portgrid 8 per rad + forklaring', SW.pcols === 8 && SW.ports === 8 && SW.head === 'Switch Kontor|USW Lite 8 PoE' && /Grønn 1 G · blå 2,5 G/.test(SW.info), SW);
-await click(p, '.swg .swc[data-v="dev_usw2"]');
-await click(p, '.pg .pt[data-v="4"]');
-SW = await p.evaluate(() => { const pt = (n) => __R(`.pg .pt[data-v="${n}"]`); return { head: __t(__R('.swh b')), info: __t(__R('.pinfo')), sel: getComputedStyle(pt(4)).boxShadow, poe: getComputedStyle(pt(1)).boxShadow, dis: getComputedStyle(pt(8)).backgroundImage, led1: __rgb(pt(1).querySelector('i').style.background), h: Math.round(pt(1).getBoundingClientRect().height) }; });
-ok('trykk switch-kort (Stue) → portgrid; port 4 → «Port 4 · Hue Bridge · 100 M · PoE»', SW.head === 'Switch Stue' && SW.info === 'Port 4 · Hue Bridge · 100 M · PoE' && /242, 133, 201/.test(SW.sel), SW);
-ok('port: 40 px, PoE = oransje strek under, deaktivert = skravert, LED blå for 2,5 G', SW.h === 40 && /inset/.test(SW.poe) && /repeating-linear-gradient/.test(SW.dis) && SW.led1 === '115,185,242', SW);
+let SW = await p.evaluate(() => ({ cards: __A('.su-swg .su-swc').map((x) => ({ n: __t(x.querySelector('.su-swn')), s: __t(x.querySelector('.su-sws')), on: x.classList.contains('on'), leds: x.querySelectorAll('.su-leds i').length, sh: getComputedStyle(x).boxShadow, ledBg: [...x.querySelectorAll('.su-leds i')].map((i) => __rgb(getComputedStyle(i).backgroundColor)), ledA: [...x.querySelectorAll('.su-leds i')].map((i) => +(MSH.theme.parse(getComputedStyle(i).backgroundColor)[3]).toFixed(2)) })),
+  head: __t(__R('.su-swh b')), pcols: getComputedStyle(__R('.su-pg')).gridTemplateColumns.split(' ').length, ports: __A('.su-pg .su-pt').length, info: __t(__R('.su-pinfo')) }));
+const ci = (n) => SW.cards.findIndex((c) => c.n === n);
+ok('flere switcher: switch-kort (auto-fit 100 px), like første ord → «Garasje/Kontor/Stue», «oppe/total · W»', SW.cards.length === 3 && ['Garasje', 'Kontor', 'Stue'].every((n) => ci(n) >= 0) && SW.cards[ci('Kontor')].s === '4/8 · 12 W' && SW.cards[ci('Stue')].s === '5/8 · 9 W', SW);
+ok('valgt switch (første tilkoblede) = rosa kant, frakoblet = «Frakoblet» + oransje stripe', SW.cards[ci('Kontor')].on && /242, 133, 201/.test(SW.cards[ci('Kontor')].sh) && SW.cards[ci('Garasje')].s === 'Frakoblet' && SW.cards[ci('Garasje')].ledA.every((a) => a === 0.35), SW);
+ok('LED-stripe: én strek per port etter hastighet (Stue: blå 2,5 G, grønn 1 G, oransje 100 M, grå ledig)', SW.cards[ci('Stue')].leds === 8 && SW.cards[ci('Stue')].ledBg[0] === '115,185,242' && SW.cards[ci('Stue')].ledBg[1] === '102,209,158' && SW.cards[ci('Stue')].ledBg[3] === '242,181,115' && SW.cards[ci('Stue')].ledBg[4] === '84,84,84', SW.cards[ci('Stue')]);
+ok('portgrid 8 per rad + «Trykk på en port for detaljer»', SW.pcols === 8 && SW.ports === 8 && SW.head === 'Switch Kontor' && SW.info === 'Trykk på en port for detaljer', SW);
+await click(p, '.su-swg .su-swc[data-su-v="dev_usw2"]');
+await click(p, '.su-pg .su-pt[data-su-port="4"]');
+SW = await p.evaluate(() => { const pt = (n) => __R(`.su-pg .su-pt[data-su-port="${n}"]`); return { head: __t(__R('.su-swh b')), pd: __t(__R('.su-pdh b')) + ' | ' + __t(__R('.su-pdh .su-tt>span')), sel: getComputedStyle(pt(4)).boxShadow, bolt: pt(1).querySelector('ha-icon').style.opacity, dis: getComputedStyle(pt(8)).backgroundImage, led1: __rgb(pt(1).querySelector('.su-led').style.background), h: Math.round(pt(1).getBoundingClientRect().height) }; });
+ok('trykk switch-kort (Stue) → portgrid; port 4 → panel «Port 4 · Hue Bridge» · «Tilkoblet · 100 Mbit/s · PoE»', SW.head === 'Switch Stue' && SW.pd === 'Port 4 · Hue Bridge | Tilkoblet · 100 Mbit/s · PoE' && /242, 133, 201/.test(SW.sel), SW);
+ok('port: 60 px, PoE = lyn, deaktivert = skravert, LED blå for 2,5 G', SW.h === 60 && SW.bolt === '1' && /repeating-linear-gradient/.test(SW.dis) && SW.led1 === '115,185,242', SW);
 await shot(p, 'net-switch-stue');
-await click(p, '.swg .swc[data-v="dev_usw3"]');
-ok('frakoblet switch valgt: «Frakoblet» i hodet', /Frakoblet/.test(await p.evaluate(() => __t(__R('.swh')))));
+await click(p, '.su-swg .su-swc[data-su-v="dev_usw3"]');
+ok('frakoblet switch valgt: «Frakoblet» i hodet', /Frakoblet/.test(await p.evaluate(() => __t(__R('.su-swh')))));
 
 /* ---------------------------------------------------------------- Proxmox × alle underfaner */
 await host(p, 'proxmox');
@@ -335,11 +338,11 @@ await p.close();
 p = await page({ velger: 'kort', show_prose: false, start_tab: 'proxmox' });
 X = await p.evaluate(() => {
   const cs = __A('.hcards .hc');
-  return { n: cs.length, cols: getComputedStyle(__R('.hcards')).gridTemplateColumns.split(' ').length, names: cs.map((c) => __t(c.querySelector('b'))), subs: cs.map((c) => __t(c.querySelector('.hcb span'))), on: cs.findIndex((c) => c.classList.contains('on')),
+  return { n: cs.length, cols: getComputedStyle(__R('.hcards')).display, ox: getComputedStyle(__R('.hcards')).overflowX, names: cs.map((c) => __t(c.querySelector('b'))), subs: cs.map((c) => __t(c.querySelector('.hcb span'))), on: cs.findIndex((c) => c.classList.contains('on')),
     onSh: getComputedStyle(cs[1]).boxShadow, onBg: getComputedStyle(cs[1]).backgroundColor, ring: cs.every((c) => c.querySelectorAll('.ring svg circle').length === 2), dots: cs.map((c) => c.querySelector('.dot').className.replace('dot ', '')),
     trow: !!__R('.trow'), cog: !!__R('.hero .hcog[data-act="customize"]'), cogW: __R('.hero .hcog') && Math.round(__R('.hero .hcog').getBoundingClientRect().width), prose: !!__R('.prose'), kids: [...__R('.wrap').children].map((e) => e.className.split(' ')[0]) };
 });
-ok('velger: kort → 2 kolonner med ring + statusprikk + navn/undertekst', X.n === 4 && X.cols === 2 && X.names.join() === 'Nettverk,Proxmox,Unraid,HA' && X.ring && X.subs[0] === '38 Mbit ned' && X.subs[1] === 'CPU 23 %' && X.dots.join() === 'ok,ok,ok,warn', X);
+ok('velger: kort → karusell (Fiks 50 F) med ring + statusprikk + navn/undertekst', X.n === 4 && X.cols === 'flex' && /auto|scroll/.test(X.ox) && X.names.join() === 'Nettverk,Proxmox,Unraid,HA' && X.ring && X.subs[0] === '38 Mbit ned' && X.subs[1] === 'CPU 23 %' && X.dots.join() === 'ok,ok,ok,warn', X);
 ok('kort-velger: valgt = #404040 + rosa kant, tannhjul (44 px) i toppkortet, ingen fanelinje', X.on === 1 && /242, 133, 201/.test(X.onSh) && X.onBg === 'rgb(64, 64, 64)' && !X.trow && X.cog && X.cogW === 44, X);
 ok('show_prose: false → ingen setning', !X.prose && X.kids.join() === 'hcards,hero,subs,pane', X);
 await click(p, '.hcards .hc[data-v="unraid"]', 400);
