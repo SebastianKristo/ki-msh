@@ -478,6 +478,13 @@ ok('timesnitt tidsvektet (10 · 25 · 10 · 10)', JSON.stringify(misc.h) === '[1
 ok('reserve-bekreftelse (host uten confirm): portalt ark → Bekreft → button.press', misc.sheet && misc.fbCall && misc.fbCall[1] === 'press', misc);
 ok('uten gateway: kortet vises med «–»', /Gateway/.test(misc.noGw) && /–/.test(misc.noGw), misc.noGw);
 
+const dupLbl = await p.evaluate(async () => {
+  const D0 = window.__H.devices; window.__H.devices = { ...D0, d_flex: { ...D0.d_flex, name: 'Treets Flex Mini' } };
+  window.__mk('switch'); const t = window.__qa('.su-swn').map((x) => x.textContent);
+  window.__H.devices = D0; return t;
+});
+ok('velgerflis: like første ord → resten av navnet', JSON.stringify(dupLbl) === JSON.stringify(['Oslo', 'Flex Mini', 'USW Pro Max 16 PoE 🌳', 'Veien']), dupLbl);
+
 /* ------------------------------------------------------------ editor-felt + lys modus */
 const edf = await p.evaluate(() => {
   const F = MSH.serverUnifi.editorFields(window.__H, {});

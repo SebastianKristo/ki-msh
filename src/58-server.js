@@ -1708,7 +1708,7 @@
         const stop = (e) => e.stopPropagation();
         sc.addEventListener('pointerdown', stop); sc.addEventListener('touchstart', stop, { passive: true }); sc.addEventListener('touchmove', stop, { passive: true });
         sc.addEventListener('scroll', () => this._fade(sc), { passive: true });
-        if (window.ResizeObserver) { sc.__svRO = new ResizeObserver(() => { this._fade(sc); if (this._cKey == null) this._center(sc, false); }); sc.__svRO.observe(sc); }
+        if (window.ResizeObserver) { sc.__svRO = new ResizeObserver(() => { if (!sc.isConnected) return; this._fade(sc); if (this._cKey == null) this._center(sc, false); }); sc.__svRO.observe(sc); }
       }
       this._fade(sc);
       if (this._cKey !== this.tab || this._cEl !== sc) this._center(sc, this._cKey != null && this._cEl === sc);
@@ -1860,7 +1860,7 @@
         .wcol{display:flex;flex-direction:column;gap:1px;min-width:0}
         .wmeta{align-self:flex-start;font-size:12px;color:${TM};white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;text-align:left;padding:0}
         .strun{height:32px;padding:0 12px 0 10px;border-radius:16px;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;flex:none;background:${C.accent};color:${INK};transition:background .2s,color .2s,transform .12s}
-        .strun:active{transform:scale(.96)}.strun.run,.strun[disabled]{background:${S2};color:${T2};cursor:default}
+        .strun:active{transform:scale(.96)}.strun.run,.strun[disabled]{background:${S2};color:${T2};cursor:default;opacity:1}
         .wt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;border-radius:20px;background:${S2};text-align:left;min-width:0;color:${T}}
         .wl{display:flex;align-items:center;gap:6px;font-size:12px;color:${T2}}
         .wv{display:flex;align-items:baseline;gap:3px}.wv .num{font-size:28px;font-weight:300}.wv>span:last-child{font-size:12px;color:${TM}}

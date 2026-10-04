@@ -106,7 +106,7 @@ const S0 = await p.evaluate(() => {
   const kids = [...__R('.wrap').children].map((e) => e.className.split(' ')[0]);
   const tb = __A('.trow .tabs .tb'), on = __R('.trow .tb.on');
   return { kids, tabs: tb.map((x) => x.dataset.v), labels: tb.map(__t), on: on && on.dataset.v,
-    tabH: Math.round(tb[0].getBoundingClientRect().height), track: __cs('.trow .tabs', 'backgroundColor') + '|' + __cs('.trow .tabs', 'borderRadius') + '|' + __cs('.trow .tabs', 'padding'),
+    tabH: Math.round(tb[0].getBoundingClientRect().height), track: __cs('.trow .tbox', 'backgroundColor') + '|' + __cs('.trow .tbox', 'borderRadius') + '|' + __cs('.trow .tabs', 'padding'), // Fiks 50 F: sporet (.tbox) rundt karusellen (.tabs)
     onBg: getComputedStyle(on).backgroundImage, onCol: getComputedStyle(on).color, offCol: getComputedStyle(tb[1]).color,
     gear: !!__R('.trow > .gear[data-act="customize"]'), gearW: Math.round(__R('.trow > .gear').getBoundingClientRect().width) };
 });
@@ -148,11 +148,12 @@ ok('prosa: ÉN <p> (display block, 16/1.9, #e1e1e1), ingen flex/grid', PR.n === 
 ok('prosa: «Nettet er [2 enheter frakoblet] og [4 klienter] er tilkoblet.»', PR.txt === 'Nettet er 2 enheter frakoblet og 4 klienter er tilkoblet.' && PR.pills.join('|') === '2 enheter frakoblet|4 klienter', PR);
 ok('prosa-piller er inline (invers #fafafa/#141414, r999) – bare <span>-barn', PR.pd === 'inline,inline' && PR.pbg === 'rgb(250, 250, 250)' && PR.pfg === 'rgb(20, 20, 20)' && PR.kids === 'SPAN,SPAN' && PR.lines <= 3, PR);
 const SB = await p.evaluate(() => ({ labels: __A('.subs .sb').map(__t), on: __t(__R('.subs .sb.on')), h: Math.round(__R('.subs .sb').getBoundingClientRect().height), bg: __cs('.subs', 'backgroundColor') + '|' + __cs('.subs', 'borderRadius'), onBg: getComputedStyle(__R('.subs .sb.on')).backgroundImage }));
-ok('underfaner Nettverk: Internett · Enheter · Switch (ingen Kameraer), 38 px, spor #3a3a3a r22, aktiv rosa', SB.labels.join() === 'Internett,Enheter,Switch' && SB.on === 'Internett' && SB.h === 38 && SB.bg === 'rgb(58, 58, 58)|22px' && /gradient/.test(SB.onBg), SB);
+ok('underfaner Nettverk: UDM · Enheter · Switch (Fiks 50 K; ingen Kameraer), 38 px, spor #3a3a3a r22, aktiv rosa', SB.labels.join() === 'UDM,Enheter,Switch' && SB.on === 'UDM' && SB.h === 38 && SB.bg === 'rgb(58, 58, 58)|22px' && /gradient/.test(SB.onBg), SB);
 
 /* ---------------------------------------------------------------- Nettverk × alle underfaner */
-const W = await p.evaluate(() => ({ t: __A('.wan .ch > span').map(__t).join('|'), tiles: __A('.wan .wt').map(__t), bg: __cs('.wan .wt', 'backgroundColor') + '|' + __cs('.wan .wt', 'borderRadius'), vf: __cs('.wan .wv .num', 'fontSize') + '/' + __cs('.wan .wv .num', 'fontWeight') }));
-ok('Internett: tittel + «– · 9 ms» (ISP mangler → –), fliser Ned 38 / Opp 4 Mbit/s (#404040 r20, 28/300)', W.t === 'Internett|– · 9 ms' && W.tiles.join('|') === 'Ned38Mbit/s|Opp4Mbit/s' && W.bg === 'rgb(64, 64, 64)|20px' && W.vf === '28px/300', W);
+const W = await p.evaluate(() => ({ t: __t(__R('.wan .ct')) + '|' + __t(__R('.wan .wmeta')), tiles: __A('.wan .wt').map(__t), bg: __cs('.wan .wt', 'backgroundColor') + '|' + __cs('.wan .wt', 'borderRadius'), vf: __cs('.wan .wv .num', 'fontSize') + '/' + __cs('.wan .wv .num', 'fontWeight') }));
+// Fiks 50 G: Internett-kortet bruker SpeedTest (ikke i felles mock → «–» + «Velg entitet»; verdiene testes i server50-check)
+ok('Internett: tittel + «– · Velg entitet» (SpeedTest mangler), fliser Ned – / Opp – Mbit/s (#404040 r20, 28/300)', W.t === 'Internett|– · Velg entitet' && W.tiles.join('|') === 'Ned–Mbit/s|Opp–Mbit/s' && W.bg === 'rgb(64, 64, 64)|20px' && W.vf === '28px/300', W);
 await shot(p, 'net-internett');
 await sub(p, 'enheter');
 let D = await p.evaluate(() => ({ head: __A('.devs .ch > span').map(__t).join('|'), names: __A('.devs .dr b').map(__t), metas: __A('.devs .dm').map(__t), offCol: (__A('.devs .dm.off')[0] && __rgb(getComputedStyle(__A('.devs .dm.off')[0]).color)) }));
@@ -352,11 +353,11 @@ await p.close();
 
 /* ================================================================ LYS MODUS · alle verter × alle underfaner + utvidet rad */
 p = await page({}, { light: true });
-X = await p.evaluate(() => ({ mode: document.documentElement.getAttribute('data-ki-theme'), hero: __cs('.hero', 'backgroundColor'), track: __cs('.trow .tabs', 'backgroundColor'), onCol: __cs('.trow .tb.on', 'color'), pill: __cs('.prose .pp', 'backgroundColor') + '|' + __cs('.prose .pp', 'color'), prose: __cs('.prose', 'color'), chip: __rgb(__cs('.hero .chip', 'color')) }));
+X = await p.evaluate(() => ({ mode: document.documentElement.getAttribute('data-ki-theme'), hero: __cs('.hero', 'backgroundColor'), track: __cs('.trow .tbox', 'backgroundColor'), onCol: __cs('.trow .tb.on', 'color'), pill: __cs('.prose .pp', 'backgroundColor') + '|' + __cs('.prose .pp', 'color'), prose: __cs('.prose', 'color'), chip: __rgb(__cs('.hero .chip', 'color')) }));
 ok('lys modus: data-ki-theme=light, toppkort/spor hvite (--ki-surface), pille invers (#1c1c1c/#fafafa), aktiv fane --ki-on-accent', X.mode === 'light' && X.hero === 'rgb(255, 255, 255)' && X.track === 'rgb(255, 255, 255)' && X.pill === 'rgb(28, 28, 28)|rgb(250, 250, 250)' && X.onCol === 'rgb(42, 23, 32)' && X.prose === 'rgb(51, 51, 51)', X);
 const lowAll = [], whiteAll = []; let nAll = 0;
 const scan = async (tag) => { const r = await contrastScan(p); nAll += r.n; r.low.forEach((x) => lowAll.push(tag + ': ' + x)); r.white.forEach((x) => whiteAll.push(tag + ': ' + x)); };
-for (const [hk, subsL] of [['net', ['internett', 'enheter', 'switch']], ['proxmox', ['gjester', 'lagring', 'backup']], ['unraid', ['array', 'gjester']], ['ha', ['tillegg', 'oppdateringer', 'system']]]) {
+for (const [hk, subsL] of [['net', ['udm', 'enheter', 'switch']], ['proxmox', ['gjester', 'lagring', 'backup']], ['unraid', ['array', 'gjester']], ['ha', ['tillegg', 'oppdateringer', 'system']]]) {
   await host(p, hk);
   for (const s of subsL) {
     await sub(p, s);
