@@ -69,25 +69,32 @@ ok('autokonfig HA: tillegg fra hassio-enheter + Supervisor (slug), systemmonitor
 
 /* ---------------------------------------------------------------- Nettverk: ingen Protect-kameraer i Enheter, Finn, rød tone, portnavn */
 await click(p, '.sb[data-v="enheter"]');
-let X = await p.evaluate(() => { const names = __A('.devs .dw').map((r) => __t(r.querySelector('b'))); return { names, kam: !!__R('.sb[data-v="kameraer"]') }; });
+let X = await p.evaluate(() => { const names = __A('.su-devs .su-dw').map((r) => __t(r.querySelector('b'))); return { names, kam: !!__R('.sb[data-v="kameraer"]') }; });
 ok('Protect-kameraer vises ikke i Enheter (brukervalg 35), ingen Kameraer-underfane', !['Innkjørsel', 'Hage', 'Ringeklokke'].some((n) => X.names.includes(n)) && X.names.includes('UDM Pro') && !X.kam, X);
-await click(p, '.devs .dr[data-v="dev_ap1"]');
+// Fiks 50 H: «Finn» er fjernet – LED-bryteren (light.*_led) styrer lyset direkte
+await click(p, '.su-devs .su-dr[data-su-v="dev_ap1"]');
 await clearCalls(p);
-await click(p, '.devs .dw.open [data-act="locate"]');
-X = { blink: await p.evaluate(() => !!__R('.devs .dw.open.blink')), c: await calls(p) };
-ok('«Finn»: LED blinker (light.turn_on flash long) og ikonet blinker', X.blink && X.c.some((c) => /light\.turn_on:.*"flash":"long"/.test(c)), X);
-await click(p, '.devs .dr[data-v="dev_udm"]');
+await click(p, '.su-devs .su-dw.open [data-su-act="tgl"]');
+X = { finn: await p.evaluate(() => !!__R('.su-devs .su-dw.open [data-act="locate"]')), c: await calls(p) };
+ok('Fiks 50: «Finn» fjernet – LED-bryteren → light.turn_off (light.ap_stue_led)', !X.finn && X.c.some((c) => /light\.turn_off:.*ap_stue_led/.test(c)), X);
+// rød tone krever bekreftelse (host.confirm → portalt ark): Avbryt = ingen kall, Bekreft = button.press
+await click(p, '.su-devs .su-dr[data-su-v="dev_udm"]');
 await clearCalls(p);
-await click(p, '.devs .dw.open .ab.hot');
-X = { t: await p.evaluate(() => __t(__R('.devs .dw.open .ab.hot'))), c: await calls(p) };
-await click(p, '.devs .dw.open .ab.hot');
+await p.evaluate(() => { window.__ask = []; window.__c._host.confirm = (t) => { window.__ask.push(t); return Promise.resolve(window.__ask.length > 1); }; });
+await click(p, '.su-devs .su-dw.open .su-ab.hot');
+X = { t: await p.evaluate(() => window.__ask[0]), c: await calls(p) };
+await click(p, '.su-devs .su-dw.open .su-ab.hot');
 X.c2 = await calls(p);
-ok('gateway «Start på nytt»: bekreftelse (to trykk) → button.udm_pro_restart', X.t === 'Bekreft · trykk igjen' && X.c.length === 0 && X.c2.some((c) => /button\.press:.*udm_pro_restart/.test(c)), X);
+ok('gateway «Start på nytt»: bekreftelse → button.udm_pro_restart', /Starte UDM Pro på nytt/.test(X.t || '') && X.c.length === 0 && X.c2.some((c) => /button\.press:.*udm_pro_restart/.test(c)), X);
 await click(p, '.sb[data-v="switch"]');
-await click(p, '.pg .pt[data-v="4"]');
-ok('egne portnavn fra UniFi (port-entitetens navn): «Port 4 · Kamera Inngang · 100 M · PoE»', (await p.evaluate(() => __t(__R('.pinfo')))) === 'Port 4 · Kamera Inngang · 100 M · PoE', await p.evaluate(() => __t(__R('.pinfo'))));
-await click(p, '.pg .pt[data-v="3"]');
-ok('port av (deaktivert) → «Port 3 · Deaktivert»', (await p.evaluate(() => __t(__R('.pinfo')))) === 'Port 3 · Deaktivert', await p.evaluate(() => __t(__R('.pinfo'))));
+await click(p, '.su-swc[data-su-v="dev_usw"]');
+await click(p, '.su-pg .su-pt[data-su-port="4"]');
+const pdTxt = () => p.evaluate(() => (__R('.su-pd') ? __t(__R('.su-pdh b')) + ' | ' + __t(__R('.su-pdh .su-tt>span')) : null));
+X = await pdTxt();
+ok('egne portnavn fra UniFi (port-entitetens navn): «Port 4 · Kamera Inngang» · «Tilkoblet · 100 Mbit/s · PoE»', X === 'Port 4 · Kamera Inngang | Tilkoblet · 100 Mbit/s · PoE', X);
+await click(p, '.su-pg .su-pt[data-su-port="3"]');
+X = await pdTxt();
+ok('port av (deaktivert) → «Port 3» · «Deaktivert» (skravert flis)', /^Port 3( · .*)? \| Deaktivert$/.test(X || '') && await p.evaluate(() => __R('.su-pt[data-su-port="3"]').classList.contains('dis')), X);
 await shot(p, 'switch');
 await p.close();
 
@@ -104,7 +111,7 @@ pk = await p.evaluate(() => ({ cfg: JSON.stringify(window.__c.config.integration
 ok('«Bruk» (auto-valget) fjerner «none» fra config og Proxmox vises igjen', pk.cfg === 'null' && /^Proxmox kjører/.test(pk.prose), pk);
 await p.evaluate(async () => { window.__c._openPick('protect'); await new Promise((q) => setTimeout(q, 300)); const r = window.MSH.portals().pop().shadowRoot; r.querySelector('.rr[data-v="none"]').click(); r.querySelector('[data-p="apply"]').click(); });
 await wait(p, 700);
-pk = await p.evaluate(async () => { const c = JSON.stringify(window.__c.config.integrations); __R('[data-act="host"][data-v="net"]').click(); await new Promise((q) => setTimeout(q, 200)); __R('.sb[data-v="enheter"]').click(); await new Promise((q) => setTimeout(q, 300)); return { c, names: __A('.devs .dr b').map(__t) }; });
+pk = await p.evaluate(async () => { const c = JSON.stringify(window.__c.config.integrations); __R('[data-act="host"][data-v="net"]').click(); await new Promise((q) => setTimeout(q, 200)); __R('.sb[data-v="enheter"]').click(); await new Promise((q) => setTimeout(q, 300)); return { c, names: __A('.su-devs .su-dr b').map(__t) }; });
 ok('«Ingen» for Protect lagrer integrations.protect = none (kameraene vises uansett ikke i Enheter)', pk.c === '{"protect":"none"}' && !pk.names.includes('Innkjørsel') && pk.names.includes('UDM Pro'), pk);
 await p.close();
 p = await page({ start_tab: 'unraid' }, null, () => { window.mockExtend(({ E, S }) => { Object.keys(E).forEach((id) => { if (E[id].platform === 'unraid') { delete E[id]; delete S[id]; } }); }); });
