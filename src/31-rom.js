@@ -866,8 +866,8 @@
       return real;
     }
     _dots(n, idx) {
-      if (n < 2) return '<div class="dots"></div>';
-      return M.dotsHTML(n, idx); // felles trykkbare prikker (17.12)
+      // Fiks 50 D: prikk-raden tegnes bare ved 2+ kort – ett kort gir ingen rad og ingen reservert høyde.
+      return n > 1 ? M.dotsHTML(n, idx) : ''; // felles trykkbare prikker (17.12)
     }
 
     /* ------------ media */
@@ -1231,9 +1231,10 @@
         .fan.on .fbtn{background:rgb(0 0 0 / 0.12);border-color:transparent;color:${ON_ACC}}
         @media (prefers-reduced-motion:reduce){.u ha-icon{animation:none !important}}
         /* karuseller (klima/media) */
-        .cw{display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 8px 10px}
+        /* Fiks 50 D (Rom v4 ac.klima/climSw): 8 px mellom alle elementer, 8 px side-/bunnpadding – kort → 8 → prikker (12) → 8 → neste rad */
+        .cw{display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 8px 8px}
         .car{width:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;overscroll-behavior-x:contain}
-        .dots{display:flex;height:14px;align-items:center} /* prikkene: felles .msh-dots (18.3) */
+        .cw>.dots.msh-dots{height:12px;gap:6px} /* prikkene: felles .msh-dots (18.3) – 10 px, aktiv 12 px, gap 6 */
         /* klima */
         .kc{position:relative;flex:none;width:100%;height:155px;scroll-snap-align:start;border-radius:26px;overflow:hidden;transition:background .4s,border-radius .3s}
         /* 16.8: rosa «varmer»-lag (opasitet → 300 ms overgang), mørk tekst */
