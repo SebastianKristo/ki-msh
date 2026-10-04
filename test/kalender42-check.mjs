@@ -1,14 +1,14 @@
 // Fiks 42 · Del A – alle PostNord-entitetene i Kalender → Posten (msh-kalender-card), konto-oppføringer med NORSKE
 // entity_id-er. Konto 1 har translation_key + unique_id i registeret (som ha-postnord), konto 2 bare entity_id-er
 // (reserve: norske suffikser). Entitetene injiseres bare her (ikke i test/mock/*).
-//   42.1 blå prikk 7 px øverst til høyre (mørk ring på rød flis), forklaring, leveringsrad for valgt dag / i dag,
-//        calendar-henting bare for de 14 dagene som vises
-//   42.2 seksjonen «PostNord» mellom kortet og Pakker (skjul/flytt), header, Oppdater (button.press, spinn, haptic,
-//        «nå»), 4 tall-fliser = filter (Leverte slår på «Vis leverte»), Neste levering / Siste vellykkede oppdatering
+//   42.1 blå prikk 7 px øverst til høyre (mørk ring på rød flis), leveringsrad for valgt dag,
+//        calendar-henting bare for de 14 dagene som vises (Fiks 46: ingen forklaring)
+//   42.2 → Fiks 46: tall-chips i «Når kommer Posten» (summert over kontoene), Oppdater (button.press på alle kontoene,
+//        spinn, haptic), chips = filter (Leverte slår på «Vis leverte»). Eget PostNord-kort finnes ikke lenger.
 //   42.3 én rad per …_pakke_<kode>, «Pakke <kode>» uten avsender, utgående med «PostNord · Utgående», filter-chip,
 //        entity_registry_updated (nye/forsvunne pakke-sensorer live)
 //   roller: translation_key / unique_id / norsk suffiks, overstyring sources.postnord.<rolle> (+ src.postnord.<rolle>),
-//   én seksjon per konto eller slått sammen, begge editorene. Uten PostNord: som før.        node test/kalender42-check.mjs
+//   begge editorene. Uten PostNord: som før. (Mer om 46: test/kalender46-check.mjs)        node test/kalender42-check.mjs
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -106,7 +106,8 @@ async function page(pn, cfg) {
     window.sr = () => window.__c.shadowRoot;
     window.sleep = (ms) => new Promise((q) => setTimeout(q, ms));
     window.rows = () => [...sr().querySelectorAll('.pkr')].map((r) => ({ key: r.dataset.key, pn: r.classList.contains('pn'), kind: r.dataset.kind || null, name: (r.querySelector('.pkh b') || {}).textContent || '', meta: (r.querySelector('.pmeta') || {}).textContent || '', chip: (r.querySelector('.ctag') || {}).textContent || null, icon: (r.querySelector('.pkic ha-icon') || { getAttribute: () => '' }).getAttribute('icon') }));
-    window.cards = () => [...sr().querySelectorAll('.pnc')].map((x) => ({ key: x.dataset.key, name: x.querySelector('.pnt>span').textContent, tiles: [...x.querySelectorAll('.pnt4')].map((t) => [t.dataset.v, t.querySelector('b').textContent, t.classList.contains('on')]), lines: [...x.querySelectorAll('.pnl>div')].map((d) => [d.querySelector('i').textContent, d.querySelector('b').textContent]), refresh: !!x.querySelector('.pnr') }));
+    // 46: tall-chipsene i «Når kommer Posten»
+    window.chips = () => { const x = sr().querySelector('.card.post .pnchs'); return x ? { tiles: [...x.querySelectorAll('.pnch')].map((t) => [t.dataset.v, t.querySelector('b').textContent, t.classList.contains('on')]), refresh: !!x.querySelector('.pnr'), ids: (x.querySelector('.pnr') || { dataset: {} }).dataset.ids || '' } : null; };
     window.setCfg = async (patch) => { const c2 = { ...window.__c.config, ...patch }; Object.keys(patch).forEach((k) => { if (patch[k] === undefined) delete c2[k]; }); window.__c.setConfig(c2); await sleep(300); };
     window.newHass = () => { const H = window.__h; window.__h = { ...H, states: { ...H.states }, entities: { ...H.entities } }; window.__c.hass = window.__h; };
   }, { pn, cfg });
@@ -116,8 +117,8 @@ async function page(pn, cfg) {
 // ================================================================ uten PostNord: som før
 {
   const p = await page(false);
-  const A = await p.evaluate(() => ({ pnc: sr().querySelectorAll('.pnc').length, leg: !!sr().querySelector('.pleg'), day: !!sr().querySelector('.pnday'), dots: sr().querySelectorAll('.pnd').length, hdr: [...sr().querySelectorAll('.sh .st')].map((e) => e.textContent), post: !!sr().querySelector('.card.post .pg'), rows: rows().length, accts: MSH.kalender.pnAccounts(window.__h, {}).length }));
-  ok('Uten PostNord: ingen PostNord-seksjon/forklaring/prikk/rad, Posten + Pakker som før', A.pnc === 0 && !A.leg && !A.day && !A.dots && A.hdr.join('|') === 'Pakker' && A.post && A.rows === 3 && A.accts === 0, A);
+  const A = await p.evaluate(() => ({ pnc: sr().querySelectorAll('.pnc,.pnchs').length, leg: !!sr().querySelector('.pleg'), day: !!sr().querySelector('.pnday'), dots: sr().querySelectorAll('.pnd').length, hdr: [...sr().querySelectorAll('.sh .st')].map((e) => e.textContent), post: !!sr().querySelector('.card.post .pg'), rows: rows().length, accts: MSH.kalender.pnAccounts(window.__h, {}).length }));
+  ok('Uten PostNord: ingen PostNord-chips/forklaring/prikk/rad, Posten + Pakker som før', A.pnc === 0 && !A.leg && !A.day && !A.dots && A.hdr.join('|') === 'Pakker' && A.post && A.rows === 3 && A.accts === 0, A);
   await p.close();
 }
 
@@ -148,50 +149,25 @@ const R2 = await p.evaluate(() => {
 ok('Roller (unique_id-reserve + engelsk suffiks)', R2[0].role === 'awaiting_pickup' && R2[1].role === 'parcel' && R2[1].code === 'UG999999999SE' && R2[2].role === 'incoming_parcels', R2);
 ok('Kilde «PostNord» (auto) = innkommende-sensoren i første konto, kandidater for begge', R.src === `sensor.${J}_innkommende_pakker` && R.cands.join() === `sensor.${J}_innkommende_pakker,sensor.${K}_innkommende_pakker`, R);
 
-// ---------------------------------------------------------------- 42.2 seksjonen
+// ---------------------------------------------------------------- 42.2 → 46 tall-chips i kortet
 const S = await p.evaluate(() => {
   const pane = sr().querySelector('.pane'), kids = [...pane.children];
-  const iPost = kids.findIndex((x) => x.matches('.card.post')), iPn = kids.findIndex((x) => x.matches('.pnc')), iPk = kids.findIndex((x) => x.matches('.sh') && /Pakker/.test(x.textContent));
-  const c1 = sr().querySelector('.pnc'), ic = c1.querySelector('.pnic'), t = c1.querySelector('.pnt>b'), nm = c1.querySelector('.pnt>span'), rb = c1.querySelector('.pnr'), tile = c1.querySelector('.pnt4');
-  const cs = (e) => getComputedStyle(e);
-  return { order: [iPost, iPn, iPk], cards: cards(), ic: [cs(ic).width, cs(ic).borderRadius, cs(ic).backgroundColor, cs(ic).color, ic.querySelector('ha-icon').getAttribute('icon')], t: [t.textContent, cs(t).fontSize, cs(t).fontWeight], nm: [nm.textContent, cs(nm).fontSize, cs(nm).color], rb: [cs(rb).width, cs(rb).height, cs(rb).borderRadius, cs(rb).backgroundColor], tile: [cs(tile).backgroundColor, cs(tile).borderRadius, cs(tile).minHeight] };
+  return { pnc: sr().querySelectorAll('.pnc').length, inCard: !!sr().querySelector('.card.post .pnchs'), cards: kids.filter((x) => x.matches('.card.post')).length, ch: chips() };
 });
-ok('42.2 Seksjonen ligger mellom «Når kommer Posten» og Pakker', S.order[0] >= 0 && S.order[0] < S.order[1] && S.order[1] < S.order[2], S.order);
-ok('42.2 Én seksjon per konto (2)', S.cards.length === 2 && S.cards[0].name === 'jemtlands@gmail.com' && S.cards[1].name === 'kari@example.no', S.cards);
-ok('42.2 Header: blå 40px sirkel package_2 med mørkt ikon, «PostNord» 15/600, konto 12px #979797', S.ic[0] === '40px' && S.ic[1] === '20px' && S.ic[2] === 'rgb(115, 185, 242)' && S.ic[3] === 'rgb(40, 40, 40)' && /package-variant/.test(S.ic[4]) && S.t.join() === 'PostNord,15px,600' && S.nm.join() === 'jemtlands@gmail.com,12px,rgb(151, 151, 151)', S);
-ok('42.2 Oppdater: 44px rund på rgba(255,255,255,.1)', S.rb.join('|') === '44px|44px|22px|rgba(255, 255, 255, 0.1)', S.rb);
-ok('42.2 Tall-fliser #404040, radius 16, min 64px', S.tile.join('|') === 'rgb(64, 64, 64)|16px|64px', S.tile);
-const c1 = S.cards[0], c2 = S.cards[1];
-ok('42.2 Fliser konto 1: Innkommende 3 · Klar 1 · Leverte 1 · Utgående 1', c1.tiles.map((t) => t[1]).join() === '3,1,1,1' && c1.tiles.map((t) => t[0]).join() === 'in,klar,lev,out', c1.tiles);
-ok('42.2 Fliser konto 2: 1 · 0 · 0 · – (mangler utgående-sensor)', c2.tiles.map((t) => t[1]).join() === '1,0,0,–', c2.tiles);
-ok('42.2 «Neste levering» = «I dag 14–18», «Siste vellykkede oppdatering» = «for 5 min siden»', c1.lines[0].join('|') === 'Neste levering|I dag 14–18' && c1.lines[1].join('|') === 'Siste vellykkede oppdatering|for 5 min siden', c1.lines);
-ok('42.2 Mangler sensorene (konto 2) → «–»', c2.lines.map((l) => l[1]).join() === '–,–', c2.lines);
-const NX = await p.evaluate(async () => {
-  const id = `sensor.${window.PN.J}_neste_levering`; const H = window.__h, d = window.d0(4, 10);
-  newHass(); window.__h.states[id] = { ...H.states[id], state: d.toISOString() }; window.__c.hass = window.__h; await sleep(250);
-  const v = cards()[0].lines[0][1];
-  const exp = ['Søn', 'Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør'][d.getDay()] + ' ' + d.getDate() + '. ' + ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'][d.getMonth()];
-  newHass(); window.__h.states[id] = { ...H.states[id] }; window.__c.hass = window.__h; await sleep(250);
-  return { v, exp };
-});
-ok('42.2 «Neste levering» om 4 dager = «Fre 2. okt»-format', NX.v === NX.exp, NX);
+ok('46 Ingen eget PostNord-kort; chipsene ligger i «Når kommer Posten»', S.pnc === 0 && S.inCard && S.cards === 1, S);
+ok('46 Chips summert over kontoene: Inn 4 · Hentes 1 · Levert 1 · Ut 1', S.ch && S.ch.tiles.map((t) => t[1]).join() === '4,1,1,1' && S.ch.tiles.map((t) => t[0]).join() === 'in,klar,lev,out', S.ch);
 // Oppdater
 const U = await p.evaluate(async () => {
   window.__calls.length = 0; window.HP.length = 0;
-  const b = sr().querySelector('.pnc .pnr'); b.click(); await sleep(60);
-  const spin = sr().querySelector('.pnc .pnr').classList.contains('spin'), anim = getComputedStyle(sr().querySelector('.pnc .pnr>*')).animationName + ' ' + getComputedStyle(sr().querySelector('.pnc .pnr>*')).animationDuration;
-  const now1 = cards()[0].lines[1][1];
+  const b = sr().querySelector('.post .pnr'); b.click(); await sleep(60);
+  const spin = sr().querySelector('.post .pnr').classList.contains('spin'), anim = getComputedStyle(sr().querySelector('.post .pnr>*')).animationName + ' ' + getComputedStyle(sr().querySelector('.post .pnr>*')).animationDuration;
   await sleep(700);
-  const spinAfter = sr().querySelector('.pnc .pnr').classList.contains('spin'), now2 = cards()[0].lines[1][1];
-  // sensoren oppdateres → relativ tid igjen
-  const id = `sensor.${window.PN.J}_siste_vellykkede_oppdatering`;
-  newHass(); window.__h.states[id] = { ...window.__h.states[id], state: new Date(Date.now() - 2 * 60000).toISOString() }; window.__c.hass = window.__h; await sleep(250);
-  return { calls: window.__calls.filter((c) => c[0] === 'button'), hp: [...window.HP], spin, anim, now1, now2, spinAfter, after: cards()[0].lines[1][1], pakkerBtn: !!sr().querySelector('.sh [data-act="prefresh"]') };
+  const spinAfter = sr().querySelector('.post .pnr').classList.contains('spin');
+  return { calls: window.__calls.filter((c) => c[0] === 'button'), hp: [...window.HP], spin, anim, spinAfter, pakkerBtn: !!sr().querySelector('.sh [data-act="prefresh"]') };
 });
-ok('42.2 Oppdater → button.press på kontoens oppdater-knapp, haptic success', U.calls.length === 1 && U.calls[0][1] === 'press' && U.calls[0][2].entity_id === `button.${J}_oppdater` && U.hp.join() === 'success', U);
-ok('42.2 Ikonet roterer 360° på 0,6 s', U.spin && /pnspin 0\.6s/.test(U.anim) && !U.spinAfter, U);
-ok('42.2 «Siste oppdatering» = «nå» til sensoren oppdateres, så relativ tid', U.now1 === 'nå' && U.now2 === 'nå' && U.after === 'for 2 min siden', U);
-ok('42.2 Ingen dobbel Oppdater-knapp i Pakker-headeren når seksjonen vises', !U.pakkerBtn, U);
+ok('46 Oppdater → button.press på begge kontoenes oppdater-knapper, haptic success', U.calls.length === 2 && U.calls.every((c) => c[1] === 'press') && U.calls.map((c) => c[2].entity_id).sort().join() === [`button.${J}_oppdater`, `button.${K}_oppdater`].sort().join() && U.hp.join() === 'success', U);
+ok('46 Ikonet roterer 360° på 0,6 s', U.spin && /pnspin 0\.6s/.test(U.anim) && !U.spinAfter, U);
+ok('46 Ingen dobbel Oppdater-knapp i Pakker-headeren når chipsene vises', !U.pakkerBtn, U);
 
 // ---------------------------------------------------------------- 42.3 Pakker-lista
 const L0 = await p.evaluate(() => rows());
@@ -202,22 +178,22 @@ ok('42.3 Status/farge fra 40.2 (ute → klar → transport)', by['pk-pn:UA111111
 const FA = await p.evaluate(async () => { sr().querySelector('.pkr[data-key="pk-pn:UC333333333SE"] .pkh').click(); await sleep(200); const r = sr().querySelector('.pkr[data-key="pk-pn:UC333333333SE"]'); const f = [...r.querySelectorAll('.facts span')].map((s) => [s.querySelector('i').textContent, s.querySelector('b').textContent]); const det = (r.querySelector('[data-act="more"]') || { dataset: {} }).dataset.id; sr().querySelector('.pkr[data-key="pk-pn:UC333333333SE"] .pkh').click(); await sleep(150); return { f, det }; });
 ok('42.3 Fakta har «Sporingsnummer»; «Detaljer» = pakke-sensoren', FA.f.some((x) => x[0] === 'Sporingsnummer' && x[1] === 'UC333333333SE') && FA.det === `sensor.${J}_pakke_uc333333333se`, FA);
 // filtre
-const tap = (g, v) => p.evaluate(async ({ g, v }) => { window.HP.length = 0; sr().querySelectorAll('.pnc')[g].querySelector(`.pnt4[data-v="${v}"]`).click(); await sleep(200); const t = sr().querySelectorAll('.pnc')[g].querySelector(`.pnt4[data-v="${v}"]`); const chip = sr().querySelector('.sh .pnfc'); return { rows: rows(), hp: [...window.HP], on: t.classList.contains('on'), bg: getComputedStyle(t).backgroundColor, fg: getComputedStyle(t).color, chip: chip ? [chip.textContent.trim(), getComputedStyle(chip).backgroundColor, getComputedStyle(chip).color] : null, pDel: !!window.__c.ui.pDel }; }, { g, v });
+const tap = (g, v) => p.evaluate(async ({ g, v }) => { window.HP.length = 0; sr().querySelector(`.post .pnch[data-v="${v}"]`).click(); await sleep(200); const t = sr().querySelector(`.post .pnch[data-v="${v}"]`); const chip = sr().querySelector('.sh .pnfc'); return { rows: rows(), hp: [...window.HP], on: t.classList.contains('on'), bg: getComputedStyle(t).backgroundColor, fg: getComputedStyle(t).color, chip: chip ? [chip.textContent.trim(), getComputedStyle(chip).backgroundColor, getComputedStyle(chip).color] : null, pDel: !!window.__c.ui.pDel }; }, { g, v });
 const F1 = await tap(0, 'klar');
-ok('42.2 «Klar for henting» → bare den pakken, flisa blå med mørk tekst, haptic selection', F1.rows.length === 1 && F1.rows[0].key === 'pk-pn:UB222222222SE' && F1.on && F1.bg === 'rgb(115, 185, 242)' && F1.fg === 'rgb(40, 40, 40)' && F1.hp.join() === 'selection', F1);
+ok('46 «Hentes» → bare den pakken, chipen blå med mørk tekst, haptic selection', F1.rows.length === 1 && F1.rows[0].key === 'pk-pn:UB222222222SE' && F1.on && F1.bg === 'rgb(115, 185, 242)' && F1.fg === 'rgb(40, 40, 40)' && F1.hp.join() === 'selection', F1);
 ok('42.3 Aktivt filter = blå chip «Klar for henting ×» i Pakker-headeren', F1.chip && F1.chip[0] === 'Klar for henting' && F1.chip[1] === 'rgb(115, 185, 242)' && F1.chip[2] === 'rgb(40, 40, 40)', F1.chip);
 const F2 = await tap(0, 'klar');
 ok('42.2 Trykk igjen → filteret fjernes', !F2.on && !F2.chip && F2.rows.length === L0.length, F2);
 const F3 = await tap(0, 'lev');
 ok('42.2 «Leverte» → levert-pakken vises og «Vis leverte» slås på', F3.rows.length === 1 && F3.rows[0].key === 'pk-pn:UD444444444SE' && F3.pDel, F3);
-const F4 = await p.evaluate(async () => { sr().querySelector('.sh .pnfc').click(); await sleep(200); return { chip: !!sr().querySelector('.sh .pnfc'), on: sr().querySelectorAll('.pnt4.on').length }; });
+const F4 = await p.evaluate(async () => { sr().querySelector('.sh .pnfc').click(); await sleep(200); return { chip: !!sr().querySelector('.sh .pnfc'), on: sr().querySelectorAll('.pnch.on').length }; });
 ok('42.3 Trykk på chipen fjerner filteret', !F4.chip && !F4.on, F4);
 const F5 = await tap(0, 'out');
 ok('42.3 «Utgående» → «PostNord · Utgående», outbox-ikon, «Til Mormor · estimert …»', F5.rows.length === 1 && F5.rows[0].key === 'pk-pn:UE555555555SE' && F5.rows[0].chip === 'PostNord · Utgående' && /inbox-arrow-up/.test(F5.rows[0].icon) && /^Til Mormor · estimert \S+ \d+\. [a-z]+$/.test(F5.rows[0].meta), F5.rows);
 await tap(0, 'out');
-const F6 = await tap(1, 'in');
-ok('42.2 Filter per konto: konto 2 «Innkommende» → bare Lego-pakken', F6.rows.length === 1 && F6.rows[0].key === 'pk-pn:70712345678DK', F6.rows);
-await tap(1, 'in');
+const F6 = await tap(0, 'in');
+ok('46 «Inn» gjelder alle kontoene → de fire innkommende pakkene', F6.rows.length === 4 && F6.rows.some((r) => r.key === 'pk-pn:70712345678DK') && F6.rows.some((r) => r.key === 'pk-pn:UA111111111SE'), F6.rows);
+await tap(0, 'in');
 
 // ---------------------------------------------------------------- 42.1 «Når kommer Posten»
 const D = await p.evaluate(async () => {
@@ -234,8 +210,10 @@ const wk = new Date().getDay() % 6 !== 0; // i dag er bare i rutenettet på hver
 ok('42.1 Blå prikk på leveringsdagene i rutenettet (i dag på hverdager + den røde dagen)', (!wk || D.dots.includes(D.today)) && (!D.red || D.dots.includes(D.red)) && D.dots.length === (D.red ? 1 : 0) + (wk ? 1 : 0), D);
 ok('42.1 Prikken: 7px, blå, øverst til høyre', D.w === '7px' && D.bg === 'rgb(115, 185, 242)' && D.top <= 6 && D.right <= 6, D);
 ok('42.1 Mørk 1,5px ring når flisa er rød', D.red ? /rgb\(40, 40, 40\) 0px 0px 0px 1\.5px/.test(D.ring) : true, D.ring);
-ok('42.1 Forklaring «● Posten ● PostNord-levering» 11px #979797', D.leg && D.leg[0] === 'Posten PostNord-levering' && D.leg[1] === '11px' && D.leg[2] === 'rgb(151, 151, 151)' && D.leg[3][0] === 'rgb(242, 128, 115)' && D.leg[3][1] === 'rgb(115, 185, 242)', D.leg);
-ok('42.1 I dag (ingen valgt): rad #404040 r18, blå 32px sirkel local_shipping, «PostNord · Zalando» / «I dag 14–18»', D.row && D.row[0] === 'PostNord · Zalando | I dag 14–18' && D.row[1] === 'rgb(64, 64, 64)' && D.row[2] === '18px' && D.row[3] === '32px' && D.row[4] === 'rgb(115, 185, 242)' && /truck/.test(D.row[5]), D.row);
+ok('46 Ingen forklaringslinje under rutenettet', !D.leg, D.leg);
+ok('46 Ingen valgt dag («Ved valgt dag», standard) → ingen leveringsrad', !D.row, D.row);
+const DA = await p.evaluate(async () => { await setCfg({ pn_row: 'alltid' }); const row = sr().querySelector('.pnday'), rc = row && getComputedStyle(row), ci = row && row.querySelector('.pndi'); const r = row && [[...row.querySelectorAll('b,.evc>span')].map((x) => x.textContent.trim()).join(' | '), rc.backgroundColor, rc.borderRadius, getComputedStyle(ci).width, getComputedStyle(ci).backgroundColor, ci.querySelector('ha-icon').getAttribute('icon')]; await setCfg({ pn_row: undefined }); return r; });
+ok('46 «Alltid»: rad #404040 r20, blå 32px sirkel local_shipping, «PostNord · Zalando» / «I dag 14–18 · Ute for levering»', DA && DA[0] === 'PostNord · Zalando | I dag 14–18 · Ute for levering' && DA[1] === 'rgb(64, 64, 64)' && DA[2] === '20px' && DA[3] === '32px' && DA[4] === 'rgb(115, 185, 242)' && /truck/.test(DA[5]), DA);
 // (Kalender-fanen henter alle calendar.* ±40 dager som før; Posten-kortet henter bare dagene i rutenettet)
 const pc = D.cal.filter((c) => new Date(c[1]).getTime() === window0());
 function window0() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
@@ -243,7 +221,7 @@ const span = pc.length ? (Date.parse(pc[0][2]) - Date.parse(pc[0][1])) / 8640000
 ok('42.1 Posten-kortet henter leveringskalenderen bare for de 14 dagene som vises (fra i dag)', pc.length === 1 && pc[0][0] === `calendars/calendar.${J}_leveringer` && span >= 12 && span <= 15, { cal: D.cal, span });
 if (D.red) {
   const SD = await p.evaluate(async () => { sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(200); const r = [...sr().querySelectorAll('.pnday')].map((x) => [...x.querySelectorAll('b,.evc>span')].map((y) => y.textContent.trim()).join(' | ')); sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(150); return r; });
-  ok('42.1 Valgt dag med levering → raden for den dagen', SD.length === 1 && /^PostNord · Pakke UC333333333SE \| \S+ \d+\. [a-z]+ 9–12$/.test(SD[0]), SD);
+  ok('42.1 Valgt dag med levering → raden for den dagen (vindu · status)', SD.length === 1 && /^PostNord · Pakke UC333333333SE \| \S+ \d+\. [a-z]+ 9–12 · Under transport$/.test(SD[0]), SD);
 }
 
 // ---------------------------------------------------------------- 42.3 entity_registry_updated
@@ -268,22 +246,22 @@ ok('42.3 Lytter på entity_registry_updated mens popupen er åpen', RG.subs.incl
 ok('42.3 Ny pakke-sensor → ny rad live («Apotek 1»), fjernet → raden forsvinner', RG.added && RG.added.name === 'Apotek 1' && RG.gone, RG);
 ok('42.3 Andre registerendringer tegner ikke på nytt', RG.renders === 0, RG.renders);
 
-// ---------------------------------------------------------------- slått sammen / overstyring / skjul
-const MG = await p.evaluate(async () => { await setCfg({ postnord_view: 'merged' }); const r = cards(); await setCfg({ postnord_view: undefined }); return r; });
-ok('Slått sammen (postnord_view: merged) → én seksjon, summerte tall, begge kontoene i navnet', MG.length === 1 && MG[0].name === 'jemtlands@gmail.com · kari@example.no' && MG[0].tiles.map((t) => t[1]).join() === '4,1,1,1', MG);
+// ---------------------------------------------------------------- gammel postnord_view / overstyring / skjul
+const MG = await p.evaluate(async () => { await setCfg({ postnord_view: 'merged' }); const r = { ch: chips(), pnc: sr().querySelectorAll('.pnc').length }; await setCfg({ postnord_view: undefined }); return r; });
+ok('Gammel postnord_view tolereres (ignoreres): samme summerte chips, ingen eget kort', MG.pnc === 0 && MG.ch && MG.ch.tiles.map((t) => t[1]).join() === '4,1,1,1', MG);
 const OV = await p.evaluate(async () => {
   await setCfg({ sources: { postnord: { refresh: 'none', awaiting_pickup: 'none' } } });
-  const a = cards();
+  const a = chips();
   await setCfg({ sources: undefined, src: { postnord: { last_successful_update: 'sensor.' + window.PN.K + '_leverte_pakker' } } });
   const b2 = MSH.kalender.pnAccounts(window.__h, window.__c.config).find((x) => x.name === 'kari@example.no').roles.last_update;
   await setCfg({ src: undefined });
   return { a, b2 };
 });
-ok('Overstyring sources.postnord.<rolle>: none → ingen Oppdater, «Klar» = –', OV.a.every((c) => !c.refresh) && OV.a.every((c) => c.tiles[1][1] === '–'), OV.a);
+ok('Overstyring sources.postnord.<rolle>: none → ingen Oppdater, «Hentes» = –', OV.a && !OV.a.refresh && OV.a.tiles[1][1] === '–', OV.a);
 ok('Overstyring src.postnord.<rolle> leses (alias last_successful_update) → til kontoen entiteten hører til', OV.b2 === `sensor.${K}_leverte_pakker`, OV.b2);
-const HID = await p.evaluate(async () => { await setCfg({ section_hidden: { posten: ['postnord'] } }); const r = { pnc: sr().querySelectorAll('.pnc').length, btn: !!sr().querySelector('.sh [data-act="prefresh"]') }; await setCfg({ section_hidden: undefined, section_order: { posten: ['pakker', 'posten'] } }); const kids = [...sr().querySelector('.pane').children]; r.order = [kids.findIndex((x) => x.matches('.sh') && /Pakker/.test(x.textContent)), kids.findIndex((x) => x.matches('.card.post')), kids.findIndex((x) => x.matches('.pnc'))]; await setCfg({ section_order: undefined }); return r; });
-ok('42.2 Skjult i Tilpass → borte (Oppdater flytter til Pakker-headeren)', HID.pnc === 0 && HID.btn, HID);
-ok('42.2 Lagret rekkefølge uten PostNord → settes inn etter «Når kommer Posten»', HID.order[0] < HID.order[1] && HID.order[1] < HID.order[2], HID.order);
+const HID = await p.evaluate(async () => { await setCfg({ section_hidden: { posten: ['postnord'] } }); const r = { pn: sr().querySelectorAll('.pnchs,.pnd,.pnday,.pnc').length, btn: !!sr().querySelector('.sh [data-act="prefresh"]') }; await setCfg({ section_hidden: undefined, section_order: { posten: ['pakker', 'posten'] } }); const kids = [...sr().querySelector('.pane').children]; r.order = [kids.findIndex((x) => x.matches('.sh') && /Pakker/.test(x.textContent)), kids.findIndex((x) => x.matches('.card.post'))]; r.chips = !!sr().querySelector('.card.post .pnchs'); await setCfg({ section_order: undefined }); return r; });
+ok('46 PostNord-tall skjult i Tilpass → ingen PostNord i kortet (Oppdater flytter til Pakker-headeren)', HID.pn === 0 && HID.btn, HID);
+ok('46 Gammel lagret rekkefølge (posten = kort) virker, chipsene følger kortet', HID.order[0] >= 0 && HID.order[0] < HID.order[1] && HID.chips, HID);
 
 // ---------------------------------------------------------------- editorene
 const ED = await p.evaluate(async () => {
@@ -307,7 +285,7 @@ const ED = await p.evaluate(async () => {
   return { head, roleRows, picks, v1, v2, view };
 });
 ok('Tilpass → Kilder: «PostNord – roller» (Auto, kontoene), 9 roller', /^PostNord – roller\s*jemtlands@gmail\.com · kari@example\.no\s*Auto/.test(ED.head) && ED.roleRows.length === 9 && /^Neste levering\s*sensor\.postnord_jemtlands_gmail_com_neste_levering\s*Auto/.test(ED.roleRows[3]), ED);
-ok('Tilpass: velg «Av» → sources.postnord.next_delivery = none; «Automatisk» fjerner', ED.picks.includes(`sensor.${J}_neste_levering`) && ED.v1 && ED.v1.next_delivery === 'none' && ED.v2 === null && ED.view, ED);
+ok('Tilpass: velg «Av» → sources.postnord.next_delivery = none; «Automatisk» fjerner; «PostNord-seksjonen» er borte', ED.picks.includes(`sensor.${J}_neste_levering`) && ED.v1 && ED.v1.next_delivery === 'none' && ED.v2 === null && !ED.view, ED);
 const GUI = await p.evaluate(async () => {
   const ed = customElements.get('msh-kalender-card').getConfigElement(); ed.hass = window.__h; ed.setConfig({ type: 'custom:msh-kalender-card', card_id: 'gui42', sources: { postnord: { refresh: 'button.x' } } }); document.body.appendChild(ed);
   await sleep(200);
@@ -318,9 +296,9 @@ const GUI = await p.evaluate(async () => {
   ed.remove();
   return { sel, view };
 });
-ok('GUI-editor: entitetsvelger per rolle (sources.postnord.<rolle>) + «PostNord-seksjonen»', ['incoming_parcels', 'awaiting_pickup', 'delivered_parcels', 'next_delivery', 'last_update', 'outgoing_parcels', 'outgoing_delivered_parcels', 'refresh', 'deliveries'].every((r) => GUI.sel.includes('sources.postnord.' + r)) && GUI.sel.includes('src.postnord') && GUI.view, GUI);
+ok('GUI-editor: entitetsvelger per rolle (sources.postnord.<rolle>), ingen «PostNord-seksjonen»', ['incoming_parcels', 'awaiting_pickup', 'delivered_parcels', 'next_delivery', 'last_update', 'outgoing_parcels', 'outgoing_delivered_parcels', 'refresh', 'deliveries'].every((r) => GUI.sel.includes('sources.postnord.' + r)) && GUI.sel.includes('src.postnord') && !GUI.view, GUI);
 const FAN = await p.evaluate(() => MSH.kalender && window.__c && [...(customElements.get('msh-kalender-card').schema(window.__h, {})[0].tabs[0].fields[0].html(window.__h, {}, 'k', { _config: {}, shadowRoot: null, __kalInst: true }).matchAll(/data-op="exp"/g))].length);
-ok('Faner: Posten har deler (PostNord kan skjules/flyttes)', FAN >= 1, FAN);
+ok('Faner: Posten har deler (PostNord-tall kan skjules)', FAN >= 1, FAN);
 
 // ingen hardkodede entitets-IDer / farger
 const src = (await import('node:fs')).readFileSync('src/55-kalender.js', 'utf8');
