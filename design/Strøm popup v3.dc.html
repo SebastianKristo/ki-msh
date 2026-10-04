@@ -40,11 +40,11 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
   <div style="position:relative;min-height:250px;border-radius:28px;overflow:hidden;background:radial-gradient(ellipse 55% 50% at 70% 55%,rgba(242,176,79,.22),transparent 70%),linear-gradient(175deg,#1f232c 0%,#272d39 55%,#313948 100%);padding:16px 18px 18px;box-sizing:border-box;display:flex;flex-direction:column">
     <span style="{{ heroGlow }}"></span>
     <sc-if value="{{ gearHero }}" hint-placeholder-val="{{ true }}"><button onClick="{{ openCfg }}" title="Tilpass strøm" style="position:absolute;top:14px;right:14px;z-index:2;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center" style-active="transform:scale(.92)"><span class="ms" style="font-size:22px">settings</span></button></sc-if>
-    <img src="energi-hus-v2.svg" alt="" style="position:absolute;right:-6px;top:6px;width:58%;max-width:290px;height:auto;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6%);mask-image:linear-gradient(90deg,transparent 0,#000 6%)">
+    <img src="energi-hus-v2.svg" alt="" style="position:absolute;right:-6px;top:6px;width:auto;height:calc(100% - 96px);max-width:58%;object-fit:contain;object-position:right bottom;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6%);mask-image:linear-gradient(90deg,transparent 0,#000 6%)">
     <div style="position:relative;display:flex;flex-direction:column;gap:4px;margin-top:4px">
       <span style="font-size:12px;letter-spacing:.08em;color:#b8b8b8">BRUKER NÅ</span>
       <span style="display:flex;align-items:baseline;gap:6px"><span style="font-size:64px;font-weight:300;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums">{{ watt }}</span><span style="font-size:18px;color:#b8b8b8">W</span></span>
-      <span style="align-self:flex-start;display:flex;align-items:center;gap:6px;height:26px;padding:0 12px;border-radius:999px;background:rgba(242,176,79,.2);font-size:12px;font-weight:500;color:rgb(246 200 130);margin-top:4px"><span style="position:relative;width:7px;height:7px;flex:none"><span style="{{ heroPing }}"></span><span style="position:absolute;inset:0;border-radius:50%;background:rgb(242 176 79)"></span></span>Spotpris middels · 1,49 kr</span>
+      <sc-if value="{{ showSpot }}" hint-placeholder-val="{{ true }}"><span style="align-self:flex-start;display:flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;background:rgba(242,176,79,.18);font-size:11px;font-weight:500;color:rgb(246 200 130);margin-top:4px"><span style="position:relative;width:6px;height:6px;flex:none"><span style="{{ heroPing }}"></span><span style="position:absolute;inset:0;border-radius:50%;background:rgb(242 176 79)"></span></span>Spotpris middels · 1,49 kr</span></sc-if>
     </div>
     <div style="position:relative;margin-top:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:18px">
       <span style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)"><span style="font-size:11px;color:#b8b8b8">I dag</span><span style="font-size:18px;font-weight:500">49 kr</span></span>
@@ -168,7 +168,8 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
     </div>
     <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
       <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="4">
-        <button onClick="{{ t.tap }}" style="{{ t.style }}" style-active="transform:scale(.97)">
+        <button onClick="{{ t.tap }}" onPointerDown="{{ t.down }}" onPointerMove="{{ t.move }}" onPointerUp="{{ t.up }}" onPointerLeave="{{ t.up }}" onContextMenu="{{ t.noCtx }}" title="Hold for detaljer" style="{{ t.style }}" style-active="transform:scale(.97)">
+          <span style="{{ t.handle }}"></span>
           <span style="{{ t.iconWrap }}"><span class="ms" style="font-size:22px">{{ t.icon }}</span></span>
           <span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;min-width:0"><span style="font-size:15px;font-weight:600">{{ t.l }}</span><span style="{{ t.stateS }}">{{ t.state }}</span></span>
         </button>
@@ -262,22 +263,24 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
     <div style="background:linear-gradient(160deg,#f28ac9,#f6c9c4);color:rgba(50,38,44,.95);border-radius:26px;padding:16px 18px;display:flex;flex-direction:column;gap:4px;animation:fade .3s ease">
       <span style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <span style="font-size:13px">{{ sumLabel }}</span>
-        <span style="padding:5px 10px;border-radius:10px;background:rgba(60,40,50,.18);font-size:12px;font-weight:500">Norgespris · 0,80 kr/kWh</span>
+        <button onClick="{{ kPriceToggle }}" title="Bytt prismodell" style="padding:5px 10px;border:0;border-radius:10px;background:rgba(60,40,50,.18);font-size:12px;font-weight:500;color:inherit;cursor:pointer;white-space:nowrap" style-active="transform:scale(.96)">{{ kPriceLabel }}</button>
       </span>
       <span style="display:flex;align-items:baseline;gap:6px"><span style="font-size:36px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums">{{ sumV }}</span><span style="font-size:16px;font-weight:500">{{ unit }}</span></span>
-      <span style="font-size:13px">Størst: Oppvarming står for 57 % av forbruket</span>
-      <span style="display:flex;gap:2px;height:12px;margin-top:10px;border-radius:999px;overflow:hidden">
-        <span style="flex:57;background:#f28672"></span>
-        <span style="flex:27;background:#7a7a7a"></span>
-        <span style="flex:12;background:#73b8f2"></span>
-        <span style="flex:4;background:#f2d26f"></span>
-      </span>
+      <span style="font-size:13px">{{ kbInfo }}</span>
+      <button onClick="{{ kbToggle }}" title="Vis fordeling" style="display:flex;gap:2px;height:12px;margin-top:10px;padding:0;border:0;border-radius:999px;overflow:hidden;width:100%;cursor:pointer;background:transparent">
+        <sc-for list="{{ kbSegs }}" as="b" hint-placeholder-count="4"><span onClick="{{ b.tap }}" style="{{ b.style }}"></span></sc-for>
+      </button>
+      <sc-if value="{{ kbOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 12px;margin-top:10px">
+          <sc-for list="{{ kbSegs }}" as="b" hint-placeholder-count="4"><button onClick="{{ b.tap }}" style="{{ b.row }}"><span style="{{ b.dot }}"></span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.label }}</span><span style="font-weight:600;font-variant-numeric:tabular-nums">{{ b.pct }}</span></button></sc-for>
+        </div>
+      </sc-if>
     </div>
 </div>
 <div data-rk="sec-Kurser" data-rid="k_kat" onPointerDown="{{ secHold.k_kat }}" style="{{ sec.k_kat }}">
     <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
       <sc-for list="{{ kSegs }}" as="sg" hint-placeholder-count="2">
-        <div data-glass-drag="x" style="display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:999px;background:#3d3d3d">
+        <div data-glass-drag="x" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2px;padding:4px;border-radius:999px;background:#3d3d3d;min-width:0">
           <sc-for list="{{ sg.opts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.tap }}" style="{{ o.style }}">{{ o.l }}</button></sc-for>
         </div>
       </sc-for>
@@ -618,7 +621,14 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
           <span style="font-size:13px;font-weight:500;color:#979797;padding:10px 8px 2px">Startfane</span>
           <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a"><sc-for list="{{ ce.start }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
           <span style="font-size:13px;font-weight:500;color:#979797;padding:10px 8px 2px">Hva koster det nå</span>
-          <div style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:#3a3a3a">
+          <div style="display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a;overflow:hidden">
+            <button onClick="{{ exCfg.toggleOpen }}" style="display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 14px 8px 8px;text-align:left;width:100%">
+              <span style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#4a4a4a"><span class="ms" style="font-size:22px">calculate</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">Pris og eksempler</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ exCfg.summary }}</span></span>
+              <span class="ms" style="{{ exCfg.chev }}">expand_more</span>
+            </button>
+            <sc-if value="{{ exCfg.open }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;padding:4px 14px 14px">
             <span style="font-size:12px;color:#979797;padding-left:4px">Pris som brukes</span>
             <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;padding:3px;border-radius:22px;background:#2a2a2a"><sc-for list="{{ exCfg.price }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:#2f2f2f"><span class="ms" style="font-size:20px;color:#afafaf">sensors</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ exCfg.ent }}</span><span style="font-size:11px;color:#979797">{{ exCfg.entSub }}</span></span></div>
@@ -630,6 +640,8 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
                 <span style="{{ w.track }}"><span style="{{ w.knob }}"></span></span>
               </button>
             </sc-for>
+          </div>
+            </sc-if>
           </div>
           <span style="font-size:13px;font-weight:500;color:#979797;padding:10px 8px 2px">Fanelinje</span>
           <sc-for list="{{ ce.tabStyles }}" as="ts" hint-placeholder-count="4">
@@ -649,6 +661,12 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
           <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a"><sc-for list="{{ ce.cardSz }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="{{ o.style }}"><span class="ms" style="font-size:18px">{{ o.icon }}</span>{{ o.label }}</button></sc-for></div>
           <span style="font-size:13px;font-weight:500;color:#979797;padding:10px 8px 2px">Tannhjul (Tilpass)</span>
           <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a"><sc-for list="{{ ce.gear }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="{{ o.style }}"><span class="ms" style="font-size:18px">{{ o.icon }}</span>{{ o.label }}</button></sc-for></div>
+          <span style="font-size:13px;font-weight:500;color:#979797;padding:10px 8px 2px">Toppkort</span>
+          <button onClick="{{ ce.spot.go }}" style="display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 14px 8px 8px;border-radius:24px;background:#3a3a3a;text-align:left">
+            <span style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:#4a4a4a"><span class="ms" style="font-size:22px">sell</span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">Spotpris-merke</span><span style="font-size:12px;color:#979797;line-height:1.35">«Spotpris middels · 1,49 kr» under watt</span></span>
+            <span style="{{ ce.spot.track }}"><span style="{{ ce.spot.knob }}"></span></span>
+          </button>
           <span style="font-size:13px;font-weight:500;color:#979797;padding:10px 8px 2px">Effekter</span>
           <sc-for list="{{ ce.sw }}" as="w" hint-placeholder-count="3">
             <button onClick="{{ w.go }}" style="display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 14px 8px 8px;border-radius:24px;background:#3a3a3a;text-align:left">
@@ -960,20 +978,28 @@ class Component extends DCLogic {
     const exCfg = { price: Object.entries(PRS).map(([k, [label, , ent]]) => { const on = exP === k; return { label: k === 'total' ? 'Totalpris' : label, ent, go: () => { hp('selection'); this.saveCfg({ exPrice: k }); },
         style: { height: 44, borderRadius: 20, fontSize: 13, fontWeight: 500, background: on ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: on ? '#2f2f2f' : '#afafaf', transition: 'background .25s' } }; }),
       ent: exPE, entSub: `${exPL} · ${fmt(exPV, 2)} kr/kWh nå`,
+      open: !!s.exCfgOpen, toggleOpen: () => { hp('light'); set({ exCfgOpen: !s.exCfgOpen }); },
+      summary: `${exP === 'total' ? 'Totalpris' : exPL} · ${exOn.length} eksempler`,
+      chev: { fontSize: 22, color: '#979797', transform: s.exCfgOpen ? 'rotate(180deg)' : 'none', transition: 'transform .25s' },
       items: EXALL.map(([id, icon, l, kwh]) => { const on = exOn.includes(id); return { icon, l, sub: `~${fmt(kwh, kwh < 1 ? 2 : 1)} kWh · ${fmt(kwh * exPV, kwh * exPV >= 10 ? 1 : 2)} kr`,
         go: () => { hp('selection'); this.saveCfg({ exShow: on ? exOn.filter(x => x !== id) : EXALL.map(x => x[0]).filter(x => x === id || exOn.includes(x)) }); },
         track: { width: 46, height: 28, borderRadius: 999, flex: 'none', position: 'relative', background: on ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : '#555', transition: 'background .25s' },
         knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.35)', transition: 'left .25s cubic-bezier(.3,1.4,.5,1)' } }; }) };
 
     const TG = [['Nettleie', 'attach_money'], ['Strømselskap', 'home_work'], ['Strømstøtte', 'energy_program_saving'], ['Moms', 'payments']];
-    const toggles = TG.map(([l, icon]) => { const on = s.tog[l]; return { l, icon, state: on ? 'På' : 'Av',
-      tap: () => { hp('selection'); set({ tog: { ...s.tog, [l]: !on } }); },
+    const toggles = TG.map(([l, icon]) => { const on = s.tog[l], ent = 'input_boolean.strompris_' + l.toLowerCase().replace(/ø/g, 'o').replace(/[^a-z]/g, '');
+      return { l, icon, state: on ? 'På' : 'Av', ent,
+      tap: () => { if (this._tgHeld) { this._tgHeld = false; return; } hp('selection'); set({ tog: { ...s.tog, [l]: !on } }); },
+      down: e => { clearTimeout(this._tgT); this._tgHeld = false; const x = e.clientX, y = e.clientY; this._tg0 = [x, y]; this._tgT = setTimeout(() => { this._tgHeld = true; hp('medium'); const el = e.target.closest('button'); el && el.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: ent } })); set({ toast: 'More-info · ' + ent }); }, 500); },
+      move: e => { if (this._tg0 && Math.hypot(e.clientX - this._tg0[0], e.clientY - this._tg0[1]) > 8) clearTimeout(this._tgT); },
+      up: () => clearTimeout(this._tgT), noCtx: e => e.preventDefault(),
       row: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', minHeight: 60, textAlign: 'left', borderTop: l === 'Nettleie' ? 'none' : '1px solid rgba(255,255,255,.08)' },
       track: { width: 46, height: 28, borderRadius: 999, background: on ? pink : '#555', position: 'relative', transition: 'background .25s', flex: 'none' },
       knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 22, height: 22, borderRadius: '50%', background: on ? '#fff' : '#bdbdbd', boxShadow: '0 1px 3px rgba(0,0,0,.35)', transition: 'left .25s cubic-bezier(.3,1.4,.5,1)' },
-      style: { display: 'flex', alignItems: 'center', gap: 14, minHeight: 72, padding: '0 16px 0 10px', borderRadius: 999, textAlign: 'left', background: '#3a3a3a', color: '#fafafa', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.05)', transition: 'background .25s' },
-      iconWrap: { width: 52, height: 52, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: on ? pink : '#4a4a4a', color: on ? ink : '#e1e1e1', boxShadow: on ? '0 4px 14px rgba(242,138,201,.28)' : 'inset 0 0 0 1px rgba(255,255,255,.06)', transition: 'background .25s, color .25s, box-shadow .25s' },
-      stateS: { fontSize: 13, color: on ? 'rgb(246 170 215)' : '#979797', transition: 'color .25s' } }; });
+      style: { position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 14, minHeight: 72, padding: '0 16px 0 10px', borderRadius: 999, textAlign: 'left', background: on ? pink : '#3a3a3a', color: on ? ink : '#fafafa', boxShadow: on ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,.05)', transition: 'background .25s, color .25s', touchAction: 'pan-y', WebkitUserSelect: 'none', userSelect: 'none' },
+      iconWrap: { width: 52, height: 52, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: on ? 'rgba(42,23,32,0.08)' : '#4a4a4a', color: on ? ink : '#e1e1e1', boxShadow: 'none', transition: 'background .25s, color .25s' },
+      handle: { position: 'absolute', top: 6, left: '50%', marginLeft: -16, width: 32, height: 3, borderRadius: 2, background: on ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.12)' },
+      stateS: { fontSize: 13, color: on ? 'rgba(42,23,32,0.6)' : '#979797', transition: 'color .25s' } }; });
 
     const UC = { now: ['other_houses', 'Forbruk nå', s.watt.toLocaleString('nb-NO'), 'W'], day: ['bolt', 'Dagens forbruk', '42,2', 'kWh'], month: ['calendar_month', 'Denne måneden', '87', 'kWh'], year: ['event_repeat', 'I år', '1 098', 'kWh'], cost: ['payments', 'Kostnad i dag', '49', 'kr'], peak: ['speed', 'Topp i dag', '5,25', 'kW'], step: ['stairs', 'Effekttrinn', '2–5', 'kW'], ev: ['ev_station', 'Elbillading', '2,28', 'kWh'] };
     const ucSel = (Array.isArray(cfg.useCards) && cfg.useCards.length === 2 && cfg.useCards.every(k => UC[k])) ? cfg.useCards : ['now', 'day'];
@@ -996,7 +1022,7 @@ class Component extends DCLogic {
       dot: { width: 12, height: 12, borderRadius: '50%', background: c || 'transparent' }, name: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }));
     const d = new Date(2026, 9, 3 + s.day), mn = ['jan.', 'feb.', 'mars', 'apr.', 'mai', 'juni', 'juli', 'aug.', 'sep.', 'okt.', 'nov.', 'des.'];
 
-    const kwh = s.unit === 'kWh', mult = (s.per === 'mnd' ? 27.4 : 1) * (kwh ? 1.25 : 1);
+    const kSpot = s.kPrice === 'spot', kwh = s.unit === 'kWh', mult = (s.per === 'mnd' ? 27.4 : 1) * (kwh ? 1.25 : 1) * (kSpot && !kwh ? 1.84 : 1);
     const val = n => `${fmt(n * mult, n * mult >= 100 ? 0 : n * mult >= 10 ? 1 : 2)} ${kwh ? 'kWh' : 'kr'}`;
     const CAT0 = [
       ['Oppvarming', 'heat', '#f07a6a', 31.9, 57, [['Panelovner', 'heat', '#f07a6a', 15.8, 55], ['Øvrig varme', 'local_fire_department', '#f07a6a', 7.44, 26], ['Gulvvarme', 'heat', '#f2b46f', 5.30, 18], ['Håndklevarmer', 'dry_cleaning', '#f28ac9', 0.31, 1]]],
@@ -1036,7 +1062,7 @@ class Component extends DCLogic {
         lever: { width: 12, height: 18, borderRadius: 3, background: 'linear-gradient(180deg,#e6e6e6 50%,#9a9a9a 50%)', boxShadow: `0 0 0 2px ${lc}` },
         hold: e => this.hold(e, 'kurs', kurIds, l), wrap: { borderTop: i ? '1px solid rgba(255,255,255,.08)' : 'none', borderRadius: isDrag('kurs', l) ? 18 : 0, background: isDrag('kurs', l) ? '#4a4a4a' : 'transparent', padding: isDrag('kurs', l) ? '0 10px' : 0, margin: isDrag('kurs', l) ? '0 -10px' : 0, transition: 'transform .18s, box-shadow .18s, background .18s', ...lift(isDrag('kurs', l)) },
         chev: { fontSize: 22, color: '#b8b8b8', opacity: kids.length ? 1 : 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .25s' } }; });
-    const segBtn = on => ({ height: 46, borderRadius: 999, fontSize: 15, fontWeight: 500, background: on ? pink : 'transparent', color: on ? ink : '#d6d6d6', transition: 'background .25s,color .25s' });
+    const segBtn = on => ({ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minWidth: 0, boxSizing: 'border-box', height: 46, padding: '0 8px', border: 0, borderRadius: 999, fontSize: 15, fontWeight: 500, textAlign: 'center', whiteSpace: 'nowrap', background: on ? pink : 'transparent', color: on ? ink : '#d6d6d6', transition: 'background .25s,color .25s' });
     const kSegs = [{ opts: [['Kroner', 'kr'], ['kWh', 'kWh']].map(([l, k]) => ({ l, tap: () => set({ unit: k }), style: segBtn(s.unit === k) })) },
       { opts: [['I dag', 'dag'], ['Måneden', 'mnd']].map(([l, k]) => ({ l, tap: () => set({ per: k }), style: segBtn(s.per === k) })) }];
     const sumN = 48.62 * mult;
@@ -1083,12 +1109,20 @@ class Component extends DCLogic {
           billVal: big ? { fontSize: 36, fontWeight: 300, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' } : { fontSize: 40, fontWeight: 500, lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
           smallVal: big ? { fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' } : { fontSize: 26, fontWeight: 400, lineHeight: 1.1 },
           smallValG: { ...(big ? { fontSize: 28, fontWeight: 300, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' } : { fontSize: 26, fontWeight: 400, lineHeight: 1.1 }), color: 'rgb(120 210 165)' } }; })(),
-      tabWrap, tabBar, sec, secHold, ce: { ...ce, isKurs: ceTab === 'kurs', kurs: ceTab === 'kurs' ? this.kursEd(s, hp, pink) : {}, tabStyles, ucSlots, cardSz: [['kompakt', 'Kompakt', 'density_small'], ['stor', 'Stor', 'density_large']].map(([k, label, icon]) => { const on = (cfg.cardSize || 'stor') === k; return { label, icon, go: () => { hp('selection'); this.saveCfg({ cardSize: k }); }, style: { height: 44, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, background: on ? pink : 'transparent', color: on ? '#2f2f2f' : '#afafaf', transition: 'background .25s' } }; }), gear: [['hero', 'Toppkort', 'web_asset'], ['tab', 'Fanelinje', 'tab']].map(([k, label, icon]) => { const on = (cfg.gear || 'hero') === k; return { label, icon, go: () => { hp('selection'); this.saveCfg({ gear: k }); }, style: { height: 44, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, background: on ? pink : 'transparent', color: on ? '#2f2f2f' : '#afafaf', transition: 'background .25s' } }; }) }, gearHero: (cfg.gear || 'hero') === 'hero', gearTab: cfg.gear === 'tab', cfgOpen: !!s.cfgOpen, openCfg: () => { hp('light'); set({ cfgOpen: true }); }, closeCfg: () => { hp('light'); set({ cfgOpen: false, ceHalf: false }); }, heroGlow, heroPing, lineAnim, areaAnim, animKey,
+      tabWrap, tabBar, sec, secHold, ce: { ...ce, spot: (() => { const on = cfg.spotChip !== false; return { go: () => { hp('selection'); this.saveCfg({ spotChip: !on }); }, track: { position: 'relative', width: 50, height: 30, borderRadius: 15, flex: 'none', background: on ? 'rgb(102 209 158)' : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 23 : 3, width: 24, height: 24, borderRadius: 12, background: on ? '#2f2f2f' : '#c7c7c7', transition: 'left .2s' } }; })(), isKurs: ceTab === 'kurs', kurs: ceTab === 'kurs' ? this.kursEd(s, hp, pink) : {}, tabStyles, ucSlots, cardSz: [['kompakt', 'Kompakt', 'density_small'], ['stor', 'Stor', 'density_large']].map(([k, label, icon]) => { const on = (cfg.cardSize || 'stor') === k; return { label, icon, go: () => { hp('selection'); this.saveCfg({ cardSize: k }); }, style: { height: 44, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, background: on ? pink : 'transparent', color: on ? '#2f2f2f' : '#afafaf', transition: 'background .25s' } }; }), gear: [['hero', 'Toppkort', 'web_asset'], ['tab', 'Fanelinje', 'tab']].map(([k, label, icon]) => { const on = (cfg.gear || 'hero') === k; return { label, icon, go: () => { hp('selection'); this.saveCfg({ gear: k }); }, style: { height: 44, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 500, background: on ? pink : 'transparent', color: on ? '#2f2f2f' : '#afafaf', transition: 'background .25s' } }; }) }, gearHero: (cfg.gear || 'hero') === 'hero', showSpot: cfg.spotChip !== false, gearTab: cfg.gear === 'tab', cfgOpen: !!s.cfgOpen, openCfg: () => { hp('light'); set({ cfgOpen: true }); }, closeCfg: () => { hp('light'); set({ cfgOpen: false, ceHalf: false }); }, heroGlow, heroPing, lineAnim, areaAnim, animKey,
       showChart: s.sub !== 'Eksempler', showEx: s.sub === 'Eksempler',
       useCards, useStats, bars, legend, sources, dayLabel: `${d.getDate()}. ${mn[d.getMonth()]}`,
       dayNow: () => set({ day: 0 }), dayPrev: () => set({ day: s.day - 1 }), dayNext: () => s.day < 0 && set({ day: s.day + 1 }),
       nextStyle: { width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: s.day < 0 ? 1 : .35 },
-      kSegs, groups, unit: kwh ? 'kWh' : 'kr', sumV: fmt(sumN, sumN >= 100 ? 0 : 2), sumLabel: s.per === 'mnd' ? 'Oktober' : 'I dag' };
+      kSegs, kPriceLabel: kSpot ? 'Spotpris · 1,47 kr/kWh' : 'Norgespris · 0,80 kr/kWh', kPriceToggle: () => { hp('selection'); set({ kPrice: kSpot ? 'norge' : 'spot' }); }, ...(() => { const KB = [['Oppvarming', 57, '#f28672'], ['Annet', 27, '#7a7a7a'], ['Vann', 12, '#73b8f2'], ['Lys', 4, '#f2d26f']], sel = s.kbSel, open = !!s.kbOpen;
+        const cur = KB.find(k => k[0] === sel);
+        return { kbOpen: open, kbToggle: () => { hp('light'); set({ kbOpen: !open, kbSel: open ? null : sel }); },
+          kbInfo: cur ? `${cur[0]} står for ${cur[1]} % av forbruket · ${fmt(sumN * cur[1] / 100, 2)} ${kwh ? 'kWh' : 'kr'}` : 'Størst: Oppvarming står for 57 % av forbruket',
+          kbSegs: KB.map(([label, v, c]) => { const on = sel === label, dim = sel && !on; return { label, pct: v + ' %',
+            tap: e => { e.stopPropagation(); hp('selection'); set({ kbOpen: true, kbSel: on ? null : label }); },
+            style: { flex: v, background: c, opacity: dim ? 0.35 : 1, transition: 'opacity .2s' },
+            dot: { width: 10, height: 10, borderRadius: 5, flex: 'none', background: c, boxShadow: on ? '0 0 0 2px rgba(50,38,44,.5)' : 'none' },
+            row: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, height: 32, padding: '0 10px', border: 0, borderRadius: 16, fontSize: 13, color: 'rgba(50,38,44,.95)', textAlign: 'left', background: on ? 'rgba(60,40,50,.18)' : 'rgba(60,40,50,.08)', opacity: dim ? 0.6 : 1 } }; }) }; })(), groups, unit: kwh ? 'kWh' : 'kr', sumV: fmt(sumN, sumN >= 100 ? 0 : 2), sumLabel: s.per === 'mnd' ? 'Oktober' : 'I dag' };
   }
 }
 </script>

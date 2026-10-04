@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#232323;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+[data-hs]::-webkit-scrollbar{display:none}
+@keyframes vacc{0%{transform:rotate(0) translate(0)}20%{transform:rotate(-5deg) translate(-3px,3px)}40%{transform:rotate(-12deg) translate(-3px,-3px)}60%{transform:translate(3px,3px)}80%{transform:rotate(12deg) translate(3px,-3px)}100%{transform:rotate(0) translate(0)}}
+@keyframes drypp{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+@keyframes route{0%{left:-14px;top:150px}8%{left:20px;top:140px}22%{left:110px;top:130px}36%{left:110px;top:30px}50%{left:20px;top:40px}64%{left:20px;top:95px}78%{left:105px;top:85px}92%{left:40px;top:150px}100%{left:-14px;top:150px}}
+@keyframes home{from{left:70px;top:80px}to{left:-14px;top:150px}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes bolt{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes shine{from{background-position:0 0}to{background-position:200px 0}}
+@keyframes empty{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg)}75%{transform:rotate(14deg)}}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes sweep{from{background-position:0 0}to{background-position:28px 0}}
+@keyframes growx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./image-slot.js"></script>
+<script src="./glass-drag.js"></script>
+<script src="./haptic.js"></script>
+</helmet>
+<div style="min-height:100vh;display:flex;justify-content:center;padding:24px 0;box-sizing:border-box">
+<section data-screen-label="Sir Sweeps" style="width:100%;max-width:440px;background:#282828;border-radius:38px;padding:20px 14px 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px">
+
+  <header style="display:flex;align-items:center;gap:12px;padding:0 4px 6px">
+    <span style="width:44px;height:44px;border-radius:22px;background:#e1e1e1;color:#282828;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">robot_2</span></span>
+    <span style="flex:1;font-size:30px;font-weight:600;letter-spacing:-0.03em">{{ name }}</span>
+    <button style="width:44px;height:44px;border-radius:22px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:22px">close</span></button>
+  </header>
+
+  <div style="position:relative;height:200px;border-radius:28px;overflow:hidden;background:radial-gradient(60% 90% at 45% 70%,#34364a 0%,transparent 70%),linear-gradient(165deg,#15171c,#1d1f27);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:flex">
+    <div style="flex:1;min-width:0;padding:18px;display:flex;flex-direction:column;z-index:2">
+      <span style="font-size:13px;color:#afafaf">{{ name }}</span>
+      <span style="{{ hero.pill }}"><span class="ms" style="font-size:15px">{{ hero.icon }}</span><span style="overflow:hidden;text-overflow:ellipsis">{{ hero.status }}</span></span>
+      <span style="margin-top:auto;display:flex;align-items:baseline;gap:2px"><span style="font-size:44px;font-weight:300;letter-spacing:-0.02em;line-height:1">{{ battery }}</span><span style="font-size:24px;font-weight:300">%</span></span>
+      <span style="font-size:12px;color:#7f7f7f;margin-top:2px">batteri</span>
+      <div style="margin-top:10px;width:100px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden"><div style="{{ hero.bar }}"></div></div>
+    </div>
+    <div style="position:relative;width:158px;flex:none;margin:12px 12px 12px 0">
+      <div style="position:absolute;inset:0;border-radius:12px;border:2px solid #3b3b3b;background:repeating-linear-gradient(180deg,#5b4533 0 15px,#3f2f23 15px 16px),#5b4533;overflow:hidden">
+        <div style="position:absolute;top:4px;left:calc(50% - 40px);width:80px;height:8px;border-radius:4px;background:#4d607f"></div>
+        <div style="position:absolute;left:40px;top:84px;width:80px;height:52px;border-radius:50%;background:#5f5b73;box-shadow:inset 0 0 0 5px #5f5b73,inset 0 0 0 6px rgba(255,255,255,.35)"></div>
+        <sc-for list="{{ dust }}" as="d" hint-placeholder-count="9"><span style="{{ d }}"></span></sc-for>
+      </div>
+      <span class="ms" style="{{ hero.bolt }}">bolt</span>
+      <span style="{{ hero.robot }}"><span style="width:8px;height:8px;border-radius:50%;background:#2c6e55;box-shadow:0 0 0 2px #cfd6dc"></span></span>
+    </div>
+  </div>
+
+  <sc-if value="{{ waterEmpty }}" hint-placeholder-val="{{ false }}">
+    <div style="background:rgb(242 128 115);color:#282828;border-radius:32px;padding:6px;display:flex;align-items:center;gap:14px">
+      <span style="width:52px;height:52px;flex:none;border-radius:26px;background:rgba(0,0,0,.1);display:grid;place-items:center"><span class="ms" style="font-size:26px;animation:drypp 1.4s ease-in-out infinite">format_color_reset</span></span>
+      <span style="flex:1;font-size:14px;text-wrap:pretty"><strong>Vanntanken er tom.</strong> Fyll på før neste mopping.</span>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
+    <div style="flex:1;min-width:0">
+      <sc-if value="{{ tabFilled }}" hint-placeholder-val="{{ true }}">
+        <div data-glass-drag="x" style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.tap }}" title="{{ t.label }}" style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:20px;flex:none">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ true }}"><span>{{ t.label }}</span></sc-if></button></sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ tabOutline }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;justify-content:center"><div data-glass-drag="x" style="display:flex;gap:2px;padding:3px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.28)">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.tap }}" title="{{ t.label }}" style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:20px;flex:none">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ true }}"><span>{{ t.label }}</span></sc-if></button></sc-for>
+        </div></div>
+      </sc-if>
+    </div>
+    <button onClick="{{ openCfg }}" title="Tilpass" style="width:48px;height:48px;border-radius:24px;flex:none;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);display:grid;place-items:center" style-active="transform:scale(0.94)"><span class="ms" style="font-size:22px">settings</span></button>
+  </div>
+
+  <sc-if value="{{ isRenhold }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:#3a3a3a;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:0 4px">
+          <span style="font-size:13px;color:#afafaf">{{ floor }}</span>
+          <button onClick="{{ toggleAll }}" style="font-size:14px;font-weight:500;color:#fafafa">{{ plan.allLabel }}</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,64px);grid-template-areas:'sov sov kon kon' 'sov sov kon kon' 'pap tra tra mam' 'pap tra tra mam';gap:6px">
+          <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="5">
+            <button onClick="{{ r.tap }}" style="{{ r.style }}" style-active="transform:scale(0.97)">
+              <span style="display:flex;justify-content:space-between;align-items:flex-start;width:100%">
+                <span class="ms" style="font-size:22px;font-variation-settings:'FILL' 0">{{ r.icon }}</span>
+                <sc-if value="{{ r.on }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:20px;animation:pop .3s ease both">check_circle</span></sc-if>
+              </span>
+              <span style="display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:500">{{ r.label }}</span><span style="font-size:12px;opacity:.75">{{ r.area }} m²</span></span>
+            </button>
+          </sc-for>
+        </div>
+        <span style="padding:0 4px;font-size:13px;color:#afafaf">{{ plan.summary }}</span>
+      </div>
+
+      <div style="{{ big.wrap }}">
+        <button onClick="{{ primary }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:14px;text-align:left">
+          <span style="{{ big.cell }}"><span style="{{ big.robot }}"><span style="{{ big.dot }}"></span></span></span>
+          <span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:16px;font-weight:600">{{ big.label }}</span><span style="font-size:12px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ big.sub }}</span></span>
+        </button>
+        <sc-if value="{{ big.showCtl }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:6px;margin-right:6px">
+            <button onClick="{{ togglePause }}" style="width:44px;height:44px;border-radius:22px;background:rgba(0,0,0,.1);display:grid;place-items:center"><span class="ms" style="font-size:22px">{{ big.pauseIcon }}</span></button>
+            <button onClick="{{ goHome }}" style="width:44px;height:44px;border-radius:22px;background:rgba(0,0,0,.1);display:grid;place-items:center"><span class="ms" style="font-size:22px">home</span></button>
+          </div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ hasZones }}" hint-placeholder-val="{{ true }}">
+        <span style="margin-top:14px;padding:0 4px;font-size:13px;color:#afafaf">Soner</span>
+        <div data-hs="1" style="display:flex;gap:8px;overflow-x:auto;margin:0 -14px;padding:0 14px;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x">
+          <sc-for list="{{ zones }}" as="z" hint-placeholder-count="5">
+            <button onClick="{{ z.tap }}" style="{{ z.style }}"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 0">{{ z.icon }}</span>{{ z.label }}</button>
+          </sc-for>
+          <span style="flex:none;width:6px"></span>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isKontroll }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:#3a3a3a;border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+            <span style="font-size:13px;color:#afafaf">{{ ctl.title }}</span>
+            <span style="display:flex;align-items:baseline;gap:4px"><span style="font-size:40px;font-weight:300;line-height:1.1">{{ ctl.big }}</span><span style="font-size:13px;color:#afafaf">{{ ctl.unit }}</span></span>
+          </div>
+          <button onClick="{{ togglePause }}" style="{{ ctl.play }}" style-active="transform:scale(0.94)"><span class="ms" style="font-size:30px">{{ ctl.playIcon }}</span></button>
+        </div>
+        <div style="height:10px;border-radius:5px;background:#282828;overflow:hidden"><div style="{{ ctl.bar }}"></div></div>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+          <button onClick="{{ goHome }}" style="height:52px;border-radius:26px;background:rgb(242 181 115);color:#282828;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600" style-active="transform:scale(0.97)"><span class="ms" style="font-size:22px">home</span>Returner hjem</button>
+          <button onClick="{{ doEmpty }}" style="height:52px;border-radius:26px;background:#e1e1e1;color:#282828;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600" style-active="transform:scale(0.97)"><span class="ms" style="{{ ctl.emptyIcon }}">delete</span>{{ ctl.emptyLabel }}</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px">
+        <button onClick="{{ setFan.next }}" style="grid-row:1 / 3;position:relative;min-height:124px;border-radius:24px;background:#3a3a3a;text-align:left;padding:14px 14px 12px;display:flex;flex-direction:column;justify-content:space-between;min-width:0" style-active="transform:scale(0.98)">
+          <span style="font-size:12px;color:#afafaf;padding-top:10px;padding-right:56px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ setFan.label }}</span>
+          <span style="position:absolute;top:4px;right:4px;width:50px;height:50px;border-radius:25px;display:grid;place-items:center;background:#404040"><span class="ms" style="{{ setFan.iconStyle }}">{{ setFan.icon }}</span></span>
+          <span style="font-size:28px;font-weight:300;letter-spacing:-0.01em;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ setFan.value }}</span>
+        </button>
+        <button onClick="{{ setMop.next }}" style="display:flex;align-items:center;gap:14px;min-height:58px;padding:4px 14px 4px 4px;gap:12px;border-radius:29px;background:#3a3a3a;text-align:left;min-width:0" style-active="transform:scale(0.97)"><span style="width:50px;height:50px;border-radius:25px;flex:none;display:grid;place-items:center;background:#404040"><span class="ms" style="{{ setMop.iconStyle }}">{{ setMop.icon }}</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ setMop.value }}</span><span style="font-size:13px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ setMop.label }}</span></span></button>
+        <button onClick="{{ setInt.next }}" style="display:flex;align-items:center;gap:14px;min-height:58px;padding:4px 14px 4px 4px;gap:12px;border-radius:29px;background:#3a3a3a;text-align:left;min-width:0" style-active="transform:scale(0.97)"><span style="width:50px;height:50px;border-radius:25px;flex:none;display:grid;place-items:center;background:#404040"><span class="ms" style="{{ setInt.iconStyle }}">{{ setInt.icon }}</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ setInt.value }}</span><span style="font-size:13px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ setInt.label }}</span></span></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isInfo }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <p style="margin:0;padding:6px 6px 10px;font-size:21px;font-weight:500;line-height:1.95;letter-spacing:-0.01em;color:#fafafa;text-wrap:pretty">Rolf har vasket <span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:18px;background:#fafafa;color:#232323;font-weight:600;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums;margin:3px 0">7574 m²</span> som tilsvarer ca <span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:18px;background:#fafafa;color:#232323;font-weight:600;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums;margin:3px 0">1,1 fotballbaner</span>, det har han brukt mer enn <span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:18px;background:#fafafa;color:#232323;font-weight:600;vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums;margin:3px 0">8 dager og 15 timer</span> på til sammen.</p>
+      <div style="background:#3a3a3a;border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:16px">
+        <span style="font-size:13px;color:#afafaf">Vedlikehold</span>
+        <sc-for list="{{ parts }}" as="p" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:44px;height:44px;flex:none;border-radius:22px;background:#404040;display:grid;place-items:center"><span class="ms" style="font-size:22px">{{ p.icon }}</span></span>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+              <span style="display:flex;justify-content:space-between;gap:8px;font-size:14px"><span style="font-weight:500">{{ p.label }}</span><span style="{{ p.valueStyle }}">{{ p.value }}</span></span>
+              <div style="height:6px;border-radius:3px;background:#282828;overflow:hidden"><div style="{{ p.bar }}"></div></div>
+            </div>
+            <sc-if value="{{ p.low }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ p.reset }}" style="height:32px;padding:0 12px;border-radius:16px;background:rgb(242 181 115);color:#282828;font-size:12px;font-weight:600">Nullstill</button>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isKart }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:#3a3a3a;border-radius:28px;padding:14px;box-sizing:border-box;width:100%;min-width:0">
+        <div style="position:relative;width:100%;padding-top:133%;border-radius:18px;overflow:hidden">
+          <div style="position:absolute;inset:0"><image-slot id="sweeps-kart" shape="rounded" radius="18" placeholder="Kart · image.sir_sweeps_a_lot_hjemme_andre_etasje"></image-slot></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <sc-for list="{{ legend }}" as="l" hint-placeholder-count="5"><button onClick="{{ l.tap }}" style="{{ l.style }}"><span style="{{ l.dot }}"></span>{{ l.label }}</button></sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+</section>
+
+<sc-if value="{{ cfgOpen }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Tilpass Sir Sweeps" style="position:fixed;inset:0;z-index:100;display:flex;align-items:flex-end;justify-content:center">
+    <div onClick="{{ closeCfg }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)"></div>
+    <div style="position:relative;width:100%;max-width:440px;height:calc(100vh - 52px);box-sizing:border-box;background:#282828;border-radius:38px 38px 0 0;display:flex;flex-direction:column;box-shadow:0 -20px 50px rgba(0,0,0,0.5)">
+      <div style="display:flex;justify-content:center;padding-top:10px"><span style="width:40px;height:5px;border-radius:3px;background:#545454"></span></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 20px 14px">
+        <span style="flex:1;font-size:22px;font-weight:600;letter-spacing:-0.02em">Tilpass {{ name }}</span>
+        <button onClick="{{ closeCfg }}" style="height:40px;padding:0 18px;border-radius:20px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#3a3a3a;font-size:14px;font-weight:600">Ferdig</button>
+      </div>
+      <div style="padding:0 14px 12px">
+        <div data-glass-drag="x" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+          <sc-for list="{{ ce.tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:0 14px 40px;display:flex;flex-direction:column;gap:8px">
+
+        <sc-if value="{{ ce.isRom }}" hint-placeholder-val="{{ true }}">
+          <section style="flex:none;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:#3a3a3a">
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#afafaf">Navn</span><input value="{{ name }}" onChange="{{ ce.setName }}" style="height:44px;border-radius:14px;border:0;outline:none;padding:0 14px;background:#282828;color:#fafafa;font:inherit;font-size:15px"></input></label>
+            <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#afafaf">Etasje / kart-navn</span><input value="{{ floor }}" onChange="{{ ce.setFloor }}" style="height:44px;border-radius:14px;border:0;outline:none;padding:0 14px;background:#282828;color:#fafafa;font:inherit;font-size:15px"></input></label>
+          </section>
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <span style="padding:14px 16px 6px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Rom</span>
+            <sc-for list="{{ ce.rooms }}" as="r" hint-placeholder-count="5">
+              <div data-trow="1" style="{{ r.row }}">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span onPointerDown="{{ r.dDown }}" onPointerMove="{{ dMove }}" onPointerUp="{{ dUp }}" onPointerCancel="{{ dUp }}" title="Dra for å flytte" style="width:28px;height:44px;margin-left:-8px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f"><span class="ms" style="font-size:22px">drag_indicator</span></span>
+                  <span style="{{ r.dot }}"><span class="ms" style="font-size:18px;color:#282828;font-variation-settings:'FILL' 0">{{ r.icon }}</span></span>
+                  <input value="{{ r.label }}" onChange="{{ r.setLabel }}" style="flex:1;min-width:0;height:40px;border-radius:12px;border:0;outline:none;padding:0 12px;background:#282828;color:#fafafa;font:inherit;font-size:14px"></input>
+                  <button onClick="{{ r.toggle }}" title="Vis" style="{{ r.track }}"><span style="{{ r.knob }}"></span></button>
+                </div>
+                <div style="display:flex;gap:8px;padding-left:48px"><sc-for list="{{ r.colors }}" as="c" hint-placeholder-count="6"><button onClick="{{ c.go }}" style="{{ c.style }}"></button></sc-for></div>
+              </div>
+            </sc-for>
+          </section>
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <span style="padding:14px 16px 6px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Soner</span>
+            <sc-for list="{{ ce.zones }}" as="z" hint-placeholder-count="5">
+              <div data-trow="1" style="{{ z.row }}">
+                <span onPointerDown="{{ z.dDown }}" onPointerMove="{{ dMove }}" onPointerUp="{{ dUp }}" onPointerCancel="{{ dUp }}" title="Dra for å flytte" style="width:28px;height:44px;margin-left:-8px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f"><span class="ms" style="font-size:22px">drag_indicator</span></span>
+                <span class="ms" style="font-size:20px;color:#afafaf;font-variation-settings:'FILL' 0">{{ z.icon }}</span>
+                <span style="flex:1;min-width:0;font-size:14px">{{ z.label }}</span>
+                <button onClick="{{ z.toggle }}" style="{{ z.track }}"><span style="{{ z.knob }}"></span></button>
+              </div>
+            </sc-for>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ ce.isFaner }}" hint-placeholder-val="{{ false }}">
+          <section style="flex:none;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:#3a3a3a">
+            <span style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Forhåndsvisning</span>
+            <div style="padding:14px 10px;border-radius:18px;background:#282828;display:flex;align-items:center;gap:8px">
+              <div style="flex:1;min-width:0">
+                <sc-if value="{{ tabFilled }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+                    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.tap }}" title="{{ t.label }}" style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:20px;flex:none">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ true }}"><span>{{ t.label }}</span></sc-if></button></sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ tabOutline }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;justify-content:center"><div style="display:flex;gap:2px;padding:3px;border-radius:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.28)">
+                    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.tap }}" title="{{ t.label }}" style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ false }}"><span class="ms" style="font-size:20px;flex:none">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ true }}"><span>{{ t.label }}</span></sc-if></button></sc-for>
+                  </div></div>
+                </sc-if>
+              </div>
+              <span style="width:48px;height:48px;border-radius:24px;flex:none;background:#3a3a3a;display:grid;place-items:center"><span class="ms" style="font-size:22px">settings</span></span>
+            </div>
+          </section>
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <span style="padding:14px 16px 6px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">Faner</span>
+            <sc-for list="{{ ce.tabRows }}" as="t" hint-placeholder-count="4">
+              <div data-trow="1" style="{{ t.row }}">
+                <span onPointerDown="{{ t.dDown }}" onPointerMove="{{ dMove }}" onPointerUp="{{ dUp }}" onPointerCancel="{{ dUp }}" title="Dra for å flytte" style="width:36px;height:44px;margin-left:-8px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#7f7f7f"><span class="ms" style="font-size:22px">drag_indicator</span></span>
+                <span class="ms" style="font-size:22px;color:#afafaf;width:24px">{{ t.icon }}</span>
+                <span style="flex:1;min-width:0;font-size:15px;font-weight:500">{{ t.label }}</span>
+                <button onClick="{{ t.toggle }}" style="{{ t.track }}"><span style="{{ t.knob }}"></span></button>
+              </div>
+            </sc-for>
+          </section>
+          <section style="flex:none;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:24px;background:#3a3a3a">
+            <sc-for list="{{ ce.tabSegs }}" as="g" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#afafaf">{{ g.title }}</span>
+                <div data-glass-drag="x" style="{{ g.box }}"><sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+              </div>
+            </sc-for>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ ce.isEnts }}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{ ce.entGroups }}" as="g" hint-placeholder-count="2">
+            <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+              <span style="padding:14px 16px 6px;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#7f7f7f">{{ g.title }}</span>
+              <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                <div style="{{ r.row }}">
+                  <button onClick="{{ r.toggle }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:44px">
+                    <span style="width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;background:#404040"><span class="ms" style="font-size:18px;color:#e1e1e1">{{ r.icon }}</span></span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ r.label }}</span><span style="{{ r.entS }}">{{ r.entTxt }}</span></span>
+                    <span class="ms" style="font-size:20px;color:#7f7f7f">{{ r.chev }}</span>
+                  </button>
+                  <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:18px;background:#282828">
+                      <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:12px;background:#3a3a3a"><span class="ms" style="font-size:18px;color:#7f7f7f">search</span><input value="{{ r.q }}" onChange="{{ r.setQ }}" placeholder="Søk etter entitet …" autofocus="true" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#fafafa;font:inherit;font-size:13px"></input></div>
+                      <sc-for list="{{ r.sug }}" as="o" hint-placeholder-count="4">
+                        <button onClick="{{ o.go }}" style="{{ o.style }}" style-hover="background:#3a3a3a">
+                          <span class="ms" style="font-size:18px;color:#979797">{{ o.icon }}</span>
+                          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</span><span style="font-size:11px;color:#7f7f7f;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.id }}</span></span>
+                          <span class="ms" style="{{ o.check }}">check</span>
+                        </button>
+                      </sc-for>
+                      <sc-if value="{{ r.none }}" hint-placeholder-val="{{ false }}"><span style="padding:10px;font-size:12px;color:#7f7f7f">Ingen treff</span></sc-if>
+                      <sc-if value="{{ r.canClear }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.clear }}" style="height:36px;border-radius:12px;font-size:12px;font-weight:500;color:#f28073">Fjern entitet</button></sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </section>
+          </sc-for>
+        </sc-if>
+
+        <sc-if value="{{ ce.isAdv }}" hint-placeholder-val="{{ false }}">
+          <section style="flex:none;display:flex;flex-direction:column;border-radius:24px;background:#3a3a3a">
+            <sc-for list="{{ ce.advRows }}" as="r" hint-placeholder-count="3">
+              <div style="{{ r.row }}">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ r.label }}</span><span style="font-size:12px;color:#979797">{{ r.sub }}</span></span>
+                <button onClick="{{ r.toggle }}" style="{{ r.track }}"><span style="{{ r.knob }}"></span></button>
+              </div>
+            </sc-for>
+          </section>
+          <button onClick="{{ ce.reset }}" style="flex:none;height:48px;border-radius:24px;background:#3a3a3a;font-size:14px;font-weight:500;color:#f28073">Tilbakestill til standard</button>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:1100},&quot;battery&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:100,&quot;min&quot;:5,&quot;max&quot;:100,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;waterEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const GREEN = 'rgb(102 209 158)', AMBER = 'rgb(242 181 115)', RED = 'rgb(242 128 115)';
+const LS = 'sweeps-cfg2';
+const hp = t => { try { window.haptic && window.haptic(t || 'light'); } catch (e) {} };
+const ROOMS = [['sov', 'Soverom', 'bed', 14, '#8cc4ec'], ['kon', 'Kontor', 'desk', 11, '#e08a80'], ['pap', 'Pappa', 'single_bed', 12, '#f0b37e'], ['tra', 'Trapp', 'stairs', 6, '#b27ccc'], ['mam', 'Mamma', 'king_bed', 16, '#f3a33a']];
+const RCOL = ['#8cc4ec', '#e08a80', '#f0b37e', '#b27ccc', '#f3a33a', '#7fd4a8'];
+const ZONES = [['spl', 'table_restaurant', 'Spisebord lite'], ['spm', 'table_restaurant', 'Spisebord mye'], ['stu', 'table_restaurant', 'Stue uten spisebord'], ['tep', 'texture', 'Teppe stue'], ['kjb', 'countertops', 'Kjøkkenbord']];
+const TABS = [['renhold', 'Renhold', 'cleaning_services'], ['kontroll', 'Kontroll', 'tune'], ['info', 'Info', 'info'], ['kart', 'Kart', 'map']];
+const ENTG = [['Robot', [['vacuum', 'robot_2', 'Støvsuger', 'vacuum.sir_sweeps_a_lot'], ['battery', 'battery_5_bar', 'Batteri', 'sensor.sir_sweeps_a_lot_battery'], ['charging', 'battery_charging_full', 'Lader', 'binary_sensor.sir_sweeps_a_lot_charging'], ['tank', 'format_color_reset', 'Vanntank tom', 'binary_sensor.sir_sweeps_a_lot_water_shortage'], ['map', 'map', 'Kart', 'image.sir_sweeps_a_lot_hjemme_andre_etasje']]],
+  ['Handlinger', [['startRooms', 'play_arrow', 'Start valgte rom', 'script.start_sir_sweeps_a_lot_room_select'], ['start', 'play_circle', 'Start / fortsett', 'script.stovsuger_start'], ['pause', 'pause', 'Pause', 'script.stovsuger_pause'], ['home', 'home', 'Returner hjem', 'script.stovsuger_retuner_hjem'], ['empty', 'delete', 'Tøm støvsuger', 'script.rolf_empty'], ['allSel', 'select_all', 'Alle/valgte (sensor)', 'sensor.rolf_all']]],
+  ['Rom (valg)', [['r_sov', 'bed', 'Soverom', 'input_boolean.sir_sweeps_a_lot_sebsatian_soverom'], ['r_kon', 'desk', 'Kontor', 'input_boolean.sir_sweeps_a_lot_pappa_kontor'], ['r_pap', 'single_bed', 'Pappa', 'input_boolean.sir_sweeps_a_lot_pappa_soverom'], ['r_tra', 'stairs', 'Trapp', 'input_boolean.sir_sweeps_a_lot_trappegang'], ['r_mam', 'king_bed', 'Mamma', 'input_boolean.sir_sweeps_a_lot_mamma_soverom']]],
+  ['Soner (skript)', [['z_spl', 'table_restaurant', 'Spisebord lite', 'script.rolf_zone_stuebord'], ['z_spm', 'table_restaurant', 'Spisebord mye', 'script.rolf_zone_stuebord_mye'], ['z_stu', 'table_restaurant', 'Stue uten spisebord', 'script.rolf_zone_stue_uten_spisebord'], ['z_tep', 'texture', 'Teppe stue', 'script.rolf_zone_teppe'], ['z_kjb', 'countertops', 'Kjøkkenbord', 'script.rolf_zone_kjokkenbord']]],
+  ['Innstillinger', [['fan', 'mode_fan', 'Viftehastighet', 'vacuum.sir_sweeps_a_lot'], ['fanCycle', 'autorenew', 'Bytt vifte (skript)', 'script.cycle_vacuum_fan_speed'], ['mop', 'mop', 'Mopp modus', 'input_select.vacuum_fan_speed'], ['water', 'water_drop', 'Mopp intensitet', 'script.vacuum_fan_speed']]],
+  ['Statistikk og vedlikehold', [['area', 'square_foot', 'Vasket totalt', 'sensor.sir_sweeps_a_lot_total_cleaning_area'], ['time', 'schedule', 'Tid brukt', 'sensor.sir_sweeps_a_lot_total_cleaning_time'], ['hb', 'cleaning_services', 'Hovedbørste', 'sensor.sir_sweeps_a_lot_main_brush_time_left'], ['fi', 'air', 'Filter', 'sensor.sir_sweeps_a_lot_filter_time_left'], ['se', 'visibility', 'Sensor', 'sensor.sir_sweeps_a_lot_sensor_time_left'], ['sb', 'brush', 'Sidebørste', 'sensor.sir_sweeps_a_lot_side_brush_time_left']]]];
+const EXTRA = ['vacuum.rolf', 'sensor.rolf_batteri', 'select.rolf_viftehastighet', 'image.sir_sweeps_a_lot_hjemme_forste_etasje', 'button.sir_sweeps_a_lot_nullstill_filter', 'button.sir_sweeps_a_lot_nullstill_hovedborste', 'sensor.sir_sweeps_a_lot_status', 'sensor.sir_sweeps_a_lot_gjeldende_rom'];
+const DOMIC = { script: 'play_arrow', input_boolean: 'toggle_on', input_select: 'list', sensor: 'sensors', switch: 'toggle_on', select: 'list', button: 'smart_button', binary_sensor: 'radio_button_checked', vacuum: 'robot_2', image: 'image' };
+const DEFCFG = () => ({ name: 'Sir Sweeps', floor: '2. etasje', rooms: {}, zoneHid: {}, tabOrder: TABS.map(t => t[0]), tabHid: {}, startTab: 'renhold', tabStyle: 'Fylt', tabContent: 'tekst', confirmStart: false, autoEmpty: true, ent: {} });
+class Component extends DCLogic {
+  state = { tabK: null, rooms: {}, status: 'docked', fan: 1, mopMode: 0, mopInt: 1, emptying: false, zone: null, progress: 0, reset: {}, cfgOpen: false, cet: 'rom' };
+  cfg() { if (this._c === undefined) { try { this._c = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { this._c = null; } } return { ...DEFCFG(), ...(this.state.cfgS || this._c || {}) }; }
+  setCfg(p) { const n = { ...this.cfg(), ...p }; try { localStorage.setItem(LS, JSON.stringify(n)); } catch (e) {} this._c = n; this.setState({ cfgS: n }); }
+  componentWillUnmount() { clearTimeout(this.t1); clearTimeout(this.t2); clearInterval(this.iv); }
+  componentDidMount() { this.iv = setInterval(() => { if (this.state.status === 'cleaning') this.setState(s => ({ progress: Math.min(100, s.progress + 1) })); }, 400); }
+  renderVals() {
+    const s = this.state, C = this.cfg(), set = (o, t) => { hp(t); this.setState(o); }, cset = p => { hp('selection'); this.setCfg(p); };
+    const bat = this.props.battery ?? 100;
+    const cleaning = s.status === 'cleaning', paused = s.status === 'paused', returning = s.status === 'returning', docked = s.status === 'docked';
+    const ordBy = (list, ord) => [...list].sort((a, b) => { const ia = ord.indexOf(a.k ?? a[0]), ib = ord.indexOf(b.k ?? b[0]); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+    const RA = ordBy(ROOMS.map(([k, label, icon, area, color]) => { const o = C.rooms[k] || {}; return { k, label: o.label ?? label, icon, area, color: o.color || color, hid: !!o.hid }; }), C.roomOrder || ROOMS.map(r => r[0]));
+    const ZO = ordBy(ZONES, C.zoneOrder || ZONES.map(z => z[0]));
+    const dragS = (dragging, i, base) => ({ ...base, position: 'relative', zIndex: dragging ? 2 : 0, borderRadius: dragging ? 18 : 0, borderTop: i && !dragging ? '1px solid rgba(255,255,255,0.06)' : '1px solid transparent', background: dragging ? '#404040' : 'transparent', boxShadow: dragging ? '0 10px 24px rgba(0,0,0,0.35)' : 'none', transform: dragging ? 'scale(1.02)' : 'none', transition: 'transform .15s, box-shadow .15s, background .15s' });
+    const dStart = (kind, k, order) => e => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {} window.__tabReorder = true; hp('medium'); this.setState({ dKind: kind, dKey: k, dOrder: [...order] }); };
+    const live = (kind, list) => s.dKind === kind && s.dOrder ? ordBy(list, s.dOrder) : list;
+    const R = RA.filter(r => !r.hid);
+    const sel = R.filter(r => s.rooms[r.k]), target = sel.length ? sel : R;
+    const area = target.reduce((a, r) => a + r.area, 0);
+    const mins = Math.round(area * [0.9, 1.1, 1.3, 1.6][s.fan] * (s.mopMode === 1 ? 1.4 : s.mopMode === 2 ? 1.7 : 1));
+    const start = () => set({ status: 'cleaning', progress: 0 }, 'medium');
+    const goHome = () => { set({ status: 'returning' }, 'medium'); clearTimeout(this.t1); this.t1 = setTimeout(() => this.setState({ status: 'docked', zone: null }), 2600); };
+    const doEmpty = () => { set({ emptying: true }, 'medium'); clearTimeout(this.t2); this.t2 = setTimeout(() => this.setState({ emptying: false }), 2400); };
+    const what = s.zone || (sel.length ? sel.map(r => r.label).join(', ') : 'Hele etasjen');
+    const dust = [[22, 30], [70, 52], [120, 22], [34, 100], [132, 104], [96, 70], [18, 150], [120, 160], [60, 170]].map(([l, t], i) => ({
+      position: 'absolute', left: l, top: t, width: 3, height: 3, borderRadius: '50%', background: '#e8dccb', opacity: cleaning || paused ? (i % 3 === 0 ? 0 : .35) : .7, transition: 'opacity 2s' }));
+    const statusText = cleaning ? 'Støvsuger · ' + what : paused ? 'Pauset' : returning ? 'Returnerer til dokken' : 'Lader i dokken';
+    const statusIcon = cleaning ? 'cleaning_services' : paused ? 'pause' : returning ? 'home' : 'battery_charging_full';
+    const seg = on => ({ flex: 1, height: 36, borderRadius: 18, fontSize: 13, fontWeight: 500, background: on ? PINK : 'transparent', color: on ? '#3a3a3a' : '#afafaf' });
+    const mkSet = (label, icon, list, cur, key, spin) => ({ label, icon, value: list[cur], next: () => set({ [key]: (cur + 1) % list.length }, 'selection'),
+      iconStyle: { fontSize: 22, color: '#fafafa', fontVariationSettings: "'FILL' 1", animation: spin && cleaning ? `spin ${1.6 - cur * .35}s linear infinite` : 'none' },
+      opts: list.map((o, i) => ({ label: o, tap: () => set({ [key]: i }, 'selection'), style: seg(cur === i) })) });
+    const partsDef = [['hb', 'cleaning_services', 'Hovedbørste', 292, 300], ['fi', 'air', 'Filter', 136, 150], ['se', 'visibility', 'Sensor', 24, 30], ['sb', 'brush', 'Sidebørste', 160, 200]];
+    const leftPct = Math.round(s.progress), remaining = Math.max(0, Math.round(mins * (1 - s.progress / 100)));
+    // tabs
+    const visT = C.tabOrder.filter(k => !C.tabHid[k]), curT = visT.includes(s.tabK) ? s.tabK : visT.includes(C.startTab) ? C.startTab : visT[0];
+    const outline = C.tabStyle === 'Kontur', tc = C.tabContent || 'tekst';
+    const tabs = visT.map(k => { const on = curT === k, T = TABS.find(t => t[0] === k), showIcon = tc !== 'tekst', showLabel = tc === 'tekst' || tc === 'begge' || (tc === 'aktiv' && on);
+      const base = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'nowrap', background: on ? PINK : 'transparent' };
+      return { label: T[1], icon: T[2], showIcon, showLabel, tap: () => set({ tabK: k }, 'selection'),
+        style: outline ? { ...base, height: 36, minWidth: 44, padding: showLabel ? '0 16px' : '0 12px', borderRadius: 18, fontSize: 14, color: on ? '#282828' : '#fafafa' }
+          : { ...base, height: 40, borderRadius: 20, fontSize: 14, fontWeight: 500, color: on ? '#3a3a3a' : '#afafaf' } }; });
+    // editor helpers
+    const swS = on => ({ track: { position: 'relative', width: 44, height: 26, borderRadius: 13, flex: 'none', background: on ? 'rgb(242 133 201)' : '#545454', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fafafa', transition: 'left .2s' } });
+    const segBox = n => ({ display: 'grid', gridTemplateColumns: `repeat(${n},minmax(0,1fr))`, gap: 2, padding: 4, borderRadius: 22, background: '#282828' });
+    const sep = i => i ? '1px solid rgba(255,255,255,0.06)' : 'none';
+    const ALL = [...new Set([...ENTG.flatMap(g => g[1].map(r => r[3])), ...EXTRA])].sort();
+    const nice = id => { const n = (id.split('.')[1] || '').replace(/_/g, ' '); return n.charAt(0).toUpperCase() + n.slice(1); };
+    const dMove = e => { if (!s.dKey) return; e.stopPropagation(); const rows = [...e.currentTarget.closest('section').querySelectorAll('[data-trow]')], y = e.clientY;
+      let to = rows.findIndex(r => { const b = r.getBoundingClientRect(); return y < b.top + b.height / 2; }); if (to < 0) to = rows.length - 1;
+      const o = [...s.dOrder], from = o.indexOf(s.dKey); if (to === from) return; o.splice(from, 1); o.splice(to, 0, s.dKey); hp('selection'); this.setState({ dOrder: o }); };
+    const dUp = () => { if (!s.dKey) return; window.__tabReorder = false; const o = s.dOrder, key = { room: 'roomOrder', zone: 'zoneOrder' }[s.dKind] || 'tabOrder'; this.setState({ dKey: null, dOrder: null, dKind: null }); this.setCfg({ [key]: o }); };
+    const ce = {
+      tabs: [['rom', 'Rom'], ['faner', 'Faner'], ['ents', 'Entiteter'], ['adv', 'Avansert']].map(([k, label]) => ({ label, go: () => set({ cet: k }, 'selection'), style: { height: 40, borderRadius: 20, fontSize: 13, fontWeight: 500, background: s.cet === k ? PINK : 'transparent', color: s.cet === k ? '#3a3a3a' : '#afafaf' } })),
+      isRom: s.cet === 'rom', isFaner: s.cet === 'faner', isEnts: s.cet === 'ents', isAdv: s.cet === 'adv',
+      setName: e => this.setCfg({ name: e.target.value }), setFloor: e => this.setCfg({ floor: e.target.value }),
+      rooms: live('room', RA).map((r, i) => { const put = o => this.setCfg({ rooms: { ...C.rooms, [r.k]: { ...(C.rooms[r.k] || {}), ...o } } });
+        return { icon: r.icon, label: r.label, setLabel: e => put({ label: e.target.value }), ...swS(!r.hid), toggle: () => { hp('selection'); put({ hid: !r.hid }); },
+          dot: { width: 36, height: 36, borderRadius: 18, flex: 'none', display: 'grid', placeItems: 'center', background: r.color },
+          row: dragS(s.dKey === r.k, i, { display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 16px' }), dDown: dStart('room', r.k, RA.map(x => x.k)),
+          colors: RCOL.map(c => ({ go: () => { hp('selection'); put({ color: c }); }, style: { width: 24, height: 24, borderRadius: 12, background: c, boxShadow: r.color === c ? '0 0 0 2px #3a3a3a, 0 0 0 4px #fafafa' : 'none' } })) }; }),
+      zones: live('zone', ZO).map(([k, icon, label], i) => ({ icon, label, ...swS(!C.zoneHid[k]), toggle: () => cset({ zoneHid: { ...C.zoneHid, [k]: !C.zoneHid[k] } }), dDown: dStart('zone', k, ZO.map(z => z[0])), row: dragS(s.dKey === k, i, { display: 'flex', alignItems: 'center', gap: 12, minHeight: 56, padding: '0 16px' }) })),
+      tabRows: (s.dKind === 'tab' && s.dOrder ? s.dOrder : C.tabOrder).map((k, i) => { const T = TABS.find(t => t[0] === k), on = !C.tabHid[k], dragging = s.dKey === k;
+        return { icon: T[2], label: T[1], ...swS(on),
+          row: { position: 'relative', zIndex: dragging ? 2 : 0, display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '0 16px', borderRadius: dragging ? 18 : 0, borderTop: i && !dragging ? '1px solid rgba(255,255,255,0.06)' : '1px solid transparent', background: dragging ? '#404040' : 'transparent', boxShadow: dragging ? '0 10px 24px rgba(0,0,0,0.35)' : 'none', transform: dragging ? 'scale(1.02)' : 'none', transition: 'transform .15s, box-shadow .15s, background .15s' },
+          toggle: () => { if (on && visT.length < 2) return; cset({ tabHid: { ...C.tabHid, [k]: on } }); },
+          dDown: e => { e.stopPropagation(); e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {} window.__tabReorder = true; hp('medium'); this.setState({ dKind: 'tab', dKey: k, dOrder: [...C.tabOrder] }); } }; }),
+      tabSegs: [['Fanestil', [['Fylt', 'Fylt'], ['Kontur', 'Kontur']], outline ? 'Kontur' : 'Fylt', v => cset({ tabStyle: v })], ['Faner viser', [['tekst', 'Tekst'], ['ikon', 'Ikoner'], ['aktiv', 'Ikon + aktiv'], ['begge', 'Begge']], tc, v => cset({ tabContent: v })], ['Startfane', visT.map(k => [k, TABS.find(t => t[0] === k)[1]]), C.startTab, v => cset({ startTab: v })]]
+        .map(([title, opts, cur, fn]) => ({ title, box: segBox(opts.length), opts: opts.map(([v, l]) => ({ label: l, go: () => fn(v), style: { height: 36, borderRadius: 18, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', background: cur === v ? PINK : 'transparent', color: cur === v ? '#3a3a3a' : '#afafaf' } })) })),
+      entGroups: ENTG.map(([title, rows]) => ({ title, rows: rows.map(([k, icon, label, def], i) => { const ent = C.ent[k] ?? def, open = s.entOpen === k, q = (s.entQ || '').toLowerCase().trim();
+        const put = v => { hp('selection'); this.setCfg({ ent: { ...C.ent, [k]: v } }); this.setState({ entOpen: null, entQ: '' }); };
+        const hits = ALL.filter(id => !q || id.includes(q.replace(/ /g, '_')) || nice(id).toLowerCase().includes(q)).sort((a, b) => (b === ent) - (a === ent)).slice(0, 8);
+        return { icon, label, open, row: { display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 16px', borderTop: sep(i) }, chev: open ? 'expand_less' : 'expand_more',
+          entTxt: ent || 'Velg entitet', entS: { fontSize: 11, fontFamily: ent ? 'ui-monospace,monospace' : 'inherit', color: ent ? '#979797' : 'rgb(242 133 201)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+          toggle: () => set({ entOpen: open ? null : k, entQ: '' }, 'selection'), q: s.entQ || '', setQ: e => this.setState({ entQ: e.target.value }),
+          sug: hits.map(id => ({ id, name: nice(id), icon: DOMIC[id.split('.')[0]] || 'category', go: () => put(id), check: { fontSize: 18, color: GREEN, opacity: id === ent ? 1 : 0 },
+            style: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, padding: '4px 10px', borderRadius: 12, textAlign: 'left', width: '100%', background: id === ent ? '#3a3a3a' : 'transparent' } })),
+          none: !hits.length, canClear: !!ent, clear: () => put('') }; }) })),
+      advRows: [['confirmStart', 'Bekreft før start', 'Spør før støvsugingen starter'], ['autoEmpty', 'Tøm automatisk etter runde', 'Kjører «Tøm støvsuger» når den er hjemme']].map(([k, label, sub], i) => ({ label, sub, ...swS(!!C[k]), toggle: () => cset({ [k]: !C[k] }), row: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 64, padding: '0 16px', borderTop: sep(i) } })),
+      reset: () => { hp('medium'); try { localStorage.removeItem(LS); } catch (e) {} this._c = null; this.setState({ cfgS: DEFCFG() }); },
+    };
+    return {
+      name: C.name, floor: C.floor, battery: bat, waterEmpty: this.props.waterEmpty ?? false,
+      tabs, tabFilled: !outline, tabOutline: outline, ce, dMove, dUp,
+      cfgOpen: s.cfgOpen, openCfg: () => set({ cfgOpen: true }), closeCfg: () => set({ cfgOpen: false }),
+      hero: {
+        status: statusText, icon: statusIcon,
+        pill: { marginTop: 8, alignSelf: 'flex-start', maxWidth: '100%', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px 0 7px', borderRadius: 13, fontSize: 12, fontWeight: 500, boxSizing: 'border-box', color: cleaning ? GREEN : paused ? AMBER : '#e1e1e1', background: cleaning ? 'rgb(102 209 158 / 0.16)' : paused ? 'rgb(242 181 115 / 0.18)' : 'rgba(255,255,255,.1)' },
+        bar: { width: bat + '%', height: '100%', borderRadius: 2, background: `linear-gradient(90deg,${GREEN},${GREEN} 60%,#c9f3dc 80%,${GREEN})`, backgroundSize: '200px 100%', animation: docked && bat < 100 ? 'shine 1.6s linear infinite' : 'none' },
+        bolt: { position: 'absolute', left: -12, top: 128, fontSize: 18, color: '#f5c542', opacity: docked ? 1 : 0, animation: docked ? 'bolt 1.6s ease-in-out infinite' : 'none', transition: 'opacity .4s' },
+        robot: { position: 'absolute', left: -14, top: 150, width: 26, height: 26, borderRadius: '50%', background: '#e7ebee', boxShadow: '0 2px 6px rgba(0,0,0,.5), inset 0 0 0 2px #9aa3ab', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: cleaning ? 'route 14s linear infinite' : returning ? 'home 2.6s ease-in-out forwards' : 'none', animationPlayState: paused ? 'paused' : 'running' },
+      },
+      dust,
+      isRenhold: curT === 'renhold', isKontroll: curT === 'kontroll', isInfo: curT === 'info', isKart: curT === 'kart',
+      rooms: R.map((r, ri) => { const on = !!s.rooms[r.k]; return { ...r, on, tap: () => set({ rooms: { ...s.rooms, [r.k]: !on } }, 'selection'),
+        style: { gridArea: ['1 / 1 / 3 / 3', '1 / 3 / 3 / 5', '3 / 1 / 5 / 2', '3 / 2 / 5 / 4', '3 / 4 / 5 / 5'][ri] || 'auto', borderRadius: 18, padding: '12px 12px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textAlign: 'left', minWidth: 0,
+          background: on ? r.color : `color-mix(in oklch, ${r.color} 18%, #3a3a3a)`, color: on ? '#282828' : '#fafafa',
+          boxShadow: on ? 'none' : `inset 0 0 0 1px color-mix(in oklch, ${r.color} 35%, transparent)`, transition: 'background .2s, color .2s, transform .12s' } }; }),
+      toggleAll: () => { const all = sel.length < R.length; set({ rooms: Object.fromEntries(R.map(r => [r.k, all])) }, 'selection'); },
+      plan: { allLabel: sel.length === R.length ? 'Fjern alle' : 'Velg alle', summary: `${sel.length ? sel.length + ' rom' : 'Alle rom'} · ${area} m² · ca ${mins} min` },
+      primary: () => { if (docked || returning) start(); },
+      togglePause: () => { if (docked) return start(); set({ status: cleaning ? 'paused' : 'cleaning' }, 'medium'); },
+      goHome, doEmpty,
+      big: {
+        label: cleaning ? 'Støvsuger' : paused ? 'Pauset' : returning ? 'Returnerer' : (sel.length ? 'Støvsug valgte rom' : 'Støvsug alt'),
+        sub: cleaning || paused ? `${what} · ${remaining} min igjen` : returning ? 'På vei til dokken' : `${area} m² · ca ${mins} min`,
+        showCtl: cleaning || paused, pauseIcon: paused ? 'play_arrow' : 'pause',
+        wrap: { background: paused ? AMBER : GREEN, color: '#282828', borderRadius: 32, padding: 6, display: 'flex', alignItems: 'center', gap: 14, transition: 'background .2s' },
+        cell: { width: 52, height: 52, flex: 'none', borderRadius: 26, display: 'grid', placeItems: 'center', background: 'rgba(16,36,26,0.86)', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)', transition: 'background .2s' },
+        dot: { width: 9, height: 9, borderRadius: '50%', background: paused ? AMBER : GREEN },
+        robot: { width: 30, height: 30, borderRadius: '50%', border: `3px solid ${paused ? AMBER : GREEN}`, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: cleaning ? 'vacc 2s ease infinite' : 'none' },
+      },
+      hasZones: ZONES.some(z => !C.zoneHid[z[0]]),
+      zones: ZO.filter(z => !C.zoneHid[z[0]]).map(([k, icon, label]) => { const on = cleaning && s.zone === label; return {
+        icon, label, tap: () => set({ status: 'cleaning', zone: label, progress: 0 }, 'medium'),
+        style: { flex: 'none', height: 52, padding: '0 20px 0 16px', borderRadius: 26, display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', background: on ? PINK : '#3a3a3a', color: on ? '#3a3a3a' : '#fafafa' } }; }),
+      ctl: {
+        title: cleaning || paused ? what : returning ? 'Returnerer' : 'I dokken',
+        big: cleaning || paused ? leftPct : bat, unit: cleaning || paused ? `% ferdig · ${remaining} min igjen` : '% batteri',
+        playIcon: cleaning ? 'pause' : 'play_arrow',
+        play: { width: 64, height: 64, flex: 'none', borderRadius: 32, background: cleaning ? RED : GREEN, color: '#282828', display: 'grid', placeItems: 'center', transition: 'background .2s, transform .12s' },
+        bar: { height: '100%', width: (cleaning || paused ? leftPct : bat) + '%', borderRadius: 5, transition: 'width .4s',
+          background: cleaning ? `repeating-linear-gradient(135deg,${GREEN} 0 8px,#8ee0b2 8px 14px)` : paused ? AMBER : GREEN, backgroundSize: '28px 100%', animation: cleaning ? 'sweep .8s linear infinite' : 'none' },
+        emptyLabel: s.emptying ? 'Tømmer…' : 'Tøm støvsuger',
+        emptyIcon: { fontSize: 22, animation: s.emptying ? 'empty .6s ease-in-out infinite' : 'none' },
+      },
+      ...(() => { const L = [
+        mkSet('Viftehastighet', 'mode_fan', ['Stille', 'Standard', 'Sterk', 'Turbo'], s.fan, 'fan', true),
+        mkSet('Mopp modus', 'mop', ['Av', 'Standard', 'Dyp'], s.mopMode, 'mopMode'),
+        mkSet('Mopp intensitet', 'tune', ['Lav', 'Middels', 'Høy'], s.mopInt, 'mopInt'),
+      ]; return { setFan: L[0], setMop: L[1], setInt: L[2] }; })(),
+      parts: partsDef.map(([k, icon, label, h0, max]) => { const h = s.reset[k] ? max : h0, pct = h / max * 100, low = h <= 30;
+        return { icon, label, low, value: h + ' t igjen', reset: () => set({ reset: { ...s.reset, [k]: true } }, 'medium'),
+          valueStyle: { color: low ? AMBER : '#afafaf', whiteSpace: 'nowrap' },
+          bar: { height: '100%', width: pct + '%', borderRadius: 3, background: low ? AMBER : GREEN, transformOrigin: 'left', animation: 'growx .5s ease both', transition: 'width .4s' } }; }),
+      legend: R.map(r => { const on = !!s.rooms[r.k]; return { label: r.label, tap: () => set({ rooms: { ...s.rooms, [r.k]: !on } }, 'selection'),
+        style: { height: 36, padding: '0 14px 0 10px', borderRadius: 18, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500, background: on ? '#e1e1e1' : '#3a3a3a', color: on ? '#282828' : '#fafafa' },
+        dot: { width: 12, height: 12, borderRadius: 4, background: r.color } }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

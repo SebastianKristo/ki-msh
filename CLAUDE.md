@@ -1,5 +1,6 @@
 # Prosjektregler
 
+- **Promptfiler:** nye endringer legges i den siste prompt-filen (nå `prompt-fiks-47.md`) som nye deler – ikke nye filer – til brukeren ber om en ny prompt.
 - Alle popups skal bruke Bubble Card-popups (bubble-card `pop-up`, åpnes via hash, f.eks. `#vanning`). Gjelder både eksisterende og nye popups.
 
 ## Bubble Card-popups – implementasjonskrav (Claude Code)
@@ -33,6 +34,7 @@ Designfilene (.dc.html) viser popup-*innholdet* i en egen ramme. I HA er det Bub
 - **Dashbord-editorene er obligatoriske:** «Tilpass Hjem» (Kort/Faner/Popups/Tekst), «Tilpass navbar», «Tilpass header» og «Tilpass rom» åpnes via hendelsesbussen `ki-open-editor` (`src/03-editors.js`) og rendres i `ki-overlay-root` (document.body, z-index 9000) – aldri inni kort/popup. GUI-editoren kommer i tillegg, ikke i stedet.
 - **Alle popups skal være 1:1 med designfilen** (Vær og alle andre) – samme design, mål, farger, tekster, ikoner, animasjoner (port keyframes/fx-kode direkte, samme parametre) og interaksjoner. Avvik er feil, ikke tolkning. Sammenlign med skjermbilder side om side før levering.
 - **Fanelinjer:** alle fanelinjer i popups kan omorganiseres med hold inne (400 ms) + dra; rekkefølgen lagres i config (`tab_order`) og speiles i Tilpass → Faner (Fiks 28.13). Startfane: felles `MSH.startTab` (`start_tab: '<fane-id>' | 'last'`, Fiks 36.5).
+- **Lysrader (Rom og Lys):** lyskortene fra `Rom v4.dc.html` (`lights`-akkordeonet) 1:1 i både `msh-rom-card` og `msh-lys-card` via felles `M.renderLightRow` (`src/08-light-row.js`). Prompt 39 (`ki-light-slider`) er forkastet (Fiks 41).
 - **Lys og mørk modus:** alt skal fungere i lys modus – ingen hardkodede hex-farger for tekst/flater/kanter; bruk tokens fra temamodulen med mørk fallback (se «Tema (lys/mørk)»). Tekst og ikoner på aksentflater er alltid mørke.
 - **Scener/skript** (f.eks. «Maks lys», «Komfort», «Middag», «TV-kveld» i Rom): er engangshandlinger – vis ALDRI aktiv-/på-tilstand. Alle fliser har samme hvile-utseende (#3a3a3a); trykk gir kun kort trykk-animasjon (scale) + haptic, ingen varig markering.
 ## Kjente fallgruver – må håndteres (Claude Code)
