@@ -38,14 +38,15 @@ await p.evaluate(async () => {
     tiles: { hjem: { cam: { stack: false }, ruter: { stack: false } } }, swipe: { hjem: { 'L-top': false } },
     slides: { hjem: { L: { cal: true } } },
     calendar: { tap_action: { action: 'navigate', navigation_path: '/lovelace/kalender' } },
-    tile_cfg: { lock: { entity: 'lock.inngangsdor' }, cam: { active: { triggers: [{ entity: 'binary_sensor.inngang_person', op: '=', value: 'on' }] } } } };
+    tile_cfg: { lock: { entity: 'lock.inngangsdor', lock_sort: 'default' /* 47 B: standard-låsen som hjem */ }, cam: { active: { triggers: [{ entity: 'binary_sensor.inngang_person', op: '=', value: 'on' }] } } } };
   c.setConfig(window.__cfg); c.hass = window.__h;
   document.getElementById('dash').appendChild(c);
   window.__c = c;
   await new Promise((q) => setTimeout(q, 700));
 });
 const all = `(() => { const o = []; const w = (r) => r.querySelectorAll('*').forEach((e) => { o.push(e); if (e.shadowRoot) w(e.shadowRoot); }); w(document); return o; })()`;
-const tile = (k) => p.evaluate((k) => { const el = window.__c.shadowRoot.querySelector(`.u.ht[data-k="${k}"]`); if (!el) return null; const r = el.getBoundingClientRect(); const n = el.querySelector('.u-n'), l = el.querySelector('.u-l'); return { x: r.left + r.width * 0.7, y: r.top + r.height / 2, ix: r.left + 30, title: l && l.textContent, sub: n && n.textContent, subHtml: n && n.innerHTML, bg: getComputedStyle(el).backgroundColor, sh: getComputedStyle(el).boxShadow, cls: el.className }; }, k);
+// Fiks 47 A: flere låser → én flis per lås i et sveip-spor; ta den som er synlig (hjem-låsen)
+const tile = (k) => p.evaluate((k) => { const els = [...window.__c.shadowRoot.querySelectorAll(`.u.ht[data-k="${k}"]`)]; const el = els.find((e) => { const vp = e.closest('.tsw'); if (!vp) return true; const r = e.getBoundingClientRect(), v = vp.getBoundingClientRect(); return r.left >= v.left - 1 && r.right <= v.right + 1; }) || els[0]; if (!el) return null; const r = el.getBoundingClientRect(); const n = el.querySelector('.u-n'), l = el.querySelector('.u-l'); return { x: r.left + r.width * 0.7, y: r.top + r.height / 2, ix: r.left + 30, title: l && l.textContent, sub: n && n.textContent, subHtml: n && n.innerHTML, bg: getComputedStyle(el).backgroundColor, sh: getComputedStyle(el).boxShadow, cls: el.className }; }, k);
 
 /* 17.11 · Ruter */
 const ru = await tile('ruter');
@@ -62,7 +63,7 @@ ok('17.16 kamera aktiv: «Bevegelse nå»', cam && cam.sub === 'Bevegelse nå', 
 ok('17.16 tonet stil (kant + farget bakgrunn)', cam && cam.sh && cam.sh !== 'none' && !/rgba\(0, 0, 0, 0\)/.test(cam.bg), cam);
 await p.evaluate(async () => {
   const h = window.mockHass(); h.states = { ...h.states, 'binary_sensor.inngang_person': { ...h.states['binary_sensor.inngang_person'], state: 'off', last_changed: new Date(Date.now() - 3 * 60e3).toISOString() } };
-  window.__c.setConfig({ ...window.__cfg, tile_cfg: { lock: { entity: 'lock.inngangsdor' }, cam: { active: { triggers: [{ entity: 'binary_sensor.inngang_person' }], hold_min: 5, style: 'solid', pulse: true } } } });
+  window.__c.setConfig({ ...window.__cfg, tile_cfg: { lock: { entity: 'lock.inngangsdor', lock_sort: 'default' /* 47 B: standard-låsen som hjem */ }, cam: { active: { triggers: [{ entity: 'binary_sensor.inngang_person' }], hold_min: 5, style: 'solid', pulse: true } } } });
   window.__c.hass = h; window.__c._camMem = {};
   await new Promise((q) => setTimeout(q, 300));
 });
@@ -70,7 +71,7 @@ const cam2 = await tile('cam');
 ok('17.16 holdetid: «Bevegelse for 3 min siden»', cam2 && cam2.sub === 'Bevegelse for 3 min siden', cam2 && cam2.sub);
 ok('17.16 Fylt + puls', cam2 && /hpulse/.test(cam2.cls), cam2 && cam2.cls);
 await p.evaluate(async () => {
-  window.__c.setConfig({ ...window.__cfg, tile_cfg: { lock: { entity: 'lock.inngangsdor' }, cam: { active: { triggers: [{ entity: 'binary_sensor.inngang_person' }], hold_min: 1 } } } });
+  window.__c.setConfig({ ...window.__cfg, tile_cfg: { lock: { entity: 'lock.inngangsdor', lock_sort: 'default' /* 47 B: standard-låsen som hjem */ }, cam: { active: { triggers: [{ entity: 'binary_sensor.inngang_person' }], hold_min: 1 } } } });
   await new Promise((q) => setTimeout(q, 300));
 });
 const cam3 = await tile('cam');
@@ -89,7 +90,7 @@ ok('17.2 flisen viser «Låser opp …»', lk2 && lk2.title === 'Låser opp …'
 ok('17.2 ingen «trykk igjen»', lk2 && !/igjen/i.test(lk2.sub || ''), lk2 && lk2.sub);
 
 /* 17.7 · Kalender */
-const cal = await p.evaluate(() => { const el = window.__c.shadowRoot.querySelector('.sl[data-s="cal"]'); if (!el) return null; const car = el.closest('.car'); const i = Number(car.dataset.n) - 1; return { i, key: car.dataset.sw, hasEnt: el.hasAttribute('data-ent') }; });
+const cal = await p.evaluate(() => { const el = window.__c.shadowRoot.querySelector('.sl[data-s="cal"]'); if (!el) return null; const car = el.closest('.car'); const i = [...car.firstElementChild.children].findIndex((x) => x.contains(el)); /* 47 D: «Kommer i dag» kan ligge etter Kalender */ return { i, key: car.dataset.sw, hasEnt: el.hasAttribute('data-ent') }; });
 ok('17.7 kalender-kort finnes', !!cal, cal);
 ok('17.7 hold standard = ingen (ingen data-ent)', cal && !cal.hasEnt, cal);
 // gå til kalendersiden (sveip), sveip skal ikke navigere

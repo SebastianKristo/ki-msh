@@ -128,7 +128,8 @@ const tile = (k) => p.evaluate((k) => { const el = window.__c.shadowRoot.querySe
 let al = await tile('alarm');
 ok('20.7 Alarm armed_away: «Huset er sikret» / «Alarm · i 12 min · av Rune»', al && al.title === 'Huset er sikret' && al.sub === 'Alarm · i 12 min · av Rune', al);
 let lk = await tile('lock');
-ok('20.7 Dørlås: [[[ ]]] virker, tomt felt = standard undertekst', lk && lk.title === 'LOCKED' && lk.sub === 'Dørlås', lk);
+// Fiks 47 A: med flere låser i #dorlas er standard-underteksten låsens navn (mocken har Inngangsdør + Boddør)
+ok('20.7 Dørlås: [[[ ]]] virker, tomt felt = standard undertekst', lk && lk.title === 'LOCKED' && lk.sub === 'Inngangsdør', lk);
 const ga = await tile('garage');
 ok('20.7 Garasje: {default} og {name}', ga && /^Garasjeport \(.+\)$/.test(ga.sub || '') && !/\{/.test(ga.sub), ga);
 await p.evaluate(async () => { const S = { ...window.__h.states }; S['alarm_control_panel.hjem'] = { ...S['alarm_control_panel.hjem'], state: 'disarmed' }; S['lock.inngangsdor'] = { ...S['lock.inngangsdor'], state: 'unlocked' }; window.__h = { ...window.__h, states: S }; window.__c.hass = window.__h; await new Promise((q) => setTimeout(q, 400)); });

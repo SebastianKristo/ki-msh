@@ -741,6 +741,13 @@
     return e;
   };
 
+  /* Fiks 47 C · navbar-profilen «Liquid Glass» (msh-navbar-card style: 'glass', speilet til <html data-ki-glass>; uten navbar
+   * på siden: ki-store cards.ki-navbar.style). NB: ikke MSH.glassOn – den slår også inn via Liquid Glass-temaet for arkene. */
+  M.navGlassOn = function () {
+    const d = document.documentElement.dataset.kiGlass;
+    if (d === '1' || d === '0') return d === '1';
+    try { const c = M.store && M.store.card && M.store.card('ki-navbar'); return !!(c && c.style === 'glass'); } catch (e) { return false; }
+  };
   /* ------------------------------------------------------------ hurtigark: felles ramme */
   const SHEET_CSS = `
     .sh{overflow:visible;width:calc(100% - 40px);max-width:300px;padding:62px 14px 14px;border-radius:30px;background:var(--ki-surface, var(--gray200,#3a3a3a));box-shadow:inset 0 1px 0 rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 30px 60px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))))}
@@ -787,12 +794,25 @@
     .done{height:52px;border-radius:26px;background:${PINK};color:var(--ki-on-accent, #2f2f2f);font-size:15px;font-weight:600}
     .more{height:36px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797))}
     button:active{transform:scale(.97)}
+    /* Fiks 47 C · Liquid Glass (Hjem v3 · quick.glass / glassSeg GL) – KUN når navbar-profilen «Liquid Glass» er valgt
+       (M.navGlassOn). Ellers solid #3a3a3a, spor #232323 og ingen glans (reglene over). */
+    :host(.lgq) .bg{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))));backdrop-filter:none;-webkit-backdrop-filter:none}
+    .sh.lg{background:var(--ki-glass, rgba(52,52,56,0.42));backdrop-filter:blur(28px) saturate(190%) brightness(1.08);-webkit-backdrop-filter:blur(28px) saturate(190%) brightness(1.08);box-shadow:inset 0 1px 0 rgb(255 255 255/0.35),inset 0 -1px 1px rgb(255 255 255/0.08),inset 0 0 0 0.5px rgb(255 255 255/0.22),0 30px 60px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))))}
+    .sh.lg::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 40%,rgb(255 255 255/0.05));pointer-events:none;z-index:-1}
+    .sh.lg .seg{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.28*var(--ki-ka-k,1))));box-shadow:inset 0 1px 2px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1)))),inset 0 0 0 0.5px rgb(255 255 255/0.08)}
+    .sh.lg .seg:not(.drag) .ind{background-image:linear-gradient(180deg,rgb(255 255 255/0.32),rgb(255 255 255/0) 55%)!important;box-shadow:inset 0 1px 0 rgb(255 255 255/0.5),inset 0 -1px 1px rgb(0 0 0/0.12),0 4px 12px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.sh.lg{background:var(--ki-surface, #3a3a3a)}}
     @keyframes pop{from{transform:translateY(-40%) scale(.9);opacity:0}}
   `;
   // Åpner et sentrert hurtigark. render() → html, onAct(name, el, sheet) håndterer data-a. Oppdateres av kortet via sheet.update().
-  M.hjemSheet = function (card, { render, onAct, drag }) {
-    const ov = M.overlay({ html: render(), css: SHEET_CSS, center: true, sheet: false, maxWidth: 300 });
-    const sheet = { ov, update() { if (ov.host.isConnected) M.morph(ov.body, render()); } };
+  // glass (valgfri, funksjon → bool): Liquid Glass-utseende på arket (Fiks 47 C, person-hurtigarket) – følges live.
+  M.hjemSheet = function (card, { render, onAct, drag, glass }) {
+    const gl0 = glass ? !!glass() : undefined;
+    const ov = M.overlay({ html: render(), css: SHEET_CSS, center: true, sheet: false, maxWidth: 300, ...(glass ? { glass: gl0 } : {}) });
+    const lg = () => { if (!glass) return; const g = !!glass(), shEl = ov.root.querySelector('.sh'); if (shEl) shEl.classList.toggle('lg', g); ov.host.classList.toggle('lgq', g); };
+    lg();
+    const sheet = { ov, update() { if (ov.host.isConnected) { lg(); M.morph(ov.body, render()); } } };
+    if (glass) window.addEventListener('ki-glass-change', sheet.update);
     // Fiks 23.1: vertens forskyvning mot dashbordflaten (topp: HA-toolbar; venstre: rail-utsparing i M.overlay) – arket
     // trekker den fra --ki-nav-occ-* (målt mot dashbord-containeren). Følger resize, orientering og ny navbar-måling.
     const fit = () => { if (!ov.host.isConnected) return; const D = M.dashRect(), hr = ov.host.getBoundingClientRect(); ov.host.style.setProperty('--ki-hy', Math.max(0, Math.round(D.top)) + 'px'); ov.host.style.setProperty('--ki-hx', Math.max(0, Math.round(hr.left - D.left)) + 'px'); };
@@ -809,7 +829,7 @@
     card._sheets = card._sheets || new Set();
     card._sheets.add(sheet);
     const close0 = ov.close;
-    ov.close = () => { card._sheets.delete(sheet); ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.removeEventListener(t, fit)); close0(); };
+    ov.close = () => { card._sheets.delete(sheet); ['resize', 'orientationchange', 'ki-nav-rect'].forEach((t) => window.removeEventListener(t, fit)); if (glass) window.removeEventListener('ki-glass-change', sheet.update); close0(); };
     return sheet;
   };
   // Glass-segment: dra indikatoren, slipp → velg nærmeste. pick(i)
@@ -1636,7 +1656,9 @@
         const slp = pend.sleep ? si === 1 : p.sleep;
         // Fiks 20.5: ring og valgene bruker ikon/farge fra «Status og soner»
         const cc = card.config || {}, HS = M.hjemStatusStyle(cc, 'home'), SS = M.hjemStatusStyle(cc, 'sleep'), AS = M.hjemStatusStyle(cc, 'away');
-        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:0 0 0 4px var(--ki-bg, var(--gray000,#232323)),0 0 0 6px ${slp ? SS.color : zi === 0 ? HS.color : p.status.kind === 'zone' && !pend.zone ? p.status.color : AS.color}">${faceInner(p, 96, card._picBad)}</div>
+        const ringC = slp ? SS.color : zi === 0 ? HS.color : p.status.kind === 'zone' && !pend.zone ? p.status.color : AS.color;
+        const ringS = M.navGlassOn() ? `0 0 0 4px rgb(20 20 22/0.55),0 0 0 6px ${ringC},0 10px 24px rgb(0 0 0/0.35)` : `0 0 0 4px var(--ki-bg, var(--gray000,#232323)),0 0 0 6px ${ringC}`; // 47 C
+        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:${ringS}">${faceInner(p, 96, card._picBad)}</div>
           <div class="nm"><b>${esc(p.name)}</b><span data-st>${esc(place)} · ${slp ? 'Sover' : 'Våken'}</span></div>
           <div class="scr" data-key="scr">
           ${segH('zone', zi, [[HS.icon, 'Hjemme', 0, HS.color], [AS.icon, 'Borte', 1, AS.color]], Z)}
@@ -1673,6 +1695,7 @@
           if (a === 'details') { sh.ov.close(); setTimeout(() => card._openPeople(pid), 30); }
         },
         drag(seg, e, sh) { M.hjemSegDrag(seg, e, (i) => { setSeg(seg.dataset.seg, i); sh.update(); }); },
+        glass: () => M.navGlassOn(), // 47 C: glass bare med navbar-profilen «Liquid Glass»
       });
       return sheet;
     }

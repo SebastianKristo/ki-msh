@@ -4,7 +4,7 @@
 //   · faner 48 px r24, 14/500 #c7c7c7, bredde etter teksten (flex 1 1 auto, padding 0 8px), ingen etikett kuttet ved 390 px
 //   · aktiv: rosa gradient + tekst #2f2f2f; tannhjul 56 × 56 #3a3a3a (samme inset) med settings 24 px → «Tilpass lys»
 //   · kortnavn som på Hjem («1. etasje» → «1. etg», Hjem-fanens eget navn vinner)
-//   · hold + dra omorganiserer fortsatt (MSH.tabRow), trykk bytter fane med haptic selection
+//   · hold + dra omorganiserer fortsatt (MSH.tabRow), trykk bytter fane med haptic light (Fiks 47 E: én «light» per faktisk bytte)
 // Kjør: node test/lys31-check.mjs   (SHOTS=dir → skjermbilde)
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync, existsSync } from 'node:fs';
@@ -81,12 +81,12 @@ if (x) {
 }
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/lys31-390.png`, clip: { x: 0, y: 0, width: 390, height: 360 } });
 
-// trykk bytter fane + haptic selection
+// trykk bytter fane + haptic light (Fiks 47 E)
 {
   const t = await page.evaluate(() => { const b = [...SR().querySelectorAll('.mtb-t')].find((x) => !x.classList.contains('on')); window.HAP = []; return { v: b.dataset.v, ...rect(b) }; });
   await page.mouse.click(t.cx, t.cy); await wait(500);
   const r = await page.evaluate(() => ({ cur: L()._curTab(), on: (SR().querySelector('.mtb-t.on') || {}).dataset.v, hap: window.HAP.slice() }));
-  ok('Lys: trykk bytter fane + haptic selection', r.cur === t.v && r.on === t.v && r.hap.includes('selection'), { want: t.v, ...r });
+  ok('Lys: trykk bytter fane + én haptic light (47 E)', r.cur === t.v && r.on === t.v && r.hap.length === 1 && r.hap[0] === 'light', { want: t.v, ...r });
 }
 // hold + dra (mus) flytter fanen, lagres i tab_order
 {

@@ -24,6 +24,7 @@
  *   MSH.tabBar.CSS   – legg i kortets/arkets styles (klassene har prefiks mtb-, kolliderer ikke).
  *   MSH.tabBar.bind(card, el, opts) → MSH.tabRow på fanene (hold 400 ms + dra = flytt, Esc avbryter, glass-valg,
  *     haptic, touch-action pan-y + stopPropagation – fallgruve 2). opts som MSH.tabRow (active, order, field | save …).
+ *     Fiks 47 E: trykk via MSH.tabPress (05-tab-reorder.js: pointerup < 14 px / < 450 ms, pointercancel < 250 ms, click som reserve).
  *
  * ===== Fiks 33.4 · fanehøyde i alle popups (MSH.tabH) – ÉN felles mekanisme for alle fanelinjer =====
  *   Trinn (som Hjem, TAB_H): Lav 32 · Standard 38 · Middels 44 · Høy 50 · Ekstra 56 px, egen verdi 28–64 px.

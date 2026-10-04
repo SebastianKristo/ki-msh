@@ -150,6 +150,33 @@
   const curOrd = (host, key, ids) => { const S = st(host); if (S.drag && S.drag.key === key && S.drag.order.some((x) => ids.includes(x))) return ordOf(S.drag.order, ids); return ordOf(((host.config || {}).ord || {})[key], ids); };
   const kursId = (gi, n) => (gi === 1 ? String(n.name || '') : `${gi}:${n.name || ''}`);
 
+  // Fordelingen i toppkortet: kategoriene (gruppe 1) størst først; < 2 % (og en egen «Annet»-kategori) → «Annet»
+  const ANNET_C = 'var(--gray600, #7a7a7a)'; // ki-hex-ok: designets «Annet»-farge
+  function dist(R0) {
+    const L = R0.items.map((n, i) => ({ l: String(n.name || ''), v: R0.vals[i], c: kCol(n.color) || DEFCOL })).filter((x) => x.v != null && x.v > 0);
+    const tot = L.reduce((a, x) => a + x.v, 0);
+    if (!(tot > 0)) return { tot: 0, L: [] };
+    const out = []; let other = null;
+    L.forEach((x) => { if ((x.v / tot) * 100 < 2 || /^annet$/i.test(x.l)) { if (!other) other = { l: 'Annet', v: 0, c: /^annet$/i.test(x.l) ? x.c : ANNET_C, annet: true }; if (/^annet$/i.test(x.l)) other.c = x.c; other.v += x.v; } else out.push(x); });
+    if (other) out.push(other);
+    out.sort((a, b) => b.v - a.v);
+    out.forEach((x) => { x.p = (x.v / tot) * 100; });
+    return { tot, L: out };
+  }
+  // Fiks 47 R: rader uten egen Norgespris-sensor bruker spotverdien – logg dem (bare i debug-modus, én gang per sett)
+  let altLogged = '';
+  function altLog(V, K) {
+    if (!(M.debugOn && M.debugOn())) return;
+    const miss = [];
+    const walk = (n) => { ['cost_daily', 'cost_monthly'].forEach((f) => { const b = n[f]; if (!b) return; const alt = finnKostnad(V.hass, b, n[f + '_alt'], true, V.suffix); if (alt === b) miss.push(b); }); (n.children || []).forEach(walk); };
+    (K.groups || []).forEach((g) => (g.items || []).forEach(walk));
+    if (K.totals) walk(K.totals);
+    const key = miss.join(',');
+    if (key === altLogged) return;
+    altLogged = key;
+    if (miss.length) console.debug(`[ki-msh] Strøm → Kurser: ${miss.length} rader mangler Norgespris-sensor (${K.alt_suffix ? 'suffiks ' + K.alt_suffix : 'ingen alt_suffix'}) – bruker spotverdien:`, miss);
+  }
+
   /* ------------------------------------------------------------ Kurser-fanen */
   const SECS = ['k_total', 'k_kat', 'k_kurs'];
   function inner(host) {
@@ -181,21 +208,30 @@
     const sumLabel = V.per === 'month' ? month.charAt(0).toUpperCase() + month.slice(1) : 'I dag';
     const price = num(V.hass, V.alt ? K.price_entity_alt : K.price_entity);
     const chip = `${V.alt ? 'Norgespris' : 'Spotpris'} · ${price === null ? '–' : fx(price, 2) + ' kr/kWh'}`;
-    let best = -1; R0.vals.forEach((v, i) => { if (v !== null && (best < 0 || v > R0.vals[best])) best = i; });
-    const bigTxt = best >= 0 && R0.tot > 0 ? `Størst: ${R0.items[best].name || ''} står for ${Math.round((R0.vals[best] / R0.tot) * 100)} % av forbruket` : 'Venter på sensordata';
-    const stripe = R0.tot > 0 ? R0.items.map((n, i) => (R0.vals[i] > 0 ? `<span style="flex:${+R0.vals[i].toFixed(4)};background:${esc(kCol(n.color) || DEFCOL)}"></span>` : '')).join('') : '<span class="sk-kstr0"></span>';
+    // Fiks 47 Q: fordelingen (størst først, < 2 % slått sammen til «Annet»). Trykk på baren → forklaring; segment/rad → valg.
+    const D = dist(R0);
+    if (S.kbSel && !D.L.some((x) => x.l === S.kbSel)) S.kbSel = null;
+    const kbOpen = !!S.kbOpen && D.L.length > 0, kbSel = S.kbSel || null;
+    const selD = kbSel ? D.L.find((x) => x.l === kbSel) : null, big0 = D.L.find((x) => !x.annet) || D.L[0];
+    const bigTxt = selD ? `${selD.l} står for ${Math.round(selD.p)} % av forbruket · ${fx(selD.v, 2)} ${unitT}` : big0 ? `Størst: ${big0.l} står for ${Math.round(big0.p)} % av forbruket` : 'Venter på sensordata';
+    const stripe = D.L.length ? D.L.map((x) => `<span class="sk-kbs${kbSel && kbSel !== x.l ? ' dim' : ''}" data-sk-act="kbs" data-sk-v="${esc(x.l)}" title="${esc(x.l)} · ${Math.round(x.p)} %" style="flex:${+x.v.toFixed(4)};background:${esc(x.c)}"></span>`).join('') : '<span class="sk-kstr0"></span>';
+    const legend = kbOpen ? `<div class="sk-kleg" data-key="sk-kleg">${D.L.map((x) => { const on = kbSel === x.l, dim = kbSel && !on; return `<button class="sk-klr${on ? ' on' : ''}${dim ? ' dim' : ''}" data-sk-act="kbs" data-sk-v="${esc(x.l)}" aria-pressed="${on}"><span class="sk-kld" style="background:${esc(x.c)}"></span><span class="sk-kln">${esc(x.l)}</span><span class="sk-klp">${Math.round(x.p)} %</span></button>`; }).join('')}</div>` : '';
+    if (V.alt && !kwh) altLog(V, K);
     const secAttr = (id) => { const i = sOrd.indexOf(id); return `class="sk-ksec${isDrag('sec-Kurser', id) ? ' sk-klift' : ''}" data-rk="sec-Kurser" data-rid="${id}" data-sk-rk="sec-Kurser" data-sk-id="${id}" data-key="sk-${id}" style="order:${i + 1}${hid[id] ? ';display:none' : ''}"`; };
     const tot = `<div ${secAttr('k_total')}>
       <div class="sk-ktot">
-        <span class="sk-ktot-top"><span class="sk-k13">${esc(sumLabel)}</span>${harAlt(K) ? `<button class="sk-kchip" data-sk-act="alt" title="Bytt pris">${esc(chip)}</button>` : `<span class="sk-kchip">${esc(chip)}</span>`}</span>
+        <span class="sk-ktot-top"><span class="sk-k13">${esc(sumLabel)}</span>${harAlt(K) ? `<button type="button" class="sk-kchip" data-sk-act="alt" title="Bytt prismodell" aria-label="Bytt til ${V.alt ? 'spotpris' : 'Norgespris'}">${esc(chip)}</button>` : `<span class="sk-kchip statisk">${esc(chip)}</span>`}</span>
         <span class="sk-ktot-big"><span class="sk-ksum">${sumN === null ? '–' : fx(sumN, sumN >= 100 ? 0 : 2)}</span><span class="sk-kunit">${unitT}</span></span>
-        <span class="sk-k13">${esc(bigTxt)}</span>
-        <span class="sk-kstripe">${stripe}</span>
+        <span class="sk-k13" data-sk-info>${esc(bigTxt)}</span>
+        <button type="button" class="sk-kbarb" data-sk-act="kb" title="Vis fordeling" aria-expanded="${kbOpen}"${D.L.length ? '' : ' disabled'}><span class="sk-kstripe">${stripe}</span></button>
+        ${legend}
       </div>
     </div>`;
 
     /* --- k_kat */
-    const seg = (act, cur, opts) => `<div class="sk-kseg" data-glass-drag="x">${opts.map(([l, v]) => `<button class="${cur === v ? 'on' : ''}" data-sk-act="${act}" data-sk-v="${v}">${l}</button>`).join('')}</div>`;
+    // Fiks 47 P: felles segmentkontroll (M.segment, 05-segment.js) – sentrert tekst, like brede valg, 4 px luft
+    const seg = (act, cur, opts) => (M.segment ? M.segment.html(opts.map(([l, v]) => ({ v, l })), cur, { act, actAttr: 'data-sk-act', vAttr: 'data-sk-v', haptic: false, cls: 'sk-kseg', key: act })
+      : `<div class="sk-kseg" data-glass-drag="x">${opts.map(([l, v]) => `<button class="${cur === v ? 'on' : ''}" data-sk-act="${act}" data-sk-v="${v}">${l}</button>`).join('')}</div>`);
     const catIds = R0.items.map((n) => String(n.name || ''));
     const cOrd = curOrd(host, 'cat', catIds);
     const firstWithKids = R0.items.find((n) => (n.children || []).length);
@@ -352,6 +388,8 @@
     el.__skBound = true;
     const H = () => el.__skHost || host;
     el.addEventListener('pointerdown', (e) => {
+      // Fiks 47 R: pris-pillen er en knapp – ikke hold/dra og ikke Bubble-sveip (stopPropagation)
+      if (e.target.closest && e.target.closest('[data-sk-act="alt"]')) { e.stopPropagation(); return; }
       const it = e.target.closest && e.target.closest('[data-sk-rk]');
       if (!it || !el.contains(it) || e.button) return;
       if (e.target.closest('input,textarea,select,[data-glass-drag]')) return;
@@ -373,7 +411,14 @@
         if (V.mem[k] === v && V[act] === v) return;
         V.mem[k] = v; hp(host2, 'selection');
       } else if (act === 'alt') {
+        e.stopPropagation();
         V.mem.kursAlt = !V.alt; hp(host2, 'selection');
+      } else if (act === 'kb') { // Fiks 47 Q: trykk på baren → vis/skjul forklaringen
+        e.stopPropagation();
+        S.kbOpen = !S.kbOpen; if (!S.kbOpen) S.kbSel = null; hp(host2, 'selection');
+      } else if (act === 'kbs') { // segment / rad → velg kategorien (samme igjen = fjern valg)
+        e.stopPropagation();
+        S.kbOpen = true; S.kbSel = S.kbSel === v ? null : v; hp(host2, 'selection');
       } else if (act === 'cat') {
         const n = (V.K.groups[0] && V.K.groups[0].items || []).find((x) => String(x.name || '') === v);
         if (!n || !(n.children || []).length) { hp(host2, 'light'); return; }
@@ -579,16 +624,29 @@
     .sk-ktot{background:${PINK};color:${INK};border-radius:26px;padding:16px 18px;display:flex;flex-direction:column;gap:4px;animation:sk-kfade .3s ease}
     .sk-ktot-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
     .sk-k13{font-size:13px}
-    .sk-kroot .sk-kchip{padding:5px 10px;border-radius:10px;background:rgba(60,40,50,.18);font-size:12px;font-weight:500;color:${INK};white-space:nowrap}
+    .sk-kroot .sk-kchip{padding:5px 11px;border:0;border-radius:11px;background:${bA(0.16)};font-size:12px;font-weight:600;line-height:1.2;color:inherit;white-space:nowrap;cursor:pointer;flex:none;transition:transform .15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    .sk-kroot button.sk-kchip:active{transform:scale(.96)}
+    .sk-kroot .sk-kchip:focus{outline:none}.sk-kroot .sk-kchip:focus-visible{outline:2px solid ${INK};outline-offset:2px}
+    .sk-kroot .sk-kchip.statisk{cursor:default}
+    .sk-kroot .sk-kbarb{position:relative;display:block;width:100%;box-sizing:content-box;padding:16px 0;margin:-6px 0 -16px;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .sk-kroot .sk-kbarb:focus{outline:none}.sk-kroot .sk-kbarb:focus-visible .sk-kstripe{outline:2px solid ${INK};outline-offset:2px}
+    .sk-kroot .sk-kbarb .sk-kstripe{margin-top:0}
+    .sk-kbs{transition:opacity .2s}.sk-kbs.dim{opacity:.35}
+    .sk-kleg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 12px;margin-top:10px;position:relative;animation:sk-kfade .2s ease}
+    .sk-kroot .sk-klr{display:flex;align-items:center;gap:8px;min-width:0;height:32px;box-sizing:border-box;padding:0 10px;border:0;border-radius:16px;font-size:13px;color:${INK};text-align:left;background:rgba(60,40,50,.08);transition:background .2s,opacity .2s}
+    .sk-kroot .sk-klr.on{background:rgba(60,40,50,.18)}.sk-kroot .sk-klr.dim{opacity:.6}
+    .sk-kld{width:10px;height:10px;border-radius:5px;flex:none}.sk-klr.on .sk-kld{box-shadow:0 0 0 2px rgba(50,38,44,.5)}
+    .sk-kln{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sk-klp{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
     .sk-ktot-big{display:flex;align-items:baseline;gap:6px}
     .sk-ksum{font-size:36px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
     .sk-kunit{font-size:16px;font-weight:500}
     .sk-kstripe{display:flex;gap:2px;height:12px;margin-top:10px;border-radius:999px;overflow:hidden}
     .sk-kstr0{flex:1;background:rgba(60,40,50,.18)}
     .sk-kgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .sk-kseg{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:999px;background:${S1}}
-    .sk-kroot .sk-kseg>button{height:46px;border-radius:999px;font-size:15px;font-weight:500;color:var(--ki-text-1, #d6d6d6);transition:background .25s,color .25s;min-width:0;white-space:nowrap}
-    .sk-kroot .sk-kseg>button.on{background:${PINK};color:${INK}}
+    ${M.segment ? M.segment.css : ''}
+    .sk-kroot .ki-seg.sk-kseg{background:var(--ki-surface-2, #3d3d3d)}
+    .sk-kroot .ki-seg.sk-kseg>.ki-seg-b.on{color:${INK}}
     .sk-khd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:8px 6px 0}
     .sk-kht{font-size:15px;font-weight:600;color:var(--ki-text, #fafafa)}
     .sk-khs{font-size:12px;color:var(--ki-text-2, #b8b8b8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -661,7 +719,7 @@
     .sk-ked .sk-kin2{background:var(--ki-surface, #2a2a2a);height:40px;padding:0 12px;border-radius:12px;font-size:13px}
     .sk-ked .sk-kin2-l{height:44px;padding:0 14px;border-radius:14px;font-size:14px}
     .sk-keseg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;padding:3px;border-radius:20px;background:var(--ki-surface-2, #2a2a2a)}
-    .sk-ked .sk-keseg>button{height:40px;border-radius:18px;font-size:13px;font-weight:500;color:var(--ki-text-2, #afafaf);transition:background .25s}
+    .sk-ked .sk-keseg>button{display:flex;align-items:center;justify-content:center;text-align:center;min-width:0;white-space:nowrap;height:40px;border-radius:18px;font-size:13px;font-weight:500;color:var(--ki-text-2, #afafaf);transition:background .25s}
     .sk-ked .sk-keseg>button.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
     .sk-ked .sk-kadvb{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;text-align:left}
     .sk-kadvb>span:first-child{flex:1;font-size:14px;font-weight:500}

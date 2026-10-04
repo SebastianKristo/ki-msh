@@ -41,7 +41,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 
   <div style="{{ tabRowS }}">
     <div data-glass-drag="x" data-hs="1" style="flex:1;min-width:0;display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);overflow-x:auto;scrollbar-width:none">
-      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><button onClick="{{ t.go }}" title="{{ t.label }}" style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:20px;flex:none;font-variation-settings:'FILL' 1">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ false }}"><span>{{ t.label }}</span></sc-if></button></sc-for>
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><button onClick="{{ t.go }}" onPointerDown="{{ t.down }}" onPointerUp="{{ t.up }}" onPointerCancel="{{ t.cancel }}" title="{{ t.label }}" style="{{ t.style }}"><sc-if value="{{ t.showIcon }}" hint-placeholder-val="{{ true }}"><span class="ms" style="font-size:20px;flex:none;font-variation-settings:'FILL' 1">{{ t.icon }}</span></sc-if><sc-if value="{{ t.showLabel }}" hint-placeholder-val="{{ false }}"><span>{{ t.label }}</span></sc-if></button></sc-for>
     </div>
     <button onPointerDown="{{ bDown }}" onPointerMove="{{ bMove }}" onPointerUp="{{ bUp }}" onPointerCancel="{{ bCancel }}" onContextMenu="{{ noMenu }}" title="{{ viewTitle }}" style="{{ viewBtnStyle }}" style-active="transform:scale(0.94)">
       <span style="{{ iconTrack }}"><span style="width:48px;height:48px;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">{{ viewIcon }}</span></span><span style="width:48px;height:48px;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">settings</span></span></span>
@@ -124,24 +124,38 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 
     <sc-if value="{{ xP }}" hint-placeholder-val="{{ false }}">
     <div style="{{ sec.post_kort }}">
-      <section style="display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:28px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <span style="display:flex;align-items:center;gap:8px;font-size:13px;color:#afafaf"><span class="ms" style="font-size:18px;color:rgb(242 128 115)">mail</span>Når kommer Posten</span>
+      <section style="display:flex;flex-direction:column;gap:12px;padding:16px 16px 14px;border-radius:28px;background:#3a3a3a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05)">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#afafaf"><span class="ms" style="font-size:16px;color:rgb(242 128 115)">mail</span>Når kommer Posten</span>
+            <span style="font-size:26px;font-weight:300;letter-spacing:-0.02em;line-height:1.15">{{ post.rel }}</span>
+            <span style="font-size:12px;color:#979797">{{ post.date }}</span>
+          </span>
           <span style="{{ post.chip }}">{{ post.chipTxt }}</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:2px">
-          <span style="font-size:30px;font-weight:300;letter-spacing:-0.02em">{{ post.rel }}</span>
-          <span style="font-size:13px;color:#979797">{{ post.date }}</span>
-        </div>
         <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px">
-          <sc-for list="{{ post.days }}" as="d" hint-placeholder-count="10"><button onClick="{{ d.go }}" style="{{ d.style }}" style-active="transform:scale(0.94)"><span style="font-size:10px;font-weight:500;opacity:0.8">{{ d.w }}</span><span style="font-size:14px;font-weight:600">{{ d.n }}</span></button></sc-for>
+          <sc-for list="{{ post.days }}" as="d" hint-placeholder-count="10"><button onClick="{{ d.go }}" style="{{ d.style }}" style-active="transform:scale(0.94)"><span style="font-size:10px;font-weight:500;opacity:0.8">{{ d.w }}</span><span style="font-size:14px;font-weight:600">{{ d.n }}</span><span style="{{ d.dot }}"></span></button></sc-for>
         </div>
+        <sc-if value="{{ post.pnHas }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:20px;background:#404040">
+            <span style="width:32px;height:32px;border-radius:16px;flex:none;display:grid;place-items:center;background:rgb(115 185 242);color:#282828"><span class="ms" style="font-size:18px">local_shipping</span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ post.pnTitle }}</span><span style="font-size:12px;color:#979797;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ post.pnSub }}</span></span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ pn.on }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 36px;gap:4px">
+          <sc-for list="{{ pn.stats }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.go }}" title="{{ t.label }}" style="{{ t.style }}" style-active="transform:scale(0.95)"><span style="font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">{{ t.n }}</span><span style="font-size:11px;opacity:0.85;white-space:nowrap;flex:none">{{ t.short }}</span></button></sc-for>
+          <button onClick="{{ pn.refresh }}" title="Oppdater PostNord" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:rgba(255,255,255,0.08);color:#e1e1e1" style-active="transform:scale(0.92)"><span class="ms" style="{{ pn.refS }}">refresh</span></button>
+        </div>
+        </sc-if>
       </section>
     </div>
+
 
     <div style="{{ sec.post_pakker }}">
       <div style="display:flex;align-items:center;gap:8px;padding:0 4px;margin-top:4px">
         <span style="font-size:15px;font-weight:600">Pakker</span><span style="font-size:12px;color:#7f7f7f">{{ pCount }}</span>
+        <sc-if value="{{ pn.filtered }}" hint-placeholder-val="{{ false }}"><button onClick="{{ pn.clear }}" style="height:28px;padding:0 6px 0 10px;border-radius:14px;background:rgba(115,185,242,0.16);color:rgb(115 185 242);display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600">{{ pn.fLabel }}<span class="ms" style="font-size:16px">close</span></button></sc-if>
         <button onClick="{{ toggleAdd }}" title="Legg til" style="{{ addBtnStyle }}"><span class="ms" style="font-size:20px">{{ addIcon }}</span></button>
       </div>
       <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}">
@@ -570,13 +584,13 @@ const dm = d => `${d.getDate()}. ${MON[d.getMonth()]}`;
 const rel = d => { const n = Math.round((d - T0) / 864e5); return n === 0 ? 'I dag' : n === 1 ? 'I morgen' : n === -1 ? 'I går' : cap(DAYS[d.getDay()]); };
 const isoWeek = d => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const w = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - w); return Math.ceil(((t - new Date(Date.UTC(t.getUTCFullYear(), 0, 1))) / 864e5 + 1) / 7); };
 const TIC = { cal: 'calendar_month', hytta: 'cottage', fram: 'movie', bday: 'cake', post: 'mail' };
-const DEFSRC = { hytta: 'sensor.oslo_oversikt', bday: 'calendar.birthdays', post: 'sensor.nar_kommer_posten_posten_sensor_next', parcels: 'norwegian_parcel_tracker', sonarr: 'calendar.sonarr', radarr: 'calendar.radarr', plex: 'sensor.plex_recently_added' };
+const DEFSRC = { hytta: 'sensor.oslo_oversikt', bday: 'calendar.birthdays', post: 'sensor.nar_kommer_posten_posten_sensor_next', parcels: 'norwegian_parcel_tracker', postnord: 'sensor.postnord_incoming_parcels', sonarr: 'calendar.sonarr', radarr: 'calendar.radarr', plex: 'sensor.plex_recently_added' };
 const tabStyle = on => ({ flex: on ? '0 0 auto' : '1 1 0', minWidth: 44, height: 40, padding: on ? '0 14px 0 12px' : 0, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: on ? PINK : 'transparent', color: on ? '#3a3a3a' : '#afafaf', transition: 'none' });
 const SP = [['gap', 'Mellom seksjonene', 'height', 0, 24, [['Tett', 4], ['Standard', 8], ['Luftig', 18]]], ['top', 'Fra popup-headeren til første kort', 'vertical_align_top', -20, 60, [['Inntil', -20], ['Standard', -10], ['Tett', 6], ['Luftig', 44]]], ['bot', 'Luft i bunnen', 'vertical_align_bottom', 0, 300, [['Ingen', 0], ['Litt', 60], ['Standard', 150], ['Maks', 300]]]];
 const SP_DEF = { gap: 8, top: -10, bot: 150 };
 const tabStyleN = on => ({ flex: '1 0 auto', height: 40, padding: '0 14px', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: on ? PINK : 'transparent', color: on ? '#3a3a3a' : '#afafaf', transition: 'background .2s' });
-const TSEC = { hytta: [['sok', 'Søk'], ['kar', 'Steder'], ['vis', 'Kalender · Opphold · Statistikk']], fram: [['filter', 'Filter'], ['hero', 'Neste utgivelse'], ['liste', 'Kommende'], ['plex', 'Nylig i Plex']], bday: [['hero', 'Neste bursdag'], ['list', 'Kommende']], post: [['kort', 'Når kommer Posten'], ['pakker', 'Pakker']] };
-const ENTS = { hytta: ['sensor.oslo_oversikt', 'sensor.stromstad_oversikt', 'sensor.toten_oversikt', 'calendar.hyttebesok'], bday: ['calendar.birthdays', 'calendar.bursdager_google', 'calendar.familie'], post: ['sensor.nar_kommer_posten_posten_sensor_next', 'sensor.nar_kommer_posten_posten_sensor_days'], parcels: ['norwegian_parcel_tracker', 'sensor.bring_pakker', 'sensor.posten_sporing'], sonarr: ['calendar.sonarr', 'sensor.sonarr_upcoming', 'sensor.sonarr_queue'], radarr: ['calendar.radarr', 'sensor.radarr_upcoming', 'sensor.radarr_movies'], plex: ['sensor.plex_recently_added', 'sensor.plex_plex', 'media_player.plex_apple_tv'] };
+const TSEC = { hytta: [['sok', 'Søk'], ['kar', 'Steder'], ['vis', 'Kalender · Opphold · Statistikk']], fram: [['filter', 'Filter'], ['hero', 'Neste utgivelse'], ['liste', 'Kommende'], ['plex', 'Nylig i Plex']], bday: [['hero', 'Neste bursdag'], ['list', 'Kommende']], post: [['kort', 'Når kommer Posten'], ['postnord', 'PostNord-tall'], ['pakker', 'Pakker']] };
+const ENTS = { hytta: ['sensor.oslo_oversikt', 'sensor.stromstad_oversikt', 'sensor.toten_oversikt', 'calendar.hyttebesok'], bday: ['calendar.birthdays', 'calendar.bursdager_google', 'calendar.familie'], post: ['sensor.nar_kommer_posten_posten_sensor_next', 'sensor.nar_kommer_posten_posten_sensor_days'], parcels: ['norwegian_parcel_tracker', 'sensor.bring_pakker', 'sensor.posten_sporing'], postnord: ['sensor.postnord_incoming_parcels', 'sensor.postnord_awaiting_pickup', 'sensor.postnord_delivered_parcels', 'calendar.postnord_deliveries'], sonarr: ['calendar.sonarr', 'sensor.sonarr_upcoming', 'sensor.sonarr_queue'], radarr: ['calendar.radarr', 'sensor.radarr_upcoming', 'sensor.radarr_movies'], plex: ['sensor.plex_recently_added', 'sensor.plex_plex', 'media_player.plex_apple_tv'] };
 const ENT_ALL = [...new Set([...Object.values(ENTS).flat(), 'calendar.sebastian_skole', 'calendar.familie', 'calendar.helligdager', 'sensor.oslo_temperatur', 'sensor.strommaler_effekt', 'person.sebastian', 'person.cybele', 'person.rune', 'zone.oslo', 'zone.stromstad', 'zone.toten', 'media_player.stue_apple_tv', 'todo.handleliste'])];
 const DOMI = { calendar: 'event', sensor: 'sensors', media_player: 'play_circle', person: 'person', zone: 'location_on', todo: 'checklist' };
 const hp = t => { try { window.haptic && window.haptic(t || 'light'); } catch (e) {} };
@@ -629,11 +643,20 @@ const PARCELS = [
   { id: 1, name: 'Komplett', carrier: 'Posten', st: 'ready', status: 'Klar til henting', eta: 'I dag', pickup: 'Kiwi Bogstadveien', method: 'Pakke til hentested', sender: 'Komplett Services AS', weight: '6,2 kg', dims: '62 × 41 × 12 cm', home: true,
     events: [['Sendingen er klar til henting', 'I dag 07:42'], ['Sendingen er ankommet utleveringssted', 'I dag 06:10'], ['Sendingen er på vei', 'I går 18:25'], ['Sendingen er registrert', 'Fre 25. sep']] },
   { id: 2, name: 'Zalando', carrier: 'Helthjem', st: 'transit', status: 'Under transport', eta: 'Onsdag 30. sep', pickup: 'Levering hjem', method: 'Helthjem', events: [['Sendingen er på vei til mottaker', 'I dag 05:12'], ['Sendingen er mottatt hos Helthjem', 'Lør 26. sep']] },
+  { id: 5, name: 'Kjell & Company', carrier: 'PostNord', track: '001959503111454983', st: 'out', status: 'Ute for levering', eta: 'I dag 14–18', pickup: 'Levering hjem', method: 'PostNord MyPack Home', sender: 'Kjell & Company AB', weight: '1,2 kg',
+    events: [['Sendingen er med sjåføren', 'I dag 08:05'], ['Sendingen er sortert på terminal Oslo', 'I dag 03:40'], ['Sendingen er på vei', 'Lør 26. sep'], ['Sendingen er registrert', 'Fre 25. sep']] },
+  { id: 6, name: 'Boozt', carrier: 'PostNord', track: '70702051147262503', st: 'ready', status: 'Klar til henting', eta: 'Hentes innen 5. okt', pickup: 'Coop Extra Majorstuen', method: 'PostNord MyPack Collect', sender: 'Boozt Fashion AB', weight: '0,9 kg',
+    events: [['Sendingen er klar til henting', 'I dag 09:14'], ['Sendingen er ankommet utleveringssted', 'I dag 07:02'], ['Sendingen er på vei', 'Lør 26. sep']] },
+  { id: 7, name: 'Pakke CT184146155DE', carrier: 'PostNord', track: 'CT184146155DE', st: 'transit', status: 'Under transport', eta: 'Fre 2. okt', pickup: 'Levering hjem', method: 'Utenlandspakke (Deutsche Post)',
+    events: [['Sendingen er ankommet Norge', 'Søn 27. sep 22:10'], ['Sendingen har forlatt Tyskland', 'Fre 25. sep'], ['Sendingen er registrert hos avsender', 'Tor 24. sep']] },
+  { id: 8, name: 'Retur Zalando', carrier: 'PostNord', track: '00370726201234567', dir: 'ut', st: 'transit', status: 'Under transport', eta: 'Ons 30. sep', pickup: 'Til Zalando SE', method: 'Retur', events: [['Sendingen er levert inn', 'Lør 26. sep 13:20']] },
+  { id: 9, name: 'Apotek 1', carrier: 'PostNord', track: '00370726209876543', st: 'delivered', status: 'Levert', eta: 'Levert fre 25. sep', pickup: 'Postkassen', method: 'PostNord MyPack Home', events: [['Sendingen er levert', 'Fre 25. sep 15:41']] },
   { id: 3, name: 'AliExpress', carrier: 'Bring', st: 'stale', status: 'Ingen oppdatering', eta: '–', pickup: '–', method: 'Pakke i postkassen', sender: 'Cainiao', weight: '0,3 kg', staleH: 52, events: [['Sendingen er ankommet terminal i Norge', 'Lør 26. sep 08:30'], ['Sendingen er sendt fra avsender', 'Man 21. sep']] },
   { id: 4, name: 'Elkjøp', carrier: 'Posten', st: 'delivered', status: 'Levert', eta: 'Levert lør 26. sep', pickup: 'Postkassen', method: 'Pakke i postkassen', sender: 'Elkjøp Nordic AS', weight: '0,4 kg', events: [['Sendingen er levert', 'Lør 26. sep 12:04'], ['Sendingen er på vei', 'Fre 25. sep']] },
 ];
-const PST = { ready: [GREEN, 'inventory_2'], transit: [BLUE, 'local_shipping'], stale: [ORA, 'schedule'], delivered: ['#979797', 'check'] };
+const PST = { ready: [GREEN, 'inventory_2'], out: [YEL, 'local_shipping'], transit: [BLUE, 'local_shipping'], stale: [ORA, 'schedule'], delivered: ['#979797', 'check'] };
 let puid = 10;
+const PN = { acct: 'jemtlands@gmail.com', delivered: 12, outDelivered: 4, next: 'I dag 14–18', updated: 'i dag 20:58', days: { '2026-09-28': ['Kjell & Company', 'I dag 14–18'], '2026-10-02': ['Pakke CT184146155DE', 'Estimert fredag'], '2026-10-06': ['Retur fra Elkjøp', 'Estimert tirsdag'] } };
 const stripe = (h, a, b) => `repeating-linear-gradient(135deg, oklch(${a} 0.04 ${h}) 0 6px, oklch(${b} 0.04 ${h}) 6px 12px)`;
 
 const parseQ = raw => {
@@ -700,8 +723,10 @@ class Component extends DCLogic {
     return h('div', { style: { position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', borderRadius: 28 } }, ...kids);
   }
   state = { addB: false, bName: '', bDate: '', bMsg: '', bdays: [['Cybele', '1997-10-03'], ['Mormor Solveig', '1942-10-12'], ['Emma', '2019-11-02'], ['Rune', '1968-11-14'], ['Ida', '2000-11-30'], ['Sebastian', '2000-01-08'], ['Farfar Knut', '1939-02-21']], search: false, q: '', rmode: 'cal', picker: false, cfg: false, cals: { skole: true, familie: true, hytta: true, bursdager: true }, hid: {}, ahead: 14,
-    src: { hytta: 'sensor.oslo_oversikt', bday: 'calendar.birthdays', post: 'sensor.nar_kommer_posten_posten_sensor_next', parcels: 'norwegian_parcel_tracker', sonarr: 'calendar.sonarr', radarr: 'calendar.radarr', plex: 'sensor.plex_recently_added' },
+    src: { hytta: 'sensor.oslo_oversikt', bday: 'calendar.birthdays', post: 'sensor.nar_kommer_posten_posten_sensor_next', parcels: 'norwegian_parcel_tracker', postnord: 'sensor.postnord_incoming_parcels', sonarr: 'calendar.sonarr', radarr: 'calendar.radarr', plex: 'sensor.plex_recently_added' },
     tab: null, prev: 'hytta', view: null, fview: 'list', mo: { cal: 0, fram: 0, hytta: 0 }, sel: TK, mf: 'alle', hv: 'kal', place: null, det: null, more: false, xv: 'b', openP: 1, adding: false, draft: '', showDel: false, parcels: PARCELS };
+  componentDidMount() { this._calTab = () => { try { const t = sessionStorage.getItem('ki-cal-tab'); if (t) { sessionStorage.removeItem('ki-cal-tab'); this.setState({ tab: t }); } } catch (e) {} }; this._calTab(); window.addEventListener('hashchange', this._calTab); }
+  componentWillUnmount() { window.removeEventListener('hashchange', this._calTab); }
   monthCells(off) {
     const f = new Date(2026, 8 + off, 1), m = f.getMonth(), lead = (f.getDay() + 6) % 7, dim = new Date(f.getFullYear(), m + 1, 0).getDate();
     return Array.from({ length: Math.ceil((lead + dim) / 7) * 7 }, (_, i) => { const d = addD(f, i - lead); return { d, k: key(d), inM: d.getMonth() === m, today: key(d) === TK }; });
@@ -804,14 +829,23 @@ class Component extends DCLogic {
         row: { display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px', borderTop: g.rows.length ? '1px solid rgba(255,255,255,0.05)' : 'none' } }); });
     const postToday = POST.includes(TK);
     const pSel = s.postSel || POST[0], pSelOn = POST.includes(pSel), pSelD = parse(pSel);
+    const pnOn = !(s.secHid || {}).post_postnord;
     const postDays = Array.from({ length: 14 }, (_, i) => addD(T0, i)).filter(d => d.getDay() % 6).map(d => { const k = key(d), on = POST.includes(k), td = k === pSel;
-      return { w: ['sø', 'ma', 'ti', 'on', 'to', 'fr', 'lø'][d.getDay()], n: d.getDate(), style: { height: 48, borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, background: on ? RED : '#404040', color: on ? '#282828' : '#979797', boxShadow: td ? 'inset 0 0 0 2px #fafafa' : 'none', transition: 'transform .12s, box-shadow .15s' }, go: () => { hp('selection'); this.setState({ postSel: k === s.postSel ? null : k }); } }; });
+      return { w: ['sø', 'ma', 'ti', 'on', 'to', 'fr', 'lø'][d.getDay()], n: d.getDate(), style: { height: 48, borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, position: 'relative', background: on ? RED : '#404040', color: on ? '#282828' : '#979797', boxShadow: td ? 'inset 0 0 0 2px #fafafa' : 'none', transition: 'transform .12s, box-shadow .15s' }, dot: { position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 4, background: BLUE, boxShadow: on ? '0 0 0 1.5px #282828' : 'none', display: pnOn && PN.days[k] ? 'block' : 'none' }, go: () => { hp('selection'); this.setState({ postSel: k === s.postSel ? null : k }); } }; });
     const active = s.parcels.filter(x => x.st !== 'delivered'), delivered = s.parcels.filter(x => x.st === 'delivered');
-    const shownP = s.showDel ? s.parcels : active;
+    const PNF = { inn: ['Innkommende', x => x.carrier === 'PostNord' && x.dir !== 'ut' && x.st !== 'delivered'], klar: ['Klar for henting', x => x.carrier === 'PostNord' && x.st === 'ready'], lev: ['Leverte', x => x.carrier === 'PostNord' && x.st === 'delivered'], ut: ['Utgående', x => x.carrier === 'PostNord' && x.dir === 'ut'] };
+    const shownP = s.pnF ? s.parcels.filter(PNF[s.pnF][1]) : s.showDel ? s.parcels : active;
+    const pnDay = !pnOn ? null : s.postSel ? PN.days[pSel] : s.pnRow === 'alltid' ? PN.days[Object.keys(PN.days).sort().find(k => k >= TK)] : null;
     const ps = place ? PSTAT[place] : [268, 113];
 
     return {
-      tabs: visT.map(([k, label]) => { const on = tab === k, nm = s.tabLbl === 'navn'; return { label, icon: TIC[k], showIcon: !nm, showLabel: nm || on, go: () => set({ tab: k, det: null }), style: nm ? tabStyleN(on) : tabStyle(on) }; }),
+      tabs: visT.map(([k, label]) => { const on = tab === k, nm = s.tabLbl === 'navn'; const pick = () => { if (this.state.tab === k) return; hp('light'); set({ tab: k, det: null }); };
+        return { label, icon: TIC[k], showIcon: !nm, showLabel: nm || on,
+          go: () => { if (this._tTap && Date.now() - this._tTap < 400) return; pick(); },
+          down: e => { this._tP = { x: e.clientX, y: e.clientY, t: Date.now(), k }; },
+          up: e => { const P = this._tP; this._tP = null; if (!P || P.k !== k || window.__tabReorder) return; if (Math.hypot(e.clientX - P.x, e.clientY - P.y) < 14 && Date.now() - P.t < 450) { this._tTap = Date.now(); pick(); } },
+          cancel: () => { const P = this._tP; this._tP = null; if (P && P.k === k && Date.now() - P.t < 250 && !window.__tabReorder) { this._tTap = Date.now(); pick(); } },
+          style: { ...(nm ? tabStyleN(on) : tabStyle(on)), minHeight: 40, touchAction: 'pan-x', WebkitTapHighlightColor: 'transparent', cursor: 'pointer' } }; }),
       rootS: { position: 'relative', boxSizing: 'border-box', width: '100%', maxWidth: 420, minHeight: '100vh', margin: '0 auto', background: '#282828', padding: `20px 18px ${SPV.bot}px`, display: 'flex', flexDirection: 'column', gap: SPV.gap },
       tabRowS: { position: 'relative', order: -1, display: 'flex', alignItems: 'center', gap: 8, marginTop: SPV.top + 10 },
       search: s.search, q: s.q, setQ: e => this.setState({ q: e.target.value }), clearQ: () => set(s.q ? { q: '' } : { search: false }), noSubmit: e => e.preventDefault(), hasRes: !!s.q.trim(), res,
@@ -864,7 +898,7 @@ class Component extends DCLogic {
                 row: lifted(sd, { display: 'flex', alignItems: 'center', gap: 8, height: 52, padding: '0 4px 0 2px', borderRadius: 26, background: sd ? '#4a4a4a' : '#333333', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', opacity: sh ? 0.55 : 1 }),
                 eyeIc: sh ? 'visibility_off' : 'visibility', eyeS: eyeS(sh, 40), eye: () => set({ secHid: { ...(s.secHid || {}), [key2]: !sh } }) }; }) : [] }; }),
           cals: Object.keys(CALS).map(k => ({ label: CALS[k][0], ent: CALS[k][2], row: pill, ...sw(s.cals[k]), go: () => set({ cals: { ...s.cals, [k]: !s.cals[k] } }), dot: { width: 12, height: 12, borderRadius: 6, flex: 'none', background: CALS[k][1] } })),
-          sources: [['hytta', 'Hyttebesøk', 'cottage', YEL], ['bday', 'Bursdager', 'cake', ROSE], ['post', 'Når kommer Posten', 'mail', RED], ['parcels', 'Pakkesporing', 'package_2', ORA], ['sonarr', 'Sonarr', 'tv', BLUE], ['radarr', 'Radarr', 'movie', YEL], ['plex', 'Plex nylig lagt til', 'play_circle', YEL]].map(([k, name, icon, col]) => { const open = s.cacc === k, o = !!ov[k];
+          sources: [['hytta', 'Hyttebesøk', 'cottage', YEL], ['bday', 'Bursdager', 'cake', ROSE], ['post', 'Når kommer Posten', 'mail', RED], ['parcels', 'Pakkesporing', 'package_2', ORA], ['postnord', 'PostNord', 'package_2', BLUE], ['sonarr', 'Sonarr', 'tv', BLUE], ['radarr', 'Radarr', 'movie', YEL], ['plex', 'Plex nylig lagt til', 'play_circle', YEL]].map(([k, name, icon, col]) => { const open = s.cacc === k, o = !!ov[k];
             return { name, icon, open, val: s.src[k] || 'Velg entitet', inVal: s.src[k] || '', toggle: () => set({ cacc: open ? null : k }),
               wrap: { borderRadius: 24, background: open ? '#404040' : '#3a3a3a', overflow: 'hidden', transition: 'background .2s' },
               ic: { width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: al(col, 0.18), color: col },
@@ -880,7 +914,7 @@ class Component extends DCLogic {
                     row: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', minHeight: 52, padding: '6px 12px 6px 14px', borderRadius: 18, textAlign: 'left', background: sel ? '#4a4a4a' : '#3a3a3a' },
                     check: { fontSize: 20, color: GREEN, flex: 'none', opacity: sel ? 1 : 0 },
                     go: () => set({ src: { ...s.src, [k]: id }, srcOv: { ...ov, [k]: id !== DEFSRC[k] }, srcQ: { ...(s.srcQ || {}), [k]: '' } }) }; }) }; })() }; }),
-          segs: [['Startfane', ORD.map(([k, l]) => [k, l]), startT, v => set({ startTab: v })], ['Startvisning', [['list', 'Liste'], ['month', 'Måned']], defV, v => set({ defView: v, view: v })], ['Faner viser', [['ikon', 'Symboler'], ['navn', 'Navn']], s.tabLbl || 'ikon', v => set({ tabLbl: v })], ['Dager fremover', [[7, '7 dager'], [14, '14 dager'], [30, '30 dager']], s.ahead, v => set({ ahead: v })]]
+          segs: [['Startfane', ORD.map(([k, l]) => [k, l]), startT, v => set({ startTab: v })], ['Startvisning', [['list', 'Liste'], ['month', 'Måned']], defV, v => set({ defView: v, view: v })], ['Faner viser', [['ikon', 'Symboler'], ['navn', 'Navn']], s.tabLbl || 'ikon', v => set({ tabLbl: v })], ['Dager fremover', [[7, '7 dager'], [14, '14 dager'], [30, '30 dager']], s.ahead, v => set({ ahead: v })], ['PostNord-levering i Posten', [['valgt', 'Ved valgt dag'], ['alltid', 'Alltid']], s.pnRow || 'valgt', v => set({ pnRow: v })]]
             .map(([title, opts, cur, fn]) => ({ title, cols: { display: 'grid', gridTemplateColumns: `repeat(${Math.min(opts.length, 3)},minmax(0,1fr))`, gap: 2, padding: 4, borderRadius: 24, background: '#3a3a3a' },
               opts: opts.map(([v, l]) => ({ label: l, go: () => fn(v), style: { height: 40, borderRadius: 20, fontSize: 14, fontWeight: 500, background: cur === v ? PINK : 'transparent', color: cur === v ? '#3a3a3a' : '#afafaf', transition: 'background .2s' } })) })),
           spSum: `${SPV.gap} px mellom`,
@@ -892,7 +926,7 @@ class Component extends DCLogic {
       })(),
       tabRows: TABS.map(([k, label], i) => ({ label, row: cfgRow(i), ...sw(!s.hid[k]), toggle: () => { if (!s.hid[k] && visT.length < 2) return; set({ hid: { ...s.hid, [k]: !s.hid[k] } }); } })),
       calRows: Object.keys(CALS).map((k, i) => ({ label: CALS[k][0], ent: CALS[k][2], row: cfgRow(i), ...sw(s.cals[k]), toggle: () => set({ cals: { ...s.cals, [k]: !s.cals[k] } }), dot: { width: 12, height: 12, borderRadius: 6, flex: 'none', background: CALS[k][1] } })),
-      srcRows: [['hytta', 'Hyttebesøk', 'cottage'], ['bday', 'Bursdager', 'cake'], ['post', 'Når kommer Posten', 'mail'], ['parcels', 'Pakkesporing', 'package_2'], ['sonarr', 'Sonarr', 'tv'], ['radarr', 'Radarr', 'movie'], ['plex', 'Plex nylig lagt til', 'play_circle']].map(([k, label, icon]) => ({ label, icon, val: s.src[k], set: e => this.setState({ src: { ...s.src, [k]: e.target.value } }) })),
+      srcRows: [['hytta', 'Hyttebesøk', 'cottage'], ['bday', 'Bursdager', 'cake'], ['post', 'Når kommer Posten', 'mail'], ['parcels', 'Pakkesporing', 'package_2'], ['postnord', 'PostNord', 'package_2'], ['sonarr', 'Sonarr', 'tv'], ['radarr', 'Radarr', 'movie'], ['plex', 'Plex nylig lagt til', 'play_circle']].map(([k, label, icon]) => ({ label, icon, val: s.src[k], set: e => this.setState({ src: { ...s.src, [k]: e.target.value } }) })),
       aheadOpts: [7, 14, 30].map(n => ({ label: `${n} d`, go: () => set({ ahead: n }), style: miniSeg(s.ahead === n) })),
       viewOpts: [['list', 'Liste'], ['month', 'Måned']].map(([k, label]) => ({ label, go: () => set({ view: k }), style: miniSeg(view === k) })),
       viewBtnStyle: { position: 'relative', width: 48, height: 48, borderRadius: 24, flex: 'none', display: 'grid', placeItems: 'center', overflow: 'hidden', touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', background: rOn ? PINK : '#3a3a3a', color: rOn ? '#3a3a3a' : '#e1e1e1', transition: 'background .2s' },
@@ -914,29 +948,35 @@ class Component extends DCLogic {
       addBday: e => { e.preventDefault(); const nm = s.bName.trim(); if (!nm || !s.bDate) return this.setState({ bMsg: 'Fyll inn navn og dato' }); hp('success');
         this.setState({ bdays: [...s.bdays, [nm, s.bDate]], bName: '', bDate: '', bMsg: `Lagt til ${nm} i ${s.src.bday}` }); },
       xB: tab === 'bday', xP: tab === 'post', bGroups,
-      post: { rel: rel(pSelD), date: `${DAYS[pSelD.getDay()]} ${dm(pSelD)} · ${!s.postSel ? 'neste utdeling' : pSelOn ? 'posten kommer' : 'ingen utdeling'}`, chipTxt: postToday ? 'Posten kommer i dag' : 'Ikke i dag',
+      post: { rel: rel(pSelD), date: `${DAYS[pSelD.getDay()]} ${dm(pSelD)} · ${!s.postSel ? 'neste utdeling' : pSelOn ? 'posten kommer' : 'ingen utdeling'}${pnDay ? ' · PostNord-levering' : ''}`, chipTxt: postToday ? 'Posten kommer i dag' : 'Ikke i dag',
         chip: { height: 26, padding: '0 10px', borderRadius: 13, display: 'inline-flex', alignItems: 'center', fontSize: 11, fontWeight: 600, background: postToday ? 'rgba(242,128,115,0.18)' : '#404040', color: postToday ? RED : '#afafaf' },
-        days: postDays },
+        days: postDays, pnHas: !!pnDay, pnTitle: pnDay ? `PostNord · ${pnDay[0]}` : '', pnSub: pnDay ? [pnDay[1], (s.parcels.find(x => x.name === pnDay[0]) || {}).status, (s.parcels.find(x => x.name === pnDay[0]) || {}).method].filter(Boolean).join(' · ') : '' },
+      pn: { on: pnOn, acct: PN.acct, next: PN.next, updated: s.pnUpd || PN.updated, filtered: !!s.pnF, fLabel: s.pnF ? PNF[s.pnF][0] : '', clear: () => set({ pnF: null }),
+        refS: { fontSize: 18, transform: `rotate(${(s.pnSpin || 0) * 360}deg)`, transition: 'transform .6s ease' },
+        refresh: () => { hp('success'); this.setState({ pnSpin: (s.pnSpin || 0) + 1, pnUpd: 'nå' }); },
+        stats: [['inn', s.parcels.filter(PNF.inn[1]).length], ['klar', s.parcels.filter(PNF.klar[1]).length], ['lev', PN.delivered], ['ut', s.parcels.filter(PNF.ut[1]).length]].map(([k, n]) => { const on = s.pnF === k;
+          return { n, label: PNF[k][0], short: { inn: 'Inn', klar: 'Hentes', lev: 'Levert', ut: 'Ut' }[k], go: () => { hp('selection'); this.setState({ pnF: on ? null : k, showDel: k === 'lev' ? true : s.showDel }); },
+            style: { minWidth: 0, height: 36, padding: '0 6px', borderRadius: 18, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, textAlign: 'center', background: on ? BLUE : 'transparent', boxShadow: on ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.08)', color: on ? '#282828' : '#e1e1e1', transition: 'background .15s, transform .12s' } }; }) },
       pCount: `${active.length} aktive`, adding: s.adding, draft: s.draft, setDraft: e => this.setState({ draft: e.target.value }),
       toggleAdd: () => set({ adding: !s.adding }), addIcon: s.adding ? 'close' : 'add',
       addBtnStyle: { marginLeft: 'auto', width: 36, height: 36, borderRadius: 18, display: 'grid', placeItems: 'center', background: '#3a3a3a', color: '#e1e1e1' },
       addParcel: e => { e.preventDefault(); const t = s.draft.trim(); if (!t) return; hp('success'); const id = ++puid;
-        this.setState({ draft: '', adding: false, openP: id, parcels: [{ id, name: t, carrier: /^\d{18,}$/.test(t) ? 'Bring' : 'Posten', st: 'transit', status: 'Registrert', eta: '–', pickup: '–', method: '–', events: [['Venter på første sporingshendelse', 'Nå']] }, ...s.parcels] }); },
-      parcels: shownP.map((x, i) => { const [c, ic] = PST[x.st], op = s.openP === x.id;
-        return { name: x.name, carrier: x.carrier, status: x.status, ic, open: op, stale: !!x.staleH, canHome: !!x.home && op,
-          meta: x.st === 'delivered' ? x.eta : x.st === 'ready' ? `Hentes på ${x.pickup}` : `Estimert: ${x.eta}`,
+        this.setState({ draft: '', adding: false, openP: id, parcels: [{ id, name: t, carrier: /^\d{18,}$/.test(t) ? 'Bring' : /SE$|DK$|FI$/i.test(t) || /^\d{11,17}$/.test(t) ? 'PostNord' : 'Posten', st: 'transit', status: 'Registrert', eta: '–', pickup: '–', method: '–', events: [['Venter på første sporingshendelse', 'Nå']] }, ...s.parcels] }); },
+      parcels: shownP.map((x, i) => { const [c, ic0] = PST[x.st], op = s.openP === x.id, ic = x.dir === 'ut' && x.st !== 'delivered' ? 'outbox' : ic0;
+        return { name: x.name, carrier: x.dir === 'ut' ? `${x.carrier} · Utgående` : x.carrier, status: x.status, ic, open: op, stale: !!x.staleH, canHome: !!x.home && op,
+          meta: x.dir === 'ut' ? `${x.pickup} · estimert ${x.eta}` : x.st === 'delivered' ? x.eta : x.st === 'ready' ? `Hentes på ${x.pickup}` : `Estimert: ${x.eta}`,
           staleTxt: x.staleH ? `Ingen ny hendelse på ${x.staleH} timer` : '',
           staleS: { alignSelf: 'flex-start', height: 26, padding: '0 10px', borderRadius: 13, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, background: 'rgba(242,181,115,0.16)', color: ORA },
           toggle: () => set({ openP: op ? null : x.id }),
           icon: { width: 36, height: 36, borderRadius: 18, flex: 'none', display: 'grid', placeItems: 'center', background: x.st === 'delivered' ? '#404040' : c, color: x.st === 'delivered' ? '#979797' : '#282828' },
-          cTag: { height: 20, padding: '0 7px', borderRadius: 10, flex: 'none', display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600, background: '#404040', color: x.carrier === 'Helthjem' ? GREEN : RED },
+          cTag: { height: 20, padding: '0 7px', borderRadius: 10, flex: 'none', display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600, background: '#404040', color: x.carrier === 'Helthjem' ? GREEN : x.carrier === 'PostNord' ? BLUE : RED },
           statusS: { fontSize: 13, fontWeight: 500, color: c },
           chev: { fontSize: 22, color: '#7f7f7f', flex: 'none', transform: op ? 'rotate(180deg)' : 'none', transition: 'transform .2s' },
           wrap: { borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', background: op ? '#404040' : 'transparent', transition: 'background .2s', opacity: x.st === 'delivered' ? 0.7 : 1 },
           events: x.events.map(([t, when], j) => ({ t, when, tS: { fontSize: 13, lineHeight: 1.35, color: j ? '#afafaf' : '#fafafa' }, dot: { width: 8, height: 8, borderRadius: 4, flex: 'none', marginTop: 5, background: j ? '#545454' : c } })),
-          facts: [['Leveringsmåte', x.method], ['Hentested', x.pickup], ['Avsender', x.sender], ['Vekt', x.weight], ['Mål', x.dims], ['Estimert', x.eta]].filter(f => f[1] && f[1] !== '–').map(([k, v]) => ({ k, v })) }; }),
+          facts: [['Leveringsmåte', x.method], ['Hentested', x.pickup], ['Avsender', x.sender], ['Vekt', x.weight], ['Mål', x.dims], ['Estimert', x.eta], ['Sporingsnummer', x.track]].filter(f => f[1] && f[1] !== '–').map(([k, v]) => ({ k, v })) }; }),
       toggleDelivered: () => set({ showDel: !s.showDel }), delIcon: s.showDel ? 'expand_less' : 'expand_more',
-      delLabel: s.showDel ? 'Skjul leverte' : `Vis leverte (${delivered.length})`,
+      delLabel: s.showDel ? 'Skjul leverte' : `Vis leverte (${delivered.length})`, 
       mFilters: [['alle', 'Alle'], ['serier', 'Serier'], ['filmer', 'Filmer'], ...(showPlex ? [['plex', 'Plex']] : [])].map(([k, label]) => ({ label, go: () => { const pk = k === 'serier' ? up.filter(x => x.kind === 'serie') : k === 'filmer' ? up.filter(x => x.kind === 'film') : k === 'plex' ? plex : showPlex ? [...up, ...plex] : up; const o = { mf: k, more: false }; if (view === 'month' && pk.length && !pk.some(x => x.k === s.sel)) { const d = parse(pk[0].k); o.sel = pk[0].k; o.mo = { ...s.mo, fram: (d.getFullYear() - 2026) * 12 + d.getMonth() - 8 }; } set(o); }, style: pill(s.mf === k) })),
       showMonth: (tab === 'cal' || tab === 'fram') && view === 'month', showCalList: tab === 'cal' && view === 'list', showFramList: tab === 'fram' && view === 'list',
       prev: () => shift(-1), next: () => shift(1), goToday: () => set({ mo: { ...s.mo, [tab]: 0 }, sel: TK }),

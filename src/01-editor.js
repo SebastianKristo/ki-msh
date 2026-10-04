@@ -774,6 +774,7 @@
       const glass = !!(this._inline && gh && gh.hasAttribute && gh.hasAttribute('data-glass'));
       if (glass !== this.hasAttribute('glass')) this.toggleAttribute('glass', glass);
       if (M.glassDrag && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg').forEach((sg) => M.glassDrag(sg, { axis: 'x' }));
+      if (M.tabPress && this.shadowRoot) this.shadowRoot.querySelectorAll('.chips.sg.tabs').forEach((t) => M.tabPress(t)); // Fiks 47 E: felles trykk-logikk
     }
     set hass(h) { const first = !this._hass; this._hass = h; if (first) this._render(); }
     get hass() { return this._hass; }

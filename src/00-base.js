@@ -1249,10 +1249,21 @@
     }
     return null;
   };
+  // Fiks 47 F · «Bekreftelsespille» (Tilpass Hjem → Faner, config toasts på msh-hjem-faner-card, standard på). Av → ingen
+  // toast-pille noe sted i dashbordet (feilmeldinger, type 'error', vises fortsatt). Haptic og handlingen påvirkes ikke.
+  MSH.toastsOn = function () {
+    try {
+      const live = MSH.liveOf && MSH.liveOf('msh-hjem-faner-card');
+      let c = live && live.config;
+      if (!c && MSH.effectiveConfig && MSH.CARD_IDS && MSH.store) c = MSH.effectiveConfig({ type: 'custom:msh-hjem-faner-card', card_id: MSH.CARD_IDS.faner }, null, { shared: true });
+      return !(c && c.toasts === false);
+    } catch (e) { return true; }
+  };
   MSH.toast = function (text, opts) {
     const o = opts || {};
     if (o.enabled === false) return null;
     const T = MSH.TOAST, type = o.type || toastType(String(text || ''));
+    if (type !== 'error' && !MSH.toastsOn()) return null; // 47 F
     const root = MSH.overlayRoot();
     let t = root.querySelector('#msh-toast');
     const fresh = !t || t.__out;

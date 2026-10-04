@@ -728,6 +728,7 @@
           <button class="nb" data-a="cancel">Avbryt</button><button class="nb" data-a="reset">Tilbakestill</button><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
         <div class="tabs" role="tablist" data-glass-drag="x">${TABS.map(([k, l, icn]) => `<button class="tab ${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="tab" data-k="${k}">${M.icon(icn, 18)}<span>${esc(l)}</span></button>`).join('')}</div>
         <div class="pane" data-tab="${st.tab}">${tabHTML()}</div>`;
+      if (M.tabPress) M.tabPress(box.querySelector('.tabs')); // Fiks 47 E: felles trykk-logikk
       if (sh) sh.scrollTop = top;
     };
     ov = M.overlay({ html: '', css: SHEET_CSS, maxWidth: 440, tall: true, tilpass: true, onClose: () => { ctl.dispose(); card._sheet = null; } });

@@ -186,7 +186,9 @@ const run = async () => p.evaluate(async () => {
   // ---------- Fiks 20.4: «Vis først når …» på Hjem-karusellen + «Vis prikker» av
   {
     const H = { ...hass, states: { ...hass.states } };
-    const setCal = (on) => { H.states = { ...H.states, 'calendar.familie': { ...hass.states['calendar.familie'], state: on ? 'on' : 'off', last_changed: new Date().toISOString() } }; h3.hass = { ...H }; };
+    // Fiks 47: ny states-tabell FØR forrige hass-objekt endres (ellers sammenligner _changed det muterte objektet med seg selv
+    // og testen hang på en tilfeldig senere tegning)
+    const setCal = (on) => { const st = { ...H.states, 'calendar.familie': { ...hass.states['calendar.familie'], state: on ? 'on' : 'off', last_changed: new Date().toISOString() } }; h3.hass = { ...H, states: st }; H.states = st; };
     const h3 = document.createElement('msh-hjem-faner-card');
     const cfg = { type: 'custom:msh-hjem-faner-card', card_id: 'hf3', slides: { hjem: { L: { cal: true }, R: { vaer: true } } }, carousel: { hjem: { L: { first: [{ slide: 'cal', condition: [{ condition: 'state', entity_id: 'calendar.familie', state: 'on' }] }] }, R: { dots: false } } } };
     H.states['calendar.familie'] = { ...hass.states['calendar.familie'], state: 'on' };

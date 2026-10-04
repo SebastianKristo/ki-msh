@@ -299,6 +299,7 @@
       M.morph(box, `<div class="sk-sh-hd"><span class="sk-sh-tt">${esc(o.title)}</span><button class="sk-ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
         <div class="sk-sh-tabs" role="tablist" data-glass-drag="x" style="grid-template-columns:repeat(${tabs.length},minmax(0,1fr))">${tabs.map(([k, l]) => `<button class="sk-sh-tab ${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="tab" data-k="${k}">${esc(l)}</button>`).join('')}</div>
         <div class="sk-sh-pane" data-tab="${st.tab}">${o.body(st.tab, D(), api)}</div>`);
+      if (M.tabPress) M.tabPress(box.querySelector('.sk-sh-tabs')); // Fiks 47 E: felles trykk-logikk
       if (sh) sh.scrollTop = top;
       box.querySelectorAll('msh-entity-picker').forEach((p) => { p.hass = card.hass; if (!p.__op) { p.__op = 1; setTimeout(() => { try { p.open(); } catch (e) { /* */ } }, 0); } });
     };

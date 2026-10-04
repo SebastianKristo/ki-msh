@@ -25,6 +25,14 @@
  * Fanen som holdes: touch-action none; alle faner: user-select/-webkit-touch-callout none. Tannhjul/«Tilpass»-knapper
  * (.gear, [data-act=customize], [data-tr-fixed]) er aldri med i items() og kan ikke flyttes.
  *   MSH.tabMerge(visibleKeys, fullOrder) → full rekkefølge der de synlige plassene får ny rekkefølge (skjulte står).
+ * Fiks 47 E (fasit Kalender v2 `tabs` → down/up/cancel) – trykk registreres alltid, felles for ALLE fanelinjer:
+ *   MSH.tabPress(row, { items?, isActive?(btn), busy?(), select?(btn) }) → kontroller (idempotent; MSH.tabReorder kobler
+ *   den på selv – rader uten omorganisering kaller den direkte). Fanebytte på pointerup når bevegelse < 14 px og trykk
+ *   < 450 ms; pointercancel innen 250 ms bytter likevel. click er reserve (tastatur), men ignoreres innen 400 ms etter et
+ *   pekervalg (ingen dobbel haptic / dobbelt bytte). Aldri under hold-for-å-omorganisere (window.__tabReorder) eller dra.
+ *   Hele knappen + sporets padding/mellomrom (nærmeste fane ≤ 10 px) er trykkflate; fanene får touch-action: pan-x og
+ *   ingen tap-highlight. Haptic «light» (i popups; ellers knappens data-haptic) kun ved faktisk bytte (aktiv fane = ingenting); valget skjer som et
+ *   syntetisk click på knappen med data-haptic midlertidig «off», så kortets egen click-kode bytter fanen.
  */
 (function () {
   const M = window.MSH;
@@ -112,6 +120,92 @@
     }
     return out;
   };
+  /* ---------------- Fiks 47 E · trykk (pointerup/pointercancel) */
+  const P_MOVE = 14, P_MS = 450, P_CANCEL = 250, P_EAT = 400, P_NEAR = 10;
+  const ownTabs = (row) => Array.from(row.children).filter((b) => (b.tagName === 'BUTTON' || b.getAttribute('role') === 'tab') && !(b.matches && b.matches(FIXED)));
+  const inPopup = (el) => { let n = el, d = 0; while (n && d++ < 80) { if (n.localName === 'bubble-card' || (n.classList && n.classList.contains('bubble-pop-up'))) return true; n = n.parentNode || n.host; } return false; };
+  class TabPress {
+    constructor(row, o) {
+      this.row = row; this.o = o || {}; this.p = null; this.at = 0; this.synth = false;
+      const cap = { capture: true };
+      row.addEventListener('pointerdown', (e) => this._down(e), cap);
+      row.addEventListener('pointerup', (e) => this._up(e), cap);
+      row.addEventListener('pointercancel', (e) => this._cancel(e), cap);
+      row.addEventListener('click', (e) => {
+        if (this.synth || Date.now() - this.at >= P_EAT) return;
+        if (!this._btn(e, true)) return;
+        e.stopImmediatePropagation(); e.preventDefault(); // pekeren har allerede valgt fanen
+      }, cap);
+    }
+    items() { return (this.o.items ? Array.from(this.o.items() || []) : ownTabs(this.row)).filter((b) => b && b.isConnected && !(b.matches && b.matches(FIXED))); }
+    style() {
+      this.items().forEach((b) => {
+        if (!b.style.touchAction) b.style.touchAction = 'pan-x';
+        if (!b.style.webkitTapHighlightColor) b.style.webkitTapHighlightColor = 'transparent';
+      });
+    }
+    // Knappen trykket traff: selve fanen, ellers (sporets padding/mellomrom) nærmeste fane innen 10 px. Tannhjul o.l. = ingen.
+    _btn(e, exact) {
+      const path = e.composedPath ? e.composedPath() : [e.target], its = this.items();
+      for (const n of path) {
+        if (n === this.row) break;
+        if (its.includes(n)) return n;
+        if (n && n.matches && n.matches(FIXED)) return null;
+      }
+      if (exact || !path.includes(this.row)) return null;
+      let best = null, bd = P_NEAR + 0.01;
+      its.forEach((b) => { const r = b.getBoundingClientRect(), d = e.clientX < r.left ? r.left - e.clientX : e.clientX > r.right ? e.clientX - r.right : 0; if (d < bd && e.clientY >= r.top - 12 && e.clientY <= r.bottom + 12) { bd = d; best = b; } });
+      return best;
+    }
+    busy() { return !!window.__tabReorder || !!(this.o.busy && this.o.busy()); }
+    _down(e) {
+      if (e.button || e.isPrimary === false) { this.p = null; return; }
+      const b = this._btn(e);
+      this.p = b && !b.disabled ? { b, pid: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now() } : null;
+    }
+    _up(e) {
+      const p = this.p;
+      if (!p || p.pid !== e.pointerId) return;
+      this.p = null;
+      if (this.busy()) return;
+      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < P_MOVE && Date.now() - p.t < P_MS) this.pick(p.b);
+    }
+    _cancel(e) {
+      const p = this.p;
+      if (!p || p.pid !== e.pointerId) return;
+      this.p = null;
+      if (Date.now() - p.t < P_CANCEL && !this.busy()) this.pick(p.b); // scroll/glass/swipe-to-close tok pekeren – bytt likevel
+    }
+    active(b) {
+      if (this.o.isActive) return !!this.o.isActive(b);
+      return b.classList.contains('on') || b.getAttribute('aria-selected') === 'true' || (b.hasAttribute('data-active') && b.getAttribute('data-active') !== 'false');
+    }
+    pick(b) {
+      this.at = Date.now();
+      if (!b || !b.isConnected || b.disabled || this.active(b)) return false;
+      // Popups: «light» (fasit Kalender v2). Utenfor popups (Hjem-fanene) beholdes knappens egen data-haptic.
+      const own = b.getAttribute('data-haptic');
+      M.haptic(inPopup(this.row) || !own || own === 'off' ? 'light' : own);
+      if (this.o.select) { this.o.select(b); return true; }
+      const h = b.getAttribute('data-haptic');
+      b.setAttribute('data-haptic', 'off');
+      this.synth = true;
+      try { b.click(); } finally {
+        this.synth = false;
+        if (h == null) b.removeAttribute('data-haptic'); else b.setAttribute('data-haptic', h);
+      }
+      if (M.glassDragEnd) M.glassDragEnd(); // trykk-animasjonen (MSH.glassTap) er vist – ikke én gang til på pekerens eget click
+      return true;
+    }
+  }
+  M.tabPress = function (row, o) {
+    if (!row) return null;
+    let P = row.__tabPress;
+    if (P) { if (o) P.o = { ...P.o, ...o }; } else P = row.__tabPress = new TabPress(row, o);
+    P.style();
+    return P;
+  };
+
   class TabReorder {
     constructor(row, opts) {
       this.row = row;
@@ -119,6 +213,12 @@
       this.st = null;
       this.eatUntil = 0;
       this._bindRow();
+      // Fiks 47 E: trykk = pointerup/-cancel (felles M.tabPress); ikke under dra/glass-dra (de velger selv)
+      this.press = M.tabPress(row, {
+        items: () => this.items(),
+        isActive: (b) => { const a = this.activeBtn(); return a ? a === b : b.classList.contains('on') || b.getAttribute('aria-selected') === 'true'; },
+        busy: () => !!(this.st && (this.st.phase === 'drag' || this.st.phase === 'glass')),
+      });
     }
     get o() { return { holdMs: 400, styleRow: true, ...this.opts }; }
     items() { const f = this.o.items; return (f ? Array.from(f() || []) : Array.from(this.row.children).filter((b) => b.tagName === 'BUTTON')).filter((b) => b && b.isConnected && !(b.matches && b.matches(FIXED))); }
@@ -140,7 +240,7 @@
       row.addEventListener('pointerup', (e) => { if (foreign(e)) this._end(true, e.clientX); });
       row.addEventListener('pointercancel', (e) => { const st = foreign(e); if (st && !st.touchLock) { if (st.phase === 'hold') this._abortHold(); else this._end(false); } });
       // Ingen click / fanebytte etter et drag
-      row.addEventListener('click', (e) => { if (Date.now() < this.eatUntil || this.eatClick) { this.eatUntil = 0; this.eatClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
+      row.addEventListener('click', (e) => { if (this.press && this.press.synth) return; if (Date.now() < this.eatUntil || this.eatClick) { this.eatUntil = 0; this.eatClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
       row.addEventListener('scroll', () => {
         this.fade();
         const st = this.st;
@@ -188,6 +288,7 @@
       if (this.o.styleRow !== false && !row.classList.contains('msh-tr')) row.classList.add('msh-tr');
       if (this.st && this.st.phase === 'drag') return;
       this.items().forEach((b) => this._bindBtn(b));
+      if (this.press) this.press.style();
       this.fade();
       this.scrollActive();
     }
@@ -381,7 +482,7 @@
       if (!st) return;
       this.st = null;
       this._clearHold();
-      if (st.phase === 'hold') return; // vanlig trykk → click tar seg av fanebytte (+ MSH.glassTap-animasjon)
+      if (st.phase === 'hold') return; // vanlig trykk → M.tabPress har byttet fanen på pointerup (click = reserve)
       this.eatUntil = Date.now() + 350;
       if (M.glassDragEnd) M.glassDragEnd(); // ingen trykk-animasjon etter dra/glass-dra
       if (st.phase === 'pan') { this.row.classList.remove('tr-pan'); return; }
