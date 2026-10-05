@@ -544,16 +544,28 @@
       title = a.media_title ? (a.media_artist ? `${a.media_artist} – ${a.media_title}` : a.media_title) : (a.source || (s.state === 'idle' ? 'Klar' : '–'));
       artist = a.media_channel || a.media_album_name || a.source || p.name;
     }
+    // Fiks 51 A: felles M.stationArt (06-station-art.js) – entity_picture, ellers kanallogo (station_logos i dette kortets
+    // config går foran den innebygde tabellen). TV: bare bildet (app-ikon/logo som før).
+    const art = M.stationArt ? M.stationArt(hass, s, card.eff || card.config || {}, { noLogo: tv }) : null;
     const pic0 = a.entity_picture_local || a.entity_picture || '';
-    const pic = pic0 ? (pic0[0] === '/' && hass.hassUrl ? hass.hassUrl(pic0) : pic0) : '';
+    const pic = art ? art.url : pic0 ? (pic0[0] === '/' && hass.hassUrl ? hass.hassUrl(pic0) : pic0) : '';
+    const radio = /radio/i.test(p.id + p.name) || !!a.media_channel || !!(art && art.kind === 'logo');
     const icon = p.pc.icon || a.icon || (tv ? 'tv' : a.device_class === 'receiver' ? 'speaker' : /radio/i.test(p.id + p.name) ? 'radio' : 'speaker');
     return {
-      s, a, off, run, tv, app, inp, title, artist, pic, icon,
+      s, a, off, run, tv, app, inp, title, artist, pic, icon, art,
+      // logo-aksent (NRK Klassisk lilla, P3 gul …) brukes i stedet for fargen hentet fra bildet
+      accent: art && art.kind === 'logo' ? art.accent : null,
       label: [p.name, app, inp && inp !== app ? inp : ''].filter(Boolean).join(' · '),
       col: tv ? st.col : null,
-      artIcon: tv ? (st.icon || 'apps') : (appStyle(a.source).icon || 'music_note'),
+      artIcon: tv ? (st.icon || 'apps') : (appStyle(a.source).icon || (radio ? 'mdi:radio' : 'music_note')),
     };
   }
+
+  // Fiks 51 A: <img> for omslag/kanallogo – via M.stationArtImg (cover / contain på mørk flate + reserve-logo) når
+  // URL-en kommer fra stationArt, ellers vanlig bilde (TV-app-ikon)
+  const artImg = (I, url) => (url && I.art && I.art.url === url && M.stationArtImg ? M.stationArtImg(I.art, { key: 'img' }) : url ? `<img src="${esc(url)}" alt="" data-key="img">` : '');
+  // Aksent fra art: logoens farge, ellers snittfarge fra bildet (artColor)
+  const artCol = (I, url, done) => (url && I.art && I.art.url === url && I.art.kind === 'logo' ? I.art.accent || artColor(url, done) : artColor(url, done));
 
   // Fiks 17.22 → 47 G: «Tilpass media» viser én fane om gangen (Faner | TV | Musikk, ikonfaner der aktiv viser navnet –
   // Media v4 cfgTabs). Valgt fane er UI-tilstand for editoren (ikke config) og huskes mens siden er åpen (designets cfgTab).
@@ -734,6 +746,49 @@
     },
   });
 
+  /* Fiks 51 A · «Kanallogoer» (Musikk-fanen i «Tilpass media» og GUI-editoren, samme skjema): egne treff for radiospillere
+   * uten bilde → config.station_logos { '<kanalnavn>': '/local/…png' }. Går foran den innebygde tabellen (06-station-art.js);
+   * mini-spilleren og Rom leser samme tabell (M.mediaCardCfg). Rader: navn + sti, «Legg til», fjern. */
+  const slList = (c) => { const o = (c && c.station_logos) || {}; return Array.isArray(o) ? o.map((x) => [x.name || '', x.url || x.path || '']) : Object.keys(o).map((k) => [k, typeof o[k] === 'string' ? o[k] : (o[k] && (o[k].url || o[k].path)) || '']); };
+  const slPut = (ed, L) => { const o = {}; L.forEach(([k, v]) => { if (k != null && String(k).trim() !== '' && !(k in o)) o[String(k).trim()] = v || ''; }); ed._set('station_logos', Object.keys(o).length ? o : undefined); };
+  const slField = () => ({
+    type: 'html',
+    click: (d, ed) => {
+      const L = slList(ed._config);
+      if (d.op === 'sladd') {
+        let n = 'Ny kanal', k = 2; const has = (x) => L.some((r) => r[0] === x);
+        while (has(n)) n = 'Ny kanal ' + k++;
+        L.push([n, '/local/ki/radio-logos/']); M.haptic('light'); return slPut(ed, L);
+      }
+      if (d.op === 'sldel') { L.splice(Number(d.i), 1); M.haptic('light'); return slPut(ed, L); }
+      return undefined;
+    },
+    html: (h, c, key, ed) => {
+      if (ed && ed.shadowRoot && !ed.__msl) {
+        ed.__msl = true;
+        ed.shadowRoot.addEventListener('change', (e) => {
+          const t = e.target, dd = t && t.dataset;
+          if (!dd || dd.sl == null) return;
+          e.stopPropagation();
+          const L = slList(ed._config), i = Number(dd.i);
+          if (!L[i]) return;
+          const v = String(t.value || '').trim();
+          if (dd.sl === 'name') { if (!v || L.some((r, j) => j !== i && r[0] === v)) { t.value = L[i][0]; return; } L[i][0] = v; } else L[i][1] = v;
+          slPut(ed, L);
+        });
+      }
+      const L = slList(c);
+      const inp = (i, f, v, ph, st) => `<input class="inp" data-sl="${f}" data-i="${i}" value="${esc(v || '')}" placeholder="${esc(ph)}" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="${f === 'name' ? 'Kanalnavn' : 'Sti til logo'}" style="height:34px;font-size:13px;min-width:0;background:var(--ki-popup, #282828);${st || ''}">`;
+      const rows = L.map(([n, u], i) => `<div class="line" data-key="sl-${i}" style="gap:6px">${inp(i, 'name', n, 'Kanalnavn, f.eks. NRK P1', 'flex:1 1 40%')}${inp(i, 'url', u, '/local/ki/radio-logos/…png', 'flex:1 1 60%')}
+          <button class="ib" data-a="fn" data-k="${key}" data-op="sldel" data-i="${i}" title="Fjern" aria-label="Fjern" style="background:rgb(242 128 115 / 0.2);color:var(--ki-red-text, rgb(242 128 115))">${M.icon('mdi:delete-outline', 18)}</button></div>`).join('');
+      return `<div class="sec" data-key="msl" style="display:flex;flex-direction:column;gap:8px;padding:12px">
+          <div class="line" style="padding:2px 4px 4px">${M.icon('mdi:radio', 20)}<span style="flex:1;font-size:14px;font-weight:500">Kanallogoer</span><span class="small">${L.length || 'Innebygd'}</span></div>
+          ${rows || '<div class="small" style="padding:2px 4px">Ingen egne treff – innebygd tabell (NRK P1/P1+/P2/P3/mP3/Klassisk/Jazz, P4, Radio Vinyl) brukes</div>'}
+          <button class="chip" data-a="fn" data-k="${key}" data-op="sladd" data-key="sladd" style="height:44px;border-radius:22px;background:transparent;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));justify-content:center;font-size:13px">${M.icon('mdi:plus', 18)}Legg til kanallogo</button>
+          <div class="small" style="padding:2px 4px">Vises når en radio ikke sender bilde. Kanalnavnet sammenlignes med media_channel, media_title, media_artist, source og app_name (eksakt eller starten av navnet, store/små bokstaver, mellomrom, punktum og bindestrek likegyldig, «+» = «pluss»). Egne treff går foran den innebygde tabellen og gjelder også mini-spilleren og Rom.</div></div>`;
+    },
+  });
+
   /* 31.1 · «Mediaspiller» per kilde (Media v4 cfgSrc/cfgMus · mpOpts): native <select> over en rad (cast · entity_id · ▾).
    * Listen over media_player.* beregnes ÉN gang per editor (ed.__mpOpts) – ikke per spiller og tegning.
    * Lagres som players.<obj>.entity (tom = kildens egen spiller); editoren lagrer via data-name. */
@@ -774,6 +829,7 @@
       sheetTabs(),
       orderField(),
       ...P.filter((p) => tabOf(p) === tab).map((p) => { try { return playerSec(h, c, p); } catch (e) { return failSec(p, e); } }),
+      ...(tab === 'musikk' ? [slField()] : []),
       ...commonSchema(),
       guiReset(),
     ];
@@ -1072,6 +1128,7 @@
       return hc ? hc.customize(focus, opts) : super.customize(focus, opts);
     }
     render() {
+      if (M.stationArtBind && this.shadowRoot) M.stationArtBind(this.shadowRoot, () => this.update()); // 51 A: feilet bilde → logo / ikon
       const cfg = this.eff, R = M.mediaResolve(this.hass, cfg, this.key);
       this._R = R;
       R.P.all.forEach((p) => this.s(p.id));
@@ -1097,7 +1154,7 @@
       const h = this.hass, I = info(this, p), a = I.a, s = I.s, tv = I.tv, off = I.off;
       const aIc = a.app_icon ? (a.app_icon[0] === '/' && h.hassUrl ? h.hassUrl(a.app_icon) : a.app_icon) : '';
       const pic = off ? '' : tv ? (I.pic || aIc) : I.pic;
-      const col = off ? null : (artColor(pic, () => this.update()) || (tv ? I.col : appStyle(I.app).col) || C.pink);
+      const col = off ? null : (artCol(I, pic, () => this.update()) || (tv ? I.col : appStyle(I.app).col) || C.pink);
       const bg = off ? '' : `background-color:${albumBg(col)}`;
       let title, sub;
       if (off) { title = I.title; sub = p.name; }
@@ -1116,7 +1173,7 @@
         ? `<button class="al-b press" data-act="pp" data-id="${id}" title="Spill/pause" aria-label="Spill/pause">${M.icon(I.run ? 'pause' : 'play_arrow', 24)}</button>`
         : `<button class="al-b press" data-act="next" data-id="${id}" title="Neste" aria-label="Neste">${M.icon('skip_next', 24)}</button>`;
       const btns = `<button class="al-b press" data-act="power" data-id="${id}" title="Av/på" aria-label="Av/på">${M.icon('power_settings_new', 20)}</button>${b2}`;
-      const art = `<div class="al-art ${pic && tv ? 'logo' : ''}">${pic ? `<img src="${esc(pic)}" alt="" data-key="img">` : M.icon(off ? (tv ? 'tv' : 'speaker') : tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 40)}</div>`;
+      const art = `<div class="al-art ${pic && tv ? 'logo' : ''}" data-sa-kind="${pic && I.art && I.art.url === pic ? I.art.kind : pic ? 'app' : 'none'}">${pic ? artImg(I, pic) : M.icon(off ? (tv ? 'tv' : 'speaker') : tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 40)}</div>`;
       // Seertid-chip (alltid synlig når spilleren har watch_time): i dag (fet) · denne måneden, t:mm
       const W = wtOf(cfg, p);
       let wt = '';
@@ -1134,7 +1191,7 @@
     // TV: plakat 84×118 + merke (LIVE/4K/HD), kicker bygd bare fra data som finnes, chips på én linje, fremdrift og kontrollrad.
     _card(p) {
       const h = this.hass, I = info(this, p), a = I.a, s = I.s, tv = I.tv, V = volInfo(this, p);
-      const col = tv ? (I.col || fallbackCol(p.id)) : (artColor(I.pic, () => this.update()) || fallbackCol(p.id));
+      const col = tv ? (I.col || fallbackCol(p.id)) : (artCol(I, I.pic, () => this.update()) || fallbackCol(p.id));
       const bg = I.off ? 'linear-gradient(150deg, #343434, var(--ki-surface-3, #2f2f2f))' : `linear-gradient(150deg, color-mix(in srgb, ${col} ${tv ? 20 : 22}%, #343434), #343434 55%, var(--ki-surface-3, #2f2f2f))`;
       const eq = [0, 1, 2, 3].map((k) => `<span style="animation-duration:${(0.7 + (k % 3) * 0.18).toFixed(2)}s;animation-delay:${(k * 0.12).toFixed(2)}s"></span>`).join('');
       const has0 = (v) => v != null && v !== '';
@@ -1163,7 +1220,7 @@
       const pw = `<button class="pw press" data-act="power" data-id="${esc(p.id)}" title="Av/på">${M.icon('power_settings_new', 18)}</button>`;
       // Plakat (TV) / omslag (musikk)
       const pic = tv ? (I.pic || (a.app_icon ? (a.app_icon[0] === '/' && h.hassUrl ? h.hassUrl(a.app_icon) : a.app_icon) : '')) : I.pic;
-      const sc = I.off ? null : tv ? (artColor(pic, () => this.update()) || col) : col;
+      const sc = I.off ? null : tv ? (artCol(I, pic, () => this.update()) || col) : col;
       const shadow = sc ? `box-shadow:0 10px 26px color-mix(in srgb, ${sc} 38%, transparent);` : '';
       const tile = I.off ? 'background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-mid, var(--gray600,#7f7f7f))' : tv ? `background:${col};color:#fff` : `background:linear-gradient(145deg, ${col}, color-mix(in srgb, ${col} 45%, var(--ki-surface-3, #2f2f2f)));color:#fff`;
       let badge = '';
@@ -1172,7 +1229,7 @@
         const rz = /2160|4k|uhd/i.test(rs) ? '4K' : /1080|720|\bhd\b|fhd/i.test(rs) ? 'HD' : '';
         badge = live ? '<span class="bdg rd">LIVE</span>' : rz ? `<span class="bdg">${rz}</span>` : '';
       }
-      const art = `<div class="art" style="${tile};${shadow}">${pic ? `<img src="${esc(pic)}" alt="" data-key="img">` : M.icon(tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 36)}${badge}</div>`;
+      const art = `<div class="art" data-sa-kind="${pic && I.art && I.art.url === pic ? I.art.kind : pic ? 'app' : 'none'}" style="${tile};${shadow}">${pic ? artImg(I, pic) : M.icon(tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 36)}${badge}</div>`;
       // Chips (én linje, skjules når verdien mangler – aldri mock)
       const ch = [];
       const chip = (ic, txt, act, id) => (act ? `<button class="ch press" data-act="${act}" data-id="${esc(id)}" data-key="ch-${esc(txt)}">` : `<span class="ch" data-key="ch-${esc(txt)}">`) + `${M.icon(ic, 13)}<span class="ell">${esc(txt)}</span>` + (act ? '</button>' : '</span>');

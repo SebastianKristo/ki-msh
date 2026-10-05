@@ -1152,9 +1152,14 @@
         const s = h.states[id], a = s.attributes || {}, playing = s.state === 'playing';
         const name = this._miniName(id);
         const sub = [a.media_title, a.media_artist || a.media_album_artist].filter(Boolean).join(' · ') || a.app_name || a.source || (playing ? 'Spiller' : s.state === 'paused' ? 'Pauset' : M.fmtState(h, id));
-        const pic = mPic(h, a.entity_picture_local || a.entity_picture), bad = this._mBad && this._mBad.has(pic);
         const T = this._miniTv(id), tv = T.tv, steps = tv && m.tv_vol !== 'slider'; // Fiks 19.15: TV → − / + i pillen
-        const art = `<span class="mart" style="background:linear-gradient(135deg,${C.pink},${C.orange || '#f2b573'})">${M.icon(tv ? 'mdi:television' : 'mdi:music-note', 24)}${pic && !bad ? `<img class="mimg" data-key="img_${esc(pic.slice(-60))}" src="${esc(pic)}" alt="" draggable="false">` : ''}</span>`;
+        // Fiks 51 A: felles M.stationArt – entity_picture, ellers kanallogo (Media-kortets station_logos + innebygd tabell);
+        // feilet bilde → logoen / ikonet (M.stationArtBind i _miniBind). Utvidet: logoens aksent som glød rundt omslaget.
+        const SA = M.stationArt ? M.stationArt(h, s, undefined, { noLogo: tv }) : { url: mPic(h, a.entity_picture_local || a.entity_picture), kind: 'picture' };
+        const pic = SA.url, bad = this._mBad && this._mBad.has(pic), acc = SA.kind === 'logo' && SA.accent;
+        const glow = acc && this._mExp === id ? `;box-shadow:0 6px 18px color-mix(in srgb, ${acc} 45%, transparent)` : '';
+        const img = pic && !bad ? (M.stationArtImg ? M.stationArtImg(SA, { key: 'img_' + pic.slice(-60) }) : `<img class="mimg" data-key="img_${esc(pic.slice(-60))}" src="${esc(pic)}" alt="" draggable="false">`) : '';
+        const art = `<span class="mart" data-sa-kind="${SA.kind || 'none'}" style="background:${acc ? acc : `linear-gradient(135deg,${C.pink},${C.orange || '#f2b573'})`}${glow}">${M.icon(tv ? 'mdi:television' : /radio/i.test(id + ' ' + name) || a.media_channel ? 'mdi:radio' : 'mdi:music-note', 24)}${img}</span>`;
         const vol = this._mVolId === id, feat = Number(a.supported_features) || 0, drag = !steps && (!!(feat & 4) || (!feat && a.volume_level != null)); // uten volume_set / TV: −/+
         const muted = !!a.is_volume_muted;
         let mid;
@@ -1267,6 +1272,7 @@
       ['touchstart', 'touchmove'].forEach((t) => sr.addEventListener(t, (e) => { if (inMini(e) || hit(e, '[data-mrmf]')) e.stopPropagation(); }, { passive: true }));
       sr.addEventListener('contextmenu', (e) => { if (inMini(e)) e.preventDefault(); });
       // Albumbildet feiler → ikon på farge (huskes, så det ikke prøves igjen ved neste render)
+      if (M.stationArtBind) M.stationArtBind(sr, () => this._schedule(true)); // Fiks 51 A: feilet bilde → logo / ikon
       sr.addEventListener('error', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('mimg')) { (this._mBad || (this._mBad = new Set())).add(t.getAttribute('src')); t.remove(); } }, true);
       // Et hold teller ikke som trykk
       sr.addEventListener('click', (e) => {
