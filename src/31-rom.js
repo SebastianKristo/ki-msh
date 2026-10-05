@@ -585,6 +585,7 @@
     _listChanged(key) { const a = this._L.auto[key] || [], l = this._L.lists[key] || []; return a.length !== l.length || a.some((x, i) => x !== l[i]); }
 
     render() {
+      if (M.stationArtBind && this.shadowRoot) M.stationArtBind(this.shadowRoot, () => this.update()); // 51 A: feilet bilde → logo / ikon
       const c = this.config;
       const area = M.roomArea(this);
       this._area = area;
@@ -898,7 +899,10 @@
         const tv = M.isTvPlayer(this.hass, id), sf = Number(a.supported_features) || 0;
         const icon = tv || a.device_class === 'tv' || /tv/i.test(id) ? 'tv' : 'speaker';
         // 20.17: albumbilde 54 px inni kortet (object-fit cover); uten bilde mørk sirkel med album-ikon 24 px (TV: tv-ikon)
-        const pic = pk && a.entity_picture ? `<img src="${esc(a.entity_picture)}" alt="">` : M.icon(tv ? 'tv' : 'album', 24);
+        // 51 A: felles M.stationArt – entity_picture (hassUrl), ellers kanallogo fra Media-kortets station_logos + innebygd
+        // tabell (ikke TV); cover / contain på mørk flate; feilet bilde → logo / ikon (M.stationArtBind i render)
+        const SA = pk && M.stationArt ? M.stationArt(this.hass, s, undefined, { noLogo: tv }) : { url: pk && a.entity_picture ? a.entity_picture : '', kind: pk && a.entity_picture ? 'picture' : 'none' };
+        const pic = SA.url ? (M.stationArtImg ? M.stationArtImg(SA) : `<img src="${esc(SA.url)}" alt="">`) : M.icon(tv ? 'tv' : 'album', 24);
         const hp = (x) => (pk ? 'light' : x);
         const nmTv = tv ? (((M.mediaCardCfg().players || {})[obj(id)] || {}).name || a.friendly_name || this._nm(id)) : this._nm(id);
         const stTv = tv && pk ? (a.media_title || a.media_channel || a.app_name || 'Spiller') : stTxt, sub2 = tv && pk && a.media_series_title && a.media_series_title !== stTv ? a.media_series_title : '';
@@ -921,10 +925,10 @@
               <button class="mp press msh-inner-c" data-act="mcmd" data-cmd="media_play_pause" data-id="${esc(id)}" data-haptic="${hp('success')}">${M.icon(pl ? 'pause' : 'play_arrow', 28)}</button>
               <button class="mb press" data-act="mcmd" data-cmd="media_next_track" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('skip_next', 24)}</button>
               <button class="mb mo" data-act="more" data-id="${esc(id)}" ${pk ? 'data-haptic="light"' : ''}>${M.icon('mdi:dots-horizontal', 24)}</button>`;
-        const logo = tv && pk && a.entity_picture;
+        const logo = tv && pk && SA.kind === 'picture';
         return `<div class="mc${tv ? ' tvc' : ''}" data-key="m-${esc(id)}">
           <div class="mt msh-inner${pk ? ' pk' : ''}${logo ? ' lg' : ''}" data-ent="${esc(id)}"><span class="mpk"></span><span class="mh"><span class="mn ell">${esc(nmTv)}${this._tag(id, true)}</span><span class="ms ell">${esc(stTv)}</span>${sub2 ? `<span class="ms2 ell">${esc(sub2)}</span>` : ''}</span>
-            <span class="art${logo ? ' logo' : ''}${pk && a.entity_picture && !logo ? ' img' : ''}">${pic}</span>
+            <span class="art${logo ? ' logo' : ''}${SA.url && !logo ? ' img' : ''}" data-sa-kind="${SA.kind}">${pic}</span>
             <div class="mctl${tv && ch ? ' m7' : ''}">${ctl}
             </div></div>
           ${volRow}
