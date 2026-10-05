@@ -3,7 +3,7 @@
 Logoene vises i mini-spilleren, utvidet meny, Media-popupen og spillerraden i Rom når en radiospiller
 ikke sender `entity_picture` (felles hjelper `MSH.stationArt`, `src/06-station-art.js`).
 
-Kopier PNG-filene fra `leveranse-51/radio-logos/` hit, slik at de ligger i Home Assistant under
+Kopier PNG-filene i denne mappen (de ligger her i repoet) til HA, slik at de ligger i Home Assistant under
 `config/www/ki/radio-logos/` og serveres som `/local/ki/radio-logos/<fil>`:
 
 | Fil | Treff (kanalnavn) |

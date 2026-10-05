@@ -111,7 +111,7 @@ async function page(missing = []) {
   ok('contain bare for P4 og Vinyl', meta['p4-lyden-av-norge.png'][0] && meta['radio-vinyl.png'][0] && !meta['nrk-klassisk.png'][0] && !meta['nrk-p3.png'][0] && !meta['nrk-p1.png'][0], meta);
   const hue = (hex) => { const [r, g, bb] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255), mx = Math.max(r, g, bb), mn = Math.min(r, g, bb), d = mx - mn; if (!d) return 0; let h = mx === r ? ((g - bb) / d) % 6 : mx === g ? (bb - r) / d + 2 : (r - g) / d + 4; h *= 60; return h < 0 ? h + 360 : h; };
   const hk = hue(meta['nrk-klassisk.png'][1]), h3 = hue(meta['nrk-p3.png'][1]), hm = hue(meta['nrk-mp3.png'][1]);
-  ok('aksent: Klassisk lilla, P3 gul, mP3 grønn', hk > 250 && hk < 300 && h3 > 40 && h3 < 65 && hm > 100 && hm < 170, { hk, h3, hm });
+  ok('aksent: Klassisk lilla, P3 gul, mP3 grønn', hk > 270 && hk < 320 && h3 > 40 && h3 < 65 && hm > 100 && hm < 170, { hk, h3, hm });
   const A = U.art;
   ok('entity_picture foran logo (hassUrl), logoen som reserve', A[0].kind === 'picture' && A[0].url === 'http://logos.test/api/media_player_proxy/x?token=1' && A[0].fb === 'http://logos.test/local/ki/radio-logos/nrk-klassisk.png', A[0]);
   ok('uten bilde: logo /local/ki/radio-logos/ via hassUrl, cover + aksent', A[1].kind === 'logo' && A[1].url === 'http://logos.test/local/ki/radio-logos/nrk-klassisk.png' && !A[1].contain && !!A[1].accent, A[1]);
@@ -206,7 +206,7 @@ const artOf = (p, root) => p.evaluate((root) => {
   m = await media({ media_channel: 'P4' });
   ok('Media (Album): P4 → contain på --gray300 med 10 % padding', m && m.fit === 'contain' && m.ibg === 'rgb(64, 64, 64)' && Math.abs(parseFloat(m.pad) - 10.4) < 0.3, m);
   m = await media({ media_channel: 'NRK Klassisk' }, { now_playing: { style: 'detailed' } });
-  ok('Media (Detaljert): logo + aksent i bakgrunn og skygge', m && /nrk-klassisk\.png$/.test(m.src) && /#9a5cf0/i.test(m.secBgImg || '') && /154, 92, 240|#9a5cf0/i.test(m.artShadow || m.artSh || ''), m && { src: m.src, bg: m.secBgImg, sh: m.artSh });
+  ok('Media (Detaljert): logo + aksent i bakgrunn og skygge', m && /nrk-klassisk\.png$/.test(m.src) && /#6b0468/i.test(m.secBgImg || '') && /107, 4, 104|#6b0468/i.test(m.artShadow || m.artSh || ''), m && { src: m.src, bg: m.secBgImg, sh: m.artSh });
   m = await media({ media_channel: 'NRK Klassisk', entity_picture: 'http://logos.test/cover.jpg' });
   ok('Media: entity_picture vinner over logoen', m && m.kind === 'picture' && /cover\.jpg$/.test(m.src), m);
   m = await media({ media_channel: 'NRK Klassisk', entity_picture: 'http://logos.test/broken.jpg' });

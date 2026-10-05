@@ -8534,15 +8534,15 @@ try {
   const BASE = '/local/ki/radio-logos/';
   // ki-hex-ok: logoenes dominante farger (aksent/glød fra «art» – NRK Klassisk lilla, P3 gul, mP3 grønn …)
   const T = [
-    { file: 'nrk-p1.png', keys: ['NRK 1', 'NRK P1', 'P1'], accent: '#3f8fe8' }, // ki-hex-ok
-    { file: 'nrk-p1pluss.png', keys: ['NRK P1+', 'P1+', 'P1 pluss'], accent: '#f08a3c' }, // ki-hex-ok
-    { file: 'nrk-p2.png', keys: ['NRK P2', 'P2'], accent: '#e2506b' }, // ki-hex-ok
-    { file: 'nrk-p3.png', keys: ['NRK P3', 'P3', 'NRK P3 Musikk', 'P3 Musikk'], accent: '#f5d020' }, // ki-hex-ok
-    { file: 'nrk-mp3.png', keys: ['NRK mP3', 'mP3'], accent: '#3ccf7a' }, // ki-hex-ok
-    { file: 'nrk-klassisk.png', keys: ['NRK Klassisk'], accent: '#9a5cf0' }, // ki-hex-ok
-    { file: 'nrk-jazz.png', keys: ['NRK Jazz'], accent: '#2fb5c8' }, // ki-hex-ok
+    { file: 'nrk-p1.png', keys: ['NRK 1', 'NRK P1', 'P1'], accent: '#1f5cc4' }, // ki-hex-ok
+    { file: 'nrk-p1pluss.png', keys: ['NRK P1+', 'P1+', 'P1 pluss'], accent: '#045f8a' }, // ki-hex-ok
+    { file: 'nrk-p2.png', keys: ['NRK P2', 'P2'], accent: '#7a0039' }, // ki-hex-ok
+    { file: 'nrk-p3.png', keys: ['NRK P3', 'P3', 'NRK P3 Musikk', 'P3 Musikk'], accent: '#ffe500' }, // ki-hex-ok
+    { file: 'nrk-mp3.png', keys: ['NRK mP3', 'mP3'], accent: '#00ffa3' }, // ki-hex-ok
+    { file: 'nrk-klassisk.png', keys: ['NRK Klassisk'], accent: '#6b0468' }, // ki-hex-ok
+    { file: 'nrk-jazz.png', keys: ['NRK Jazz'], accent: '#4b167d' }, // ki-hex-ok
     { file: 'p4-lyden-av-norge.png', keys: ['P4', 'P4 Lyden av Norge', 'P4LydenAvNorge'], contain: true, accent: '#e4322b' }, // ki-hex-ok
-    { file: 'radio-vinyl.png', keys: ['Vinyl', 'Radio Vinyl'], contain: true, accent: '#f2a541' }, // ki-hex-ok
+    { file: 'radio-vinyl.png', keys: ['Vinyl', 'Radio Vinyl'], contain: true, accent: '#a67e43' }, // ki-hex-ok
   ];
   M.STATION_LOGOS = T;
   const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/\+/g, 'pluss').replace(/[\s.\-]+/g, '');
