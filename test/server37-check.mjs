@@ -163,7 +163,7 @@ ok('tittel: stedsnavnet med pil (mdi:menu-down) i «Hjem»', m1.title === 'Oslo'
 ok('trykk åpner menyen med en gang', m1.openSync, m1);
 ok('menyen portales til ki-overlay-root over dashbord-containeren (ikke vinduet)', m1.inOverlay && m1.hostL === m1.dashL, m1);
 ok('ark 260 px, radius 22, under navnet, spiss, «Bytt sted»', m1.w === 260 && m1.rad === '22px' && m1.belowTitle && m1.spiss === '12px' && m1.top === 'Bytt sted', m1);
-ok('rader: Oslo «Du er her» (ingen chevron), andre med chevron, standardikoner, forskjøvet 45 ms', m1.rows.length === 4 && m1.rows[0].her && !m1.rows[0].chev && m1.rows[1].chev && m1.rows[2].chev && m1.rows[1].ic === 'mdi:sail-boat' && m1.rows[2].ic === 'mdi:tractor' && m1.rows[2].d === '90ms' && m1.rows[3].n === 'Tilpass …', m1.rows);
+ok('rader: Oslo «Du er her» (ingen chevron), andre med chevron, standardikoner, ingen forsinkede rader (Fiks 52: bare arket animeres)', m1.rows.length === 4 && m1.rows[0].her && !m1.rows[0].chev && m1.rows[1].chev && m1.rows[2].chev && m1.rows[1].ic === 'mdi:sail-boat' && m1.rows[2].ic === 'mdi:tractor' && m1.rows.every((r) => !r.d) && m1.rows[3].n === 'Tilpass …', m1.rows);
 ok('pila roterer 180° når menyen er åpen', !!m1.rot && m1.rot !== 'none', m1.rot);
 ok('haptic ved åpning (én)', m1.hapOpen.length === 1, m1.hapOpen);
 ok('trykk på raden du er på → bare lukk', !m1.ownRow.open && !m1.ownRow.urls.length, m1.ownRow);

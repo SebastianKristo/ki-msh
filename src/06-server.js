@@ -305,13 +305,13 @@
     .meny{position:absolute;box-sizing:border-box;width:260px;max-width:calc(100% - 24px);padding:8px;border-radius:22px;display:grid;gap:4px;
       background:var(--ki-surface, var(--gray200, #3a3a3a));border:1px solid ${W(0.08)};
       box-shadow:0 18px 48px ${K(0.5)},0 2px 8px ${K(0.3)};font-family:${M.FONT};color:var(--ki-text, #fafafa);
-      animation:kimeny 260ms cubic-bezier(.2,1.25,.3,1);transform-origin:var(--ki-spiss-x,28px) -8px;transition:opacity .14s ease-out,transform .14s ease-out}
-    .meny.ut{opacity:0;transform:scale(.96)}
+      animation:kimeny 220ms cubic-bezier(.2,1.2,.3,1);transform-origin:var(--ki-spiss-x,28px) -8px}
+    .meny.ut{animation:kiut 140ms ease-out forwards}
     .meny::before{content:"";position:absolute;top:-6px;left:var(--ki-spiss,22px);width:12px;height:12px;transform:rotate(45deg);background:inherit;
       border-left:1px solid ${W(0.08)};border-top:1px solid ${W(0.08)};border-radius:3px 0 0 0}
     .topp{padding:6px 10px 4px;font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ki-text-2, var(--gray800, #afafaf))}
     .rad{display:flex;align-items:center;gap:12px;padding:8px 10px;border:0;border-radius:14px;background:none;color:inherit;font:inherit;font-size:16px;text-align:left;cursor:pointer;
-      -webkit-tap-highlight-color:transparent;transition:background .15s ease,transform .14s cubic-bezier(.2,1.3,.3,1);animation:kirad 320ms cubic-bezier(.2,1.2,.3,1) backwards;animation-delay:var(--forsink,0ms)}
+      -webkit-tap-highlight-color:transparent;transition:background .15s ease,transform .14s cubic-bezier(.2,1.3,.3,1)}
     .rad:active{transform:scale(.96);background:${W(0.08)}}
     .rad.na{background:${W(0.06)}}
     .flis{width:36px;height:36px;border-radius:11px;flex:none;display:flex;align-items:center;justify-content:center;
@@ -324,27 +324,83 @@
     .skille{height:1px;margin:2px 10px;background:${W(0.08)}}
     .tilpass .flis{background:${W(0.1)};color:var(--ki-text, #fafafa)}
     .tilpass .navn{opacity:.85}
-    @keyframes kirad{from{opacity:0;transform:translateY(-6px)}}
-    @keyframes kimeny{from{opacity:0;transform:scale(.92) translateY(-6px)}}
-    @media (prefers-reduced-motion: reduce){.meny,.rad{animation:none}}`;
+    @keyframes kimeny{from{opacity:0;transform:scale(.94) translateY(-6px)}}
+    @keyframes kiut{to{opacity:0;transform:scale(.96)}}
+    @media (prefers-reduced-motion: reduce){.meny{animation:none}}`;
   const esc = M.esc;
+  // Fiks 52 · hakk ved åpning (Android): menyen bygges ÉN gang og gjenbrukes (samme host, shadow root og <ha-icon>-noder –
+  // ikonene slår ikke opp på nytt og blinker ikke), stilen er et delt CSSStyleSheet (parses én gang), bare arket animeres
+  // (én inn-animasjon per åpning, ingen forsinkede rader som så ut som en ny innlasting), og åpne/lukke skriver ingenting
+  // (ingen config/ki-store/localStorage). Nøkkelen er radenes HTML + CSS-en (tema) – endres noe, bygges menyen på nytt.
+  const ARK = new Map(); // css → CSSStyleSheet
+  const ark = (css) => {
+    if (ARK.has(css)) return ARK.get(css);
+    let sh = null;
+    try { sh = new CSSStyleSheet(); sh.replaceSync(css); } catch (e) { sh = null; }
+    if (ARK.size > 4) ARK.clear();
+    ARK.set(css, sh);
+    return sh;
+  };
+  let BUF = null; // { key, host, sr, meny, eier (api som eier menyen nå) }
+  const radHTML = (liste, her, tilpass) => liste.map((srv, i) => {
+    const na = srv.navn === her, st = V.stil(srv, i);
+    return `<button class="rad${na ? ' na' : ''}" role="menuitem" data-i="${i}" ${na ? 'aria-current="location"' : ''} style="--rad-farge:${esc(st.farge)};--rad-fg:${esc(AT(st.farge))}">
+        <span class="flis">${M.icon(st.ikon, 20)}</span><span class="navn">${esc(srv.navn)}</span>${na ? '<span class="her">Du er her</span>' : `<span class="gaa">${M.icon('mdi:chevron-right', 20)}</span>`}</button>`;
+  }).join('') + (tilpass ? `<div class="skille"></div><button class="rad tilpass" role="menuitem" data-t="1"><span class="flis">${M.icon('mdi:tune-variant', 20)}</span><span class="navn">Tilpass …</span></button>` : '');
+  // Bygg (eller hent) menyen for o uten å vise den. Kalles også ved pointerdown på navnet (V.forbered) så første åpning
+  // ikke må parse stil og lage DOM i samme frame som trykket.
+  const bygg = (o) => {
+    const css = `${M.BASE_CSS || ''}${CSS()}`, rader = radHTML(o.liste || [], o.her, !!o.tilpass), key = css + '\n' + rader;
+    // ledig (ikke satt inn, forvarmet, eller utgangsanimasjonen pågår) → gjenbrukes; V.meny setter den inn på nytt
+    if (BUF && BUF.key === key && (!BUF.host.isConnected || !BUF.eier || BUF.eier.closed)) return BUF;
+    const host = document.createElement('div');
+    host.className = 'msh-portal';
+    Object.assign(host.style, { position: 'fixed', left: '0', top: '0', width: '100%', height: '100%', pointerEvents: 'auto', zIndex: '44' });
+    const sr = host.attachShadow({ mode: 'open' }), sh = ark(css);
+    const body = `<div class="vern"></div><div class="meny" role="menu" aria-label="Bytt sted"><div class="topp">Bytt sted</div>${rader}</div>`;
+    if (sh) { sr.adoptedStyleSheets = [sh]; sr.innerHTML = body; } else sr.innerHTML = `<style>${css}</style>${body}`;
+    const b = { key, host, sr, meny: sr.querySelector('.meny'), eier: null };
+    // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – menyen er ikke «utenfor»
+    const stop = (e) => e.stopPropagation();
+    ['click', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove', 'wheel'].forEach((t) => host.addEventListener(t, stop, { passive: true }));
+    // Lytterne kobles én gang og sender videre til den som eier menyen nå (b.eier)
+    sr.querySelector('.vern').addEventListener('click', () => { const a = b.eier; if (a && !a.closed) a._bakgrunn(); });
+    b.meny.addEventListener('click', (e) => { const a = b.eier; if (a && !a.closed) a._klikk(e); });
+    BUF = b;
+    return b;
+  };
+  V.forbered = (o) => { try { if (o && o.liste && o.liste.length) bygg(o); } catch (e) { /* */ } };
+  // Forvarm når nettleseren er ledig (én gang per side): menyen settes inn usynlig i én frame, så stil, layout og
+  // ikonoppslagene (<ha-icon> i HA) er gjort før første trykk. Fjernes straks; åpnes den i mellomtiden, beholdes den.
+  let varmet = false;
+  V.varm = (o) => {
+    if (varmet || !o || !o.liste || !o.liste.length) return;
+    varmet = true;
+    const kjor = () => {
+      try {
+        const b = bygg(o);
+        if (b.host.isConnected || b.eier) return;
+        const h = b.host;
+        h.className = 'msh-portal msh-servermeny-varm';
+        Object.assign(h.style, { visibility: 'hidden', pointerEvents: 'none' });
+        M.overlayRoot().appendChild(h);
+        requestAnimationFrame(() => requestAnimationFrame(() => { if (!b.eier) h.remove(); }));
+      } catch (e) { /* */ }
+    };
+    if (window.requestIdleCallback) window.requestIdleCallback(kjor, { timeout: 6000 }); else setTimeout(kjor, 2500);
+  };
   // o: { anchor (element), liste, her (navn), tilpass: bool, onVelg(srv), onTilpass(), onBakgrunn(), onArk(), onLukk() }
-  // → { host, root, lukk(uten), oppdater(her) }
+  // → { host, root, lukk(uten) }
   V.meny = function (o) {
     const liste = o.liste || [];
-    const host = document.createElement('div');
+    const b = bygg(o), { host, sr, meny } = b;
+    if (b.eier && !b.eier.closed) b.eier.lukk(true); // (gammel eier som ble fjernet utenfra)
+    clearTimeout(b.fjern);
+    if (host.isConnected) host.remove(); // forvarmet/utgang pågår → settes inn på nytt under
+    meny.classList.remove('ut');
     host.className = 'msh-portal msh-servermeny';
-    const R = M.dashRect();
-    Object.assign(host.style, { position: 'fixed', left: R.left + 'px', top: '0', width: R.width + 'px', height: '100%', pointerEvents: 'auto', zIndex: '44' });
-    const sr = host.attachShadow({ mode: 'open' });
-    const rader = liste.map((srv, i) => {
-      const na = srv.navn === o.her, st = V.stil(srv, i);
-      return `<button class="rad${na ? ' na' : ''}" role="menuitem" data-i="${i}" ${na ? 'aria-current="location"' : ''} style="--rad-farge:${esc(st.farge)};--rad-fg:${esc(AT(st.farge))};--forsink:${i * 45}ms">
-        <span class="flis">${M.icon(st.ikon, 20)}</span><span class="navn">${esc(srv.navn)}</span>${na ? '<span class="her">Du er her</span>' : `<span class="gaa">${M.icon('mdi:chevron-right', 20)}</span>`}</button>`;
-    }).join('');
-    const tp = o.tilpass ? `<div class="skille"></div><button class="rad tilpass" role="menuitem" data-t="1" style="--forsink:${liste.length * 45}ms"><span class="flis">${M.icon('mdi:tune-variant', 20)}</span><span class="navn">Tilpass …</span></button>` : '';
-    sr.innerHTML = `<style>${M.BASE_CSS || ''}${CSS()}</style><div class="vern"></div><div class="meny" role="menu" aria-label="Bytt sted"><div class="topp">Bytt sted</div>${rader}${tp}</div>`;
-    const meny = sr.querySelector('.meny');
+    host.style.visibility = '';
+    host.style.pointerEvents = 'auto';
     // Plassering: under ankeret (navnet), spissen peker på navnet; holdes innenfor dashbordflaten
     const plasser = () => {
       const D = M.dashRect();
@@ -360,9 +416,6 @@
       meny.style.setProperty('--ki-spiss-x', (sp + 6) + 'px');
     };
     plasser();
-    // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – menyen er ikke «utenfor»
-    const stop = (e) => e.stopPropagation();
-    ['click', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove', 'wheel'].forEach((t) => host.addEventListener(t, stop, { passive: true }));
     const api = { host, root: sr, closed: false };
     const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); api.lukk(); } };
     const onHash = () => api.lukk(true);
@@ -372,24 +425,32 @@
       window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('hashchange', onHash);
       window.removeEventListener('resize', plasser);
-      if (uten || (M.reducedMotion && M.reducedMotion())) host.remove();
-      else { host.style.pointerEvents = 'none'; meny.classList.add('ut'); setTimeout(() => host.remove(), 150); }
+      if (b.eier === api) {
+        if (uten || (M.reducedMotion && M.reducedMotion()) || !host.isConnected) host.remove();
+        else {
+          host.style.pointerEvents = 'none'; meny.classList.add('ut');
+          clearTimeout(b.fjern);
+          b.fjern = setTimeout(() => { if (b.eier === api) host.remove(); }, 150);
+        }
+      }
       if (o.onLukk) o.onLukk(uten);
     };
-    sr.querySelector('.vern').addEventListener('click', () => { if (o.onBakgrunn) o.onBakgrunn(); else api.lukk(); });
-    meny.addEventListener('click', (e) => {
-      const b = e.composedPath().find((n) => n && n.classList && n.classList.contains('rad'));
-      if (!b) { if (o.onArk) o.onArk(); return; }
-      if (b.dataset.t) { M.haptic('light'); api.lukk(); if (o.onTilpass) o.onTilpass(); return; }
-      const srv = liste[Number(b.dataset.i)];
+    api._bakgrunn = () => { if (o.onBakgrunn) o.onBakgrunn(); else api.lukk(); };
+    api._klikk = (e) => {
+      const r = e.composedPath().find((n) => n && n.classList && n.classList.contains('rad'));
+      if (!r) { if (o.onArk) o.onArk(); return; }
+      if (r.dataset.t) { M.haptic('light'); api.lukk(); if (o.onTilpass) o.onTilpass(); return; }
+      const srv = liste[Number(r.dataset.i)];
       if (!srv) return;
       if (srv.navn === o.her) { api.lukk(); return; } // raden du allerede er på → bare lukk
       api.lukk();
       if (o.onVelg) o.onVelg(srv);
-    });
+    };
+    b.eier = api;
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('hashchange', onHash);
     window.addEventListener('resize', plasser);
+    // Ny innsetting (også gjenbrukt host) starter inn-animasjonen på nytt – én gang per åpning
     M.overlayRoot().appendChild(host);
     return api;
   };
