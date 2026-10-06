@@ -128,7 +128,7 @@
     get cardSize() { return 4; }
     render() {
       // Fiks 35 (oppfølging 33.3): view: 'devices' = bare enhetsoversikten – vises i «Enheter»-arket fra Mer → Tilpass
-      if (this.config.view === 'devices') return `<div class="st">${this._devices()}</div>`;
+      if (this.config.view === 'devices') return `<div class="st">${this._perf()}${this._devices()}</div>`;
       const u = this.hass.user || {};
       const row = (act, icon, label, sub, extra = '') => `<button class="r press" data-act="${act}" ${extra}><span class="ic">${M.icon(icon, 22)}</span><span class="tx"><b>${M.esc(label)}</b><i>${M.esc(sub)}</i></span>${M.icon('chevron_right', 22, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
       return `<div class="st">
@@ -142,9 +142,18 @@
           ${row('nav', 'mdi:texture-box', 'Områder og etasjer', 'Nye rom gir nye popups automatisk', 'data-path="/config/areas/dashboard"')}
         </div>
         ${M.store ? `<div class="gh">Utseende</div><div class="grp"><button class="r press" data-act="glass" role="switch" aria-checked="${M.glassOn()}"><span class="ic">${M.icon('mdi:blur', 22)}</span><span class="tx"><b>Liquid Glass-tema</b><i>Frosted glass i alle Tilpass-ark</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><i></i></span></button></div>` : ''}
+        ${this._perf()}
         ${this._devices()}
         <div class="who">${M.esc(u.name || '')} · innstillingene gjelder for deg på alle enhetene dine${M.store ? ' · denne enheten: ' + M.esc(M.store.deviceName) : ''}</div>
       </div>`;
+    }
+    // Ytelsesmodus for DENNE enheten (00-b-perf.js, localStorage – aldri synket): Auto (på for Android) · På · Av
+    _perf() {
+      if (!M.perf) return '';
+      const p = M.perf.pref(), b = (v, t) => `<button class="sm ${p === v ? 'on' : ''}" data-act="perf" data-v="${v}" aria-pressed="${p === v}">${t}</button>`;
+      return `<div class="gh">Denne enheten</div><div class="grp"><div class="r dv pf" data-key="perf"><span class="ic">${M.icon('mdi:speedometer', 22)}</span>
+        <span class="tx"><b>Ytelsesmodus</b><i>${M.esc(M.perf.label())} · uten blur og evige animasjoner</i></span>
+        <span class="dva">${b('auto', 'Auto')}${b('lite', 'På')}${b('full', 'Av')}</span></div></div>`;
     }
     // Innstillinger → Enheter: enheter med eget oppsett for Kamera/Person (navn, sist sett, antall kort) – gi nytt navn, nullstill, slett.
     // Alle andre kort har én felles config.
@@ -191,6 +200,7 @@
     onAction(name, el, ev) {
       if (name === 'ed') return M.openDashEditor({ editor: el.dataset.e });
       if (name === 'glass') { M.setGlassTheme(!M.glassOn()); return this.update(); } // ki-store theme.liquid_glass (per bruker)
+      if (name === 'perf' && M.perf) { M.perf.set(el.dataset.v); return this.update(); }
       if (/^dev/.test(name)) return this._devAct(name, el.dataset.id);
       if (name === 'nav') return M.navigate(el.dataset.path);
       return super.onAction(name, el, ev);
@@ -211,6 +221,8 @@
         .trk.on{background:${M.SWITCH_ON || 'var(--pink,#f285c9)'}} /* Fiks 26: rosa brytere */
         .trk i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa);transition:left .2s}
         .trk.on i{left:23px}
+        .sm.on{background:${M.SWITCH_ON || 'var(--pink,#f285c9)'};color:var(--ki-on-accent, #2a1720)}
+        .pf .tx i{white-space:normal}
         .sm.warn{background:rgba(242,128,115,.18);color:var(--ki-red-text, var(--red,#f28073))}
         form.tx input{height:40px;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));padding:0 12px;font-size:15px;width:100%}`;
     }

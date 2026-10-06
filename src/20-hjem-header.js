@@ -801,7 +801,7 @@
     .sh.lg::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 40%,rgb(255 255 255/0.05));pointer-events:none;z-index:-1}
     .sh.lg .seg{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.28*var(--ki-ka-k,1))));box-shadow:inset 0 1px 2px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1)))),inset 0 0 0 0.5px rgb(255 255 255/0.08)}
     .sh.lg .seg:not(.drag) .ind{background-image:linear-gradient(180deg,rgb(255 255 255/0.32),rgb(255 255 255/0) 55%)!important;box-shadow:inset 0 1px 0 rgb(255 255 255/0.5),inset 0 -1px 1px rgb(0 0 0/0.12),0 4px 12px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
-    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.sh.lg{background:var(--ki-surface, #3a3a3a)}}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.sh.lg{background:var(--ki-surface, #3a3a3a)}} @container style(--ki-perf: lite){.sh.lg{background:var(--ki-surface, #3a3a3a)}} /* ytelsesmodus (00-b-perf.js): samme reserve uten blur */
     @keyframes pop{from{transform:translateY(-40%) scale(.9);opacity:0}}
   `;
   // Åpner et sentrert hurtigark. render() → html, onAct(name, el, sheet) håndterer data-a. Oppdateres av kortet via sheet.update().
@@ -965,7 +965,8 @@
   const PRES_RE = /hjemme|home|tilstede|presence/;
   const sibling = (hass, pid, re, doms) => {
     const slug = objId(pid);
-    return Object.keys(hass.states).filter((id) => doms.includes(id.split('.')[0]) && id.includes(slug) && re.test(id) && M.usable(hass, id)).sort()[0] || null;
+    // = filter(domene, slug, re, usable).sort()[0] – via M.all (sortert, mellomlagret domeneliste; ytelse)
+    return M.all(hass, doms, (s, id) => id.includes(slug) && re.test(id))[0] || null;
   };
   const DISPLAYS = ['picture', 'icon', 'initials'];
   const HOME_DOMS = ['switch', 'input_boolean', 'binary_sensor'], SLEEP_DOMS = ['input_boolean', 'binary_sensor', 'switch'];

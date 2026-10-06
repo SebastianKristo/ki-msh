@@ -466,10 +466,45 @@
     if (Array.isArray(s.attributes.entity_id) && !id.startsWith('media_player.')) return false; // grupper
     return true;
   };
+  // Ytelse (Android): MSH.all kalles titalls ganger per tegning og ved hver hass-oppdatering. Domene-listen (sortert,
+  // med «brukbar»-status per entitet) gjenbrukes så lenge entitets-ID-ene og registeret er de samme; bare entiteter med
+  // nytt state-objekt sjekkes på nytt. Object.keys tas én gang per mikrooppgave (endringer på stedet – tester,
+  // mockExtend – ses alltid ved neste kall). Resultatet er identisk med før (filteret kjøres alltid på nytt).
+  let keysC = null;
+  const domC = new Map();
+  const keysOf = (st) => {
+    if (keysC && keysC.st === st) return keysC.keys;
+    const c = (keysC = { st, keys: Object.keys(st) });
+    queueMicrotask(() => { if (keysC === c) keysC = null; });
+    return c.keys;
+  };
+  const sameKeys = (a, b) => { if (a === b) return true; if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; };
+  // Antall states – mellomlagret til neste mikrooppgave (HA setter hass på alle kortene i samme runde; hvert kort
+  // sammenligner gammel/ny i _changed)
+  let cntC = null;
+  MSH.stateCount = function (st) {
+    if (!cntC) { const c = (cntC = new Map()); queueMicrotask(() => { if (cntC === c) cntC = null; }); }
+    let n = cntC.get(st);
+    if (n === undefined) { n = Object.keys(st).length; cntC.set(st, n); }
+    return n;
+  };
   MSH.all = function (hass, domain, filter) {
-    if (!hass) return [];
+    if (!hass || !hass.states) return [];
+    const st = hass.states, keys = keysOf(st);
     const doms = Array.isArray(domain) ? domain : [domain];
-    return Object.keys(hass.states).filter((id) => doms.includes(id.split('.')[0]) && MSH.usable(hass, id) && (!filter || filter(hass.states[id], id))).sort();
+    const key = doms.join(',');
+    let d = domC.get(key);
+    if (!d || d.en !== hass.entities || !sameKeys(d.keys, keys)) {
+      const ids = keys.filter((id) => doms.includes(id.split('.')[0])).sort();
+      d = { keys, en: hass.entities, ids, objs: ids.map((id) => st[id]), ok: ids.map((id) => MSH.usable(hass, id)) };
+      domC.set(key, d);
+    } else {
+      d.keys = keys;
+      for (let i = 0; i < d.ids.length; i++) { const o = st[d.ids[i]]; if (o !== d.objs[i]) { d.objs[i] = o; d.ok[i] = MSH.usable(hass, d.ids[i]); } }
+    }
+    const out = [];
+    for (let i = 0; i < d.ids.length; i++) if (d.ok[i] && (!filter || filter(st[d.ids[i]], d.ids[i]))) out.push(d.ids[i]);
+    return out;
   };
   MSH.byClass = (hass, domain, dc, area) => MSH.all(hass, domain, (s, id) => s.attributes.device_class === dc && (!area || MSH.areaOf(hass, id) === area));
   MSH.byPlatform = (hass, platform, domain) => Object.keys((hass && hass.entities) || {}).filter((id) => hass.entities[id].platform === platform && (!domain || id.startsWith(domain + '.')) && hass.states[id]).sort();
@@ -738,7 +773,8 @@
     }
   };
   // @supports-reserve (legg etter regelen som bruker glassSurface): sel = selektor, level som over.
-  MSH.glassFallback = (sel, level) => `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){${sel}{background:${level === 'row' ? 'var(--ki-surface, #3a3a3a)' : 'var(--ki-surface-3, #2f2f2f)'};backdrop-filter:none;-webkit-backdrop-filter:none}}`;
+  // Ytelsesmodus (00-b-perf.js, Android): samme reserve når blur er skrudd av (@container style(--ki-perf: lite))
+  MSH.glassFallback = (sel, level) => { const r = `{${sel}{background:${level === 'row' ? 'var(--ki-surface, #3a3a3a)' : 'var(--ki-surface-3, #2f2f2f)'};backdrop-filter:none;-webkit-backdrop-filter:none}}`; return `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)))${r}@container style(--ki-perf: lite)${r}`; };
   // Aktiv glassboble (segmentvelgere, dra-linsen)
   MSH.GLASS_BUBBLE = 'background:linear-gradient(180deg,rgb(255 255 255/0.32),rgb(255 255 255/0.1));box-shadow:inset 0 1px 0 rgb(255 255 255/0.65),inset 0 -1px 1px rgb(255 255 255/0.18),inset 0 0 0 0.5px rgb(255 255 255/0.4);color:var(--ki-text, #fafafa);';
   // CSS-variabler som arver inn i alle shadow roots under et glassark (felles editor, egne editorer):
@@ -1823,7 +1859,7 @@
   MSH.uiStore = function (cardId, ui) { try { localStorage.setItem('ki:' + cardId + ':ui', JSON.stringify(ui)); } catch (e) { /* */ } };
 
   /* ------------------------------------------------------------ grunnstil */
-  MSH.BASE_CSS = `
+  const BASE_CSS = `
     ${MSH.theme ? MSH.theme.CSS : ''}
     :host{display:block;width:100%;box-sizing:border-box;font-family:${MSH.FONT};color:var(--ki-text, var(--white,#fafafa));-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;--ha-ripple-color:transparent;--ha-ripple-pressed-opacity:0;--ha-ripple-hover-opacity:0;--mdc-ripple-color:transparent}
     *,*::before,*::after{box-sizing:border-box}
@@ -1853,6 +1889,9 @@
     .msh-dot.on{width:var(--dot-on-w,12px);height:var(--dot-on-h,var(--dot-on-w,12px));background:var(--dot-on-bg,var(--ki-text, var(--gray600,#7f7f7f)))}
     .msh-dot::before{content:'';position:absolute;inset:-11px -4px} /* 18.3: treffflate utenfor layouten, naboene møtes i gap-midten */
   `;
+  // Ytelsesmodus (00-b-perf.js): reglene (ingen blur, uendelige animasjoner én runde) legges til bare når modusen er på –
+  // ellers er strengen nøyaktig som før. Getter, så kort som tegnes etter et bytte får riktig CSS.
+  Object.defineProperty(MSH, 'BASE_CSS', { configurable: true, enumerable: true, get: () => BASE_CSS + ((MSH.perf && MSH.perf.CSS) || '') });
 
   /* ------------------------------------------------------------ basekort */
   // Alle ki-msh-kort arver denne. Underklassen implementerer:
@@ -1921,7 +1960,7 @@
     get hass() { return this._hass; }
     _changed(o, n) {
       if (o.areas !== n.areas || o.entities !== n.entities || o.devices !== n.devices) return true;
-      if (Object.keys(o.states).length !== Object.keys(n.states).length) return true;
+      if (o.states !== n.states && MSH.stateCount(o.states) !== MSH.stateCount(n.states)) return true;
       if (this._deps.size === 0) return o.states !== n.states;
       for (const id of this._deps) if (o.states[id] !== n.states[id]) return true;
       return false;

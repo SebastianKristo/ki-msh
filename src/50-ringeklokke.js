@@ -70,9 +70,10 @@
   // Ringe-utløseren: binary_sensor.*_doorbell (UniFi Protect), ellers event.* med doorbell/ringeklokke
   M.ringFind = function (h) {
     if (!h || !h.states) return null;
-    const ids = Object.keys(h.states).sort();
-    return ids.find((id) => /^binary_sensor\.\w+_doorbell$/.test(id) && isUp(h, id))
-      || ids.find((id) => /^event\./.test(id) && isUp(h, id) && (h.states[id].attributes.device_class === 'doorbell' || /_(doorbell|ringeklokke)$/.test(id)))
+    // Ytelse: kalles ved hver hass-oppdatering (ringTick) – minste treff (= første i sortert rekkefølge) uten å sortere alt
+    const first = (pred) => { let best = null; for (const id in h.states) if ((best === null || id < best) && pred(id)) best = id; return best; };
+    return first((id) => /^binary_sensor\.\w+_doorbell$/.test(id) && isUp(h, id))
+      || first((id) => /^event\./.test(id) && isUp(h, id) && (h.states[id].attributes.device_class === 'doorbell' || /_(doorbell|ringeklokke)$/.test(id)))
       || null;
   };
   M.ringAuto = function (h, c) {

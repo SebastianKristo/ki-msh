@@ -2,6 +2,26 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Ytelse på Android («tregt og tungt»)
+- **Bygg:** `build.mjs` minifiserer hver fil i `src/` for seg med esbuild (mellomrom, kommentarer, syntaks – navnene beholdes,
+  target es2022 = ingen senking av syntaks). Hver fil står fortsatt i egen try/catch; banner/versjonssjekk/`KI_MSH_VERSION`
+  er uminifisert øverst. `dist/ki-msh.js` 5,1 MB → 3,7 MB (gzip 1,5 → 1,15 MB). `node build.mjs --dev` gir uminifisert
+  `dist/ki-msh.dev.js`. esbuild er devDependency (`npm install`).
+- **Ytelsesmodus** (`src/00-b-perf.js`, `MSH.perf`): på Android (UA) og svake berøringsenheter (deviceMemory ≤ 2, ikke Apple)
+  skrus backdrop-filter av overalt (kort, Tilpass-ark, navbar-portalen og Bubble-popupene: `--custom-popup-filter` → none,
+  dvs. bg_blur 0), glassflater får sin «uten blur»-reserve (samme som `@supports not`), og evige animasjoner kjøres én
+  runde. `<html data-ki-perf="lite">` + `--ki-perf: lite`; reglene står i `@container style(--ki-perf: lite)`, så av/på
+  virker uten omlasting. iPhone/PC: av – nøyaktig samme CSS som før. Valg per enhet: Mer → Tilpass → Enheter (og #settings):
+  «Ytelsesmodus · Auto / På / Av» (`localStorage['ki-perf']`).
+- **Tegning:** `MSH.all` gjenbruker den sorterte domenelisten (bare entiteter med nytt state-objekt sjekkes på nytt),
+  `_changed` teller states én gang per runde, Hjem-låseflisene søker ikke lenger gjennom alle automatiseringer
+  (`M.lasLocks`), ringeklokke-søket sorterer ikke alle states ved hver oppdatering, header-søsken (søvn/hjemme) via
+  `MSH.all`, og navbaren tegnes ikke på nytt når dashbordflaten bare vokser i høyden.
+- Temaets MutationObserver per popup kobles bare til i lys modus.
+- Måling + krav: `test/perf-check.mjs` (`npm run perf`, CPU ×6, 390×844, touch; median av 2): tegning ved 20
+  effekt-oppdateringer 1458 → 748 ms (TBT 1173 → 457), TBT ved lasting 4270 → 3845 ms (Android 3591), tomgang på Hjem
+  (Android) 7 359 → 179 oppgaver / 10 s, blur i åpne popups 19 → 0 elementer (Android).
+
 ## Fiks 37 · Servervelger («Bytt sted») med logikk fra family-status-card
 - Ny felles hjelper `MSH.servervelger` (`src/06-server.js`; `MSH.server` er Server-kortets): parsing av `servere`
   (streng «Oslo, Strömstad=Strømstad, Toten» eller liste med navn/server/ikon/farge/sti), gjenkjenning (`server_navn`,
