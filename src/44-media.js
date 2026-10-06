@@ -80,7 +80,7 @@
       return { id: eid, obj: obj(id), slot: id, kind, auto: autoKind(hass, eid), area, areaName: area ? M.areaName(hass, area) : null, name: pc.name || s.attributes.friendly_name || obj(eid), pc };
     }).filter((p) => (withHidden || p.kind !== 'skjul') && (!cfg.area || p.area === cfg.area));
     const ai = (p) => (p.area ? (aIdx[p.area] != null ? aIdx[p.area] : 98) : 99);
-    out.sort((a, b) => ai(a) - ai(b) || a.name.localeCompare(b.name, 'nb'));
+    out.sort((a, b) => ai(a) - ai(b) || M.cmpNb(a.name, b.name));
     // Fiks 17.22: rekkefølge per fane (config.order.tv/musikk = [entity_id …]) og skjulte spillere (config.hidden[id] = true).
     // Skjulte tas ikke med i karusellen, men minst én spiller per fane er alltid synlig.
     const ord = cfg.order && typeof cfg.order === 'object' ? cfg.order : {}, hid = cfg.hidden && typeof cfg.hidden === 'object' ? cfg.hidden : {};
@@ -794,7 +794,7 @@
    * Lagres som players.<obj>.entity (tom = kildens egen spiller); editoren lagrer via data-name. */
   const mpOptsOf = (ed, h) => {
     if (ed && ed.__mpOpts && ed.__mpOptsH === (h && h.states ? Object.keys(h.states).length : 0)) return ed.__mpOpts;
-    const L = M.all(h, 'media_player').map((id) => [id, M.name(h, id)]).sort((a, b) => a[1].localeCompare(b[1], 'nb'));
+    const L = M.all(h, 'media_player').map((id) => [id, M.name(h, id)]).sort((a, b) => M.cmpNb(a[1], b[1]));
     if (ed) { ed.__mpOpts = L; ed.__mpOptsH = Object.keys(h.states).length; }
     return L;
   };

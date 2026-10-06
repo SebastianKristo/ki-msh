@@ -636,7 +636,7 @@
         const h = this._hass, cur = o.value || '', st = cur ? h.states[cur] : null;
         const nm = (id) => (h.states[id] && h.states[id].attributes.friendly_name) || id;
         const ids = Object.keys(h.states).filter((id) => o.domains.includes(id.split('.')[0]));
-        const byName = (a, b) => nm(a).localeCompare(nm(b), 'nb') || a.localeCompare(b);
+        const byName = (a, b) => M.cmpNb(nm(a), nm(b)) || a.localeCompare(b);
         const sug = o.re ? ids.filter((id) => o.re.test(id) && (!o.slugs || o.slugs.some((x) => x && id.includes(x)))).sort(byName) : [];
         const rest = ids.filter((id) => !sug.includes(id)).sort(byName);
         const opt = (id) => `<option value="${esc(id)}"${id === cur ? ' selected' : ''}>${esc(nm(id) + ' · ' + id)}</option>`;

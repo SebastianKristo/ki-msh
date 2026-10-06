@@ -1,6 +1,7 @@
 // Ytelsesmåling (Android-ytelse): hele det strategi-genererte dashbordet mot ekte Bubble Card på mobil (390×844, touch),
 // med CPU-struping ×6 (CDP) som en middels Android-telefon. Måler:
-//  · bundelstørrelse (rå/gzip), parse+kompilering+kjøring av bundelen, tid til Hjem er tegnet
+//  · bundelstørrelse (rå/gzip), parse+kompilering+kjøring av bundelen, tid til Hjem er tegnet, første maling av det synlige
+//    av Hjem (header+prosa+faner) og antall tegninger per kort under oppstarten (krav: Hjem/navbar 1, ingen kort > 2)
 //  · lange oppgaver / total blocking time under lasting
 //  · hass-byrst (50 endringer i urelaterte entiteter + 20 i ekte strømsensorer, 10 Hz): _render-kall per kort
 //  · åpne/lukke popups (#stue, #lys, #strom, #kalender, #server): tid til innhold + blokkering
@@ -99,13 +100,20 @@ async function run({ android, lite } = {}) {
     const t0 = performance.now();
     for (const c of stack.cards) { const el = document.createElement(c.type.replace('custom:', '')); el.setConfig(c); el.hass = hass; root.appendChild(el); }
     const hjem = root.querySelector('msh-hjem-card');
+    // Første maling med innhold i det synlige av Hjem (header, prosa og faner har tegnet): sjekkes i hver rAF; når det er
+    // sant, er innholdet malt ved slutten av denne rammen → tiden tas i neste rAF.
+    const vis = () => ['msh-hjem-header-card', 'msh-prosa-card', 'msh-hjem-faner-card'].every((t) => { const e = hjem.shadowRoot && hjem.shadowRoot.querySelector(t); return e && e.shadowRoot && e.shadowRoot.querySelector('ha-card') && e.getBoundingClientRect().height > 20; });
+    const paintP = new Promise((res) => { const tick = () => { if (vis()) requestAnimationFrame(() => res(performance.now() - t0)); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
     await new Promise((res) => { const tick = () => { if (hjem.shadowRoot && hjem.shadowRoot.querySelector('ha-card') && hjem.getBoundingClientRect().height > 100) res(); else requestAnimationFrame(tick); }; tick(); });
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    return { hjemMs: performance.now() - t0, pops: window.__pops.length };
+    const hjemMs = performance.now() - t0;
+    const paintMs = await Promise.race([paintP, new Promise((r) => setTimeout(() => r(null), 20000))]);
+    return { hjemMs, paintMs, pops: window.__pops.length };
   });
   await page.waitForTimeout(3000);
   out.load = await page.evaluate(() => { const lt = window.__pf.lt; return { longTasks: lt.length, tbt: lt.reduce((a, [, d]) => a + Math.max(0, d - 50), 0), longest: Math.max(0, ...lt.map(([, d]) => d)) }; });
   out.rendersLoad = await page.evaluate(() => Object.fromEntries(Object.entries(window.__pf.renders).map(([k, n]) => [k, `${n}× ${Math.round(window.__pf.renderMs[k])} ms`])));
+  out.rendersStart = await page.evaluate(() => ({ ...window.__pf.renders })); // antall _render per kort de første 3 s
   // Hvor mange msh-kort finnes i DOM-en når alle popups er lukket?
   out.connected = await page.evaluate(() => {
     const o = { total: 0, connected: 0 };
@@ -243,6 +251,8 @@ const rows = [
   ['parse+kompiler+kjør bundel (ms)', (r) => Math.round(r.evalMs)],
   ['ScriptDuration ved lasting (ms)', (r) => Math.round(r.loadScriptMs)],
   ['Hjem tegnet (ms)', (r) => Math.round(r.first.hjemMs)],
+  ['Hjem malt: header+prosa+faner (ms)', (r) => (r.first.paintMs == null ? '–' : Math.round(r.first.paintMs))],
+  ['tegninger ved oppstart: sum / maks per kort', (r) => `${sum(r.rendersStart)} / ${Math.max(0, ...Object.values(r.rendersStart))}`],
   ['lange oppgaver / TBT lasting (ms)', (r) => `${r.load.longTasks} / ${Math.round(r.load.tbt)}`],
   ['msh-kort i DOM (koblet/totalt)', (r) => `${r.connected.connected}/${r.connected.total}`],
   ['byrst urelatert: _render-kall', (r) => sum(r.burstUnrelated.renders)],
@@ -286,6 +296,13 @@ if (own && !process.env.PERF_NOASSERT) {
   const res = [];
   const ok = (name, cond, info) => res.push(`${cond ? '✔' : '✘'} ${name}${info != null ? ' · ' + JSON.stringify(info) : ''}`);
   ok('dist/ki-msh.js er minifisert (< 4 MB rå, var 5,1 MB)', statSync('dist/ki-msh.js').size < 4e6 && !/\n\s*\/\/ /.test(readFileSync('dist/ki-msh.js', 'utf8').slice(3000, 200000)), statSync('dist/ki-msh.js').size);
+  // Oppstart (Hjem på Android): container og navbar tegnes én gang; ingen delkort mer enn to ganger (andre = data som kom
+  // etterpå: kalender/Sonarr-henting, gjøremål-abonnement); første maling av det synlige av Hjem innen PERF_PAINT_MAX ms
+  // (standard 1800 ved ×6 – var ~2100 før oppstartsoptimaliseringen, nå ~1300–1500).
+  const RS = base.rendersStart, PMAX = Number(process.env.PERF_PAINT_MAX || 1800);
+  ok('oppstart: msh-hjem-card og navbar tegnes én gang', RS['msh-hjem-card'] === 1 && RS['msh-navbar-card'] === 1, RS);
+  ok('oppstart: ingen Hjem-kort tegnes mer enn to ganger', Math.max(0, ...Object.values(RS)) <= 2, RS);
+  ok(`oppstart: Hjem (header+prosa+faner) malt innen ${PMAX} ms (×${THROTTLE})`, THROTTLE !== 6 || (base.first.paintMs != null && base.first.paintMs <= PMAX), Math.round(base.first.paintMs));
   ok('urelaterte endringer tegner ikke Hjem/navbar på nytt', !base.burstUnrelated.renders['msh-hjem-card'] && !base.burstUnrelated.renders['msh-navbar-card'], base.burstUnrelated.renders);
   ok('urelaterte endringer: ≤ 5 _render totalt', sum(base.burstUnrelated.renders) <= 5, sum(base.burstUnrelated.renders));
   ok('ingen tegning i lukkede popups under byrst', sum(base.burstUnrelated.closed) + sum(base.burstPower.closed) === 0, { ...base.burstUnrelated.closed, ...base.burstPower.closed });

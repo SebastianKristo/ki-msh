@@ -30,6 +30,8 @@
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
+  // Ytelse: fast tom config til M.mediaPlayers (mellomlagret per config-objekt – en ny {} per kall ga full ny beregning per spiller)
+  const NOCFG = Object.freeze({});
   const PINK = C.accent;
 
   // Innebygde knapper (id = popup-hash uten #). Ikon/navn fra designets CAT.
@@ -1080,7 +1082,7 @@
       if (!h || !h.states) return [];
       const mb = M.__mediaBus && M.__mediaBus['#media'];
       let ids = Array.isArray(m.players) && m.players.length ? m.players.filter((id) => h.states[id])
-        : M.mediaPlayers ? M.mediaPlayers(h, (mb && mb.cfg) || {}).all.map((p) => p.id) : M.all(h, 'media_player');
+        : M.mediaPlayers ? M.mediaPlayers(h, (mb && mb.cfg) || NOCFG).all.map((p) => p.id) : M.all(h, 'media_player');
       ids.forEach((id) => this.s(id));
       // Fiks 50 A: spillere fjernet med sveip (per entity_id) – tilbake ved ny media_content_id eller idle/off → playing
       const gone = mGone.get();
@@ -1210,7 +1212,7 @@
     // Visningsnavn for en spiller (samme som i Media-popupen), brukt i raden og i toasten «<navn> fjernet»
     _miniName(id) {
       const h = this.hass, s = h && h.states[id], a = (s && s.attributes) || {};
-      return (M.mediaPlayers && (M.mediaPlayers(h, {}).all.find((p) => p.id === id) || {}).name) || a.friendly_name || id;
+      return (M.mediaPlayers && (M.mediaPlayers(h, NOCFG).all.find((p) => p.id === id) || {}).name) || a.friendly_name || id;
     }
     // Fiks 22.8 · utvidet mini-spiller (172 px): omslag/tekst (trykk → #media) + ⌄ · spole-slider (nåtid / −gjenstår) ·
     // ⏮ · −10 s · play/pause · +10 s · ⏭. Uten varighet/posisjon eller SEEK → slider deaktivert med «–» og uten ±10 s;
@@ -1639,7 +1641,7 @@
     _miniTv(id) {
       const h = this.hass, a = ((h.states[id] || {}).attributes) || {};
       const mb = M.__mediaBus && M.__mediaBus['#media'];
-      const p = M.mediaPlayers ? M.mediaPlayers(h, (mb && mb.cfg) || {}, true).all.find((x) => x.id === id) : null;
+      const p = M.mediaPlayers ? M.mediaPlayers(h, (mb && mb.cfg) || NOCFG, true).all.find((x) => x.id === id) : null;
       let tv = a.device_class === 'tv' || !!(p && p.kind === 'tv');
       const e = !tv && M.regEntry ? M.regEntry(h, id) : null;
       if (e && e.device_id) tv = M.all(h, 'remote', (s, x) => (M.regEntry(h, x) || {}).device_id === e.device_id).length > 0;
@@ -1702,7 +1704,7 @@
       if (name === 'mrow') {
         // Media-popupen med denne spilleren valgt (Media-kortets onOpen velger standardfane først → velg etterpå)
         M.openPopup('#media');
-        const pick = () => { const b = M.__mediaBus && M.__mediaBus['#media']; if (!b || !b.main || typeof b.main.select !== 'function' || !M.mediaPlayers) return; const p = M.mediaPlayers(this.hass, b.cfg || {}).all.find((x) => x.id === id); if (p) b.main.select(p.kind, id); };
+        const pick = () => { const b = M.__mediaBus && M.__mediaBus['#media']; if (!b || !b.main || typeof b.main.select !== 'function' || !M.mediaPlayers) return; const p = M.mediaPlayers(this.hass, b.cfg || NOCFG).all.find((x) => x.id === id); if (p) b.main.select(p.kind, id); };
         setTimeout(pick, 150); setTimeout(pick, 500);
       }
       return undefined;
@@ -2218,7 +2220,7 @@
         case 'nbmtv': return this._set('mini.tv_vol', d.v === 'slider' ? 'slider' : undefined); // Fiks 19.15
         case 'nbment': this._menu = null; this._q = {}; return this._set('mini.entity', d.v);
         case 'nbmpl': {
-          const all = M.mediaPlayers ? M.mediaPlayers(this._hass, {}).all.map((p) => p.id) : M.all(this._hass, 'media_player');
+          const all = M.mediaPlayers ? M.mediaPlayers(this._hass, NOCFG).all.map((p) => p.id) : M.all(this._hass, 'media_player');
           const cur = Array.isArray((c.mini || {}).players) && c.mini.players.length ? c.mini.players : all;
           const next = cur.includes(d.v) ? cur.filter((x) => x !== d.v) : all.filter((x) => cur.includes(x) || x === d.v);
           if (!next.length) return undefined; // minst én spiller

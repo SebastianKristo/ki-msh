@@ -447,7 +447,7 @@
   }
   function baseRooms(hass, c, t) {
     const rk = floorRank(hass);
-    const areas = M.areas(hass).slice().sort((a, b) => (a.floor ? rk[a.floor] ?? 50 : 99) - (b.floor ? rk[b.floor] ?? 50 : 99) || a.name.localeCompare(b.name, 'nb'));
+    const areas = M.areas(hass).slice().sort((a, b) => (a.floor ? rk[a.floor] ?? 50 : 99) - (b.floor ? rk[b.floor] ?? 50 : 99) || M.cmpNb(a.name, b.name));
     // Etasjefaner autofylles fra HA-etasjen (tabs.<fane>.auto_fill, standard på). Hjem: kuratert liste (t.hc = M.hjemCards).
     const fill = get(c, `tabs.${t.id}.auto_fill`) !== false;
     let base = t.kind === 'floor' ? (fill ? areas.filter((a) => a.floor === t.floor) : []) : t.kind === 'andre' ? (fill ? areas.filter((a) => !a.floor) : []) : t.kind === 'custom' ? [] : t.hc ? t.hc.cards.filter((x) => /^rom:/.test(x)).map((x) => areas.find((a) => a.id === x.slice(4))).filter(Boolean) : areas;

@@ -577,6 +577,8 @@
   // felt, så også endringer på stedet ses; hvert kall får egne kopier (kallere kan endre objektene).
   let areasC = null;
   const NB = new Intl.Collator('nb');
+  // Samme rekkefølge som a.localeCompare(b, 'nb') (lager ellers en ny collator per sammenligning – dyrt i sortering)
+  MSH.cmpNb = (a, b) => NB.compare(a, b);
   MSH.areas = function (hass) {
     const A = (hass && hass.areas) || {}, F = (hass && hass.floors) || {};
     const vals = Object.values(A);

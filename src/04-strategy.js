@@ -81,7 +81,7 @@
     return R.areas
       .filter((a) => !ex.has(a.area_id))
       .filter((a) => (byArea[a.area_id] || []).length > 0 || (M.kiRom(hass, a.area_id, 'oversikt') && Number(M.kiRom(hass, a.area_id, 'oversikt').state) > 0))
-      .sort((a, b) => (lvl[a.floor_id] ?? 99) - (lvl[b.floor_id] ?? 99) || a.name.localeCompare(b.name, 'nb'))
+      .sort((a, b) => (lvl[a.floor_id] ?? 99) - (lvl[b.floor_id] ?? 99) || M.cmpNb(a.name, b.name))
       .map((a) => ({ id: a.area_id, name: a.name, icon: a.icon }));
   }
   /* Popups som alltid lages når noe peker på dem (Fiks 12 · #ruter): navbar-knapp (innebygd id = hash uten #, med mindre
