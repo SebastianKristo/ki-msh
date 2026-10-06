@@ -9,13 +9,28 @@
 
   /* ------------------------------------------------------------ fonter */
   // @font-face virker ikke i shadow DOM → last Space Grotesk én gang på dokumentnivå.
+  // Fiks 52 (fallgruve 5): fontfilene hentes ellers først når en vekt brukes første gang – f.eks. 300 i en popup som åpnes
+  // → fontbytte (swap) og ny layout midt i åpne-animasjonen. Derfor: preconnect til fontserveren og, når stilarket er
+  // lastet, alle fire vektene i ledig tid (én gang per side). Ikoner er <ha-icon> (HAs mdi-SVG), ingen ikonfont.
+  MSH.FONT_WEIGHTS = [300, 400, 500, 600];
   MSH.loadFonts = function () {
     if (document.getElementById('msh-fonts')) return;
+    const head = document.head || document.documentElement;
+    for (const [id, href] of [['msh-fonts-pc1', 'https://fonts.googleapis.com'], ['msh-fonts-pc2', 'https://fonts.gstatic.com']]) {
+      if (document.getElementById(id)) continue;
+      const pc = document.createElement('link');
+      pc.id = id; pc.rel = 'preconnect'; pc.href = href; pc.crossOrigin = 'anonymous';
+      head.appendChild(pc);
+    }
     const l = document.createElement('link');
     l.id = 'msh-fonts';
     l.rel = 'stylesheet';
     l.href = 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap';
-    (document.head || document.documentElement).appendChild(l);
+    l.addEventListener('load', () => {
+      const warm = () => { try { if (document.fonts && document.fonts.load) MSH.FONT_WEIGHTS.forEach((w) => document.fonts.load(`${w} 16px "Space Grotesk"`).catch(() => {})); } catch (e) { /* */ } };
+      if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 2000 }); else setTimeout(warm, 200);
+    }, { once: true });
+    head.appendChild(l);
   };
   // Lastes rett etter bundelen (mikrooppgave): med DevTools/automatisering tilkoblet fanger nettleseren initiativtakerens
   // JS-stakk ved forespørselen – fra toppnivået betydde det ny parsing av hele bundelen for kildeposisjoner (~0,5 s med
@@ -177,6 +192,7 @@
   // HA-eventet 'haptic' (companion-appen) + navigator.vibrate som fallback. Maks én per 40 ms.
   const HP = { light: 8, selection: 5, medium: 16, heavy: 30, success: [10, 60, 16], warning: [18, 80, 18], failure: [26, 50, 26, 50, 26] };
   let lastHaptic = 0;
+  MSH.hapticAge = () => Date.now() - lastHaptic; // Fiks 52: ms siden forrige haptic (én haptic per trykk)
   MSH.haptic = function (type) {
     type = HP[type] ? type : 'light';
     if (MSH.hapticOff()) return; // Fiks 18.5: av på denne enheten → verken haptic-event eller vibrate
@@ -786,6 +802,7 @@
       r.attachShadow({ mode: 'open' }).innerHTML = '<style>:host{all:initial}.slot>*{pointer-events:auto}</style><div class="slot"></div>';
       document.body.appendChild(r);
       if (MSH.theme) MSH.theme.tag(r); // Fiks 34: data-ki-theme på overlay-roten (ark/toast)
+      if (MSH.perf && MSH.perf.tag) MSH.perf.tag(r); // Fiks 52: ki-android
     }
     return r.shadowRoot.querySelector('.slot');
   };
@@ -1182,6 +1199,9 @@
   // FAST høyde calc(100% − 52px) i alle faner, maks 440 px bred sentrert i innholdsflaten (full bredde når flaten er
   // smalere). Radius 38 38 0 0, håndtak 40×5 (#545454) øverst, bunnpadding 16 px + safe-area.
   // Inn: translateY(100%) → 0 på 280 ms cubic-bezier(.2,.8,.2,1). Dra ned på håndtaket lukker (> 90 px eller raskt sveip).
+  // Fiks 52 · Android: glassarket (blur) glir/fader ikke selv – blur-laget står stille og bare innholdet (.body, uten blur)
+  // animeres med transform/opasitet. Tilpass-arkene (tilpass: true) er alltid helt dekkende uten blur og glir som før.
+  const AND_SHEET = '.sh:not(.tp){transition:none!important}:host(.on) .sh:not(.tp)>.body{animation:kiAndSheetIn .26s cubic-bezier(.2,.8,.2,1);will-change:transform}@keyframes kiAndSheetIn{from{opacity:0;transform:translate3d(0,24px,0)}}';
   MSH.TILPASS_TOP = 52;
   MSH.TILPASS_MAXW = 440;
   // 36.7 · Tilpass-ark i popups er ALLTID helt dekkende (#282828 / --ki-popup, ingen blur/opasitet): rotårsaken til
@@ -1235,7 +1255,7 @@
       .bg{${MSH.scrimStyle(true)}}
       .sh{${MSH.sheetStyle(true)}${center ? 'border-radius:32px;' : ''}}
       .sh.tp{border-radius:38px 38px 0 0}
-      ${MSH.glassFallback('.sh', 'sheet')}</style><style>${css}</style><div class="bg"></div><div class="sh${footer ? ' ft' : ''}${tp ? ' tp' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
+      ${MSH.glassFallback('.sh', 'sheet')}${MSH.perf && MSH.perf.android ? AND_SHEET : ''}</style><style>${css}</style><div class="bg"></div><div class="sh${footer ? ' ft' : ''}${tp ? ' tp' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
     // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – overlegget er ikke «utenfor».

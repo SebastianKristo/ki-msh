@@ -468,6 +468,21 @@
     @keyframes mshMenu{from{opacity:0;transform:translateY(6px) scale(.96)}}
   `;
 
+  // Fiks 52 · Android (klassen ki-android, M.perf.android – uavhengig av Ytelsesmodus): Android-WebView tegner backdrop-filter
+  // på nytt i hver ramme når blur-laget selv (eller en forelder) har transform-/opasitetsovergang. Derfor: navbarens,
+  // menyens og mini-spillerens blur-lag står stille (ingen overgang/animasjon på dem); bare indre lag uten blur animeres
+  // (transform/opasitet, will-change: transform på det animerte laget). Indikatoren i glass-navbaren (som glir) har ikke
+  // egen blur på Android (navbarens blur ligger allerede under den). Sendes bare med på Android – iOS/PC uendret.
+  const ANDROID_CSS = `
+    nav.nb{transition:none!important}
+    nav.nb.glass .ind{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;will-change:transform}
+    .mbox{animation:none!important}
+    .mbox>*{animation:mshMenuIn .22s ease-out;will-change:transform}
+    .mini.glass,.mini.glass.drag{transition:height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease!important}
+    :host([data-ring]) nav.nb,:host([data-ring]) .mini,:host([data-vfade]) nav.nb,:host([data-vfade]) .mini,:host([data-kart]) .mini{transition:none!important}
+    @keyframes mshMenuIn{from{opacity:0;transform:translateY(6px)}}
+  `;
+
   /* ------------------------------------------------------------ kortet */
   class Navbar extends M.Card {
     static get cardName() { return 'Navbar'; }
@@ -496,7 +511,10 @@
 
     connectedCallback() {
       super.connectedCallback();
-      this._onHashNav = () => { this._syncVaer(); this.setUI({ menu: false }); this._schedule(true); };
+      // Fiks 52: hash-bytte (popup åpnes/lukkes) oppdaterer bare navbarens egen lille tilstand – aktiv knapp/prikk,
+      // indikatoren og skjul-attributtene (#vaer/#ringeklokke/#kart) – aldri hele tegningen (_render) midt i Bubbles
+      // åpne-animasjon. Unntak: mini-spilleren skal skjules/vises (Media-popupen / «Skjul når en popup er åpen»).
+      this._onHashNav = () => this._hashSync();
       this._onResize = () => this._schedule(true);
       this._onScroll = () => {
         if (M.portals && M.portals().length) return; // Fiks 20.8: ingen setState mens et Tilpass-ark er åpent
@@ -600,6 +618,7 @@
         this._ro.observe(el);
         this._roEl = el;
       }
+      if (el && M.perf && M.perf.tag) M.perf.tag(el); // Fiks 52: ki-android på dashbord-containeren
       return (this._geoR = M.rectOf(el));
     }
     // Kan position: fixed ligge inni kortet? Nei hvis en forelder (flat tree) lager ny containing block.
@@ -655,7 +674,7 @@
       if (act !== this._lastAct) {
         const dist = this._lastAct != null && this._lastAct >= 0 && act >= 0 ? Math.abs(act - this._lastAct) : 0;
         this._lastAct = act;
-        if (dist) { this._dist = dist; this._moving = true; clearTimeout(this._mt); this._mt = setTimeout(() => { this._moving = false; this._schedule(true); }, 260); }
+        if (dist) { this._dist = dist; this._moving = true; clearTimeout(this._mt); this._mt = setTimeout(() => { this._moving = false; this._syncNav(); }, 260); } // Fiks 52: bare indikatoren, ikke hele navbaren
       }
       const W = c.width || 'std', SZ = rail ? 60 : W === 'kompakt' ? 44 : W === 'full' ? 56 : 50, GAP = W === 'full' ? 14 : W === 'kompakt' ? 4 : 10, PAD = 10;
       // Liquid glass på bunnen (Fiks 3 · 7a): 64 px høy (padding 4, fane 56), ikon 22, navn 11/600, kapsel 56 × én fane
@@ -808,6 +827,7 @@
     }
 
     _renderPortal(N, geo) {
+      this._geoNav = geo; // Fiks 52: _syncNav bruker samme geometri
       // Avstand fra bunnen (mobil): CSS-variabel på dokumentet – Hjem sin bunnmarg følger den
       // Fiks 18.6: per enhet (MSH.navBottom – egen verdi eller enhetens standard), uten effekt som rail
       const off = geo.rail ? 0 : M.navBottom();
@@ -826,8 +846,12 @@
           e.stopPropagation(); // ikke la kortets egen klikk-lytter (portalen er slottet inn i kortet) håndtere det én gang til
           // Trykk på knappen til åpen popup lukker den (Fiks 4 · 1) → én haptic('light')
           const h = el.dataset.act === 'go' && this._isOpen(el.dataset.id) ? 'light' : el.getAttribute('data-haptic');
-          if (h !== 'off') M.haptic(h || 'light');
+          // Fiks 52: knapp/menypunkt som åpner en popup → haptic ETTER at menyen er lukket og hashen satt (_goPopup).
+          // Kom det allerede en haptic for dette trykket (glass-slipp, < 40 ms) → ingen ny.
+          if (el.dataset.act === 'go' && el.dataset.id !== '__more' && !this._isOpen(el.dataset.id)) this._goHap = h === 'off' || (M.hapticAge && M.hapticAge() < 40) ? 'off' : h || 'light';
+          else if (h !== 'off') M.haptic(h || 'light');
           this.onAction(el.dataset.act, el, e);
+          this._goHap = null;
         });
         this._miniBind(sr);
         this._portal = p;
@@ -844,7 +868,7 @@
       this._tcUsed = false; // settes av _tCol når mini-spilleren plasseres over fliskolonnen
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
       if (!mini) this._mShow = false;
-      const html = `<style>${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}</style>${this._navHtml(N, geo, false)}${mini}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
+      const html = `<style>${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}${M.perf && M.perf.android ? ANDROID_CSS : ''}</style>${this._navHtml(N, geo, false)}${mini}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
       if (this._pFirst) { this._portal.shadowRoot.innerHTML = html; this._pFirst = false; } else M.morph(this._portal.shadowRoot, html);
       const nav = this._portal.shadowRoot.querySelector('[data-nav]');
       const glassOn = () => this.config.style === 'glass';
@@ -1744,31 +1768,33 @@
           const r = el.getBoundingClientRect(), nav = el.closest('nav'), nr = nav ? nav.getBoundingClientRect() : r;
           return this._openMenu({ cx: r.left + r.width / 2, right: this._wide(this._dash().width) ? nr.right : r.right, top: r.top, bottom: nr.bottom });
         }
-        this._closeMenu(true);
-        this.setUI({ compact: false });
+        const hap = this._goHap; this._goHap = null;
+        const fromMenu = !!this.ui.menu;
+        this._closeMenu(true); // Fiks 52: menyen fjernes straks (ingen lukke-animasjon, ingen ny tegning)
+        if (this.ui.compact) this.setUI({ compact: false }); // Fiks 52: ingen tegning når den allerede er full størrelse
         if (hashOf(N, id) === '#media') { if (mStore.get()) mStore.set(null); mGone.set(null); } // Fiks 19.7: Media i navbaren henter den skjulte mini-spilleren tilbake
         // Popupen til knappen er allerede åpen → lukk den (fasit Hjem v2: isOpen ? closePop() : open…).
         // Gjelder bunn, glass (slipp etter dra), rail og «Mer»-menyen – alle går via denne handlingen.
         // Dobbel hendelse ved åpning (f.eks. klikk + syntetisk klikk etter glass-slipp, dobbelttrykk): samme knapp < 400 ms
         // etter at den åpnet popupen lukker ikke – ellers fjernes hashen med én gang (Fiks 12).
-        if (this._isOpen(id)) { if (this._opened && this._opened.id === id && Date.now() - this._opened.t < 400) return; M.closePopup(); this._schedule(true); return; }
+        if (this._isOpen(id)) { if (this._opened && this._opened.id === id && Date.now() - this._opened.t < 400) return; M.closePopup(); return; } // Fiks 52: location-changed → _hashSync (ingen hel tegning)
         const b = N.B[id] || {};
         if (b.custom && b.action) this._run(b);
         const h = hashOf(N, id);
-        if (h) { this._opened = { id, t: Date.now() }; M.openPopup(h); }
-        else if (M.tap) M.tap.run(this, tapOf(N, id)); // dashbord-sti / URL
+        if (h) { this._opened = { id, t: Date.now() }; this._goPopup(h, hap, fromMenu); }
+        else { if (hap && hap !== 'off') M.haptic(hap); if (M.tap) M.tap.run(this, tapOf(N, id)); } // dashbord-sti / URL
         return;
       }
       if (name[0] === 'm' && /^m(play|vol|vstep|dot|row|exp|x10|xtrk|rm|undo)$/.test(name)) return this._miniAction(name, el); // Fiks 17.26
       if (name === 'mclose') { if (Date.now() - (this._menuT || 0) < 300) return; return this._closeMenu(); }
       if (name === 'mtool') {
-        this.setUI({ menu: false });
+        this._closeMenu(); // Fiks 52: uten ny tegning
         if (el.dataset.id === '__tilpass') return this._tilpassSheet(); // 24.5
-        if (el.dataset.id === '__all') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass-alt' } })); } // 23.7
-        if (el.dataset.id === '__edit') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'navbar' } })); }
-        if (el.dataset.id === '__kiosk') { this.setUI({ menu: false }); return M.kioskSheet && M.kioskSheet(this); }
-        if (el.dataset.id === '__hdr') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); }
-        if (el.dataset.id === '__home') { this.setUI({ menu: false }); return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'home' } })); }
+        if (el.dataset.id === '__all') { return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass-alt' } })); } // 23.7
+        if (el.dataset.id === '__edit') { return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'navbar' } })); }
+        if (el.dataset.id === '__kiosk') { return M.kioskSheet && M.kioskSheet(this); }
+        if (el.dataset.id === '__hdr') { return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); }
+        if (el.dataset.id === '__home') { return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'home' } })); }
         return;
       }
       return super.onAction(name, el, ev);
@@ -1791,10 +1817,58 @@
       }
       requestAnimationFrame(() => { if (this.ui.menu) window.addEventListener('click', this._outside, true); });
     }
+    // Fiks 52: menyen lukkes uten animasjon og uten ny tegning – menyens noder (bakteppe + boks) fjernes direkte og
+    // indikatoren flyttes (_syncNav). Neste vanlige tegning har heller ingen meny (ui.menu = false).
     _closeMenu(silent) {
       if (this._outside) window.removeEventListener('click', this._outside, true);
-      if (this.ui.menu) this.setUI({ menu: false });
+      if (!this.ui.menu) return silent;
+      this.setUI({ menu: false }, true);
+      const sr = this._portal && this._portal.shadowRoot;
+      if (!sr) { this._schedule(true); return silent; }
+      [...sr.children].forEach((n) => { if (n.classList.contains('mbg') || n.classList.contains('mpos')) n.remove(); }); // (:scope virker ikke i ShadowRoot)
+      this._syncNav();
       return silent;
+    }
+    // Fiks 52 · rekkefølgen når en knapp/et menypunkt åpner en popup: (1) menyen er lukket (over, uten animasjon),
+    // (2) location.hash settes, (3) ÉN haptic. Android: hashen settes først i rammen ETTER at rammen uten meny er tegnet
+    // (2 × rAF, ~33 ms – godt under 180 ms), så menyens blur aldri står samtidig med Bubble-popupens åpning/bygging.
+    // iOS/PC: straks, som før.
+    _goPopup(h, hap, fromMenu) {
+      const go = () => { M.openPopup(h); if (hap && hap !== 'off') M.haptic(hap); };
+      if (fromMenu && M.perf && M.perf.android) { requestAnimationFrame(() => requestAnimationFrame(go)); return; }
+      go();
+    }
+    // Fiks 52: bare navbarens egen tilstand etter hash-bytte (se _onHashNav)
+    _hashSync() {
+      this._syncVaer();
+      const P = this._portal, hh = location.hash, prev = this._hashPrev;
+      if (hh === prev && !this.ui.menu) return; // samme hash (popstate + hashchange for ett bytte)
+      this._hashPrev = hh;
+      if (!P || this._inline) { if (this.ui.menu) this.setUI({ menu: false }); return; }
+      if (this.ui.menu) this._closeMenu(); // f.eks. tilbake-knappen mens menyen er åpen
+      P.toggleAttribute('data-ring', hh === '#ringeklokke');
+      P.toggleAttribute('data-kart', hh === '#kart');
+      this._syncNav();
+      // Mini-spilleren avhenger av hashen (Media-popupen / «Skjul når en popup er åpen») → full tegning bare da
+      const m = miniCfg(this.config);
+      if (m.on !== false && (this._mShow || (this._mLast && this._mLast.length)) && (mHidePopOn(m) || (m.hide_in_media !== false && (hh === '#media' || prev === '#media')))) this._schedule(true);
+    }
+    // Aktiv knapp (prikk/farge) og indikatoren fra samme mal som tegningen (_navHtml) – bare attributtene kopieres.
+    _syncNav() {
+      const sr = this._portal && this._portal.shadowRoot, nav = sr && sr.querySelector('[data-nav]');
+      if (!nav || !this._geoNav || this._inline) return;
+      const t = document.createElement('template');
+      t.innerHTML = this._navHtml(norm(this.config), this._geoNav, false);
+      const nn = t.content.querySelector('[data-nav]');
+      if (!nn) return;
+      const ind = nav.querySelector(':scope > .ind'), ni = nn.querySelector(':scope > .ind');
+      if (ind && ni && ind.getAttribute('style') !== ni.getAttribute('style')) ind.setAttribute('style', ni.getAttribute('style'));
+      nn.querySelectorAll(':scope > .it[data-key]').forEach((b) => {
+        const o = nav.querySelector(`:scope > .it[data-key="${CSS.escape(b.dataset.key)}"]`);
+        if (!o) return;
+        if (o.className !== b.className) o.className = b.className;
+        if (o.style.color !== b.style.color) o.style.color = b.style.color;
+      });
     }
     // Liquid glass-flagget for resten av dashbordet (MSH.glassOn): speiler navbarens config til <html data-ki-glass>
     _syncGlass() {

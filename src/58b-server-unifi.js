@@ -207,6 +207,10 @@
     Promise.resolve().then(() => M.history(h, ids, 24)).catch(() => ({})).then((r) => {
       LAT.busy = false; LAT.data = r || {};
       if (host.isConnected === false) return;
+      // Fiks 52 A3: bare WAN-latens-kortet oppdateres (host.patch) – ingen ny tegning av hele Server-kortet
+      if (typeof host.patch === 'function') {
+        try { const X = discover(host.hass, host.R, host.config || {}); if (X.gw && host.patch('su-udm-lat', latHTML(host, X.gw, true))) return; } catch (e) { console.error('[ki-msh] serverUnifi.lat', e); }
+      }
       if (host.update) host.update(); else if (host.render) host.render();
     });
   }
@@ -233,6 +237,27 @@
   const moreAttr = (id) => (id ? `data-su-act="more" data-su-id="${esc(id)}"` : 'data-su-act="none"');
   const pctTxt = (h, id) => { const v = numOf(h, id); return v == null ? '–' : M.nf(Math.round(v)); };
   const tempTxt = (h, id) => { const v = numOf(h, id); return v == null ? '–' : M.nf(Math.round(v)); };
+
+  // WAN-latens (24 timesnitt): eget avsnitt så det kan oppdateres alene når historikken kommer (host.patch)
+  function latHTML(host, g, noLoad) {
+    const h = host.hass;
+    if (!noLoad) latLoad(host, g.lat.map((l) => l.id));
+    const now = Date.now();
+    let tot = 0, nT = 0, t0 = null;
+    const rows = g.lat.map((l) => {
+      const cur = numOf(h, l.id), pts = (LAT.data[l.id] || []).slice();
+      if (cur != null) pts.push({ t: now, v: cur });
+      const H = hourly(pts, now); t0 = H.start;
+      H.vals.forEach((v) => { if (v != null) { tot += v; nT++; } });
+      const segs = H.vals.map((v, i) => `<i style="background:${v == null ? S3 : i === 23 ? latCol(v) : M.alpha(latCol(v), 0.5)}"></i>`).join('');
+      return `<button class="su-lr" ${moreAttr(l.id)}><span class="su-ll su-ell">${esc(l.label)}</span><span class="su-ls">${segs}</span><span class="su-lv"><span class="num">${cur == null ? '–' : M.nf(Math.round(cur))}</span><span>ms</span></span></button>`;
+    });
+    if (!nT) g.lat.forEach((l) => { const v = numOf(h, l.id); if (v != null) { tot += v; nT++; } });
+    const hh = t0 != null ? String(new Date(t0).getHours()).padStart(2, '0') + ':00' : '–';
+    const lat = `<section class="su-card su-lat" data-key="su-udm-lat"><div class="su-lh"><span>WAN-latens</span><span>siste 24 t · snitt ${nT ? M.nf(Math.round(tot / nT)) + ' ms' : '–'}</span></div>
+        ${rows.length ? rows.join('') + `<div class="su-lax"><span></span><span><span>${hh}</span><span>nå</span></span><span></span></div>` : '<div class="su-none">– · Fant ingen WAN-latens-sensorer</div>'}</section>`;
+    return lat;
+  }
 
   // M · UDM
   function udmHTML(host, X) {
@@ -262,22 +287,7 @@
           <span class="su-chip ${chip}" ${moreAttr(g.state || g.tracker)}><i></i>${esc(chip === 'none' ? '–' : lbl)}</span></div>
         <div class="su-mts">${meter('CPU', g.cpu, '%', (v) => (v > 85 ? RD : v > 65 ? OR : GR))}${meter('Minne', g.mem, '%', () => PU)}${meter('CPU-temp', g.cpuTemp || g.temp, '°C', (v) => (v > 75 ? RD : v > 60 ? OR : BL))}</div>
         <div class="su-sps">${specs.join('')}</div></section>`;
-    // WAN-latens
-    latLoad(host, g.lat.map((l) => l.id));
-    const now = Date.now();
-    let tot = 0, nT = 0, t0 = null;
-    const rows = g.lat.map((l) => {
-      const cur = numOf(h, l.id), pts = (LAT.data[l.id] || []).slice();
-      if (cur != null) pts.push({ t: now, v: cur });
-      const H = hourly(pts, now); t0 = H.start;
-      H.vals.forEach((v) => { if (v != null) { tot += v; nT++; } });
-      const segs = H.vals.map((v, i) => `<i style="background:${v == null ? S3 : i === 23 ? latCol(v) : M.alpha(latCol(v), 0.5)}"></i>`).join('');
-      return `<button class="su-lr" ${moreAttr(l.id)}><span class="su-ll su-ell">${esc(l.label)}</span><span class="su-ls">${segs}</span><span class="su-lv"><span class="num">${cur == null ? '–' : M.nf(Math.round(cur))}</span><span>ms</span></span></button>`;
-    });
-    if (!nT) g.lat.forEach((l) => { const v = numOf(h, l.id); if (v != null) { tot += v; nT++; } });
-    const hh = t0 != null ? String(new Date(t0).getHours()).padStart(2, '0') + ':00' : '–';
-    const lat = `<section class="su-card su-lat" data-key="su-udm-lat"><div class="su-lh"><span>WAN-latens</span><span>siste 24 t · snitt ${nT ? M.nf(Math.round(tot / nT)) + ' ms' : '–'}</span></div>
-        ${rows.length ? rows.join('') + `<div class="su-lax"><span></span><span><span>${hh}</span><span>nå</span></span><span></span></div>` : '<div class="su-none">– · Fant ingen WAN-latens-sensorer</div>'}</section>`;
+    const lat = latHTML(host, g);
     const upd = F && F.on;
     const acts = `<div class="su-acts" data-key="su-udm-acts">
         <button class="su-ap" data-su-act="go" data-su-tab="net" data-su-sub="switch" data-su-dev="${esc(g.id)}" data-su-hap="selection">${ic('mdi:lan', 20)}<span>Porter</span></button>

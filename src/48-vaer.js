@@ -808,7 +808,8 @@
     onOpen() {
       super.onOpen();
       this._regSub();
-      if (!this._config.embedded && M.isPopupOpen(this) && M.popupHash(this)) M.haptic('light'); // én haptic ved åpning (26.24)
+      // én haptic ved åpning (26.24) – Fiks 52: bare når trykket som åpnet ikke allerede ga en (navbar/«Mer»/header), ellers to
+      if (!this._config.embedded && M.isPopupOpen(this) && M.popupHash(this) && !(M.hapticAge && M.hapticAge() < 1500)) M.haptic('light');
       this._pause(false);
     }
     // Fiks 42: nye/fjernede weather.* dukker opp mens popupen er åpen (entity_registry_updated); ellers ved neste åpning
