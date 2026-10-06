@@ -473,6 +473,7 @@
   // menyens og mini-spillerens blur-lag står stille (ingen overgang/animasjon på dem); bare indre lag uten blur animeres
   // (transform/opasitet, will-change: transform på det animerte laget). Indikatoren i glass-navbaren (som glir) har ikke
   // egen blur på Android (navbarens blur ligger allerede under den). Sendes bare med på Android – iOS/PC uendret.
+  const AND = !!(M.perf && M.perf.android); // Fiks 54
   const ANDROID_CSS = `
     nav.nb{transition:none!important}
     nav.nb.glass .ind{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;will-change:transform}
@@ -484,13 +485,18 @@
     /* Fiks 53 · sveip mellom spillerne i mini-spilleren: blur-laget er et eget, fast ::before (translateZ(0)) bak raden;
        .mini selv har ingen backdrop-filter og flytter seg ikke under sveipet – bare raden (.msw, gjennomsiktig, uten blur)
        glir med transform. Navbar og mini-spiller er egne lag (isolation + contain: paint), så det ene tegner aldri det andre. */
-    nav.nb,.mini{isolation:isolate;contain:paint}
+    nav.nb,.mini{isolation:isolate;contain:layout paint}
+    /* Fiks 54 A2: navbar og mini-spiller er søsken med hvert sitt faste lag (translateZ(0) står i den inline transformen),
+       mini-spilleren har fast høyde 64 px (172 px utvidet) uansett spiller; ingen inntoning av omslaget (byttes etter decode()). */
+    .mini:not(.exp){height:64px!important}
+    .mart img{animation:none!important}
     .mini.glass{background:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))))!important}
     .mini.glass::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 45%,rgb(255 255 255/0.06)),var(--ki-glass, rgba(40,40,44,0.5));-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:inset 0 0 0 0.5px rgb(255 255 255/0.18),inset 0 1px 0 rgb(255 255 255/0.25);transform:translateZ(0)}
     @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.mini.glass::before{background:var(--ki-surface-3, #2f2f2f)}} @container style(--ki-perf: lite){.mini.glass::before{background:var(--ki-surface-3, #2f2f2f)}}
-    .msw{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;will-change:transform}
-    .msw.sl{transition:transform .26s cubic-bezier(.2,.8,.2,1),opacity .2s ease}
-    .mrow{scroll-snap-stop:always}
+    .msw{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;scroll-snap-type:x mandatory;overscroll-behavior-x:contain}
+    /* Fiks 54: radene (ikke scroll-containeren – den klipper) glir med transform; ingen opasitet på kortene i raden */
+    .mrow{scroll-snap-stop:always;will-change:transform}
+    .mrow.sl{transition:transform .26s cubic-bezier(.2,.8,.2,1)}
     .mdots button span{transition:opacity .2s,transform .2s!important}
   `;
 
@@ -694,8 +700,8 @@
       const compact = !rail && !inline && !!this.ui.compact && c.shrink !== false;
       let style;
       if (inline) style = rail ? `gap:${GAP}px` : '';
-      else if (rail) style = `left:${geo.left + M.RAIL.gap}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%)`;
-      else style = `left:${geo.left + geo.width / 2}px;width:${Math.round(Math.min(geo.width - 28, 392))}px;transform:translateX(-50%) scale(${compact ? 0.8 : 1}) translateY(${compact ? 8 : 0}px)`;
+      else if (rail) style = `left:${geo.left + M.RAIL.gap}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%)${AND ? ' translateZ(0)' : ''}`;
+      else style = `left:${geo.left + geo.width / 2}px;width:${Math.round(Math.min(geo.width - 28, 392))}px;transform:translateX(-50%) scale(${compact ? 0.8 : 1}) translateY(${compact ? 8 : 0}px)${AND ? ' translateZ(0)' : ''}`;
       const mv = this._moving && act >= 0, d = Math.min(this._dist || 0, 4);
       const indT = mv ? `scaleX(${1 + d * 0.12}) scaleY(${1 - d * 0.04})` : 'scale(1)';
       const ind = rail
@@ -879,9 +885,28 @@
       this._tcUsed = false; // settes av _tCol når mini-spilleren plasseres over fliskolonnen
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
       if (!mini) this._mShow = false;
-      const html = `<style>${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}${M.perf && M.perf.android ? ANDROID_CSS : ''}</style>${this._navHtml(N, geo, false)}${mini}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
-      if (this._pFirst) { this._portal.shadowRoot.innerHTML = html; this._pFirst = false; } else M.morph(this._portal.shadowRoot, html);
-      const nav = this._portal.shadowRoot.querySelector('[data-nav]');
+      // Fiks 54 A2: navbaren, mini-spilleren og «Mer»-menyen er tre søsken-seksjoner (display: contents) som tegnes HVER
+      // FOR SEG, og bare når deres egen HTML er endret. En hass-oppdatering for media, miniIdx/sveip eller tidtakeren i
+      // mini-spilleren rører derfor aldri navbar-noden (før: morph av hele portalen ved hver media-oppdatering, også
+      // navbaren – opptaket viste navbaren borte i enkeltrammer, også utenom sveip). innerHTML brukes bare ved første
+      // tegning av portalen, aldri på navbaren etterpå.
+      const sr0 = this._portal.shadowRoot;
+      const css = `${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}${M.perf && M.perf.android ? ANDROID_CSS : ''}`;
+      const navH = this._navHtml(N, geo, false), menuH = this.ui.menu ? this._menuHtml(N, geo) : '';
+      if (this._pFirst) {
+        sr0.innerHTML = `<style>${css}</style><div class="pnav" data-sec="nav" style="display:contents">${navH}</div><div class="pmini" data-sec="mini" style="display:contents">${mini}</div><div class="pmenu" data-sec="menu" style="display:contents">${menuH}</div>`;
+        this._pFirst = false;
+        this._pSec = { css, nav: navH, mini, menu: menuH };
+        this._navRenders = (this._navRenders || 0) + 1;
+      } else {
+        const P = this._pSec || (this._pSec = {}), sec = (k) => [...sr0.children].find((n) => n.dataset && n.dataset.sec === k); // (:scope virker ikke i ShadowRoot)
+        if (P.css !== css) { const st = [...sr0.children].find((n) => n.localName === 'style'); if (st) st.textContent = css; P.css = css; }
+        if (P.nav !== navH) { const el = sec('nav'); if (el) M.morph(el, navH); P.nav = navH; this._navRenders = (this._navRenders || 0) + 1; }
+        if (P.mini !== mini) { const el = sec('mini'); if (el) M.morph(el, mini); P.mini = mini; }
+        if (P.menu !== menuH) { const el = sec('menu'); if (el) M.morph(el, menuH); P.menu = menuH; }
+      }
+      if (AND) this._miniArtSync(sr0);
+      const nav = sr0.querySelector('[data-nav]');
       const glassOn = () => this.config.style === 'glass';
       if (nav && !nav.__b) {
         nav.__b = true;
@@ -1180,6 +1205,10 @@
         this._mVis = (e) => { if (document.visibilityState === 'hidden') { this._mHid = true; return; } if ((e.type === 'pageshow' && e.persisted) || this._mHid) { this._mHid = false; this._mFresh = true; this._schedule(true); } };
         document.addEventListener('visibilitychange', this._mVis); window.addEventListener('pageshow', this._mVis);
       }
+      // Fiks 54 · Android: rekkefølgen i raden står fast mens mini-spilleren vises (sortering etter last_changed ville
+      // flyttet kortene under fingeren); ny innlasting / retur / ny visning sorterer på nytt (20.19).
+      if (AND && show && this._mFresh === false && this._mOrd) { const o = this._mOrd.filter((id) => L.includes(id)); L = o.concat(L.filter((id) => !o.includes(id))); }
+      if (AND) { this._mOrd = L.slice(); this._mLast = L; }
       if (this._mFresh !== false || !show) { if (show) { this._mCur = L[0]; this._mFresh = false; } else this._mFresh = true; }
       if (!L.includes(this._mCur)) this._mCur = L[0];
       // Fiks 22.8: utvidet kort lukkes når mini-spilleren skjules eller en annen spiller velges; teller hvert sekund bare mens utvidet + playing
@@ -1193,13 +1222,13 @@
       if (geo.rail) {
         // Fiks 18.4/18.8: nederst til høyre, nøyaktig over høyre fliskolonne i Hjem (målt av msh-hjem-faner-card → M.hjemTCol)
         const T = this._tCol(geo);
-        pos = `left:${T.left}px;width:${T.width}px;bottom:max(16px, env(safe-area-inset-bottom, 0px));transform:translateY(var(--mo,0px)) translate(var(--mx,0px),var(--my,0px))`;
+        pos = `left:${T.left}px;width:${T.width}px;bottom:max(16px, env(safe-area-inset-bottom, 0px));transform:translateY(var(--mo,0px)) translate(var(--mx,0px),var(--my,0px))${AND ? ' translateZ(0)' : ''}`;
       }
       else {
         // Følger navbarens krymping (scale .8 fra bunnen + translateY 8): samme skala, flyttet ned like mye som navbarens topp
         const compact = !!this.ui.compact && this.config.shrink !== false, nh = this._navH || (glass ? 64 : 68);
         const dy = compact ? nh * 0.2 + 6.4 : 0;
-        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) translate(var(--mx,0px),var(--my,0px)) scale(${compact ? 0.8 : 1})`;
+        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) translate(var(--mx,0px),var(--my,0px)) scale(${compact ? 0.8 : 1})${AND ? ' translateZ(0)' : ''}`;
       }
       const vo = this._mVolV;
       const rows = L.map((id) => {
@@ -1212,7 +1241,10 @@
         const SA = M.stationArt ? M.stationArt(h, s, undefined, { noLogo: tv }) : { url: mPic(h, a.entity_picture_local || a.entity_picture), kind: 'picture' };
         const pic = SA.url, bad = this._mBad && this._mBad.has(pic), acc = SA.kind === 'logo' && SA.accent;
         const glow = acc && this._mExp === id ? `;box-shadow:0 6px 18px color-mix(in srgb, ${acc} 45%, transparent)` : '';
-        const img = pic && !bad ? (M.stationArtImg ? M.stationArtImg(SA, { key: 'img_' + pic.slice(-60), attrs: 'width="48" height="48" decoding="async"' }) : `<img class="mimg" data-key="img_${esc(pic.slice(-60))}" src="${esc(pic)}" alt="" width="48" height="48" decoding="async" draggable="false">`) : '';
+        let img = pic && !bad ? (M.stationArtImg ? M.stationArtImg(SA, { key: 'img_' + pic.slice(-60), attrs: 'width="48" height="48" decoding="async"' }) : `<img class="mimg" data-key="img_${esc(pic.slice(-60))}" src="${esc(pic)}" alt="" width="48" height="48" decoding="async" draggable="false">`) : '';
+        // Fiks 54 · Android: omslaget eies av _miniArtSync (data-nomorph) – samme <img>-node per spiller, ny src først
+        // etter img.decode() (det gamle omslaget står til da), aldri tomt omslag/ny node ved spor- eller spillerbytte.
+        if (AND) { (this._mArtWant || (this._mArtWant = {}))[id] = img ? { src: pic, html: img } : null; img = `<span class="mimgw" data-nomorph data-key="mi_${esc(id)}" data-art="${esc(id)}"></span>`; }
         const art = `<span class="mart" data-sa-kind="${SA.kind || 'none'}" style="background:${acc ? acc : `linear-gradient(135deg,${C.pink},${C.orange || '#f2b573'})`}${glow}">${M.icon(tv ? 'mdi:television' : /radio/i.test(id + ' ' + name) || a.media_channel ? 'mdi:radio' : 'mdi:music-note', 24)}${img}</span>`;
         const vol = this._mVolId === id, feat = Number(a.supported_features) || 0, drag = !steps && (!!(feat & 4) || (!feat && a.volume_level != null)); // uten volume_set / TV: −/+
         const muted = !!a.is_volume_muted;
@@ -1508,7 +1540,8 @@
       const sw = mini.querySelector('.msw'), x0 = e.clientX, y0 = e.clientY, pid = e.pointerId, t0 = e.t0 || Date.now();
       const W = mini.offsetWidth || 1, id = this._mCur, exp = !!this._mExp;
       const AND = !!(M.perf && M.perf.android) && !!sw; // Fiks 53: på Android flytter bare raden seg (blur-laget står stille)
-      const rowX = (x) => { sw.style.transform = x ? `translateX(${x.toFixed(1)}px)` : ''; };
+      // Fiks 54: radene flyttes (ikke .msw – scroll-containeren klipper, så å flytte den ga tomme rammer i kortet)
+      const rowX = (x) => { [...sw.children].forEach((r) => { r.style.transform = x ? `translateX(${x.toFixed(1)}px)` : ''; }); };
       const rm0 = this._mRm ? this._mRm.px : 0;
       let mode = pre || null, cap = false, mx = rm0, my = 0, dx = 0, dy = 0, tL = t0;
       const field = () => sr.querySelector('[data-mrmf]');
@@ -1596,32 +1629,71 @@
       mini.addEventListener('pointermove', mv); mini.addEventListener('pointerup', up); mini.addEventListener('pointercancel', up);
       if (pre) { start(); if (ev0) mv(ev0); }
     }
-    // Fiks 53 · Android: neste spiller etter sveip. Raden hopper til neste side og glir inn med transform (ingen JS-smooth-
-    // scroll, blur-laget står stille); aktiv spiller, prikker og ny tegning skrives først når glidningen er ferdig.
+    // Fiks 53/54 · Android: neste spiller etter sveip. Radene glir med transform (scroll-containeren står stille og har
+    // samme scrollLeft til glidningen er ferdig): gjeldende kort ut til venstre, neste inn fra høyre – også rundt fra den
+    // siste til den første (ingen inntoning/opasitet). Aktiv spiller, prikker og scrollLeft skrives i samme oppgave når
+    // overgangen er ferdig (transitionend, reserve 320 ms) – aldri midt i sveipet.
     _miniNextAnd(sw, sr, id, go) {
       const rows = [...sw.children], n = rows.length, ci = Math.max(0, rows.findIndex((r) => r.dataset.mid === id)), W = sw.clientWidth || 1;
-      const x0 = new DOMMatrix(getComputedStyle(sw).transform === 'none' ? undefined : getComputedStyle(sw).transform).m41 || 0;
-      const i = go && n > 1 ? (ci + 1 < n ? ci + 1 : 0) : ci;
+      const cur = rows[ci];
+      if (!cur) { this._busy = false; return undefined; }
+      const tf = getComputedStyle(cur).transform, x0 = tf && tf !== 'none' ? new DOMMatrix(tf).m41 || 0 : 0;
+      const i = go && n > 1 ? (ci + 1 < n ? ci + 1 : 0) : ci, nx = rows[i], D = (i - ci) * W;
       if (i !== ci) M.haptic('light');
       this._mSlide = true;
-      sw.classList.remove('sl');
-      if (i === ci) sw.style.transform = `translateX(${x0}px)`;
-      else if (i === ci + 1) { sw.scrollLeft = i * W; sw.style.transform = `translateX(${(W + x0).toFixed(1)}px)`; }
-      else { sw.scrollLeft = i * W; sw.style.transform = ''; sw.style.opacity = '0.35'; } // rundt (siste → første): kort inntoning
-      void sw.offsetWidth;
-      sw.classList.add('sl');
-      sw.style.transform = 'translateX(0px)'; sw.style.opacity = '';
+      rows.forEach((r) => r.classList.remove('sl'));
+      if (i !== ci) nx.style.transform = `translateX(${(W + x0 - D).toFixed(1)}px)`; // rett til høyre for gjeldende kort
+      void getComputedStyle(nx).transform; // startverdiene gjelder før overgangen
+      cur.classList.add('sl'); nx.classList.add('sl');
+      cur.style.transform = i === ci ? 'translateX(0px)' : `translateX(${-W}px)`;
+      if (i !== ci) nx.style.transform = `translateX(${(-D).toFixed(1)}px)`; // ender der gjeldende kort sto
       clearTimeout(this._mSlT);
-      this._mSlT = setTimeout(() => {
-        sw.classList.remove('sl'); sw.style.transform = '';
+      let done = false;
+      const fin = (e) => {
+        if (done || (e && (e.target !== nx || e.propertyName !== 'transform'))) return;
+        done = true;
+        clearTimeout(this._mSlT);
+        nx.removeEventListener('transitionend', fin);
+        rows.forEach((r) => { r.classList.remove('sl'); r.style.transform = ''; });
+        if (i !== ci) sw.scrollLeft = i * W; // samme oppgave som transformene nullstilles → ingen hopp
         this._mSlide = false; this._busy = false;
-        const mid = rows[i] && rows[i].dataset.mid;
+        const mid = nx.dataset.mid;
         if (mid) this._mCur = mid;
         if (this._mExp && this._mExp !== this._mCur) this._mExp = null;
         sr.querySelectorAll('.mdots button').forEach((b, j) => b.classList.toggle('on', j === i));
         if (i !== ci || this._skipped) { this._skipped = false; this._schedule(true); }
-      }, 270);
+      };
+      nx.addEventListener('transitionend', fin);
+      this._mSlT = setTimeout(() => fin(), 320);
       return undefined;
+    }
+    // Fiks 54 · Android: omslagene i mini-spilleren. Hver spiller har ÉN <img> i sin .mimgw (data-nomorph, stabil nøkkel);
+    // nytt bilde lastes og dekodes i en løs <img> først, og først da får den synlige noden ny src (+ stationArt-attributter).
+    // Det gamle omslaget står til da; feiler dekodingen, prøves src likevel (stationArtBind tar logo-reserven).
+    _miniArtSync(sr) {
+      const W = this._mArtWant || {};
+      sr.querySelectorAll('.mimgw[data-art]').forEach((w) => {
+        const want = W[w.dataset.art], old = w.querySelector('img');
+        if (!want) { if (old) old.remove(); w.__want = null; return; }
+        if (old && old.getAttribute('src') === want.src) { w.__want = null; return; }
+        const t = document.createElement('template');
+        t.innerHTML = want.html;
+        const ti = t.content.querySelector('img');
+        if (!ti) return;
+        const ni = document.importNode(ti, true); // (bilder i en <template> lastes ikke – importeres til dokumentet)
+        if (!old) { w.appendChild(ni); return; } // første omslag for spilleren
+        if (w.__want === want.src) return; // dekodes allerede
+        w.__want = want.src;
+        const put = () => {
+          if (w.__want !== want.src || !old.isConnected) return;
+          w.__want = null;
+          [...old.attributes].forEach((a) => { if (!ni.hasAttribute(a.name)) old.removeAttribute(a.name); });
+          [...ni.attributes].forEach((a) => { if (a.name !== 'src' && old.getAttribute(a.name) !== a.value) old.setAttribute(a.name, a.value); });
+          old.setAttribute('src', want.src);
+        };
+        const p = ni.decode ? ni.decode() : null;
+        if (p && p.then) p.then(put, put); else put();
+      });
     }
     // «Fjern»-feltet avdekket: spilleren står 1/3 ut (px), haptic selection
     _miniRmOpen(mini, px, id) {
@@ -1877,7 +1949,8 @@
       this.setUI({ menu: false }, true);
       const sr = this._portal && this._portal.shadowRoot;
       if (!sr) { this._schedule(true); return silent; }
-      [...sr.children].forEach((n) => { if (n.classList.contains('mbg') || n.classList.contains('mpos')) n.remove(); }); // (:scope virker ikke i ShadowRoot)
+      sr.querySelectorAll('.mbg, .mpos').forEach((n) => n.remove()); // Fiks 54: ligger i menyens egen seksjon ([data-sec=menu])
+      if (this._pSec) this._pSec.menu = '';
       this._syncNav();
       return silent;
     }
@@ -1909,8 +1982,8 @@
     _syncNav() {
       const sr = this._portal && this._portal.shadowRoot, nav = sr && sr.querySelector('[data-nav]');
       if (!nav || !this._geoNav || this._inline) return;
-      const t = document.createElement('template');
-      t.innerHTML = this._navHtml(norm(this.config), this._geoNav, false);
+      const t = document.createElement('template'), html = this._navHtml(norm(this.config), this._geoNav, false);
+      t.innerHTML = html;
       const nn = t.content.querySelector('[data-nav]');
       if (!nn) return;
       const ind = nav.querySelector(':scope > .ind'), ni = nn.querySelector(':scope > .ind');
@@ -1921,6 +1994,7 @@
         if (o.className !== b.className) o.className = b.className;
         if (o.style.color !== b.style.color) o.style.color = b.style.color;
       });
+      if (this._pSec) this._pSec.nav = html; // Fiks 54: DOM-en tilsvarer nå denne malen (bare aktiv knapp/indikator avhenger av hashen)
     }
     // Liquid glass-flagget for resten av dashbordet (MSH.glassOn): speiler navbarens config til <html data-ki-glass>
     _syncGlass() {
