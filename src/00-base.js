@@ -17,7 +17,10 @@
     l.href = 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap';
     (document.head || document.documentElement).appendChild(l);
   };
-  MSH.loadFonts();
+  // Lastes rett etter bundelen (mikrooppgave): med DevTools/automatisering tilkoblet fanger nettleseren initiativtakerens
+  // JS-stakk ved forespørselen – fra toppnivået betydde det ny parsing av hele bundelen for kildeposisjoner (~0,5 s med
+  // ×6 struping). Fontene lastes fortsatt før første tegning.
+  queueMicrotask(() => MSH.loadFonts());
   // Prosjektstandard: 8 px mellom kortene i Bubble Card-popups. Lav prioritet – temaet
   // (bubble-pop-up-gap i My SmartHome v3) eller Bubble-stilen vinner hvis de setter noe.
   if (!document.getElementById('msh-root-vars')) {
@@ -90,7 +93,15 @@
 
   /* ------------------------------------------------------------ tekst/tall */
   MSH.esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  MSH.nf = (n, d = 0) => (n == null || isNaN(n) ? '–' : Number(n).toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d }));
+  // Ytelse (Android): toLocaleString med valg lager en ny Intl.NumberFormat per kall (dyrt – kalles hundrevis av ganger per
+  // tegning). Samme formatering via én mellomlagret formatter per antall desimaler (identisk resultat).
+  const NF = new Map();
+  MSH.nf = (n, d = 0) => {
+    if (n == null || isNaN(n)) return '–';
+    let f = NF.get(d);
+    if (!f) { f = new Intl.NumberFormat('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d }); NF.set(d, f); }
+    return f.format(Number(n));
+  };
   MSH.slug = (n) => String(n || '').toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   MSH.uid = () => 'msh_' + Math.random().toString(36).slice(2, 10);
   MSH.pad = (n) => String(n).padStart(2, '0');
@@ -488,6 +499,57 @@
     if (n === undefined) { n = Object.keys(st).length; cntC.set(st, n); }
     return n;
   };
+  // Domene-indeks (domene → ID-er) per sett med entitets-ID-er: bygges én gang (én gjennomgang av alle states) i stedet
+  // for én full filtrering per domene. Rekkefølge og innhold som før (filter på domene, så sortert).
+  let domIdx = null;
+  const idsOf = (keys, doms) => {
+    if (!domIdx || !sameKeys(domIdx.keys, keys)) {
+      const m = new Map();
+      for (const id of keys) { const i = id.indexOf('.'), dm = i < 0 ? id : id.slice(0, i); let l = m.get(dm); if (!l) m.set(dm, (l = [])); l.push(id); }
+      domIdx = { keys, m };
+    } else domIdx.keys = keys;
+    if (doms.length === 1) return (domIdx.m.get(doms[0]) || []).slice().sort();
+    const out = [];
+    for (const id of keys) { const i = id.indexOf('.'); if (doms.includes(i < 0 ? id : id.slice(0, i))) out.push(id); }
+    return out.sort();
+  };
+  // Ytelse (oppstart): «versjon» av hass-dataene. Samme nummer så lenge entitets-ID-ene, hvert state-objekt og
+  // registrene (entities/devices/areas/floors – objekt og oppføringer) er de samme (identitet), også når hass-objektet
+  // er nytt eller endret på stedet (tester). Sjekken (én gjennomgang) mellomlagres til neste mikrooppgave.
+  // MSH.hmemo(hass, nøkkel, fn) gjenbruker fn() så lenge versjonen er den samme – bare for rene funksjoner av hass
+  // (alt annet fn leser må være med i nøkkelen). Returverdien deles: kallere skal ikke endre den.
+  let hv = null, hvC = null, hvN = 0;
+  const regSame = (o, R) => {
+    if (o !== R.obj) return false;
+    if (!o) return true;
+    const k = Object.keys(o);
+    if (k.length !== R.vals.length) return false;
+    for (let i = 0; i < k.length; i++) if (k[i] !== R.keys[i] || o[k[i]] !== R.vals[i]) return false;
+    return true;
+  };
+  const regSnap = (o) => { const keys = o ? Object.keys(o) : []; return { obj: o, keys, vals: keys.map((x) => o[x]) }; };
+  MSH.hassVer = function (hass) {
+    if (!hass || !hass.states) return -1;
+    if (hvC && hvC.h === hass && hvC.st === hass.states) return hvC.v;
+    const st = hass.states, keys = keysOf(st);
+    let same = !!hv && sameKeys(hv.keys, keys);
+    if (same) for (let i = 0; i < keys.length; i++) if (st[keys[i]] !== hv.objs[i]) { same = false; break; }
+    if (same) same = regSame(hass.entities, hv.en) && regSame(hass.devices, hv.dv) && regSame(hass.areas, hv.ar) && regSame(hass.floors, hv.fl);
+    if (!same) hv = { v: ++hvN, st, keys, objs: keys.map((k) => st[k]), en: regSnap(hass.entities), dv: regSnap(hass.devices), ar: regSnap(hass.areas), fl: regSnap(hass.floors) };
+    else { hv.st = st; hv.keys = keys; }
+    const c = (hvC = { h: hass, st, v: hv.v });
+    queueMicrotask(() => { if (hvC === c) hvC = null; });
+    return hv.v;
+  };
+  const HM = new Map();
+  MSH.hmemo = function (hass, key, fn) {
+    const v = MSH.hassVer(hass);
+    const e = HM.get(key);
+    if (v >= 0 && e && e.v === v) return e.r;
+    const r = fn();
+    if (v >= 0) HM.set(key, { v, r });
+    return r;
+  };
   MSH.all = function (hass, domain, filter) {
     if (!hass || !hass.states) return [];
     const st = hass.states, keys = keysOf(st);
@@ -495,7 +557,7 @@
     const key = doms.join(',');
     let d = domC.get(key);
     if (!d || d.en !== hass.entities || !sameKeys(d.keys, keys)) {
-      const ids = keys.filter((id) => doms.includes(id.split('.')[0])).sort();
+      const ids = idsOf(keys, doms);
       d = { keys, en: hass.entities, ids, objs: ids.map((id) => st[id]), ok: ids.map((id) => MSH.usable(hass, id)) };
       domC.set(key, d);
     } else {
@@ -511,12 +573,23 @@
   MSH.areaEntities = function (hass, area, domain) {
     return MSH.all(hass, domain || Object.keys(hass.states).map((i) => i.split('.')[0]).filter((v, i, a) => a.indexOf(v) === i), (s, id) => MSH.areaOf(hass, id) === area);
   };
+  // Ytelse: den sorterte listen mellomlagres så lenge områdene (og etasjene deres) er de samme – sammenlignet felt for
+  // felt, så også endringer på stedet ses; hvert kall får egne kopier (kallere kan endre objektene).
+  let areasC = null;
+  const NB = new Intl.Collator('nb');
   MSH.areas = function (hass) {
     const A = (hass && hass.areas) || {}, F = (hass && hass.floors) || {};
-    return Object.values(A).map((a) => {
-      const f = a.floor_id && F[a.floor_id];
-      return { id: a.area_id, name: a.name, icon: a.icon || null, picture: a.picture || null, floor: a.floor_id || null, floorName: f ? f.name : null, level: f ? f.level : null };
-    }).sort((x, y) => (x.level ?? 99) - (y.level ?? 99) || x.name.localeCompare(y.name, 'nb'));
+    const vals = Object.values(A);
+    const sig = [];
+    for (const a of vals) { const f = a.floor_id && F[a.floor_id]; sig.push(a, a.area_id, a.name, a.icon, a.picture, a.floor_id, f, f && f.name, f && f.level); }
+    if (!areasC || areasC.sig.length !== sig.length || sig.some((x, i) => x !== areasC.sig[i])) {
+      const list = vals.map((a) => {
+        const f = a.floor_id && F[a.floor_id];
+        return { id: a.area_id, name: a.name, icon: a.icon || null, picture: a.picture || null, floor: a.floor_id || null, floorName: f ? f.name : null, level: f ? f.level : null };
+      }).sort((x, y) => (x.level ?? 99) - (y.level ?? 99) || NB.compare(x.name, y.name));
+      areasC = { sig, list };
+    }
+    return areasC.list.map((o) => ({ ...o }));
   };
   MSH.floors = (hass) => Object.values((hass && hass.floors) || {}).sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
   MSH.areaName = (hass, id) => (hass && hass.areas && hass.areas[id] && hass.areas[id].name) || id || '–';
@@ -531,15 +604,25 @@
     return null;
   };
   // KI Rom-sensor for et område: sensor.<rom>_oversikt (attributes.integrasjon === 'ki_rom').
+  // Indeks area_id → første KI Rom-oversiktssensor (samme rekkefølge som for…in over states), mellomlagret per
+  // states-objekt til neste mikrooppgave (som keysOf: endringer på stedet ses ved neste kall).
+  let kiRomC = null;
+  const kiRomIdx = (st) => {
+    if (kiRomC && kiRomC.st === st) return kiRomC.m;
+    const m = new Map();
+    for (const id in st) {
+      if (!id.startsWith('sensor.') || !id.endsWith('_oversikt')) continue;
+      const a = st[id].attributes;
+      if (a && a.integrasjon === 'ki_rom' && !m.has(a.area_id)) m.set(a.area_id, id);
+    }
+    const c = (kiRomC = { st, m });
+    queueMicrotask(() => { if (kiRomC === c) kiRomC = null; });
+    return m;
+  };
   MSH.kiRom = function (hass, area, kind = 'oversikt') {
     if (!hass) return null;
     const aid = area || 'hele_huset';
-    let ov = null;
-    for (const id in hass.states) {
-      if (!id.startsWith('sensor.') || !id.endsWith('_oversikt')) continue;
-      const a = hass.states[id].attributes;
-      if (a.integrasjon === 'ki_rom' && a.area_id === aid) { ov = id; break; }
-    }
+    let ov = kiRomIdx(hass.states).get(aid) || null;
     if (!ov && hass.states[`sensor.${aid}_oversikt`]) ov = `sensor.${aid}_oversikt`;
     if (!ov) {
       const guess = `sensor.${aid}_${kind}`;
@@ -1365,6 +1448,24 @@
   MSH.dotsHTML = (n, i, cls = '') => (n > 1
     ? `<div class="dots msh-dots ${cls}" role="group" aria-label="Sider" tabindex="0">${Array.from({ length: n }, (_, k) => `<button type="button" class="msh-dot${k === i ? ' on' : ''}" data-i="${k}" tabindex="-1" aria-label="Side ${k + 1} av ${n}"${k === i ? ' aria-current="true"' : ''}></button>`).join('')}</div>`
     : '');
+  // Ytelse (oppstart): kjør fn(el) når elementet er lagt ut – i samme ramme, etter layout og før maling (ResizeObserver
+  // varsler første gang et element med størrelse observeres). Mål som leses der tvinger ingen ekstra layout midt i
+  // tegningen. Elementer uten størrelse (display:none – ingen varsling) kjøres to rammer senere; uten ResizeObserver straks.
+  let alRO = null;
+  const AL = new WeakMap(); // element → Map(nøkkel → fn): siste fn per nøkkel vinner (flere tegninger før layout → én kjøring)
+  const alCall = (el, f) => { try { f(el); } catch (e) { console.error('[ki-msh] afterLayout', e); } };
+  const alFlush = (el) => { const m = AL.get(el); if (!m) return; AL.delete(el); alRO.unobserve(el); m.forEach((f) => alCall(el, f)); };
+  MSH.afterLayout = function (el, fn, key) {
+    if (!el) return;
+    if (!window.ResizeObserver) { fn(el); return; }
+    if (!alRO) alRO = new ResizeObserver((list) => list.forEach((en) => alFlush(en.target)));
+    const k = key || '';
+    let m = AL.get(el);
+    if (!m) AL.set(el, (m = new Map()));
+    m.set(k, fn);
+    alRO.unobserve(el); alRO.observe(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => { const mm = AL.get(el); if (mm && mm.get(k) === fn) { mm.delete(k); if (!mm.size) { AL.delete(el); alRO.unobserve(el); } alCall(el, fn); } }));
+  };
   MSH.setDots = function (el, i) {
     if (!el) return;
     el.querySelectorAll('.msh-dot').forEach((d, k) => { d.classList.toggle('on', k === i); if (k === i) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current'); });
@@ -2056,7 +2157,7 @@
       try { if (this.afterRender) this.afterRender(); } catch (e) { this._showFail(e); }
       try {
         if (!this._spacedOnce && !this._config.embedded && MSH.popupContainer(this)) { this._spacedOnce = true; requestAnimationFrame(() => this._applySpacing()); }
-        this._guardScrollers();
+        this._guardSoon();
       } catch (e) { console.error(this.localName, e); }
     }
     // Synlig feilkort: «<Kortnavn>-kortet feilet: <melding>» (aldri tom popup)
@@ -2122,6 +2223,13 @@
         const mt = hr && hr.height ? top + hg - (fr.top - hr.bottom) : null;
         if (fr.height && mt != null && Math.abs(mt) < 240) this.style.marginTop = mt + 'px';
       }
+    }
+    // Ytelse (Android): sjekken leser beregnet stil for hvert element. Rett etter tegningen tvinger det stil + layout
+    // midt i oppstarten (flere hundre ms med ×6 struping); etter at rammen er malt er stilen allerede beregnet. Kjøres
+    // derfor i en egen oppgave (etter malingen når tegningen skjer i rAF), én gang per runde.
+    _guardSoon() {
+      if (this._gsT) return;
+      this._gsT = setTimeout(() => { this._gsT = 0; try { if (this.isConnected) this._guardScrollers(); } catch (e) { console.error(this.localName, e); } }, 0);
     }
     // Vannrett scrollbare lister (karuseller, chip-rader): stopp sveip mot Bubble Cards swipe-to-close.
     _guardScrollers() {

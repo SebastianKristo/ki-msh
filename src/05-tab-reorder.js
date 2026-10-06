@@ -301,8 +301,10 @@
       if (this.st && this.st.phase === 'drag') return;
       this.items().forEach((b) => this._bindBtn(b));
       if (this.press) this.press.style();
-      this.fade();
-      this.scrollActive();
+      // Ytelse (oppstart): målingene (scrollWidth/clientWidth/rects) etter layout i samme ramme (MSH.afterLayout) –
+      // ikke tvunget layout midt i kortets tegning
+      const go = () => { if (!row.isConnected) return; this.fade(); this.scrollActive(); };
+      if (M.afterLayout) M.afterLayout(row, go, 'tr-refresh'); else go();
     }
     // Myk fade (12 px) på kanten som har mer innhold; touch-action etter om raden scroller.
     fade() {

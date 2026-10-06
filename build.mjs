@@ -44,7 +44,9 @@ for (const f of files) {
   // Hver fil i egen try/catch (én feil stopper ikke resten) – også etter minifisering
   out += `\n/* ---- ${f} ---- */\n` + mini(`try {\n${src}\n} catch (e) { console.error('[ki-msh] ${f}', e); }`, f) + '\n';
 }
-out += `\nconsole.info('%c KI MSH %c ${pkg.version} ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');\n`;
+// Konsollmerket logges fra en tidsfrist (ikke toppnivået): med DevTools/automatisering tilkoblet fanger konsollen JS-stakken,
+// og fra toppnivået krevde det ny parsing av hele bundelen for kildeposisjoner (~0,5 s med ×6 CPU-struping).
+out += `\nsetTimeout(console.info, 0, '%c KI MSH %c ${pkg.version} ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');\n`;
 const target = outArg || (dev ? 'dist/ki-msh.dev.js' : 'dist/ki-msh.js');
 if (!outArg) mkdirSync('dist', { recursive: true });
 writeFileSync(target, out);

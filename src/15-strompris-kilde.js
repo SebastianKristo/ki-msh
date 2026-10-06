@@ -168,10 +168,19 @@
     };
     return ids.filter((id) => okCur(id) && okSrc(id)).sort((x, y) => rank(x) - rank(y) || (x < y ? -1 : 1));
   };
-  M.powerPriceAuto = (hass, cfg) => (cfg && cfg.source === 'custom' ? null : M.powerPriceCandidates(hass, cfg)[0] || null);
+  // Ytelse: kandidatlisten (alle states gjennom regex) gjenbrukes så lenge hass-dataene og kildeoppsettet er de samme
+  M.powerPriceAuto = (hass, cfg) => {
+    if (cfg && cfg.source === 'custom') return null;
+    if (!M.hmemo || !hass || !hass.states) return M.powerPriceCandidates(hass, cfg)[0] || null;
+    const c = cfg || M.powerPriceCfg();
+    return M.hmemo(hass, 'pp-auto|' + JSON.stringify(c), () => M.powerPriceCandidates(hass, c)[0] || null);
+  };
   // Norgespris-sensor: config → første sensor.*norgespris* med tallverdi og enhet …/kWh (eller uten enhet)
   M.norgesprisAuto = function (hass) {
     if (!hass || !hass.states) return null;
+    return M.hmemo ? M.hmemo(hass, 'pp-norgespris', () => norgespris0(hass)) : norgespris0(hass);
+  };
+  const norgespris0 = function (hass) {
     return Object.keys(hass.states).filter((id) => {
       if (!/^sensor\..*norgespris/i.test(id)) return false;
       const s = hass.states[id], u = String((s.attributes || {}).unit_of_measurement || '');

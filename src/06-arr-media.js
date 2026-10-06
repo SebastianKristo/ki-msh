@@ -78,7 +78,12 @@
     return Array.isArray(d) ? d.filter((x) => x && x.title && !x.title_default) : [];
   };
   const hasData = (h, id) => { const st = h.states[id]; const d = st && st.attributes && st.attributes.data; return Array.isArray(d) || (typeof d === 'string' && /^\s*\[/.test(d)); };
+  // Ytelse: ren funksjon av hass (alle ID-er sortert + regex) – gjenbrukes så lenge hass-dataene er de samme (MSH.hmemo)
   function detect(h) {
+    if (!h || !h.states || !M.hmemo) return detect0(h);
+    return { ...M.hmemo(h, 'arr-detect', () => detect0(h)) };
+  }
+  function detect0(h) {
     const out = { sonarr: null, radarr: null, plex: null, sonarr_cal: null, radarr_cal: null };
     if (!h || !h.states) return out;
     const ids = Object.keys(h.states).sort();

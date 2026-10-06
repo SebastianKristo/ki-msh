@@ -128,8 +128,13 @@
     const on = () => !opt.enabled || opt.enabled();
     const axisOf = () => opt.axis || (getComputedStyle(c).flexDirection === 'column' ? 'y' : 'x');
     // touch-action fra start (morph gjenoppretter __mshTA etter en ny render)
-    const ta0 = opt.touchAction || (c.isConnected ? getComputedStyle(c).touchAction : '');
-    if (opt.touchAction || !ta0 || ta0 === 'auto') { c.__mshTA = opt.touchAction || (axisOf() === 'x' ? 'pan-y' : 'none'); c.style.touchAction = c.__mshTA; }
+    const initTA = () => {
+      const ta0 = opt.touchAction || (c.isConnected ? getComputedStyle(c).touchAction : '');
+      if (opt.touchAction || !ta0 || ta0 === 'auto') { c.__mshTA = opt.touchAction || (axisOf() === 'x' ? 'pan-y' : 'none'); c.style.touchAction = c.__mshTA; }
+    };
+    // Ytelse (oppstart): beregnet stil leses etter layout (MSH.afterLayout) – med container-spørringer på siden tvang
+    // getComputedStyle her full layout midt i tegningen. Fast touchAction trenger ingen måling.
+    if (opt.touchAction || !c.isConnected || !M.afterLayout) initTA(); else M.afterLayout(c, initTA, 'gd-ta');
     const pathIn = (e) => { const p = e.composedPath ? e.composedPath() : [e.target], i = p.indexOf(c); return i < 0 ? [] : p.slice(0, i); };
     const itemsOf = () => Array.from(c.querySelectorAll('button')).filter((b) => b.getClientRects().length && !b.closest('[data-gd-skip]'));
     const activeOf = () => (M.glassActive ? M.glassActive(c, itemsOf()) : null);
@@ -503,7 +508,9 @@
       window.addEventListener('orientationchange', this._onResize); // Fiks 23.3: ny måling av ledig flate
       window.addEventListener('ki-nav-bottom', this._onResize); // Fiks 18.6: slideren i Tilpass navbar (live)
       window.addEventListener('ki-device-info', this._onResize);
-      window.addEventListener('msh-tcol', this._onResize); // fiks 18.8: høyre fliskolonne målt på nytt
+      // fiks 18.8: høyre fliskolonne målt på nytt – tegn bare når mini-spilleren faktisk står over kolonnen (rail)
+      this._onTCol = () => { if (this._tcUsed !== false) this._schedule(true); };
+      window.addEventListener('msh-tcol', this._onTCol);
       window.addEventListener('scroll', this._onScroll, { passive: true });
       // Fiks 26.16: Tilpass-ark åpent → navbar, mini-spiller og «Mer»-meny tar ikke imot trykk (ligger under bakteppet)
       this._onSheet = () => { if (this._portal) this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); };
@@ -520,7 +527,7 @@
       window.removeEventListener('orientationchange', this._onResize);
       window.removeEventListener('ki-nav-bottom', this._onResize);
       window.removeEventListener('ki-device-info', this._onResize);
-      window.removeEventListener('msh-tcol', this._onResize);
+      window.removeEventListener('msh-tcol', this._onTCol);
       window.removeEventListener('scroll', this._onScroll);
       window.removeEventListener('ki-sheet', this._onSheet);
       if (this._ro) { this._ro.disconnect(); this._ro = null; this._roEl = null; }
@@ -832,6 +839,7 @@
       this._syncVaer(); // 26.24 / 28.4: … og fades ut 200 ms mens #vaer er åpen
       this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); // 26.16
       this._portal.toggleAttribute('data-kart', location.hash === '#kart'); // 20.22: mini-spilleren skjules, navbaren vises over kartet
+      this._tcUsed = false; // settes av _tCol når mini-spilleren plasseres over fliskolonnen
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
       if (!mini) this._mShow = false;
       const html = `<style>${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}</style>${this._navHtml(N, geo, false)}${mini}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
@@ -853,7 +861,10 @@
       // Fiks 22.6: glass-draget i menyen er av mens et ikon holdes/flyttes (dataset.glassDragOff) – trykket går alltid til knappen
       if (mb && !mb.__b) { mb.__b = true; M.glassDrag(mb, { enabled: () => glassOn() && mb.dataset.glassDragOff !== '1', tap: false }); this._menuReorder(mb); }
       // plass til innholdet (designet: padding-bottom 120 på mobil, padding-left 108–120 på bred)
-      requestAnimationFrame(() => {
+      // Ytelse (oppstart): målingen kjøres i en egen oppgave rett etter malingen (layouten er da ferdig) – ikke i neste rAF,
+      // der den kom etter delkortenes tegning og tvang layout av hele Hjem midt i rammen. (Ikke ResizeObserver: skrivingen
+      // av --ki-nav-h o.l. endrer størrelsen på grunnere observerte elementer → «ResizeObserver loop»-feil.)
+      setTimeout(() => {
         if (!nav || !nav.isConnected) return;
         const r = nav.getBoundingClientRect();
         // popupenes bunnluft (MSH.popupBottomPad): faktisk høyde på bunn-navbaren, 0 som rail
@@ -874,7 +885,7 @@
         this._measureOcc(); // Fiks 23.3
         if (geo.rail) this._reserve({ left: Math.round(r.right - geo.left + 16), bottom: mH ? mH + 16 : null });
         else this._reserve({ bottom: Math.round(geo.top + geo.height - r.top + 16) + mH });
-      });
+      }, 0);
     }
 
     // Fiks 28.4: #vaer åpen → navbar + «Spilles nå» fades ut (200 ms), og inn igjen når popupen lukkes. Kalles fra hashchange
@@ -1256,6 +1267,7 @@
     // Høyre fliskolonne (fiks 18.8): målt verdi (siste måling beholdes på andre faner), ellers utregningen fra 18.4:
     // bredde (innholdsbredde − 8) / 2 (min. 260), høyrekant = innholdets padding-right (18).
     _tCol(geo) {
+      this._tcUsed = true;
       const T = M.hjemTCol;
       if (T && T.width > 0) return T;
       const cw = geo.width - M.railPad() - 18, w = Math.max(260, (cw - 8) / 2);

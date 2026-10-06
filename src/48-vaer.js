@@ -16,7 +16,7 @@
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
   const VERSION = window.KI_MSH_VERSION || '?';
-  if (!M.__vaerLogged) { M.__vaerLogged = true; console.info('%c ki-weather-card %c msh-vaer-card ' + VERSION + ' ', 'background:#73b9f2;color:#10202c;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px'); } // ki-hex-ok: konsollmerke
+  if (!M.__vaerLogged) { M.__vaerLogged = true; setTimeout(console.info, 0, '%c ki-weather-card %c msh-vaer-card ' + VERSION + ' ', 'background:#73b9f2;color:#10202c;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px'); } // ki-hex-ok: konsollmerke
   M.VAER_VERSION = VERSION;
   // Fiks 34/35 · tema: gjennomsiktig hvit/svart (regel 3/4), aksent som tekst/ikon (pkt. 6), tone-bakgrunn (pkt. 5); mørk = uendret
   const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
