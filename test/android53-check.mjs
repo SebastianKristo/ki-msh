@@ -120,8 +120,8 @@ for (let i = 0; i < SWIPES; i++) {
     requestAnimationFrame(tick);
   });
   await swipe(S, 300, st0.box.y + st0.box.h / 2, -160);
-  // vent til sveipet er ferdig animert (Android: rad-glidning + commit) – mål alt fram til commit
-  await S.page.waitForTimeout(250);
+  // målevindu: berøring → slipp + 120 ms (glidningen etter slipp går med transform; tilstanden skrives etter 270 ms)
+  await S.page.waitForTimeout(120);
   const mid = await S.page.evaluate(() => { const T = window.__t; return { renders: T.renders, muts: T.muts, imgMuts: T.imgMuts, moves: T.moves, log: T.log.slice(0, 6) }; });
   await S.page.evaluate(() => { window.__t.live = false; });
   await S.page.waitForTimeout(900);

@@ -481,6 +481,17 @@
     .mini.glass,.mini.glass.drag{transition:height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease!important}
     :host([data-ring]) nav.nb,:host([data-ring]) .mini,:host([data-vfade]) nav.nb,:host([data-vfade]) .mini,:host([data-kart]) .mini{transition:none!important}
     @keyframes mshMenuIn{from{opacity:0;transform:translateY(6px)}}
+    /* Fiks 53 · sveip mellom spillerne i mini-spilleren: blur-laget er et eget, fast ::before (translateZ(0)) bak raden;
+       .mini selv har ingen backdrop-filter og flytter seg ikke under sveipet – bare raden (.msw, gjennomsiktig, uten blur)
+       glir med transform. Navbar og mini-spiller er egne lag (isolation + contain: paint), så det ene tegner aldri det andre. */
+    nav.nb,.mini{isolation:isolate;contain:paint}
+    .mini.glass{background:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))))!important}
+    .mini.glass::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 45%,rgb(255 255 255/0.06)),var(--ki-glass, rgba(40,40,44,0.5));-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:inset 0 0 0 0.5px rgb(255 255 255/0.18),inset 0 1px 0 rgb(255 255 255/0.25);transform:translateZ(0)}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.mini.glass::before{background:var(--ki-surface-3, #2f2f2f)}} @container style(--ki-perf: lite){.mini.glass::before{background:var(--ki-surface-3, #2f2f2f)}}
+    .msw{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;will-change:transform}
+    .msw.sl{transition:transform .26s cubic-bezier(.2,.8,.2,1),opacity .2s ease}
+    .mrow{scroll-snap-stop:always}
+    .mdots button span{transition:opacity .2s,transform .2s!important}
   `;
 
   /* ------------------------------------------------------------ kortet */
@@ -1201,7 +1212,7 @@
         const SA = M.stationArt ? M.stationArt(h, s, undefined, { noLogo: tv }) : { url: mPic(h, a.entity_picture_local || a.entity_picture), kind: 'picture' };
         const pic = SA.url, bad = this._mBad && this._mBad.has(pic), acc = SA.kind === 'logo' && SA.accent;
         const glow = acc && this._mExp === id ? `;box-shadow:0 6px 18px color-mix(in srgb, ${acc} 45%, transparent)` : '';
-        const img = pic && !bad ? (M.stationArtImg ? M.stationArtImg(SA, { key: 'img_' + pic.slice(-60) }) : `<img class="mimg" data-key="img_${esc(pic.slice(-60))}" src="${esc(pic)}" alt="" draggable="false">`) : '';
+        const img = pic && !bad ? (M.stationArtImg ? M.stationArtImg(SA, { key: 'img_' + pic.slice(-60), attrs: 'width="48" height="48" decoding="async"' }) : `<img class="mimg" data-key="img_${esc(pic.slice(-60))}" src="${esc(pic)}" alt="" width="48" height="48" decoding="async" draggable="false">`) : '';
         const art = `<span class="mart" data-sa-kind="${SA.kind || 'none'}" style="background:${acc ? acc : `linear-gradient(135deg,${C.pink},${C.orange || '#f2b573'})`}${glow}">${M.icon(tv ? 'mdi:television' : /radio/i.test(id + ' ' + name) || a.media_channel ? 'mdi:radio' : 'mdi:music-note', 24)}${img}</span>`;
         const vol = this._mVolId === id, feat = Number(a.supported_features) || 0, drag = !steps && (!!(feat & 4) || (!feat && a.volume_level != null)); // uten volume_set / TV: −/+
         const muted = !!a.is_volume_muted;
@@ -1328,6 +1339,16 @@
       sr.addEventListener('scroll', (e) => {
         const sw = e.target;
         if (!sw.classList || !sw.classList.contains('msw') || !sw.clientWidth) return;
+        // Fiks 53 · Android: ingen tilstand per scroll-hendelse – sveipet skriver selv når det er ferdig; ellers etter
+        // scrollend (reserve: 120 ms uten scroll)
+        if (M.perf && M.perf.android && !e.__kiEnd) {
+          if (this._mSlide) return;
+          clearTimeout(this._mScT);
+          const fin = () => { clearTimeout(this._mScT); sw.removeEventListener('scrollend', fin); if (!this._mSlide) sw.dispatchEvent(Object.assign(new Event('scroll', { bubbles: false }), { __kiEnd: true })); };
+          sw.addEventListener('scrollend', fin, { once: true });
+          this._mScT = setTimeout(fin, 120);
+          return;
+        }
         const i = Math.round(sw.scrollLeft / sw.clientWidth), row = sw.children[i];
         if (row && row.dataset.mid) this._mCur = row.dataset.mid;
         if (this._mExp && this._mCur !== this._mExp) { this._mExp = null; this._schedule(true); } // 22.8: bytt spiller lukker
@@ -1486,6 +1507,8 @@
       if (!mini || !sr) return;
       const sw = mini.querySelector('.msw'), x0 = e.clientX, y0 = e.clientY, pid = e.pointerId, t0 = e.t0 || Date.now();
       const W = mini.offsetWidth || 1, id = this._mCur, exp = !!this._mExp;
+      const AND = !!(M.perf && M.perf.android) && !!sw; // Fiks 53: på Android flytter bare raden seg (blur-laget står stille)
+      const rowX = (x) => { sw.style.transform = x ? `translateX(${x.toFixed(1)}px)` : ''; };
       const rm0 = this._mRm ? this._mRm.px : 0;
       let mode = pre || null, cap = false, mx = rm0, my = 0, dx = 0, dy = 0, tL = t0;
       const field = () => sr.querySelector('[data-mrmf]');
@@ -1497,6 +1520,7 @@
         cap = true; this._mSwipeOn = true;
         clearTimeout(this._mHold);
         try { mini.setPointerCapture(pid); } catch (x) { /* */ }
+        if (AND && mode === 'next') { this._busy = true; return; } // Fiks 53: ingen tegning (hass/tidtaker) før sveipet er skrevet
         mini.classList.add('drag'); put(mx, my);
         if (mode === 'rm') { const f = field(); if (f) f.classList.add('on'); }
       };
@@ -1515,7 +1539,7 @@
         if (mode === 'up') { put(0, Math.max(-28, Math.min(0, dy * 0.35))); cross('u', dy < -30); }
         else if (mode === 'down') { put(0, Math.max(0, dy) * 0.4); cross('d', dy > 40); }
         else if (mode === 'rm') { const x = Math.min(W, rm0 + dx); put(x > 0 ? x : x * 0.15, 0); if (!rm0) cross('r', x > 40); cross('f', x > W * 0.6); }
-        else if (mode === 'next') put(Math.max(-24, Math.min(0, dx * 0.2)), 0);
+        else if (mode === 'next') { const x = Math.max(-24, Math.min(0, dx * 0.2)); if (AND) rowX(x); else put(x, 0); }
       };
       const stop = () => {
         mini.removeEventListener('pointermove', mv); mini.removeEventListener('pointerup', up); mini.removeEventListener('pointercancel', up);
@@ -1538,6 +1562,7 @@
           this._schedule(true);
           return undefined;
         }
+        if (mode === 'next' && AND) return this._miniNextAnd(sw, sr, id, !cancel && (dx < -30 || (dx < -10 && dx / dt < -0.5)));
         if (mode === 'next') {
           back();
           const rows = sw ? [...sw.children] : [], n = rows.length, ci = Math.max(0, rows.findIndex((r) => r.dataset.mid === id));
@@ -1570,6 +1595,33 @@
       };
       mini.addEventListener('pointermove', mv); mini.addEventListener('pointerup', up); mini.addEventListener('pointercancel', up);
       if (pre) { start(); if (ev0) mv(ev0); }
+    }
+    // Fiks 53 · Android: neste spiller etter sveip. Raden hopper til neste side og glir inn med transform (ingen JS-smooth-
+    // scroll, blur-laget står stille); aktiv spiller, prikker og ny tegning skrives først når glidningen er ferdig.
+    _miniNextAnd(sw, sr, id, go) {
+      const rows = [...sw.children], n = rows.length, ci = Math.max(0, rows.findIndex((r) => r.dataset.mid === id)), W = sw.clientWidth || 1;
+      const x0 = new DOMMatrix(getComputedStyle(sw).transform === 'none' ? undefined : getComputedStyle(sw).transform).m41 || 0;
+      const i = go && n > 1 ? (ci + 1 < n ? ci + 1 : 0) : ci;
+      if (i !== ci) M.haptic('light');
+      this._mSlide = true;
+      sw.classList.remove('sl');
+      if (i === ci) sw.style.transform = `translateX(${x0}px)`;
+      else if (i === ci + 1) { sw.scrollLeft = i * W; sw.style.transform = `translateX(${(W + x0).toFixed(1)}px)`; }
+      else { sw.scrollLeft = i * W; sw.style.transform = ''; sw.style.opacity = '0.35'; } // rundt (siste → første): kort inntoning
+      void sw.offsetWidth;
+      sw.classList.add('sl');
+      sw.style.transform = 'translateX(0px)'; sw.style.opacity = '';
+      clearTimeout(this._mSlT);
+      this._mSlT = setTimeout(() => {
+        sw.classList.remove('sl'); sw.style.transform = '';
+        this._mSlide = false; this._busy = false;
+        const mid = rows[i] && rows[i].dataset.mid;
+        if (mid) this._mCur = mid;
+        if (this._mExp && this._mExp !== this._mCur) this._mExp = null;
+        sr.querySelectorAll('.mdots button').forEach((b, j) => b.classList.toggle('on', j === i));
+        if (i !== ci || this._skipped) { this._skipped = false; this._schedule(true); }
+      }, 270);
+      return undefined;
     }
     // «Fjern»-feltet avdekket: spilleren står 1/3 ut (px), haptic selection
     _miniRmOpen(mini, px, id) {
