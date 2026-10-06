@@ -636,7 +636,7 @@
         const h = this._hass, cur = o.value || '', st = cur ? h.states[cur] : null;
         const nm = (id) => (h.states[id] && h.states[id].attributes.friendly_name) || id;
         const ids = Object.keys(h.states).filter((id) => o.domains.includes(id.split('.')[0]));
-        const byName = (a, b) => nm(a).localeCompare(nm(b), 'nb') || a.localeCompare(b);
+        const byName = (a, b) => M.cmpNb(nm(a), nm(b)) || a.localeCompare(b);
         const sug = o.re ? ids.filter((id) => o.re.test(id) && (!o.slugs || o.slugs.some((x) => x && id.includes(x)))).sort(byName) : [];
         const rest = ids.filter((id) => !sug.includes(id)).sort(byName);
         const opt = (id) => `<option value="${esc(id)}"${id === cur ? ' selected' : ''}>${esc(nm(id) + ' · ' + id)}</option>`;
@@ -1390,6 +1390,7 @@
     _plassStd() { return M.hjemServerPlassStd(modeOf(this.config)); }
     _server() {
       const c = this._sc(), list = SV.list(c), name = SV.navn(c, this.hass);
+      if (!this._srvW && list.length && this.hass) { this._srvW = 1; SV.varm({ liste: list, her: name || 'Hjem', tilpass: true }); } // Fiks 52: forvarm menyen i ledig tid
       return { name: name || 'Hjem', list, cur: list.findIndex((x) => x.navn === name), plass: SV.plass(c, this._plassStd()), meny: SV.gest(c, this._plassStd()) };
     }
     _weather() {
@@ -1541,6 +1542,7 @@
       if (!t) return super._onDown(e);
       this._cancelHold();
       this._g.down(e);
+      if (!this._srv) this._srvPrep();
     }
     // Kjør en handling på hilsenen (SV.kjor) – kortets egne: kiosk, edit (rediger dashbord), tilpass (Tilpass header)
     _kjor(h) {
@@ -1614,12 +1616,21 @@
         onTilpass: () => this._tilpass(),
         onBakgrunn: () => this._g.bakgrunn(),
         onArk: () => this._g.ark(),
-        onLukk: () => { if (this._srv === ov) { this._srv = null; this.update(); } },
+        onLukk: () => { if (this._srv === ov) { this._srv = null; this._srvPil(); } },
       });
       this._srv = ov;
-      this.update(); // pila roterer
+      this._srvPil(); // pila roterer
       return ov;
     }
+    // Fiks 52: åpne/lukke tegner IKKE headeren på nytt (det ga et hakk i samme frame som menyen kom, og afterRender
+    // målte tittelen på nytt) – bare pila og aria-expanded settes direkte. render() leser samme tilstand (this._srv).
+    _srvPil() {
+      const apen = !!this._srv, R = this.shadowRoot;
+      R.querySelectorAll('.ttl .pil, .svv .pil').forEach((x) => x.classList.toggle('apen', apen));
+      R.querySelectorAll('.ttl[aria-haspopup], .svv').forEach((x) => x.setAttribute('aria-expanded', String(apen)));
+    }
+    // Bygg menyen allerede ved pointerdown på navnet (gjenbrukes ved trykket) – SV.forbered
+    _srvPrep() { const S = this._server(); if (S.list.length && S.meny) SV.forbered({ liste: S.list, her: S.name, tilpass: true }); }
     _srvClose(uten) { if (this._srv) this._srv.lukk(uten); }
     // Bytt server (SV.bytt): window.open(homeassistant://navigate/<sti>?server=<navn>) – aldri location.href
     _goServer(v) { return v ? SV.bytt(v, this._sc()) : ''; }
@@ -1751,7 +1762,7 @@
       // Stor hilsen: tilpass skriftstørrelsen til tilgjengelig bredde (som gFitNow i designet)
       if (modeOf(this.config) === 'stor') {
         const col = this.shadowRoot.querySelector('.lc');
-        if (col && !this._ro && window.ResizeObserver) { this._ro = new ResizeObserver((en) => { const w = Math.round(en[0].contentRect.width); if (w === this._roW) return; this._roW = w; this._gFit = null; this.update(); }); this._ro.observe(col); }
+        if (col && !this._ro && window.ResizeObserver) { this._ro = new ResizeObserver((en) => { const w = Math.round(en[0].contentRect.width); if (w === this._roW) return; const first = this._roW === undefined && this._gFit == null; this._roW = w; if (first) return; /* ytelse: første varsel (start) endrer ingenting – ingen ekstra tegning */ this._gFit = null; this.update(); }); this._ro.observe(col); }
         requestAnimationFrame(() => {
           const sp = this.shadowRoot.querySelector('.ttl .tx'), cl = this.shadowRoot.querySelector('.lc');
           if (!sp || !cl) return;
@@ -1768,7 +1779,7 @@
         if (top && window.ResizeObserver && this._hroEl !== top) {
           if (this._hro) this._hro.disconnect();
           this._hroEl = top;
-          this._hro = new ResizeObserver((en) => { const w = Math.round(en[0].contentRect.width); if (w === this._hroW) return; this._hroW = w; this._hFit = null; this._hN = 0; this.update(); });
+          this._hro = new ResizeObserver((en) => { const w = Math.round(en[0].contentRect.width); if (w === this._hroW) return; const first = this._hroW === undefined && this._hFit == null && !this._hN; this._hroW = w; if (first) return; /* ytelse: første varsel (start) endrer ingenting – ingen ekstra tegning */ this._hFit = null; this._hN = 0; this.update(); });
           this._hro.observe(top);
         }
         cancelAnimationFrame(this._hRaf);

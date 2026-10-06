@@ -202,6 +202,9 @@
     }
     render() {
       this._lastAreas = this.hass && this.hass.areas;
+      // Ytelse (oppstart): første måling skjer før kortet har stil (tom shadow root → vertselementet er inline med bredde 0
+      // → feil marger og en ekstra tegning når _measure retter dem). :host-stilen legges inn før målingen.
+      if (!this._geo && !this._firstRender && this.shadowRoot && !this.shadowRoot.firstChild) this.shadowRoot.innerHTML = '<style>:host{display:flow-root}</style>';
       // layout «Mobil»/«Stor» endret i editoren → mål på nytt (Fold-oppsettet følger valget straks)
       const G = this._geo && this._geo.lm === (this.config.layout_mode || 'auto') ? this._geo : (this._geo = this._calc());
       this._logLayout(G);

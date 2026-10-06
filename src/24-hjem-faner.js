@@ -447,7 +447,7 @@
   }
   function baseRooms(hass, c, t) {
     const rk = floorRank(hass);
-    const areas = M.areas(hass).slice().sort((a, b) => (a.floor ? rk[a.floor] ?? 50 : 99) - (b.floor ? rk[b.floor] ?? 50 : 99) || a.name.localeCompare(b.name, 'nb'));
+    const areas = M.areas(hass).slice().sort((a, b) => (a.floor ? rk[a.floor] ?? 50 : 99) - (b.floor ? rk[b.floor] ?? 50 : 99) || M.cmpNb(a.name, b.name));
     // Etasjefaner autofylles fra HA-etasjen (tabs.<fane>.auto_fill, standard på). Hjem: kuratert liste (t.hc = M.hjemCards).
     const fill = get(c, `tabs.${t.id}.auto_fill`) !== false;
     let base = t.kind === 'floor' ? (fill ? areas.filter((a) => a.floor === t.floor) : []) : t.kind === 'andre' ? (fill ? areas.filter((a) => !a.floor) : []) : t.kind === 'custom' ? [] : t.hc ? t.hc.cards.filter((x) => /^rom:/.test(x)).map((x) => areas.find((a) => a.id === x.slice(4))).filter(Boolean) : areas;
@@ -460,7 +460,12 @@
     return [...ord.map((id) => base.find((a) => a.id === id)).filter(Boolean), ...base.filter((a) => !ord.includes(a.id))];
   }
   // Apparater (oppvask/vask/tørk): status, gjenstående tid, program, effekt, bryter – kun det som finnes.
+  // Ytelse: bare en funksjon av hass (+ overstyringen) – gjenbrukes så lenge hass-dataene er de samme (MSH.hmemo)
   function applFind(hass, kind, ov) {
+    const r = M.hmemo ? M.hmemo(hass, 'hf-appl|' + kind + '|' + (ov || ''), () => applFind0(hass, kind, ov)) : applFind0(hass, kind, ov);
+    return r && { ...r };
+  }
+  function applFind0(hass, kind, ov) {
     const [rx] = APPL[kind];
     const other = Object.keys(APPL).filter((k) => k !== kind).map((k) => APPL[k][0]);
     const txt = (id) => id + ' ' + ((hass.states[id].attributes || {}).friendly_name || '');
@@ -480,6 +485,7 @@
       sw: ids.find((id) => id.startsWith('switch.')) || null, area: M.areaOf(hass, status) || (ids.map((id) => M.areaOf(hass, id)).find(Boolean) || null),
     };
   }
+  const trashAuto = (hass) => Object.keys(hass.states).filter((id) => id.startsWith('sensor.') && /s(ø|o)ppel|avfall|renovasjon|trash|waste|garbage/i.test(id) && M.isNum(hass.states[id].state)).sort()[0] || null;
   function tileEnts(hass, c) {
     const o = c.overrides || {}, first = (a) => a[0] || null;
     const tvs = M.all(hass, 'media_player', (s) => s.attributes.device_class === 'tv');
@@ -502,7 +508,7 @@
       dish: applFind(hass, 'dish', o.dish), wash: applFind(hass, 'wash', o.wash), dry: applFind(hass, 'dry', o.dry),
       weather: o.weather || first(M.all(hass, 'weather')), price: o.price || M.hjemPriceId(hass), watt: o.watt || M.kiRomId(hass, null, 'effekt'),
       calendar: o.calendar || first(M.all(hass, 'calendar')),
-      trash: o.trash || c.trash_sensor || first(Object.keys(hass.states).filter((id) => id.startsWith('sensor.') && /s(ø|o)ppel|avfall|renovasjon|trash|waste|garbage/i.test(id) && M.isNum(hass.states[id].state)).sort()),
+      trash: o.trash || c.trash_sensor || (M.hmemo ? M.hmemo(hass, 'hf-trash', () => trashAuto(hass)) : trashAuto(hass)),
     };
   }
   const availKinds = (E, c) => [...KIND_ORDER.filter((k) => k === 'jul' || E[k] || tileCfg(c, k).entity), ...extraIds(c).filter((id) => tileCfg(c, id).entity || E[kindOf(c, id)]), ...Object.keys(c.links || {}).filter((k) => c.links[k] && c.links[k].title).sort()];
@@ -1030,6 +1036,8 @@
     _toast(msg) { if (this.config.toasts !== false) M.toast(msg); }
     _calcLayout() {
       const c = this.config;
+      // i msh-hjem-card bestemmer containeren (Fold / mobil) – ingen måling (tvunget layout midt i oppstarten)
+      if (this.mshEmbedded) return { fold: !!this.mshEmbedded.fold, vw: null };
       const ha = !!document.querySelector('home-assistant');
       const vw = ha ? M.dashRect().width : ((this.parentElement && this.parentElement.getBoundingClientRect().width) || M.dashRect().width);
       const L = M.hjemLayout(c.layout_mode || 'auto', vw);
@@ -1447,6 +1455,7 @@
         if (vp.scrollTo) vp.scrollTo({ left: i * w(), behavior: smooth ? 'smooth' : 'auto' }); else vp.scrollLeft = i * w();
       };
       M.bindDots(dotsEl(), (i) => { seen(i); go(i, true); });
+      const fresh = !vp.__lsw;
       if (!vp.__lsw) {
         vp.__lsw = true;
         vp.style.touchAction = 'pan-x';
@@ -1496,9 +1505,14 @@
       }
       // på plass etter tegning (uten animasjon) – ikke mens brukeren sveiper
       const want = Number(vp.dataset.i) || 0;
-      if (vp.__touch || Date.now() - (vp.__scrollT || 0) < 300) return;
-      if (Math.abs(vp.scrollLeft - want * w()) > 1) { vp.scrollLeft = want * w(); vp.__scrollT = 0; }
+      const busy = () => vp.__touch || Date.now() - (vp.__scrollT || 0) < 300;
+      if (busy()) return;
       M.setDots(dotsEl(), want);
+      // Ytelse: scrollLeft/clientWidth leses etter layout (MSH.afterLayout, samme ramme før maling – ingen synlig hopp)
+      // i stedet for å tvinge layout midt i tegningen; et nytt spor står allerede på side 0.
+      if (fresh && !want) return;
+      const fix = () => { if (busy() || !vp.isConnected) return; const x = (Number(vp.dataset.i) || 0) * w(); if (Math.abs(vp.scrollLeft - x) > 1) { vp.scrollLeft = x; vp.__scrollT = 0; } };
+      if (M.afterLayout) M.afterLayout(vp, fix, 'lsw'); else fix();
     }
     // Snarvei-flis = universal small-rad (07-universal.js) i tileV-form (Hjem v2): klassen «ht» gir pille 64 px / radius 32 (Fiks 15.3)
     // på samme element som bakgrunnen, ikon-sirkel 56/28, ikon 24. Ikon-sirkelen er egen knapp (data-w="ic").
@@ -1998,7 +2012,9 @@
       else if (!rules && this._crT) { clearInterval(this._crT); this._crT = null; }
       this._bindTileHold();
       this._bindTabs();
-      this._placeTabs();
+      // Ytelse (oppstart): linsen og fliskolonnen måles etter layout i samme ramme (før maling) – ikke tvunget midt i tegningen
+      const tg = this.shadowRoot.querySelector('.tg');
+      if (tg && M.afterLayout) M.afterLayout(tg, () => { if (this.isConnected) this._placeTabs(); }, 'hf-tabs'); else this._placeTabs();
       this._tColObs();
       // nedtelling for apparater (kun når Aktuelt vises og noe kjører)
       if (this._ticking && !this._tick) this._tick = setInterval(() => this._tickAppl(), 1000);
@@ -2016,7 +2032,7 @@
       const g = this.shadowRoot.querySelector('.cols');
       if (!this._tcRO) this._tcRO = new ResizeObserver(() => this._tColMeasure());
       if (this._tcEl !== g) { if (this._tcEl) this._tcRO.unobserve(this._tcEl); this._tcEl = g; if (g) this._tcRO.observe(g); }
-      this._tColMeasure();
+      if (g && M.afterLayout) M.afterLayout(g, () => this._tColMeasure(), 'hf-tcol'); else this._tColMeasure();
     }
     _tColMeasure() {
       const g = this._tcEl;
