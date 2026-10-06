@@ -44,7 +44,7 @@ async function run(lite) {
     const deep = (sel) => { const o = []; const x = (rt) => rt.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) o.push(e); if (e.shadowRoot) x(e.shadowRoot); }); x(document); return o; };
     const hd = deep('msh-hjem-header-card')[0];
     const M = window.MSH, L = (window.__L = {});
-    window.__reset = () => Object.assign(L, { renders: 0, morph: 0, store: 0, save: 0, ui: 0, ls: [], anim: [], kids: 0, lt: [], frames: [], opened: [], rAtOpen: null, t0: performance.now() });
+    window.__reset = () => Object.assign(L, { renders: 0, morph: 0, store: 0, save: 0, ui: 0, ls: [], anim: [], tr: [], kids: 0, lt: [], frames: [], opened: [], rAtOpen: null, t0: performance.now() });
     window.__reset();
     window.__menus = () => [...document.querySelector('ki-overlay-root').shadowRoot.querySelectorAll('.msh-servermeny')];
     let base = customElements.get('msh-hjem-header-card').prototype;
@@ -68,6 +68,8 @@ async function run(lite) {
         sr.__obs = 1;
         new MutationObserver((ms) => ms.forEach((x) => { if (x.type === 'childList') L.kids += x.addedNodes.length + x.removedNodes.length; })).observe(sr, { subtree: true, childList: true });
         sr.addEventListener('animationstart', (e) => L.anim.push(e.animationName));
+        // Fiks 54 · Android: overganger på bakgrunnslaget (.meny: transform) og det indre laget (.lag: opasitet)
+        sr.addEventListener('transitionrun', (e) => { const c = e.target.classList; if (c && (c.contains('meny') || c.contains('lag'))) L.tr.push((c.contains('lag') ? 'lag' : 'meny') + ':' + e.propertyName); });
       }
       L.icons = [...sr.querySelectorAll('ha-icon')];
       return api;
@@ -77,7 +79,7 @@ async function run(lite) {
     return { x: t.left + t.width / 2, y: t.top + t.height / 2, perf: document.documentElement.getAttribute('data-ki-perf') };
   });
   ok(`[${tag}] modus: data-ki-perf=${box.perf}`, lite ? box.perf === 'lite' : box.perf !== 'lite', box.perf);
-  const snap = () => p.evaluate(() => { const L = window.__L, h = window.__hd.shadowRoot; return { renders: L.renders, morph: L.morph, store: L.store, save: L.save, ui: L.ui, ls: L.ls.slice(), anim: L.anim.slice(), kids: L.kids, lt: L.lt.slice(), maxFrame: Math.max(0, ...L.frames), menus: window.__menus().length, pil: h.querySelector('.ttl .pil').classList.contains('apen'), aria: h.querySelector('.ttl').getAttribute('aria-expanded'), opened: L.opened.slice(), rAtOpen: L.rAtOpen }; });
+  const snap = () => p.evaluate(() => { const L = window.__L, h = window.__hd.shadowRoot; return { renders: L.renders, morph: L.morph, store: L.store, save: L.save, ui: L.ui, ls: L.ls.slice(), anim: L.anim.slice(), tr: L.tr.slice(), kids: L.kids, lt: L.lt.slice(), maxFrame: Math.max(0, ...L.frames), menus: window.__menus().length, pil: h.querySelector('.ttl .pil').classList.contains('apen'), aria: h.querySelector('.ttl').getAttribute('aria-expanded'), opened: L.opened.slice(), rAtOpen: L.rAtOpen }; });
   const tapTitle = () => p.touchscreen.tap(box.x, box.y);
   const tapOutside = () => p.touchscreen.tap(200, 760);
   const res = {};
@@ -99,11 +101,13 @@ async function run(lite) {
     const o = res['open' + n], c = res['close' + n];
     ok(`[${tag}] åpning ${n}: headeren tegnes ikke på nytt (0 _render, 0 morph)`, o.renders === 0 && o.morph === 0, o);
     ok(`[${tag}] åpning ${n}: én meny, pila roterer, aria-expanded=true`, o.menus === 1 && o.pil && o.aria === 'true', o);
-    ok(`[${tag}] åpning ${n}: inn-animasjonen kjører én gang (kimeny ×1, ingen rad-animasjoner)`, o.anim.length === 1 && o.anim[0] === 'kimeny', o.anim);
+    if (!lite) ok(`[${tag}] åpning ${n}: inn-animasjonen kjører én gang (kimeny ×1, ingen rad-animasjoner)`, o.anim.length === 1 && o.anim[0] === 'kimeny', o.anim);
+    // Fiks 54 · Android: overganger i stedet for keyframes – bakgrunnslaget scale(.96) → 1, det indre laget opasitet, én gang hver
+    else ok(`[${tag}] åpning ${n}: én overgang per lag (meny:transform + lag:opacity), ingen keyframes`, !o.anim.length && o.tr.slice().sort().join() === 'lag:opacity,meny:transform', { anim: o.anim, tr: o.tr });
     ok(`[${tag}] åpning ${n}: ingen nodebytter i menyen innen 1 s`, o.kids === 0, o.kids);
     ok(`[${tag}] åpning ${n}: ingen lagring (ki-store, saveCardConfig, uiStore, localStorage)`, !o.store && !o.save && !o.ui && !o.ls.length, o);
     ok(`[${tag}] åpning ${n}: ${o.iconsSame.n} ikoner, tilkoblet${n > 1 ? ', samme noder som forrige åpning' : ''}`, o.iconsSame.n >= 4 && o.iconsSame.connected && (n === 1 || o.iconsSame.same === o.iconsSame.n), o.iconsSame);
-    ok(`[${tag}] lukking ${n}: ingen ny tegning, kiut ×1, menyen fjernet, pila tilbake`, c.renders === 0 && c.morph === 0 && c.anim.join() === 'kiut' && c.menus === 0 && !c.pil && c.aria === 'false' && !c.store && !c.ls.length, c);
+    ok(`[${tag}] lukking ${n}: ingen ny tegning, ${lite ? 'lag:opacity ×1' : 'kiut ×1'}, menyen fjernet, pila tilbake`, c.renders === 0 && c.morph === 0 && (lite ? !c.anim.length && c.tr.join() === 'lag:opacity' : c.anim.join() === 'kiut') && c.menus === 0 && !c.pil && c.aria === 'false' && !c.store && !c.ls.length, c);
   }
   // Rask gjenåpning mens utgangsanimasjonen pågår → samme meny settes inn igjen (ikke ut-klassen, ikke to hosts)
   const re = await p.evaluate(async () => {
@@ -111,7 +115,7 @@ async function run(lite) {
     h._serverMenu(); await window.__w(400);
     const m1 = window.__menus()[0];
     h._srvClose(); await window.__w(40); // utgangsanimasjonen (150 ms) pågår
-    const ut = !!(m1 && m1.isConnected && m1.shadowRoot.querySelector('.meny.ut'));
+    const ut = !!(m1 && m1.isConnected && m1.shadowRoot.querySelector('.meny.ut')); // (Android: utgangen varer 160 ms)
     h._serverMenu(); await window.__w(400);
     const ms = window.__menus();
     const r = { utUnderveis: ut, n: ms.length, same: ms[0] === m1, ut: ms[0] ? ms[0].shadowRoot.querySelector('.meny').classList.contains('ut') : null, pil: h.shadowRoot.querySelector('.ttl .pil').classList.contains('apen') };

@@ -122,8 +122,11 @@ const SNAP = () => {
 const ALLCOL = (sel) => {
   const out = [];
   const props = ['color', 'backgroundColor', 'backgroundImage', 'borderTopColor', 'boxShadow', 'fill', 'stroke', 'outlineColor'];
+  // Fiks 54: navbar-portalens seksjoner ([data-sec], display: contents – ingen egen boks/farge) er gjennomsiktige i stien,
+  // så elementene sammenlignes med samme sti som i før-koden (der de lå rett i portalens shadow root)
+  const kids = (r) => [...r.children].flatMap((e) => (e.hasAttribute && e.hasAttribute('data-sec') && getComputedStyle(e).display === 'contents' ? kids(e) : [e]));
   const walk = (r, path) => {
-    [...r.children].forEach((e, i) => {
+    kids(r).forEach((e, i) => {
       const p = path + '/' + e.localName + i;
       if (e.localName !== 'style' && e.localName !== 'script') {
         const c = getComputedStyle(e);

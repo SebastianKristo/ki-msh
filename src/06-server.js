@@ -324,9 +324,31 @@
     .skille{height:1px;margin:2px 10px;background:${W(0.08)}}
     .tilpass .flis{background:${W(0.1)};color:var(--ki-text, #fafafa)}
     .tilpass .navn{opacity:.85}
+    .lag{display:contents}
     @keyframes kimeny{from{opacity:0;transform:scale(.94) translateY(-6px)}}
     @keyframes kiut{to{opacity:0;transform:scale(.96)}}
-    @media (prefers-reduced-motion: reduce){.meny{animation:none}}`;
+    @media (prefers-reduced-motion: reduce){.meny{animation:none}}${AND ? AND_CSS : ''}`;
+  /* Fiks 54 A1 · Android (ki-android, M.perf.android – iOS/PC får nøyaktig samme CSS og DOM-oppførsel som før; .lag er
+   * display:contents der). Opptaket viste: åpningen så ut som ett bilde (kurven .2,1.2,.3,1 er nesten ferdig etter første
+   * ramme), ett blankt bilde ved slutten av inn-animasjonen (laget ble tatt ned og tegnet på nytt), og lukkingen fadet HELE
+   * den halvgjennomsiktige menyen over teksten bak (dobbel tekst). Nå:
+   *   · .meny = bakgrunnslaget: fast, helt dekkende var(--ki-surface-2, #3a3a3a), aldri backdrop-filter, aldri opasitet –
+   *     bare transform scale(.96) → 1 (160 ms) ved åpning;
+   *   · .lag = indre lag (innholdet): opasitet 0 → 1 (160 ms) ved åpning, 1 → 0 ved lukking;
+   *   · begge lagene beholder will-change (ikke tatt ned/tegnet på nytt når overgangen er ferdig);
+   *   · overganger (transition), ikke keyframes – verten fjernes fra DOM-en først på transitionend (opasitet på .lag),
+   *     med tidsfrist som reserve. */
+  const AND = !!(M.perf && M.perf.android);
+  V.AND_MS = 160;
+  const AND_CSS = `
+    .meny{animation:none!important;background:var(--ki-surface-2, #3a3a3a)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;opacity:1!important;
+      transform:scale(1);transition:transform ${V.AND_MS}ms cubic-bezier(.2,.8,.2,1);will-change:transform}
+    .meny.ut{animation:none!important;transition:none}
+    .meny.fra{transform:scale(.96);transition:none}
+    .lag{display:grid;gap:4px;opacity:1;transition:opacity ${V.AND_MS}ms ease-out;will-change:opacity}
+    .meny.fra .lag{opacity:0;transition:none}
+    .meny.ut .lag{opacity:0}
+    @media (prefers-reduced-motion: reduce){.meny,.lag{transition:none!important}}`;
   const esc = M.esc;
   // Fiks 52 · hakk ved åpning (Android): menyen bygges ÉN gang og gjenbrukes (samme host, shadow root og <ha-icon>-noder –
   // ikonene slår ikke opp på nytt og blinker ikke), stilen er et delt CSSStyleSheet (parses én gang), bare arket animeres
@@ -357,9 +379,9 @@
     host.className = 'msh-portal';
     Object.assign(host.style, { position: 'fixed', left: '0', top: '0', width: '100%', height: '100%', pointerEvents: 'auto', zIndex: '44' });
     const sr = host.attachShadow({ mode: 'open' }), sh = ark(css);
-    const body = `<div class="vern"></div><div class="meny" role="menu" aria-label="Bytt sted"><div class="topp">Bytt sted</div>${rader}</div>`;
+    const body = `<div class="vern"></div><div class="meny" role="menu" aria-label="Bytt sted"><div class="lag"><div class="topp">Bytt sted</div>${rader}</div></div>`;
     if (sh) { sr.adoptedStyleSheets = [sh]; sr.innerHTML = body; } else sr.innerHTML = `<style>${css}</style>${body}`;
-    const b = { key, host, sr, meny: sr.querySelector('.meny'), eier: null };
+    const b = { key, host, sr, meny: sr.querySelector('.meny'), lag: sr.querySelector('.lag'), eier: null };
     // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – menyen er ikke «utenfor»
     const stop = (e) => e.stopPropagation();
     ['click', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove', 'wheel'].forEach((t) => host.addEventListener(t, stop, { passive: true }));
@@ -396,8 +418,10 @@
     const b = bygg(o), { host, sr, meny } = b;
     if (b.eier && !b.eier.closed) b.eier.lukk(true); // (gammel eier som ble fjernet utenfra)
     clearTimeout(b.fjern);
+    if (b.ferdig) { const f = b.ferdig; b.ferdig = null; b.lag.removeEventListener('transitionend', f); f.borte(); } // valgt sted byttes likevel
     if (host.isConnected) host.remove(); // forvarmet/utgang pågår → settes inn på nytt under
     meny.classList.remove('ut');
+    if (AND) meny.classList.add('fra'); // Fiks 54: startposisjonen (scale .96, indre lag usynlig) før innsettingen
     host.className = 'msh-portal msh-servermeny';
     host.style.visibility = '';
     host.style.pointerEvents = 'auto';
@@ -419,20 +443,41 @@
     const api = { host, root: sr, closed: false };
     const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); api.lukk(); } };
     const onHash = () => api.lukk(true);
-    api.lukk = (uten) => {
+    // etter(): kjøres når menyen er HELT borte (Android: etter transitionend) – f.eks. bytte av sted (Fiks 54)
+    api.lukk = (uten, etter) => {
       if (api.closed) return;
       api.closed = true;
       window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('hashchange', onHash);
       window.removeEventListener('resize', plasser);
+      const borte = () => { if (etter) { const f = etter; etter = null; try { f(); } catch (e) { console.error('msh servervelger', e); } } };
       if (b.eier === api) {
-        if (uten || (M.reducedMotion && M.reducedMotion()) || !host.isConnected) host.remove();
-        else {
+        if (uten || (M.reducedMotion && M.reducedMotion()) || !host.isConnected) { host.remove(); borte(); }
+        else if (AND) {
+          // Fiks 54: bare det indre laget fades; bakgrunnslaget står helt dekkende til verten fjernes på transitionend
+          host.style.pointerEvents = 'none';
+          meny.classList.remove('fra');
+          meny.classList.add('ut');
+          const ferdig = (e) => {
+            if (e && (e.target !== b.lag || e.propertyName !== 'opacity')) return;
+            clearTimeout(b.fjern);
+            b.lag.removeEventListener('transitionend', ferdig);
+            if (b.ferdig === ferdig) b.ferdig = null;
+            if (b.eier === api) host.remove();
+            borte();
+          };
+          ferdig.borte = borte;
+          b.ferdig = ferdig;
+          b.lag.addEventListener('transitionend', ferdig);
+          clearTimeout(b.fjern);
+          b.fjern = setTimeout(() => ferdig(), V.AND_MS + 400); // reserve: transitionend kom ikke (skjult fane o.l.)
+        } else {
           host.style.pointerEvents = 'none'; meny.classList.add('ut');
           clearTimeout(b.fjern);
           b.fjern = setTimeout(() => { if (b.eier === api) host.remove(); }, 150);
+          borte();
         }
-      }
+      } else borte();
       if (o.onLukk) o.onLukk(uten);
     };
     api._bakgrunn = () => { if (o.onBakgrunn) o.onBakgrunn(); else api.lukk(); };
@@ -443,8 +488,15 @@
       const srv = liste[Number(r.dataset.i)];
       if (!srv) return;
       if (srv.navn === o.her) { api.lukk(); return; } // raden du allerede er på → bare lukk
+      // Fiks 54 · Android: stedet byttes først når menyen er helt lukket (ingen tegning/bytte midt i fadingen);
+      // ki-sted-valgt sendes da, så kort som avhenger av stedet kan oppdatere seg selv (ingen full tegning av Hjem).
+      const velg = () => {
+        if (o.onVelg) o.onVelg(srv);
+        try { window.dispatchEvent(new CustomEvent('ki-sted-valgt', { detail: { navn: srv.navn, server: srv.server } })); } catch (e) { /* */ }
+      };
+      if (AND) { api.lukk(false, velg); return; }
       api.lukk();
-      if (o.onVelg) o.onVelg(srv);
+      velg();
     };
     b.eier = api;
     window.addEventListener('keydown', onKey, true);
@@ -452,6 +504,11 @@
     window.addEventListener('resize', plasser);
     // Ny innsetting (også gjenbrukt host) starter inn-animasjonen på nytt – én gang per åpning
     M.overlayRoot().appendChild(host);
+    if (AND) {
+      // Fiks 54: startverdiene (.fra) gjelder → les stilen (ingen layout) → slipp: transform + opasitet glir 160 ms
+      void getComputedStyle(b.lag).opacity;
+      meny.classList.remove('fra');
+    }
     return api;
   };
 
