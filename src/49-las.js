@@ -74,13 +74,20 @@
     AUTO_DEFS.forEach((d) => { if (ov[d.ov]) o2[d.k] = ov[d.ov]; });
     return S.autoFind(hass, AUTO_DEFS, o2);
   };
+  // Bare låsene (uten automatikk-søket i hele registeret) – Hjem-flisene trenger bare disse (ytelse, M.hjemLockList)
+  M.lasLocks = function (hass, cfg) {
+    cfg = cfg || {};
+    if (!hass) return { locks: [], vis: [] };
+    const locks = M.applyLists(cfg, 'laser', M.all(hass, 'lock')).filter((id) => hass.states[id]);
+    const vis = locks.filter((id) => !((cfg.locks_cfg || {})[id.split('.')[1]] || {}).hidden);
+    return { locks, vis: vis.length ? vis : locks.slice(0, 1) };
+  };
   M.lasAuto = function (hass, cfg) {
     cfg = cfg || {};
     if (!hass) return { locks: [], vis: [], away: null, night: null };
-    const locks = M.applyLists(cfg, 'laser', M.all(hass, 'lock')).filter((id) => hass.states[id]);
-    const vis = locks.filter((id) => !((cfg.locks_cfg || {})[id.split('.')[1]] || {}).hidden);
+    const L = M.lasLocks(hass, cfg);
     const au = M.lasAutos(hass, cfg);
-    return { locks, vis: vis.length ? vis : locks.slice(0, 1), away: au.away, night: au.night };
+    return { locks: L.locks, vis: L.vis, away: au.away, night: au.night };
   };
 
   /* ------------------------------------------------------------ PIN-tastatur (portalt ut av popupen, fallgruve 1) */

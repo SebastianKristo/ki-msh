@@ -178,7 +178,7 @@
       return (M.effectiveConfig && M.popupCardId ? M.effectiveConfig({ type: 'custom:msh-las-card', card_id: M.popupCardId('#dorlas') }, null, { shared: true }) : null) || {};
     } catch (e) { return {}; }
   };
-  M.hjemLockList = (hass) => (!hass ? [] : M.lasAuto ? M.lasAuto(hass, lasCfg()).vis : M.all(hass, 'lock'));
+  M.hjemLockList = (hass) => (!hass ? [] : M.lasLocks ? M.lasLocks(hass, lasCfg()).vis : M.lasAuto ? M.lasAuto(hass, lasCfg()).vis : M.all(hass, 'lock'));
   const LOCK_SORTS = [['unlocked', 'Ulåste først'], ['default', 'Standard først'], ['popup', 'Som i popup']];
   const lockOpen = (st) => !!st && /^(unlocked|unlocking|open|opening|jammed)$/.test(st.state);
   const lockSortOf = (c) => { const v = tileCfg(c, 'lock').lock_sort || (c && c.lock_sort); return LOCK_SORTS.some(([k]) => k === v) ? v : 'unlocked'; };

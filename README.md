@@ -216,7 +216,10 @@ strategy:
 ## Utvikling
 
 ```bash
-npm run build       # dist/ki-msh.js (alle filer i src/ i navnerekkefølge)
+npm install         # én gang: esbuild (minifiserer bundelen)
+npm run build       # dist/ki-msh.js (alle filer i src/ i navnerekkefølge, minifisert per fil)
+node build.mjs --dev  # uminifisert dist/ki-msh.dev.js til feilsøking (ikke ressursen)
+npm run perf        # ytelsesmåling (CPU ×6, mobil) + krav: test/perf-check.mjs
 npm test            # smoke-test av alle kort i Chromium (test/cases, test/mock), mobil + PC
 npm run checklist   # «Sjekk før levering» per popup mot ekte Bubble Card → docs/sjekkliste.md
 npm run strategy    # strategien: generering, egne popups, import, editorene
@@ -229,6 +232,10 @@ npm run icons       # ikonvelgeren og trykk-handlinger (MSH.tap) mot ekte Bubble
 npm run glass       # Liquid Glass-indikatoren (TV / Musikk i Media)
 npm run templates   # button-card-/decluttering-maler (MSH.resolveTemplates)
 ```
+
+**Ytelsesmodus (Android):** på Android (og svake berøringsenheter) skrus backdrop-blur (også Bubble-popupenes `bg_blur`)
+og evige animasjoner av automatisk – iPhone/PC er uendret. Velg per enhet i Mer → Tilpass → Enheter (eller #settings):
+«Ytelsesmodus · Auto / På / Av» (lagres i nettleseren, `localStorage['ki-perf']`). Se `src/00-b-perf.js`.
 
 Enkeltsjekker ligger i `test/*-check.mjs` (`node test/<navn>-check.mjs`). Prosjektregler: [`CLAUDE.md`](CLAUDE.md).
 Avvik fra designet: [`docs/avvik.md`](docs/avvik.md). Endringer: [`CHANGELOG.md`](CHANGELOG.md).

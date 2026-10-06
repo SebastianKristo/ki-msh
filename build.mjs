@@ -1,6 +1,27 @@
 // Bygger dist/ki-msh.js: alle filer i src/ i navnerekkefølge, hver i egen blokk
 // så én feil ikke stopper resten.
+// Ytelse (Android): hver fil minifiseres for seg med esbuild (mellomrom/kommentarer/syntaks – navnene beholdes, så
+// feilmeldinger i konsollen er lesbare). Toppteksten (banner, versjonssjekk, KI_MSH_VERSION) står uminifisert.
+//   node build.mjs                → dist/ki-msh.js (minifisert – det er denne som er Lovelace-ressursen)
+//   node build.mjs <fil>          → <fil> (minifisert; testene bygger slik)
+//   node build.mjs --dev [<fil>]  → uminifisert (standard dist/ki-msh.dev.js) for feilsøking; også KI_MSH_DEV=1
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
+const args = process.argv.slice(2);
+const dev = args.includes('--dev') || process.env.KI_MSH_DEV === '1';
+const outArg = args.find((a) => !a.startsWith('--'));
+let esbuild = null;
+if (!dev) {
+  try { esbuild = await import('esbuild'); } catch (e) {
+    if (!outArg) { console.error('esbuild mangler – kjør «npm install» (eller bygg uminifisert med --dev)'); process.exit(1); }
+    console.warn('(esbuild mangler – bygger uminifisert; kjør «npm install»)');
+  }
+}
+// es2022: ingen senking av syntaks (klassefelt o.l. beholdes som i kilden – alle nettlesere HA støtter har dem)
+const mini = (code, f) => {
+  if (!esbuild) return code;
+  try { return esbuild.transformSync(code, { minifyWhitespace: true, minifySyntax: true, target: 'es2022', legalComments: 'none', charset: 'utf8' }).code.trim(); } catch (e) { console.warn(`(${f}: minifisering feilet – tas med uminifisert) ${e.message.split('\n')[0]}`); return code; }
+};
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 // Innebygde tredjepartskort (norsk kopi, src/vendor/*-no.js – ingen for tiden) først, så egne filer i navnerekkefølge
 const vendor = (existsSync('src/vendor') ? readdirSync('src/vendor') : []).filter((f) => f.endsWith('-no.js')).sort().map((f) => 'vendor/' + f);
@@ -20,10 +41,12 @@ out += `(function () { try {
 out += `window.KI_MSH_VERSION = ${V};\n`;
 for (const f of files) {
   const src = readFileSync('src/' + f, 'utf8');
-  out += `\n/* ---- ${f} ---- */\ntry {\n${src}\n} catch (e) { console.error('[ki-msh] ${f}', e); }\n`;
+  // Hver fil i egen try/catch (én feil stopper ikke resten) – også etter minifisering
+  out += `\n/* ---- ${f} ---- */\n` + mini(`try {\n${src}\n} catch (e) { console.error('[ki-msh] ${f}', e); }`, f) + '\n';
 }
 out += `\nconsole.info('%c KI MSH %c ${pkg.version} ', 'background:#f285c9;color:#2a1720;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px', 'background:#3a3a3a;color:#fafafa;border-radius:0 4px 4px 0;padding:2px 4px');\n`;
-const target = process.argv[2] || 'dist/ki-msh.js';
-if (!process.argv[2]) mkdirSync('dist', { recursive: true });
+const target = outArg || (dev ? 'dist/ki-msh.dev.js' : 'dist/ki-msh.js');
+if (!outArg) mkdirSync('dist', { recursive: true });
 writeFileSync(target, out);
-console.log(`${target} · ${files.length} filer · ${(out.length / 1024).toFixed(0)} KB`);
+const bytes = Buffer.byteLength(out);
+console.log(`${target} · ${files.length} filer · ${(bytes / 1024).toFixed(0)} KB${esbuild ? ` minifisert (${(gzipSync(out).length / 1024).toFixed(0)} KB gzip)` : ' uminifisert'}`);

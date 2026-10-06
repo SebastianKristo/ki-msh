@@ -290,6 +290,7 @@ ${ISLAND_CSS}
       st.textContent = POP_CSS;
       rn.appendChild(st);
     }
+    if (MSH.perf && MSH.perf.adoptPop) MSH.perf.adoptPop(pop); // ytelsesmodus (00-b-perf.js): bg_blur → 0 på Android
     const kind = popIconKind(pop);
     if (pop.getAttribute('data-ki-pop-icon') !== kind) pop.setAttribute('data-ki-pop-icon', kind);
     const op = popOpacity(pop);
@@ -305,7 +306,10 @@ ${ISLAND_CSS}
         if (rec.pending.size && !rec.t) rec.t = setTimeout(() => { rec.t = 0; const ns = [...rec.pending]; rec.pending.clear(); ns.forEach((n) => { if (n.isConnected) T.classify(n, rec); }); }, 150);
       });
       const opts = { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] };
-      rec.observe = (root) => { if (!root || rec.seen.has(root)) return; rec.seen.add(root); try { rec.mo.observe(root, opts); } catch (e) { /* */ } };
+      // Ytelse: observeren kobles bare til i lys modus (i mørk modus gjør den ingenting – men hver stil-/klasseendring i
+      // popupen ville ellers laget MutationRecords). T.set kobler til/fra ved modusbytte.
+      rec.observe = (root) => { if (!root || mode !== 'light' || rec.seen.has(root)) return; rec.seen.add(root); try { rec.mo.observe(root, opts); } catch (e) { /* */ } };
+      rec.pop = pop;
       rec.observe(pop);
       pops.set(pop, rec);
     }
@@ -412,6 +416,7 @@ ${ISLAND_CSS}
     tag(html);
     T.scan();
     if (!changed) return;
+    for (const rec of pops.values()) { if (m === 'light') rec.observe(rec.pop); else { rec.mo.disconnect(); rec.seen = new WeakSet(); clearTimeout(rec.t); rec.t = 0; rec.pending.clear(); } }
     if (m === 'dark') clearIslands(); else { classifyOpen(); later(classifyOpen, 400); }
     try { window.dispatchEvent(new CustomEvent('ki-theme-change', { detail: { mode: m } })); } catch (e) { /* */ }
   };

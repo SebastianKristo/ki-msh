@@ -383,7 +383,7 @@
     .mundo b{font-weight:600;color:var(--ki-pink-text, var(--pink, #f285c9))}
     @keyframes mshMiniFade{from{opacity:0}}
     @media (prefers-reduced-motion: reduce){.mini{transition:opacity .25s ease}.mini.off{--mo:0px}}
-    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.mini.glass{background:var(--ki-surface-3, #2f2f2f)}}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.mini.glass{background:var(--ki-surface-3, #2f2f2f)}} @container style(--ki-perf: lite){.mini.glass{background:var(--ki-surface-3, #2f2f2f)}} /* ytelsesmodus (00-b-perf.js): samme reserve uten blur */
   `;
 
   /* ------------------------------------------------------------ CSS */
@@ -421,7 +421,7 @@
     nav.nb.row.glass .dot{left:calc(50% + 4px);top:calc(50% - 20px);width:9px;height:9px;border-radius:5px}
     nav.nb.glass .od{display:none}
     nav.nb .gd-lens{position:absolute;z-index:3;pointer-events:none}
-    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){nav.nb.glass{background:var(--ki-surface-3, #2f2f2f)}}
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){nav.nb.glass{background:var(--ki-surface-3, #2f2f2f)}} @container style(--ki-perf: lite){nav.nb.glass{background:var(--ki-surface-3, #2f2f2f)}} /* ytelsesmodus (00-b-perf.js): samme reserve uten blur */
   `;
   const PORTAL_CSS = `
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:var(--ki-text, #fafafa);font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
@@ -581,11 +581,17 @@
       const el = this._dEl;
       if (el && window.ResizeObserver && this._roEl !== el) {
         if (this._ro) this._ro.disconnect();
-        this._ro = new ResizeObserver(() => this._schedule(true));
+        // Ytelse: dashbordflaten vokser i høyden mens Hjem tegnes – navbaren bruker bare left/top/bredde (+ vindushøyden),
+        // så bare endringer i dem gir ny tegning (ellers 3–4 hele tegninger ved lasting)
+        this._ro = new ResizeObserver(() => {
+          const g = this._geoR, r = g && M.rectOf(el);
+          if (g && r && r.left === g.left && r.top === g.top && r.width === g.width && r.height === g.height) return;
+          this._schedule(true);
+        });
         this._ro.observe(el);
         this._roEl = el;
       }
-      return M.rectOf(el);
+      return (this._geoR = M.rectOf(el));
     }
     // Kan position: fixed ligge inni kortet? Nei hvis en forelder (flat tree) lager ny containing block.
     _fixedSafe() {
@@ -828,7 +834,7 @@
       this._portal.toggleAttribute('data-kart', location.hash === '#kart'); // 20.22: mini-spilleren skjules, navbaren vises over kartet
       const mc = miniCfg(this.config), mini = mc.on !== false ? this._miniHtml(geo, mc) : ''; // Fiks 17.26
       if (!mini) this._mShow = false;
-      const html = `<style>${PORTAL_CSS}</style>${this._navHtml(N, geo, false)}${mini}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
+      const html = `<style>${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}</style>${this._navHtml(N, geo, false)}${mini}${this.ui.menu ? this._menuHtml(N, geo) : ''}`;
       if (this._pFirst) { this._portal.shadowRoot.innerHTML = html; this._pFirst = false; } else M.morph(this._portal.shadowRoot, html);
       const nav = this._portal.shadowRoot.querySelector('[data-nav]');
       const glassOn = () => this.config.style === 'glass';
