@@ -303,7 +303,24 @@
       if (this.press) this.press.style();
       // Ytelse (oppstart): målingene (scrollWidth/clientWidth/rects) etter layout i samme ramme (MSH.afterLayout) –
       // ikke tvunget layout midt i kortets tegning
-      const go = () => { if (!row.isConnected) return; this.fade(); this.scrollActive(); };
+      // Kortets egen scroll av raden etter refresh (f.eks. Server: aktiv fane sentreres, Fiks 50 F) vinner – som før, da
+      // scrollActive kjørte synkront her og kortets scrollTo kom etterpå. Raden merker derfor eksterne scrollTo/scrollBy
+      // mellom refresh og målingen; da settes bare _shown (ingen konkurrerende scroll som avbryter kortets myke scroll).
+      if (!row.__trScrollHook) {
+        row.__trScrollHook = true;
+        ['scrollTo', 'scrollBy', 'scroll'].forEach((k) => {
+          const f = row[k];
+          if (typeof f === 'function') row[k] = function (...a) { if (!row.__trOwnScroll) row.__trExtScroll = true; return f.apply(this, a); };
+        });
+      }
+      row.__trExtScroll = false;
+      const go = () => {
+        if (!row.isConnected) return;
+        this.fade();
+        if (!row.__trExtScroll) { this.scrollActive(); return; }
+        const b = this.activeBtn();
+        if (b) this._shown = this.idOf(b);
+      };
       if (M.afterLayout) M.afterLayout(row, go, 'tr-refresh'); else go();
     }
     // Myk fade (12 px) på kanten som har mer innhold; touch-action etter om raden scroller.
@@ -332,7 +349,7 @@
       let left = null;
       if (l - m < sl) left = Math.max(0, l - m);
       else if (r + m > sl + cw) left = Math.min(row.scrollWidth - cw, r + m - cw);
-      if (left != null) row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' });
+      if (left != null) { row.__trOwnScroll = true; try { row.scrollTo({ left, behavior: init ? 'auto' : 'smooth' }); } finally { row.__trOwnScroll = false; } }
     }
 
     /* ---------------- gest */

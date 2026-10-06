@@ -1,6 +1,6 @@
 # Prosjektregler
 
-- **Promptfiler:** nye endringer legges i den siste prompt-filen (nå `prompt-fiks-51.md`) som nye deler – ikke nye filer – til brukeren ber om en ny prompt.
+- **Promptfiler:** nye endringer legges i den siste prompt-filen (nå `prompt-fiks-52.md`) som nye deler – ikke nye filer – til brukeren ber om en ny prompt.
 - Alle popups skal bruke Bubble Card-popups (bubble-card `pop-up`, åpnes via hash, f.eks. `#vanning`). Gjelder både eksisterende og nye popups.
 
 ## Bubble Card-popups – implementasjonskrav (Claude Code)

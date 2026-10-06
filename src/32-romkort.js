@@ -45,9 +45,12 @@
   const pickMode = pickOf(M.ICON_MODES), pickTap = pickOf(M.ICON_TAPS);
   const roomStore = (area) => (area && ((M.roomCfgs && M.roomCfgs[area]) || (M.store && (M.store.eff ? M.store.eff('rooms.' + area) : M.store.get('rooms.' + area))))) || {};
   // Romkortene tegnes på nytt når «Tilpass rom» endres (rom-popupen publiserer, eller ki-store rooms.<area> endres).
-  const bump = () => { if (M.liveCards) M.liveCards.forEach((set) => set.forEach((el) => { if (el.isConnected && /^msh-(romkort|hjem-faner)-card$/.test(el.localName) && el.update) el.update(); })); };
+  // Fiks 52: romkortene/Hjem-fanene ligger bak popupen som publiserer – tegnes etter åpne-animasjonen, i ledig tid
+  let bumpT = 0;
+  const bumpNow = () => { bumpT = 0; if (M.liveCards) M.liveCards.forEach((set) => set.forEach((el) => { if (el.isConnected && /^msh-(romkort|hjem-faner)-card$/.test(el.localName) && el.update) el.update(); })); };
+  const bump = () => { if (bumpT) return; bumpT = setTimeout(() => { if (window.requestIdleCallback) requestIdleCallback(bumpNow, { timeout: 500 }); else bumpNow(); }, 450); };
   window.addEventListener('msh-room-config', bump);
-  if (M.store && M.store.subscribe) M.store.subscribe((d, path) => { if (!path || /(^|\.)rooms(\.|$)/.test(String(path))) bump(); });
+  if (M.store && M.store.subscribe) M.store.subscribe((d, path) => { if (!path || /(^|\.)rooms(\.|$)/.test(String(path))) bumpNow(); }); // «Tilpass rom»: straks
   // Alt et romkort trenger. card: kortet (s()/n() registrerer avhengigheter). cfg: { overrides, look:{icon,color,name}, hash }
   M.romData = function (card, area, cfg) {
     cfg = cfg || {};

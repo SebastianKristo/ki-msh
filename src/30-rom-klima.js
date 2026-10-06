@@ -52,11 +52,17 @@
   };
   // Romkonfig publisert av msh-rom-card («Tilpass rom»), så toppkort/romkort bruker samme overstyringer.
   M.roomCfgs = M.roomCfgs || {};
+  // Fiks 52: rom-popupens kort lages først når popupen åpnes (Bubble), og publiserte da konfigen for første gang → hele
+  // Hjem-fanekortet og romkortene ble tegnet på nytt midt i åpne-animasjonen, selv om ingenting var endret. Nå sammenlignes
+  // med det forbrukerne faktisk brukte (M.roomCfgs, ellers ki-store rooms.<area>), og tomme objekter/udefinerte felt teller
+  // ikke (forbrukerne leser cfg.overrides || {} osv.).
+  const cfgSig = (o) => JSON.stringify(Object.entries(o || {}).filter(([, v]) => v !== undefined && v !== null && !(typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length)).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
   M.setRoomCfg = function (area, cfg) {
     if (!area) return;
-    const prev = JSON.stringify(M.roomCfgs[area] || null);
+    const had = M.roomCfgs[area];
+    const prev = had || (M.store && (M.store.eff ? M.store.eff('rooms.' + area) : M.store.get && M.store.get('rooms.' + area))) || null;
     M.roomCfgs[area] = cfg;
-    if (prev !== JSON.stringify(cfg)) window.dispatchEvent(new CustomEvent('msh-room-config', { detail: { area } }));
+    if (cfgSig(prev) !== cfgSig(cfg)) window.dispatchEvent(new CustomEvent('msh-room-config', { detail: { area } }));
   };
   // Klima-oppslag for et rom med overstyring. Nøkler: overrides.temperature|humidity|climate
   // (eldre: temperatur|fuktighet|termostat), include.climate: [ekstra termostater].

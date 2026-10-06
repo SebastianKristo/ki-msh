@@ -284,7 +284,9 @@ ${ISLAND_CSS}
     if (!pop || !pop.classList || !pop.classList.contains('bubble-pop-up')) return;
     tag(pop);
     const rn = pop.getRootNode();
-    if (rn && rn !== document && !rn.querySelector(':scope > style#ki-theme-pop')) {
+    // Fiks 52: getElementById – «:scope > …» treffer ingenting i en ShadowRoot (ingen scope-element), så før ble en ny
+    // <style> lagt til ved HVER adoptPopup (hver T.scan for alle popups) – stilberegning midt i åpne-animasjonen.
+    if (rn && rn !== document && rn.getElementById && !rn.getElementById('ki-theme-pop')) {
       const st = document.createElement('style');
       st.id = 'ki-theme-pop';
       st.textContent = POP_CSS;
@@ -335,11 +337,12 @@ ${ISLAND_CSS}
   // Finn og merk alle røtter (dashbord, overlay, popups). Billig nok ved modusbytte/hash-endring (debounced).
   T.scan = function () {
     tag(document.documentElement);
-    const d = dashEl(); if (d) tag(d);
+    const d = dashEl(); if (d) { tag(d); if (MSH.perf && MSH.perf.tag) MSH.perf.tag(d); } // Fiks 52: ki-android på dashbord-containeren
     const ov = document.querySelector('body > ki-overlay-root'); if (ov) tag(ov);
     for (const r of [...roots]) { if (!r.isConnected) { roots.delete(r); const p = pops.get(r); if (p) { p.mo.disconnect(); pops.delete(r); } } else tag(r); }
-    allPops(d ? (d.getRootNode() === document ? document : d) : document).forEach(T.adoptPopup);
-    if (d) allPops(document).forEach(T.adoptPopup);
+    const base = d ? (d.getRootNode() === document ? document : d) : document;
+    allPops(base).forEach(T.adoptPopup);
+    if (d && base !== document) allPops(document).forEach(T.adoptPopup); // Fiks 52: ikke samme tre to ganger
   };
 
   /* ------------------------------------------------------------ mørke øyer (regel 2) */
@@ -429,7 +432,11 @@ ${ISLAND_CSS}
     if (m !== mode || document.documentElement.getAttribute('data-ki-theme') !== m) T.set(m);
   };
   tag(document.documentElement);
-  // Popup åpnes (hash) → merk nye popup-røtter og omklassifiser (regel 8)
-  window.addEventListener('hashchange', () => later(() => { T.scan(); classifyOpen(); }, 120));
-  window.addEventListener('location-changed', () => later(() => T.scan(), 200));
+  // Popup åpnes (hash) → merk nye popup-røtter og omklassifiser (regel 8).
+  // Fiks 52: T.scan går gjennom hele DOM-en (alle shadow roots) – før kom den 120 ms etter hash-byttet, midt i Bubbles
+  // åpne-animasjon (300 ms), og ble en lang oppgave på Android. Nå etter animasjonen og i ledig tid. Kortet i popupen
+  // merker sin egen popup-rot straks (MSH.Card._checkOpen → MSH.theme.adopt), så dette er bare reserven.
+  const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 400 }) : fn());
+  window.addEventListener('hashchange', () => later(() => idle(() => { T.scan(); classifyOpen(); }), 450));
+  window.addEventListener('location-changed', () => later(() => idle(() => T.scan()), 450));
 })();

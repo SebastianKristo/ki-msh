@@ -25,6 +25,8 @@
  *   velger: faner|kort · tab_height (32–60) · show_prose · tab_order · hidden_tabs · start_tab · hero_metric { net, proxmox,
  *   unraid, ha } · integrations · overrides · exclude · gap/pad_top/pad_bottom. Gamle v5-nøkler (tabs.order/hidden/start) leses.
  * Farger: tokens fra ki-theme (src/00-a-theme.js) med dagens mørke verdi som fallback – mørk modus er uendret.
+ * Fiks 52 A3 (Android-flimmer): bare aktiv vert tegnes (lazy), skjelett under Bubbles åpne-animasjon, tunge oppslag etter at
+ *   popupen har satt seg, avhengigheter (_deps) bare for aktiv vert – se onOpen/_whenSettled/_changed. test/server52-check.mjs.
  */
 (function () {
   const M = window.MSH;
@@ -74,6 +76,10 @@
   const NPT = 48; // punkter i grafen (30 min, 24 t – designet: series(…) med 48 punkter)
   const DEF = {};
   const TTL = 300000;
+  // Fiks 52 A3: oppdagelsen bruker bare registeret + hvilke states som finnes (og nesten-statiske attributter som device_class/
+  // friendly_name) – ikke verdiene. Memo-nøkkelen er derfor antall states (+ minutt-bøtte som sikkerhetsnett), ikke states-
+  // objektet: en ny verdi i én sensor gir ikke ny full gjennomgang av alle entiteter.
+  const sKey = (S) => (S ? (M.stateCount ? M.stateCount(S) : Object.keys(S).length) + ':' + Math.floor(Date.now() / 60000) : '');
   const STORE_WARN = 80; // Proxmox-lagring: oransje stripe ≥ 80 %
   const TEMP_WARN = 45; // disk-temperatur i oransje (designet: temp >= 45)
 
@@ -100,9 +106,16 @@
     if (!CE.busy && Date.now() - CE.t > TTL) {
       CE.busy = true;
       Promise.resolve().then(() => hass.callWS({ type: 'config_entries/get' }))
-        .then((r) => { CE.total = Array.isArray(r) ? r.length : null; CE.data = (Array.isArray(r) ? r : []).filter((e) => e && DOMS.includes(e.domain)); })
-        .catch(() => { CE.data = null; })
-        .then(() => { CE.t = Date.now(); CE.busy = false; window.dispatchEvent(new CustomEvent('msh-server-entries')); });
+        .then((r) => { CE.total = Array.isArray(r) ? r.length : null; return (Array.isArray(r) ? r : []).filter((e) => e && DOMS.includes(e.domain)); })
+        .catch(() => null)
+        .then((d) => {
+          CE.t = Date.now(); CE.busy = false;
+          // Fiks 52 A3: uendret liste (samme entry/state/tittel) → behold objektet og ingen ny tegning
+          const sig = JSON.stringify(d && d.map((e) => [e.entry_id, e.domain, e.state, e.title])) + '|' + CE.total;
+          if (CE.data !== undefined && sig === CE.sig) return;
+          CE.sig = sig; CE.data = d;
+          window.dispatchEvent(new CustomEvent('msh-server-entries', { detail: { src: 'ce' } }));
+        });
     }
     return CE.data;
   }
@@ -128,8 +141,8 @@
   function oppdag(hass, cfg) {
     const E = hass.entities || {}, D = hass.devices || {}, ce = entries(hass);
     const ex = cfg.exclude || [], sel = cfg.integrations || {};
-    const sig = JSON.stringify([ex, sel]);
-    if (MEMO && MEMO.E === E && MEMO.D === D && MEMO.ce === ce && MEMO.sig === sig && MEMO.S === hass.states) return MEMO.R;
+    const sig = JSON.stringify([ex, sel, cfg.navn_map || null]), sk = sKey(hass.states);
+    if (MEMO && MEMO.E === E && MEMO.D === D && MEMO.ce === ce && MEMO.sig === sig && (MEMO.S === hass.states || MEMO.sk === sk)) return MEMO.R;
     // 1) kandidater per kilde (plattform), 2) valgt config entry / «Ingen» / auto
     const pool = { unifi: [], protect: [], proxmox: [], unraid: [], glances: [] };
     for (const id in E) {
@@ -364,8 +377,15 @@
       const s = hass.states[id];
       if (dom(id) === 'sensor' && s && s.attributes.device_class === 'power' && !/port_\d+/.test(obj(id))) R.power.push(id);
     }));
-    MEMO = { E, D, ce, sig, S: hass.states, R };
+    MEMO = { E, D, ce, sig, S: hass.states, sk, R };
     return R;
+  }
+
+  // Fiks 52 A3: forrige oppdagelse uten ny gjennomgang og uten oppslag (skjelettet under åpne-animasjonen) – null hvis utdatert
+  function oppdagPeek(hass, cfg) {
+    if (!MEMO || !hass) return null;
+    const sig = JSON.stringify([cfg.exclude || [], cfg.integrations || {}, cfg.navn_map || null]);
+    return MEMO.E === (hass.entities || {}) && MEMO.D === (hass.devices || {}) && MEMO.ce === CE.data && MEMO.sig === sig && (MEMO.S === hass.states || MEMO.sk === sKey(hass.states)) ? MEMO.R : null;
   }
 
   /* ------------------------------------------------------------ tall og tekst */
@@ -437,7 +457,13 @@
   const SUP = { addons: undefined, t: 0, busy: false, info: {}, stats: {}, infoT: {}, core: null, os: null, host: null };
   const supWS = (hass, endpoint, method, data) => (hass && hass.callWS ? hass.callWS({ type: 'supervisor/api', endpoint, method: method || 'get', ...(data ? { data } : {}) }) : Promise.reject(new Error('ws')));
   const unwrap = (r) => (r && r.data && typeof r.data === 'object' && !Array.isArray(r.data) ? r.data : r);
-  const supEvt = () => window.dispatchEvent(new CustomEvent('msh-server-entries'));
+  // Fiks 52 A3: hendelsen bare når Supervisor-dataene faktisk er endret (kilde 'sup' – bare HA-fanen tegner på nytt)
+  const supEvt = () => {
+    let sig = ''; try { sig = JSON.stringify([SUP.addons, SUP.core, SUP.os, SUP.host, SUP.info, SUP.stats]); } catch (e) { sig = String(Date.now()); }
+    if (sig === SUP.sig) return;
+    SUP.sig = sig;
+    window.dispatchEvent(new CustomEvent('msh-server-entries', { detail: { src: 'sup' } }));
+  };
   function supLoad(hass, force) {
     if (!hass || !hass.callWS || SUP.busy || (!force && Date.now() - SUP.t < 60000)) return;
     SUP.busy = true;
@@ -461,7 +487,8 @@
   let HMEMO = null;
   function oppdagHA(hass, cfg) {
     const E = hass.entities || {}, D = hass.devices || {}, S = hass.states, sig = JSON.stringify(cfg.exclude || []);
-    if (HMEMO && HMEMO.E === E && HMEMO.D === D && HMEMO.S === S && HMEMO.t === SUP.t && HMEMO.sig === sig) return HMEMO.R;
+    const sk = sKey(S);
+    if (HMEMO && HMEMO.E === E && HMEMO.D === D && (HMEMO.S === S || HMEMO.sk === sk) && HMEMO.t === SUP.t && HMEMO.sig === sig) return HMEMO.R;
     const per = {}, sysm = [], upt = [];
     for (const id in E) {
       const e = E[id];
@@ -507,9 +534,15 @@
       uptime: (upt.find((e) => dom(e.entity_id) === 'sensor') || {}).entity_id || sm(/last_boot$/),
       db: Object.keys(S).find((id) => id.startsWith('sensor.') && /(database|db|recorder)_size$/.test(obj(id))),
     };
-    HMEMO = { E, D, S, t: SUP.t, sig, R };
+    HMEMO = { E, D, S, sk, t: SUP.t, sig, R };
     return R;
   }
+  function oppdagHAPeek(hass, cfg) {
+    if (!HMEMO || !hass) return null;
+    return HMEMO.E === (hass.entities || {}) && HMEMO.D === (hass.devices || {}) && (HMEMO.S === hass.states || HMEMO.sk === sKey(hass.states)) && HMEMO.t === SUP.t && HMEMO.sig === JSON.stringify(cfg.exclude || []) ? HMEMO.R : null;
+  }
+  // 24 t-serier per entitet (samplet) – delt mellom kortinstansene (Bubble lager kortet på nytt ved hver åpning)
+  const HIST = {};
 
   /* ------------------------------------------------------------ Fiks 50 E/G: qBittorrent + SpeedTest (autokonfig fra registeret) */
   // Entitetene finnes via plattform (qbittorrent / speedtestdotnet) + translation_key (eller unique_id-suffiks
@@ -561,7 +594,8 @@
   function oppdagQB(hass, cfg) {
     cfg = cfg || {};
     const E = hass.entities || {}, S = hass.states, o = cfg.overrides || {}, sig = JSON.stringify(QB.map((k) => o[k[1]] || ''));
-    if (QMEMO && QMEMO.E === E && QMEMO.S === S && QMEMO.sig === sig) return QMEMO.R;
+    const sk = sKey(S);
+    if (QMEMO && QMEMO.E === E && (QMEMO.S === S || QMEMO.sk === sk) && QMEMO.sig === sig) return QMEMO.R;
     const pool = regPool(hass, ['qbittorrent']);
     // flere qBittorrent-servere: den første enheten (stabil rekkefølge)
     const devs = [...new Set(pool.map((e) => e.device_id || '_'))].sort();
@@ -569,7 +603,7 @@
     const auto = pickAll(liste, QB), ids = {};
     QB.forEach(([k, ok_]) => { ids[k] = o[ok_] || auto[k]; });
     const R = { found: pool.length > 0 || QB.some((k) => !!o[k[1]]), auto, ids, n: pool.length };
-    QMEMO = { E, S, sig, R };
+    QMEMO = { E, S, sk, sig, R };
     return R;
   }
   let SMEMO = null;
@@ -577,13 +611,14 @@
   function oppdagST(hass, cfg) {
     cfg = cfg || {};
     const E = hass.entities || {}, S = hass.states, o = cfg.overrides || {}, sig = JSON.stringify(ST_K.map((k) => o[k[1]] || ''));
-    if (SMEMO && SMEMO.E === E && SMEMO.S === S && SMEMO.sig === sig) return SMEMO.R;
+    const sk = sKey(S);
+    if (SMEMO && SMEMO.E === E && (SMEMO.S === S || SMEMO.sk === sk) && SMEMO.sig === sig) return SMEMO.R;
     let liste = regPool(hass, ['speedtestdotnet']);
     if (!liste.length) liste = Object.keys(S).filter((id) => /^sensor\.speed_?test(_[a-z0-9]+)*_(download|upload|ping)$/.test(id)).map((id) => E[id] || { entity_id: id });
     const auto = pickAll(liste, ST_K), ids = {};
     ST_K.forEach(([k, ok_]) => { ids[k] = o[ok_] || auto[k]; });
     const R = { found: Object.values(ids).some(Boolean), auto, ids };
-    SMEMO = { E, S, sig, R };
+    SMEMO = { E, S, sk, sig, R };
     return R;
   }
   // Datahastighet → MB/s (qBittorrent: B/s, KiB/s, kB/s, MB/s, MiB/s …; bit-enheter / 8)
@@ -643,6 +678,21 @@
   const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
   const thVars = (c) => `${M.tabH ? M.tabH.style(c) : ''}--sv-th:${TV('th', 44)};`;
   const isCards = (c) => /^kort$/i.test(String(c.velger || ''));
+  // Fiks 52 A3: høyden på prosa (p) og fane-innhold (b) per kort/vert/underfane fra forrige fulle tegning – skjelettet
+  // reserverer den, så innholdet ikke hopper når det kommer. Minne + localStorage (per enhet, ren UI-cache).
+  const SKH_LS = 'ki:sv-skh';
+  let SKH = null;
+  const skhAll = () => { if (!SKH) { try { SKH = JSON.parse(localStorage.getItem(SKH_LS) || '{}') || {}; } catch (e) { SKH = {}; } } return SKH; };
+  const skhKey = (card, host, sub) => `${(card.config && card.config.card_id) || '_'}|${host}|${sub}`;
+  const skhGet = (card, host, sub) => { const x = skhAll()[skhKey(card, host, sub)] || {}; return { p: x.p > 0 ? x.p : 61, b: x.b > 0 ? x.b : 420 }; };
+  function skhSet(card, host, sub, p, b) {
+    const A = skhAll(), k = skhKey(card, host, sub), o = A[k] || {};
+    p = Math.round(p); b = Math.round(b);
+    if (o.p === p && o.b === b) return;
+    A[k] = { p, b };
+    const ks = Object.keys(A); if (ks.length > 60) delete A[ks[0]];
+    try { localStorage.setItem(SKH_LS, JSON.stringify(A)); } catch (e) { /* */ }
+  }
   const showProse = (c) => c.show_prose !== false;
 
   /* ------------------------------------------------------------ integrasjonsvelger (portalt ark – fallgruve 1) */
@@ -840,8 +890,16 @@
     get cardSize() { return 12; }
     constructor() {
       super();
-      this._ce = () => { if (this.isConnected) this.update(); };
-      this._hist = {}; this._pend = {}; this._q = {}; this._flt = {}; this._armed = null; this._blink = {}; this._upd = {};
+      // Fiks 52 A3: config entries ('ce') påvirker oppdagelsen for integrasjonsvertene, Supervisor ('sup') bare HA-fanen.
+      // Ingen tegning før popupen har satt seg (settle() tegner uansett).
+      this._ce = (e) => {
+        if (!this.isConnected || !this._settled) return;
+        const src = e && e.detail && e.detail.src, host = this.tab;
+        if ((src === 'sup' && host !== 'ha') || (src === 'ce' && host === 'qbit')) return;
+        this.update();
+      };
+      this._hist = HIST; this._pend = {}; this._q = {}; this._flt = {}; this._armed = null; this._blink = {}; this._upd = {};
+      this._settled = false; this._openGen = 0; this._paintKey = null; this._cfgV = 0;
     }
     connectedCallback() { super.connectedCallback(); window.addEventListener('msh-server-entries', this._ce); }
     disconnectedCallback() {
@@ -849,14 +907,97 @@
       if (this._pick) { this._pick.close(); this._pick = null; }
       this._holdStop();
     }
+    setConfig(c) { this._cfgV = (this._cfgV || 0) + 1; super.setConfig(c); }
+    /* ---------------------------------------------------------- Fiks 52 A3: åpning uten tung jobb under Bubble-animasjonen
+     * Under åpne-animasjonen: høyst ÉN lett tegning (skjelett: fanelinje, toppkort/prosa – ekte verdier hvis forrige oppdagelse
+     * fortsatt gjelder, ellers «–» – og fane-innholdet som flate med reservert høyde) – ingen hvis kortet allerede viser samme
+     * fane. hass-oppdateringer tegner ikke. Når Bubbles åpning er ferdig (_whenSettled) «setter» kortet seg: full tegning av
+     * aktiv fane (bare den – andre faner bygges når de velges), deretter oppslagene (config entries, Supervisor, 24 t historikk,
+     * WAN-latens) – historikk oppdaterer bare grafen (_patch), ikke hele kortet. */
     onOpen() {
+      const gen = ++this._openGen;
+      this._settled = false; this._histSoon = false;
+      this._cKey = null; // Fiks 50 F: aktiv fane sentreres (uten animasjon) når popupen åpnes
+      this._whenSettled().then(() => {
+        if (gen !== this._openGen || !this.isConnected || !this.isOpen) return;
+        this._settle();
+      });
+    }
+    _settle() {
+      this._settled = true;
       CE.t = 0; entries(this.hass); // friske config entries når popupen åpnes
       supLoad(this.hass, true);
-      this._loadHist(); // 36.5: startfanen settes av MSH.startTab (startTabSpec) før onOpen
-      this._cKey = null; this.update(); // Fiks 50 F: aktiv fane sentreres (uten animasjon) når popupen åpnes
-
+      this._histSoon = true; // 24 t historikk startes etter den fulle tegningen (afterRender)
+      this.update();
     }
-    onClose() { if (this._pick) { this._pick.close(); this._pick = null; } this._holdStop(); }
+    onClose() { this._openGen++; this._settled = false; this._histSoon = false; if (this._pick) { this._pick.close(); this._pick = null; } this._holdStop(); }
+    // Bubble bygger popupen og starter åpningen selv (klassene is-popup-opened + is-opening på .bubble-pop-up, overgang på
+    // transform). Vi venter: rAF × 2 → til popupen er åpnet og is-opening er borte → rAF × 2 → til gjenværende overganger på
+    // popup-elementet er ferdige. Uten Bubble-popup (vanlig kort, editor): bare rAF × 2. Maks 2 s uansett.
+    _whenSettled() {
+      return new Promise((res) => {
+        let done = false, mo = null;
+        const fin = () => { if (done) return; done = true; clearTimeout(cap); if (mo) { mo.disconnect(); mo = null; } res(); };
+        const cap = setTimeout(fin, 2000);
+        const raf2 = (f) => requestAnimationFrame(() => requestAnimationFrame(f));
+        const anims = () => raf2(() => {
+          const A = this._popAnims();
+          if (!A.length) return fin();
+          Promise.all(A.map((a) => a.finished.catch(() => null))).then(fin);
+        });
+        raf2(() => {
+          const pop = this._popEl();
+          const ready = () => !pop || !pop.isConnected || (pop.classList.contains('is-popup-opened') && !pop.classList.contains('is-opening'));
+          if (ready()) return anims();
+          mo = new MutationObserver(() => { if (ready()) { mo.disconnect(); mo = null; anims(); } });
+          mo.observe(pop, { attributes: true, attributeFilter: ['class'] });
+        });
+      });
+    }
+    _popEl() {
+      let n = this.parentNode || (this.getRootNode && this.getRootNode().host);
+      for (let i = 0; n && i < 40; i++) {
+        if (n.classList && n.classList.contains('bubble-pop-up')) return n;
+        if (n.tagName === 'BUBBLE-CARD') return null;
+        n = n.parentNode || n.host;
+      }
+      return null;
+    }
+    _popAnims() {
+      const out = [];
+      const take = (a, el) => { try { const t = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : {}; if ((a.playState === 'running' || a.playState === 'pending') && t.iterations !== Infinity && (!el || (a.effect && a.effect.target === el))) out.push(a); } catch (e) { /* */ } };
+      let n = this.parentNode || (this.getRootNode && this.getRootNode().host);
+      for (let i = 0; n && i < 40; i++) {
+        if (n.nodeType === 1 && n.getAnimations) {
+          try {
+            if (n.classList && n.classList.contains('bubble-pop-up')) n.getAnimations({ subtree: true }).forEach((a) => take(a, n)); // også ::before (blur-fade)
+            else n.getAnimations().forEach((a) => take(a));
+          } catch (e) { /* */ }
+        }
+        if (n.tagName === 'BUBBLE-CARD') break;
+        n = n.parentNode || n.host;
+      }
+      return out;
+    }
+    // Hva tegningen viser: vert/underfane/velger/config – samme nøkkel = DOM-en fra forrige åpning kan stå under animasjonen
+    _viewKey() { return [this.tab, this._sub(this.tab), isCards(this.config) ? 'k' : 'f', this._cfgV].join('|'); }
+    _render() {
+      if (this._hass && this._config && !this._settled && this._firstRender && this._paintKey === this._viewKey()) return;
+      super._render();
+    }
+    // Bare avhengighetene til AKTIV fane (registrert per tegning) – oppdateringer i skjulte faner gir ingen tegning.
+    // Sammenligner state-objektene (HA lager nytt objekt ved endring) + last_updated/state som ekstra vern.
+    _changed(o, n) {
+      if (!this._settled) return false;
+      if (o.areas !== n.areas || o.entities !== n.entities || o.devices !== n.devices) return true;
+      if (o.states !== n.states && M.stateCount(o.states) !== M.stateCount(n.states)) return true;
+      if (o.states === n.states) return false;
+      for (const id of this._deps) {
+        const a = o.states[id], b = n.states[id];
+        if (a !== b && (!a || !b || a.last_updated !== b.last_updated || a.state !== b.state || a.attributes !== b.attributes)) return true;
+      }
+      return false;
+    }
     get tabs() { return visTabs(this.config, this.hass); }
     static get startTabSpec() { return { key: 'host', tabs: (card) => visTabs(card.config, card.hass), legacy: ST_LEG.legacy, map: ST_LEG.map, get: (card) => card.tab, set: (card, id) => { if (card.ui.host !== id) card.setUI({ host: id, sel: null }, true); } }; }
     get tab() { const V = this.tabs, st = tabsCfg(this.config).start; const u = this.ui.host || this.ui.tab; return V.includes(u) ? u : V.includes(st) ? st : V[0]; }
@@ -898,7 +1039,7 @@
       return s;
     }
     async _loadHist() {
-      if (!this.hass || !this.isOpen) return;
+      if (!this.hass || !this.isOpen || !this._settled) return;
       const R = oppdag(this.hass, this.config), HA = oppdagHA(this.hass, this.config), host = this.tab;
       const ids = this._metrics(R, HA, host).map((m) => m.id).filter(Boolean);
       const key = host + '|' + ids.join();
@@ -908,7 +1049,23 @@
       const r = await M.history(this.hass, ids, 24).catch(() => ({}));
       if (this._histKey !== key) return;
       ids.forEach((id) => { this._hist[id] = M.sample(r[id] || [], NPT, 24); });
-      this.update();
+      this._patchHero(); // Fiks 52 A3: bare grafen i toppkortet – ingen ny tegning av hele kortet
+    }
+    // Oppdater ett avsnitt (data-key) mot ny HTML for samme avsnitt – brukes når bare grafdata er kommet
+    _patch(key, html) {
+      const el = this.shadowRoot && this.shadowRoot.querySelector(`[data-key="${key}"]`);
+      if (!el || !html) return false;
+      const t = document.createElement('template'); t.innerHTML = html;
+      const n = t.content.firstElementChild;
+      if (!n || n.getAttribute('data-key') !== key) return false;
+      [...n.attributes].forEach((a) => { if (el.getAttribute(a.name) !== a.value) el.setAttribute(a.name, a.value); });
+      M.morph(el, n.innerHTML);
+      return true;
+    }
+    _patchHero() {
+      const host = this.tab;
+      if (!this._settled || this._skel || !this._R || !this._HA) return this.update();
+      if (!this._patch('hero-' + host, this._hero(this._R, this._HA, host, isCards(this.config)))) this.update();
     }
     // Status per vert (chip, prikk): { t, ok, none }
     _status(R, HA, host) {
@@ -1009,6 +1166,11 @@
         get config() { return card.config; },
         get ui() { return card.ui; },
         setUI: (p, quiet) => card.setUI(p, quiet),
+        // Fiks 52 A3: oppslag (WAN-latens) bare når popupen er åpen og har satt seg; patch = oppdater ett avsnitt (data-key)
+        get isOpen() { return card.isOpen && !!card._settled; },
+        get isConnected() { return card.isConnected; },
+        get R() { return card._R; },
+        patch: (key, html) => card._patch(key, html),
         render: () => card.update(),
         update: () => card.update(),
         haptic: (t) => M.haptic(t || 'light'),
@@ -1138,27 +1300,23 @@
 
     /* ---------------------------------------------------------- tegning */
     render() {
-      const h = this.hass, c = this.config;
+      const h = this.hass, c = this.config, V = this.tabs, host = this.tab, cards = isCards(c);
+      this._paintKey = this._viewKey();
+      // Fiks 52 A3: før popupen har satt seg – skjelett uten oppdagelse/oppslag (fanelinje, toppkort med «–», reservert høyde)
+      if (!this._settled) { this._skel = true; return this._skeleton(V, host, cards); }
+      this._skel = false;
       let R = oppdag(h, c);
       const HA = (this._HA = oppdagHA(h, c)), su = M.serverUnifi;
-      // Fiks 50 H–M: 58b-server-unifi.js kan utvide oppdagelsen (UniFi-enheter via device_id)
-      if (su && typeof su.discover === 'function') { try { const x = su.discover(h, R, c); if (x && typeof x === 'object' && x.unifi) R = x; } catch (e) { console.error('[ki-msh] serverUnifi.discover', e); } }
+      // Fiks 50 H–M: 58b-server-unifi.js kan utvide oppdagelsen (UniFi-enheter via device_id) – bare når Nettverk vises
+      if (host === 'net' && su && typeof su.discover === 'function') { try { const x = su.discover(h, R, c); if (x && typeof x === 'object' && x.unifi) R = x; } catch (e) { console.error('[ki-msh] serverUnifi.discover', e); } }
       this._R = R;
-      const V = this.tabs, host = this.tab, QQ = oppdagQB(h, c), STT = oppdagST(h, c);
-      [...Object.values(QQ.ids), ...Object.values(STT.ids)].forEach((id) => { if (id) this._deps.add(id); });
-      INTEG.forEach((i) => R.ents[i.key].forEach((id) => this._deps.add(id)));
-      Object.values(c.overrides || {}).forEach((id) => { if (id) this._deps.add(id); });
-      [HA.sys, HA.core, HA.os, HA.sup, HA.host].forEach((o) => Object.values(o || {}).forEach((id) => { if (typeof id === 'string' && id.includes('.')) this._deps.add(id); }));
-      HA.addons.forEach((a) => [a.run, a.sw, a.cpu, a.mem, a.ver, a.upd].forEach((id) => id && this._deps.add(id)));
-      this._updIds().forEach((id) => this._deps.add(id));
-      const X = {};
-      V.forEach((k) => {
-        const m = this._metrics(R, HA, k)[0], st = this._status(R, HA, k);
-        // ring: net 100 % = 1000 Mbit · qbit 100 % = 20 MB/s (designet: v * 5)
-        X[k] = { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : k === 'qbit' ? Math.min(100, m.v * 5) : m.v,
-          sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : k === 'qbit' ? `${fmtN(m.v, m.v < 100 ? 1 : 0)} MB/s ned` : `${m.label} ${Math.round(m.v)} %` };
-      });
-      const cards = isCards(c);
+      // Fiks 52 A3: avhengigheter bare for aktiv vert (+ sammendragene i kort-modus)
+      this._hostDeps(R, HA, host);
+      let X = {};
+      if (cards) {
+        // kort-modus: billige sammendrag (første måling + status) for hver vert – ingen lister/underfaner
+        V.forEach((k) => { X[k] = this._sum(R, HA, k, true); });
+      }
       const pick = cards ? hostCardsHTML(V, host, X, (k) => `data-act="host" data-haptic="selection"`) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"');
       const ik = HOST_INT[host], found = !ik || R.found[ik], sub = this._sub(host);
       const parts = [pick, this._hero(R, HA, host, cards), showProse(c) ? this._prose(R, HA, host) : ''];
@@ -1171,8 +1329,56 @@
       }
       return `<div class="wrap" style="${thVars(c)}">${parts.join('')}</div>`;
     }
-    _hero(R, HA, host, cards) {
-      const ui = this.ui, c = this.config, Ms = this._metrics(R, HA, host);
+    // Skjelettet: samme oppbygging og data-key som den fulle tegningen (morph beholder elementene – ingen ny inn-fade),
+    // høyden på prosa og fane-innhold fra forrige gang (SKH, per kort/vert/underfane) så innholdet ikke hopper.
+    _skeleton(V, host, cards) {
+      const c = this.config, h = this.hass, sub = this._sub(host), H = skhGet(this, host, sub);
+      // Forrige oppdagelse (modul-memo, f.eks. fra forrige åpning) gir ekte verdier i toppkort/prosa uten ny gjennomgang
+      const R = oppdagPeek(h, c), HA = R && oppdagHAPeek(h, c), live = !!(R && HA);
+      let X = {};
+      if (cards && live) V.forEach((k) => { X[k] = this._sum(R, HA, k); });
+      const pick = cards ? hostCardsHTML(V, host, X, () => `data-act="host" data-haptic="selection"`) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"');
+      let prose = null;
+      if (live && showProse(c)) { try { prose = this._prose(R, HA, host); } catch (e) { prose = null; } }
+      const parts = [pick, live ? this._hero(R, HA, host, cards) : this._hero(null, null, host, cards, true)];
+      if (showProse(c)) parts.push(prose || `<p class="prose sk" style="min-height:${H.p}px">–</p>`);
+      parts.push(`<div class="subs" role="tablist">${SUBS[host].map(([k, l]) => `<button class="sb${k === sub ? ' on' : ''}" role="tab" aria-selected="${k === sub}" data-act="sub" data-v="${k}" data-haptic="selection">${esc(l)}</button>`).join('')}</div>`);
+      parts.push(`<div class="pane" data-key="pane-${host}-${sub}"><div class="skp" style="height:${H.b}px" aria-hidden="true"></div></div>`);
+      return `<div class="wrap" style="${thVars(c)}">${parts.join('')}</div>`;
+    }
+    _hostDeps(R, HA, host) {
+      const D = this._deps, add = (id) => { if (typeof id === 'string' && id.includes('.')) D.add(id); };
+      const P = { net: /^(net_|unifi_|speedtest_)/, proxmox: /^proxmox_/, unraid: /^unraid_/, ha: /^ha_/, qbit: /^qbit_/ }, ALL = /^(net_|unifi_|speedtest_|proxmox_|unraid_|ha_|qbit_)/;
+      Object.entries(this.config.overrides || {}).forEach(([k, id]) => { if ((P[host] && P[host].test(k)) || !ALL.test(k)) add(id); });
+      if (host === 'net') { R.ents.unifi.forEach(add); Object.values(oppdagST(this.hass, this.config).ids).forEach(add); }
+      else if (host === 'proxmox' || host === 'unraid') R.ents[host].forEach(add);
+      else if (host === 'qbit') Object.values(oppdagQB(this.hass, this.config).ids).forEach(add);
+      else if (host === 'ha') {
+        [HA.sys, HA.core, HA.os, HA.sup, HA.host].forEach((o) => Object.values(o || {}).forEach(add));
+        HA.addons.forEach((a) => [a.run, a.sw, a.cpu, a.mem, a.ver, a.upd].forEach(add));
+        this._updIds().forEach(add);
+      }
+    }
+    // Kort-modus: sammendrag for vert k (første måling + status) – ring: net 100 % = 1000 Mbit · qbit 100 % = 20 MB/s (designet: v * 5)
+    _sum(R, HA, k, deps) {
+      const m = this._metrics(R, HA, k)[0], st = this._status(R, HA, k);
+      if (deps) this._sumDeps(R, HA, k, m);
+      return { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : k === 'qbit' ? Math.min(100, m.v * 5) : m.v,
+        sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : k === 'qbit' ? `${fmtN(m.v, m.v < 100 ? 1 : 0)} MB/s ned` : `${m.label} ${Math.round(m.v)} %` };
+    }
+    // Kort-modus: det sammendraget for vert k leser (første måling + status)
+    _sumDeps(R, HA, k, m) {
+      const add = (id) => { if (id) this._deps.add(id); };
+      add(m && m.id);
+      if (k === 'net') { const g = gateway(R); if (g) [g.tracker, g.tilstand, g.cpu].forEach(add); }
+      else if (k === 'proxmox') { const n = R.proxmox.noder[0]; add(n && n.status); R.proxmox.gjester.forEach((g) => add(g.bryter || g.status)); }
+      else if (k === 'unraid') { const U = R.unraid; if (U) [U.arrayStatus, U.arraySw].forEach(add); }
+      else if (k === 'ha') this._updIds().forEach(add);
+      else if (k === 'qbit') add(oppdagQB(this.hass, this.config).ids.conn);
+    }
+    _hero(R, HA, host, cards, skel) {
+      const ui = this.ui, c = this.config;
+      const Ms = skel ? HM[host].map(([k, label, unit, color]) => ({ k, label, unit, color, id: null, v: null, f: 1 })) : this._metrics(R, HA, host);
       const want = (ui.hm || {})[host] || (c.hero_metric || {})[host];
       const mi = Math.max(0, Ms.findIndex((m) => m.k === want)), M0 = Ms[mi];
       const S = this._series(M0), idx = ui.sel != null ? ui.sel : NPT - 1;
@@ -1186,7 +1392,7 @@
       const at = (m) => { if (ui.sel == null) return m.v; const s = this._series(m); return s.length ? s[Math.min(idx, s.length - 1)] : null; };
       // MB/s (qBittorrent) med én desimal under 100 (designet: «9,2 MB/s»)
       const fv = (m, v) => (v == null || isNaN(v) ? '–' : (m.unit === '%' && v < 10) || (m.unit === 'MB/s' && v < 100) ? M.nf(v, 1) : String(Math.round(v)));
-      const st = this._status(R, HA, host);
+      const st = skel ? { t: '–', ok: false, none: true } : this._status(R, HA, host);
       const hrs = (NPT - 1 - idx) / 2;
       const time = ui.sel == null ? `nå · ${M0.label.toLowerCase()}` : `−${M.nf(hrs, hrs % 1 ? 1 : 0)} t · ${M0.label.toLowerCase()}`;
       const unit = (m) => (m.unit === '%' || m.unit === '°' ? m.unit : m.unit ? ' ' + m.unit : ' ' + m.label.toLowerCase());
@@ -1660,6 +1866,17 @@
     /* ---------------------------------------------------------- gester */
     afterRender() {
       const Rt = this.shadowRoot;
+      // Fiks 52 A3: etter første fulle tegning – start 24 t-historikken; mål høyden til skjelettet neste gang (etter maling)
+      if (this._settled && !this._skel) {
+        if (this._histSoon) { this._histSoon = false; setTimeout(() => this._loadHist(), 0); }
+        const host = this.tab, sub = this._sub(host);
+        clearTimeout(this._skhT);
+        this._skhT = setTimeout(() => {
+          if (!this.isConnected || this._skel || this.tab !== host) return;
+          const pr = Rt.querySelector('.prose'), pa = Rt.querySelector('.pane') || Rt.querySelector('.card.nf');
+          if (pa && pa.offsetHeight) skhSet(this, host, sub, pr ? pr.offsetHeight : 0, pa.offsetHeight);
+        }, 600);
+      }
       // Vertvelgeren (fanelinje / kort): hold 400 ms + dra = ny rekkefølge (tab_order), kort trykk bytter vert.
       // Fiks 50 F: begge er vannrette karuseller – fade på siden med skjult innhold, aktiv fane sentreres.
       const sc = Rt.querySelector('.trow .tabs[role="tablist"]') || Rt.querySelector('.hcards');
@@ -1772,6 +1989,8 @@
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:8px}
         .pane{display:flex;flex-direction:column;gap:8px;min-width:0;animation:svf .3s ease}
+        .skp{border-radius:28px;background:${S};opacity:.55;flex:none}
+        .prose.sk{color:var(--ki-text-3, #7f7f7f)}
         @keyframes svf{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
         @media (prefers-reduced-motion: reduce){.pane,.gx{animation:none}}
         ${TAB_CSS('')}
