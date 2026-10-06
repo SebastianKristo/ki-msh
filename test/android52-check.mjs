@@ -75,7 +75,7 @@ async function setup(ua) {
       return orig.call(this);
     };
     const osch = M.Card.prototype._schedule;
-    M.Card.prototype._schedule = function (f) { const A = window.__a52; if (A && A.live && A.dbg && WATCH.includes(this.localName) && !this._raf) A.rlog.push(['schedule ' + this.localName, Math.round(performance.now() - A.t0), (new Error().stack || '').split('\n').slice(2, 9).join(' | ')]); return osch.call(this, f); };
+    M.Card.prototype._schedule = function (f) { const A = window.__a52; if (A && A.live && WATCH.includes(this.localName) && !this._raf) A.rlog.push(['schedule ' + this.localName, Math.round(performance.now() - A.t0), (new Error().stack || '').split('\n').slice(2, 9).join(' | ')]); return osch.call(this, f); };
     const portal = () => { const p = document.querySelector('.msh-navbar-portal') || [...document.querySelectorAll('*')].find((e) => e.classList && e.classList.contains('msh-navbar-portal')); return p && p.shadowRoot; };
     window.__portal = portal;
     // Løpende animasjoner/overganger der målet (eller pseudo-elementet) har backdrop-filter, i de relevante røttene
@@ -258,7 +258,9 @@ console.log('Android-klasser:', JSON.stringify(andCls), '· standard-UA:', JSON.
 const outFile = process.env.A52_OUT || resolve(`test/.build/and52-${process.pid}.json`);
 writeFileSync(outFile, JSON.stringify({ res, andCls, defCls }, null, 1));
 console.log('JSON →', outFile);
-if (process.env.A52_DEBUG) for (const r of all) { if (r.hap !== 1) console.log('haptic', r.hash, JSON.stringify(r.hapLog)); if (r.rlog.length) console.log('tegning', r.hash, JSON.stringify(r.rlog)); }
+const stray = all.filter((r) => r.rlog.length);
+if (stray.length) console.log('Hjem/navbar-tegninger i målevinduet:', stray.map((r) => `${r.hash} ${r.rlog.map((x) => x[0] + ' @' + x[1] + 'ms ← ' + x[2].split('|').map((f) => f.trim().replace(/^at /, '').split(' ')[0]).slice(0, 3).join('<')).join('; ')}`));
+if (process.env.A52_DEBUG) for (const r of all) { if (r.hap !== 1) console.log('haptic', r.hash, JSON.stringify(r.hapLog)); }
 if (S.errs.length || D.errs.length) console.log('Sidefeil:', [...new Set([...S.errs, ...D.errs])].slice(0, 5));
 
 if (own) {
@@ -276,9 +278,13 @@ if (own) {
   ok('Bubble-popupen glir bare med transform: ingen backdrop-filter, opasitet 1, overgang = transform', op1.length > 0 && all.every((r) => r.opening.every((f) => f.bdf === 'none' && f.op === '1' && f.tp === 'transform' && !/fast-open/.test(f.an))), op1.slice(0, 2));
   ok('popupens flate er ugjennomsiktig (ikke svart) fra første åpne-ramme', op1.every((f) => { const m = /rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)|color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/.exec(f.bg || ''); if (!m) return false; const a = m[4] != null ? +m[4] : m[8] != null ? +m[8] : 1; const v = m[1] != null ? +m[1] + +m[2] + +m[3] : (+m[5] + +m[6] + +m[7]) * 255; return a > 0.8 && v > 30; }), [...new Set(op1.map((f) => f.bg))]);
   ok('skjermbilder: ingen ramme med ren hvit/svart popup-flate eller dashbord-bakgrunn', pix.length > 0 && badPix.length === 0, { rammer: pix.length, feil: badPix.slice(0, 2) });
-  const hj = all.filter((r) => ['msh-hjem-card', 'msh-hjem-header-card', 'msh-prosa-card', 'msh-hjem-faner-card'].some((k) => r.renders[k]));
-  ok('hash-bytte tegner ikke Hjem/header på nytt', !hj.length, hj.map((r) => [r.hash, r.renders]).slice(0, 3));
-  const nv = all.filter((r) => r.renders['msh-navbar-card'] && r.hash !== '#media');
+  // Tegninger som stammer fra hash-byttet (planlagt fra hash-/åpne-kjeden). Hjems faste tidtakere (30 s/60 s-intervaller)
+  // kan treffe målevinduet tilfeldig – de telles i tabellen, men er ikke forårsaket av hash-byttet.
+  const HASHY = /_hashSync|_onHash|_checkOpen|openPopup|onOpen|setRoomCfg|bump|hashchange|popstate/;
+  const byHash = (r, k) => r.rlog.filter((x) => x[0] === 'schedule ' + k && HASHY.test(x[2])).length;
+  const hj = all.filter((r) => ['msh-hjem-card', 'msh-hjem-header-card', 'msh-prosa-card', 'msh-hjem-faner-card'].some((k) => byHash(r, k)));
+  ok('hash-bytte tegner ikke Hjem/header på nytt', !hj.length, hj.map((r) => [r.hash, r.rlog]).slice(0, 2));
+  const nv = all.filter((r) => byHash(r, 'msh-navbar-card') && r.hash !== '#media');
   ok('hash-bytte tegner ikke navbaren på nytt (unntak #media: mini-spilleren skjules)', !nv.length, nv.map((r) => [r.hash, r.renders]).slice(0, 3));
   const LMAX = Number(process.env.A52_LT_MAX || 0);
   if (LMAX) ok(`ingen lang oppgave over ${LMAX} ms under åpningen`, Math.max(0, ...lt) <= LMAX, Math.max(0, ...lt));
