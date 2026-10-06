@@ -195,11 +195,14 @@ const reopen = await page.evaluate(async () => {
   P.renders.length = 0; P.ws.length = 0;
   const t0 = performance.now();
   let animEnd = null, popEl = null, run = true, skelSeen = 0, frames = 0;
+  const bigs = new Set();
   const tick = () => {
     if (!run) return;
     frames++;
     const c = card(), sr = c && c.shadowRoot;
     if (sr && c.isConnected && sr.querySelector('.skp')) skelSeen++;
+    const bg = sr && sr.querySelector('.hero .big');
+    if (bg && animEnd == null) bigs.add(bg.textContent.trim());
     if (!popEl) popEl = deepAll('.bubble-pop-up').find((p) => p.classList.contains('is-popup-opened')) || null;
     if (popEl && animEnd == null && frames > 2 && !popEl.classList.contains('is-opening') && !popEl.getAnimations({ subtree: true }).some((a) => a.effect && a.effect.target === popEl && a.playState === 'running')) animEnd = performance.now() - t0;
     requestAnimationFrame(tick);
@@ -209,9 +212,9 @@ const reopen = await page.evaluate(async () => {
   await wait(3000);
   run = false;
   const R = P.renders.map((r) => ({ ...r, t: r.t - t0 }));
-  return { closedInfo, same: card() === window.__prevCard, animEnd: animEnd == null ? null : Math.round(animEnd), rendersAnim: R.filter((r) => animEnd != null && r.t < animEnd).length, renders: R.map((r) => `${Math.round(r.t)}ms${r.skel ? ' skjelett' : ''} ${r.host}`), skelSeen, firstWs: P.ws.length ? Math.round(P.ws[0].t - t0) : null };
+  return { closedInfo, same: card() === window.__prevCard, animEnd: animEnd == null ? null : Math.round(animEnd), rendersAnim: R.filter((r) => animEnd != null && r.t < animEnd).length, bigs: [...bigs], renders: R.map((r) => `${Math.round(r.t)}ms${r.skel ? ' skjelett' : ''} ${r.host}`), skelSeen, firstWs: P.ws.length ? Math.round(P.ws[0].t - t0) : null };
 });
-console.log(`  gjenåpning: samme kort ${reopen.same} (lukket: ${JSON.stringify(reopen.closedInfo)}) · animasjon ${reopen.animEnd} ms · tegninger ${reopen.renders.join(' · ') || '–'} · skjelett-rammer ${reopen.skelSeen} · første callWS ${reopen.firstWs} ms`);
+console.log(`  gjenåpning: samme kort ${reopen.same} (lukket: ${JSON.stringify(reopen.closedInfo)}) · animasjon ${reopen.animEnd} ms · tegninger ${reopen.renders.join(' · ') || '–'} · skjelett-rammer ${reopen.skelSeen} · toppkort under animasjonen ${JSON.stringify(reopen.bigs)} · første callWS ${reopen.firstWs} ms`);
 
 /* ================================================================ velger: kort – bare sammendrag for de andre vertene */
 const cards = await page.evaluate(async () => {
@@ -260,7 +263,7 @@ if (own) {
   ok('data etter at popupen har satt seg: verdi i toppkortet, intet skjelett igjen', open.big && open.big !== '–' && open.skel === 0, { big: open.big, skel: open.skel });
   ok('24 t historikk og config entries hentes etter åpningen', open.ws.some((w) => /history_during_period/.test(w.type)) && open.ws.some((w) => /config_entries\/get/.test(w.type)), open.ws.map((w) => w.type));
   ok('ingen <img> og ingen bildelasting ved åpning (ikoner er <ha-icon>)', open.imgs === 0 && open.imgLoads === 0, { imgs: open.imgs, loads: open.imgLoads });
-  ok('gjenåpning: ingen tegning under åpne-animasjonen (forrige innhold står, aldri skjelett)', reopen.animEnd != null && reopen.rendersAnim === 0 && reopen.skelSeen === 0, reopen);
+  ok('gjenåpning (Bubble lager kortet på nytt): ≤ 1 tegning under animasjonen, toppkortet viser ekte verdier fra forrige oppdagelse (aldri «–»)', reopen.animEnd != null && reopen.rendersAnim <= 1 && reopen.bigs.length >= 1 && !reopen.bigs.includes('–'), reopen);
   ok('gjenåpning: oppslag først etter animasjonen', reopen.firstWs == null || reopen.firstWs >= reopen.animEnd - 20, reopen);
   ok('velger: kort – kortrad for alle verter, men bare aktiv verts innhold bygget', cards.hcards >= 4 && cards.panes === 1 && cards.bodies.length >= 1 && cards.bodies.every((k) => k.startsWith('_b_' + cards.tab + '_')), cards);
   ok('velger: kort – endring utenfor sammendragene i skjulte verter → 0 tegninger', cards.nonSum.length >= 1 && cards.nonSumRenders === 0, cards);

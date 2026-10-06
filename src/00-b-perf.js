@@ -42,7 +42,7 @@
   const AND_POP = `.bubble-pop-up:not(.editor){transition-property:transform!important}
 .bubble-pop-up.is-opening:not(.editor),.bubble-pop-up.is-closing:not(.editor){-webkit-backdrop-filter:none!important;backdrop-filter:none!important;will-change:transform}
 .bubble-pop-up:not(.editor)::before{transition:none!important;will-change:auto!important}
-.bubble-pop-up.is-opening:not(.editor) .bubble-header-container,.bubble-pop-up.is-opening:not(.editor) .bubble-header-container *{transition:none!important}
+.bubble-pop-up:not(.editor) .bubble-header-container,.bubble-pop-up:not(.editor) .bubble-header-container *{transition:none!important}
 .bubble-pop-up.is-opening:not(.editor)::before,.bubble-pop-up.is-closing:not(.editor)::before{opacity:0!important}
 .bubble-pop-up.is-fast-opening:not(.editor):not(.popup-mode-centered):not(.popup-mode-adaptive-dialog){animation-name:ki-and-pop-in!important}
 @keyframes ki-and-pop-in{from{transform:translateY(14px)}to{transform:translateY(0)}}

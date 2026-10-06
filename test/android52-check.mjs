@@ -250,7 +250,8 @@ console.log('Blur-lag sett animere:', [...new Set(all.flatMap((r) => r.blurSeen)
 const pix = all.filter((r) => r.pix).flatMap((r) => r.pix);
 const badPix = pix.filter((f) => f.pop.white > 0.5 || f.pop.black > 0.5 || f.dash.white > 0.5 || f.dash.black > 0.5);
 console.log(`Skjermbilder (screencast): ${pix.length} rammer · ${badPix.length} med ren hvit/svart flate`, badPix.slice(0, 3));
-const op1 = all.map((r) => r.opening[0]).filter(Boolean);
+// #vaer (Scene-stil) har bevisst gjennomsiktig popup-flate – scenen tegnes av kortet (sjekkes av skjermbildene)
+const op1 = all.filter((r) => r.hash !== '#vaer').map((r) => r.opening[0]).filter(Boolean);
 console.log('Bubble åpning (første ramme):', JSON.stringify(op1[0] || null));
 console.log('Server <img>:', JSON.stringify([...new Set(all.flatMap((r) => r.img || []))]));
 console.log('Android-klasser:', JSON.stringify(andCls), '· standard-UA:', JSON.stringify(defCls));

@@ -25,6 +25,8 @@
  *   velger: faner|kort · tab_height (32–60) · show_prose · tab_order · hidden_tabs · start_tab · hero_metric { net, proxmox,
  *   unraid, ha } · integrations · overrides · exclude · gap/pad_top/pad_bottom. Gamle v5-nøkler (tabs.order/hidden/start) leses.
  * Farger: tokens fra ki-theme (src/00-a-theme.js) med dagens mørke verdi som fallback – mørk modus er uendret.
+ * Fiks 52 A3 (Android-flimmer): bare aktiv vert tegnes (lazy), skjelett under Bubbles åpne-animasjon, tunge oppslag etter at
+ *   popupen har satt seg, avhengigheter (_deps) bare for aktiv vert – se onOpen/_whenSettled/_changed. test/server52-check.mjs.
  */
 (function () {
   const M = window.MSH;
@@ -907,10 +909,11 @@
     }
     setConfig(c) { this._cfgV = (this._cfgV || 0) + 1; super.setConfig(c); }
     /* ---------------------------------------------------------- Fiks 52 A3: åpning uten tung jobb under Bubble-animasjonen
-     * Under åpne-animasjonen: høyst ÉN lett tegning (skjelett: fanelinje, toppkort med «–», reservert høyde) – og ingen hvis
-     * kortet allerede viser samme fane fra forrige åpning. hass-oppdateringer tegner ikke. Etter requestAnimationFrame × 2 og
-     * Bubbles egen overgang (transform/opacity på .bubble-pop-up, lest med getAnimations – maks 800 ms) «setter» kortet seg:
-     * full tegning av aktiv fane, deretter oppslagene (config entries, Supervisor, 24 t historikk, WAN-latens). */
+     * Under åpne-animasjonen: høyst ÉN lett tegning (skjelett: fanelinje, toppkort/prosa – ekte verdier hvis forrige oppdagelse
+     * fortsatt gjelder, ellers «–» – og fane-innholdet som flate med reservert høyde) – ingen hvis kortet allerede viser samme
+     * fane. hass-oppdateringer tegner ikke. Når Bubbles åpning er ferdig (_whenSettled) «setter» kortet seg: full tegning av
+     * aktiv fane (bare den – andre faner bygges når de velges), deretter oppslagene (config entries, Supervisor, 24 t historikk,
+     * WAN-latens) – historikk oppdaterer bare grafen (_patch), ikke hele kortet. */
     onOpen() {
       const gen = ++this._openGen;
       this._settled = false; this._histSoon = false;
