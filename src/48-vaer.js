@@ -1675,12 +1675,12 @@
       // 56 K · Soloppgang: gul dagkurve med gradient ned mot horisonten, stiplet natt, sola som prikk etter klokkeslettet
       const SD = sunDay(sun, now), CV = SD ? sunCurve(SD, now) : null;
       const sunSvg = CV ? `<div class="scv"><svg viewBox="0 0 ${SUN_W} ${SUN_H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="vsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb(242 210 111)" stop-opacity=".35"/><stop offset="1" stop-color="rgb(242 210 111)" stop-opacity="0"/></linearGradient></defs>
-          <line x1="0" y1="${HZ}" x2="${SUN_W}" y2="${HZ}" stroke="rgba(255,255,255,.18)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+          <line x1="0" y1="${HZ}" x2="${SUN_W}" y2="${HZ}" stroke="rgba(255,255,255,.18)" stroke-width="1" vector-effect="non-scaling-stroke"/><!-- ki-hex-ok: værscene (mørk øy) -->
           <path class="sfill" d="${CV.fillD}" fill="url(#vsg)" stroke="none"/>
-          ${CV.preD ? `<path class="snight" d="${CV.preD}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` : ''}${CV.postD ? `<path class="snight" d="${CV.postD}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` : ''}
+          ${CV.preD ? `<path class="snight" d="${CV.preD}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/><!-- ki-hex-ok -->` : ''}${CV.postD ? `<path class="snight" d="${CV.postD}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` : ''}<!-- ki-hex-ok: værscene (mørk øy) -->
           <path class="sday" d="${CV.dayD}" fill="none" stroke="rgb(242 210 111)" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
           <span class="sdot${CV.up ? '' : ' dn'}" style="left:${((CV.dot[0] / SUN_W) * 100).toFixed(2)}%;top:${CV.dot[1].toFixed(1)}px"><i></i><b></b></span></div>`
-        : `<div class="scv"><svg viewBox="0 0 ${SUN_W} ${SUN_H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="${HZ}" x2="${SUN_W}" y2="${HZ}" stroke="rgba(255,255,255,.18)" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>`;
+        : `<div class="scv"><svg viewBox="0 0 ${SUN_W} ${SUN_H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="${HZ}" x2="${SUN_W}" y2="${HZ}" stroke="rgba(255,255,255,.18)" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>`; // ki-hex-ok: værscene (mørk øy)
       // 56 K · Måne: fase og tittel fra sensor.moon_phase; belysning og måneoppgang beregnet (SunCalc) fra HAs posisjon
       const LL = latLon(h, A), mIll = M.vaerMoonIllum(new Date(now)), mRise = LL ? nextMoonrise(LL[0], LL[1], now) : null;
       const T2 = {
@@ -1694,7 +1694,7 @@
           ${FL && FL.src === 'calc' ? '<span class="tcalc">beregnet</span>' : ''}${!FL ? '<button class="tpick press" data-act="customize" data-section="sensors" data-haptic="light">Velg entitet</button>' : ''}</div>`,
         rain: tile('mdi:water', 'Nedbør', H.length ? nf(r6) : '–', pu, 'neste 6 t', X.rain24 != null ? `${nf(X.rain24)} ${pu} ventet neste døgn.` : ''),
         vis: `<div class="g tl2 tg tvs" data-src="${VS0 ? VS0.src : 'none'}" ${VS0 && VS0.ent ? `data-ent="${esc(VS0.ent)}"` : ''}><span class="th2">${M.icon('mdi:eye', 15)}Sikt</span><span class="tv2"><span class="tvb">${vkm != null ? visNum(vkm) : '–'}</span><span class="tvu">${vkm != null ? 'km' : ''}</span></span>
-          ${vkm != null ? `<span class="tk">${visTxt(vkm)}</span>${track('linear-gradient(90deg,rgba(255,255,255,.12),rgba(255,255,255,.5))', dotMk(M.clamp(vkm / 20, 0, 1) * 100))}<span class="tsc"><span>0</span><span>10</span><span>20+ km</span></span>` : '<button class="tpick press" data-act="customize" data-section="sensors" data-haptic="light">Velg entitet</button>'}</div>`,
+          ${vkm != null ? `<span class="tk">${visTxt(vkm)}</span>${track('linear-gradient(90deg,rgba(255,255,255,.12),rgba(255,255,255,.5))', dotMk(M.clamp(vkm / 20, 0, 1) * 100))}<span class="tsc"><span>0</span><span>10</span><span>20+ km</span></span>` : '<button class="tpick press" data-act="customize" data-section="sensors" data-haptic="light">Velg entitet</button>'}</div>`, // ki-hex-ok: værscene (mørk øy)
         hum: tile('mdi:water-percent', 'Luftfuktighet', X.hum != null ? String(Math.round(X.hum)) : '–', '%', '', X.dew != null ? `Duggpunkt ${Math.round(X.dew)}° nå.` : ''),
         press: tile('mdi:arrow-collapse-vertical', 'Lufttrykk', X.pr != null ? String(Math.round(X.pr)) : '–', X.prU, X.pr != null ? X.trend[0] : '', 'Lavt ← → Høyt', track('linear-gradient(90deg,#4b4b4b,#8a8a8a,#4b4b4b)', X.pr != null ? `<span style="position:absolute;top:-3px;left:calc(${(M.clamp((X.pr - 960) / 100, 0, 1) * 100).toFixed(1)}% - 2px);width:4px;height:12px;border-radius:2px;background:#fafafa"></span>` : '')), // ki-hex-ok: værscene/illustrasjon (mørk øy)
       };
@@ -1868,7 +1868,7 @@
         .scene .di{width:40px;flex:none;display:flex;flex-direction:column;align-items:center}
         .scene .dp{font-size:11px;font-weight:500;color:${BLUE};line-height:1.2}
         .scene .dlo{width:30px;flex:none;text-align:right;font-size:15px;color:#a8a8a8}
-        .scene .dtr{flex:1;position:relative;height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:0 4px;min-width:0} /* 56 L: skinnen som i designet */
+        .scene .dtr{flex:1;position:relative;height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:0 4px;min-width:0} /* 56 L: skinnen som i designet */ /* ki-hex-ok: værscene (mørk øy) */
         .scene .dbar{position:absolute;top:0;bottom:0;border-radius:3px}
         .scene .ddot{position:absolute;top:-2px;width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d} /* ki-hex-ok: værscene (mørk øy) */
         .scene .dhi{width:30px;flex:none;text-align:right;font-size:15px;font-weight:500;letter-spacing:0;line-height:normal}
@@ -1926,16 +1926,16 @@
         .scene .tbr b{font-weight:500;overflow:hidden;text-overflow:ellipsis}
         .scene .tbr span{color:#a8a8a8;flex:none}
         /* 56 K · Vind: kompass 96 px (J: 84 px – K er siste del) */
-        .scene .cmp{position:relative;width:96px;height:96px;align-self:center;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);background:radial-gradient(circle, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 70%)}
+        .scene .cmp{position:relative;width:96px;height:96px;align-self:center;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);background:radial-gradient(circle, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 70%)} /* ki-hex-ok: værscene (mørk øy) */
         .scene .cmpr{position:absolute;inset:0;border-radius:50%;pointer-events:none}
-        .scene .cmp .tk2{position:absolute;left:47.5px;top:3px;width:1px;height:5px;border-radius:.5px;background:rgba(255,255,255,.22);transform-origin:.5px 45px}
-        .scene .cmp .tk2.c{height:9px;background:rgba(255,255,255,.55)}
+        .scene .cmp .tk2{position:absolute;left:47.5px;top:3px;width:1px;height:5px;border-radius:.5px;background:rgba(255,255,255,.22);transform-origin:.5px 45px} /* ki-hex-ok: værscene (mørk øy) */
+        .scene .cmp .tk2.c{height:9px;background:rgba(255,255,255,.55)} /* ki-hex-ok: værscene (mørk øy) */
         .scene .cmpl{position:absolute;transform:translate(-50%,-50%);font-size:9px;line-height:9px;font-weight:500;color:#8a8a8a}
         .scene .cmpl.n{color:#fff;font-weight:700}
         .scene .ndl{position:absolute;inset:6px;transition:transform .4s}
         .scene .ndl b{position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:10px solid rgb(242 133 201)}
         .scene .ndl i{position:absolute;left:50%;top:8px;bottom:4px;width:2px;transform:translateX(-50%);background:rgb(242 133 201);border-radius:1px}
-        .scene .cmpc{position:absolute;inset:25px;border-radius:50%;background:rgba(20,22,28,.55);box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.06);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center}
+        .scene .cmpc{position:absolute;inset:25px;border-radius:50%;background:rgba(20,22,28,.55);box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.06);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center} /* ki-hex-ok: værscene (mørk øy) */
         .scene .cmpv{font-size:17px;font-weight:500;line-height:1}
         .scene .cmpu{font-size:11px;color:#a8a8a8;line-height:13px}
         .scene .sbig{font-size:28px;font-weight:300;line-height:1}
