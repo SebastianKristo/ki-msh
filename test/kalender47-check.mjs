@@ -5,7 +5,7 @@
 //      hero-bakgrunn = fanart, ingen API-nøkler.  sessionStorage 'ki-cal-tab' = 'fram' → Framover ved åpning (og fjernet).
 //   E: trykk med liten bevegelse bytter, pointercancel innen 250 ms bytter, stor bevegelse bytter ikke, ingen bytte under
 //      window.__tabReorder, mus-klikk = ett bytte og én haptic (click ignoreres 400 ms), trykk på aktiv fane = ingen haptic,
-//      tastatur (Enter) bytter fortsatt, fanene har touch-action pan-x, padding-treff i sporet velger nærmeste fane.
+//      tastatur (Enter) bytter fortsatt, fanene har touch-action pan-x pan-y (56 G), padding-treff i sporet velger nærmeste fane.
 //   node test/kalender47-check.mjs
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync, unlinkSync } from 'node:fs';
@@ -169,7 +169,7 @@ const tabs = () => p.evaluate(() => { const row = window.__c.shadowRoot.querySel
 const state = () => p.evaluate(() => ({ tab: window.__c.tab, hp: window.HP.slice() }));
 const reset = () => p.evaluate(() => { window.HP.length = 0; });
 let T = await tabs();
-ok('E fanene: touch-action pan-x, ingen tap-highlight, felles MSH.tabPress på raden', T.every((t) => t.ta === 'pan-x' && /transparent|rgba\(0, 0, 0, 0\)/.test(t.th)) && await p.evaluate(() => !!window.__c.shadowRoot.querySelector('.top>.tabs').__tabPress), T);
+ok('E fanene: touch-action pan-x pan-y (Fiks 56 G), ingen tap-highlight, felles MSH.tabPress på raden', T.every((t) => t.ta === 'pan-x pan-y' && /transparent|rgba\(0, 0, 0, 0\)/.test(t.th)) && await p.evaluate(() => !!window.__c.shadowRoot.querySelector('.top>.tabs').__tabPress), T);
 // 1) touch med liten bevegelse (10 px) bytter likevel – én haptic «light»
 await reset();
 let t1 = T[1];

@@ -31,7 +31,7 @@ const mk = (p, cfg, state) => p.evaluate(async ([cfg, state]) => {
   window.__h = h;
   const bc = document.createElement('bubble-card');
   bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#vaer' });
-  bc.innerHTML = '<div class="pop bubble-pop-up" style="overflow:hidden;display:flex;flex-direction:column"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container" style="overflow:auto;flex:1;min-height:0"></div></div>';
+  bc.innerHTML = '<div class="pop bubble-pop-up is-popup-opened" style="overflow:hidden;display:flex;flex-direction:column"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container" style="overflow:auto;flex:1;min-height:0"></div></div>';
   document.getElementById('dash').appendChild(bc);
   location.hash = '#vaer';
   const c = document.createElement('msh-vaer-card');
@@ -58,7 +58,7 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
       btn: btn.map((e) => [Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height), cs(e).borderRadius]), onBg: cs(on).backgroundImage, onCol: cs(on).color, offBg: cs(off).backgroundImage, pill: cs(q('.mpill')).backgroundColor,
       ta: cs(q('.mpill')).touchAction, gd: q('.mpill').__gd === true, icons: btn.map((e) => e.querySelector('ha-icon').getAttribute('icon')),
       n: cols.length, colW: Math.round(cols[0].getBoundingClientRect().width), first: first.textContent, firstW: cs(first).fontWeight, t1: cols[1] && cols[1].querySelector('.ht').textContent, zero: ps.filter((x) => /^0\s*%$/.test(x)).length,
-      graph: !!q('.gph') || !!q('.hcard svg:not(.wch)'), vals: qa('.hc .hv').slice(0, 3).map((e) => e.textContent), scroll: cs(q('.hsc')).overflowX };
+      graph: !!q('.gph') || !!q('.hcard svg:not(.wch):not(.wxi)'), vals: qa('.hc .hv').slice(0, 3).map((e) => e.textContent), scroll: cs(q('.hsc')).overflowX };
     q('.mb[data-k="rain"]').click(); await w(120);
     const r1 = { sub: q('.hsub').textContent, n: qa('.hc').length, bars: qa('.hc .rbx').length, mm: qa('.hc .hmm').slice(0, 2).map((e) => e.textContent), on: q('.mb.on').dataset.k };
     q('.mb[data-k="wind"]').click(); await w(120);

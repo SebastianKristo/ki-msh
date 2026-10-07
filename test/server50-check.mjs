@@ -4,7 +4,7 @@
 //       haptic medium), trykk → more-info, manglende entitet → «–», mangler hele integrasjonen → fanen skjult (qbit_force viser),
 //       overrides, kortvelger-ring (100 % = 20 MB/s), Tilpass/GUI-editoren har feltene.
 //   F · fanelinjen som karusell: overflyt → scroll (flex 1 0 auto, min 84, padding 0 16, snap x proximity, skjult scrollbar,
-//       overscroll contain, touch-action pan-x), fade bare på siden med skjult innhold (scroll + resize), trykk sentrerer
+//       overscroll contain, touch-action pan-x pan-y – 56 G), fade bare på siden med skjult innhold (scroll + resize), trykk sentrerer
 //       (smooth), aktiv sentrert ved åpning, ingen lekkasje av pointerdown/touchstart/touchmove til popupen, ingen sideveis
 //       side-scroll, hold + dra omorganiserer (auto-scroll mot kanten); kort-modus er også karusell.
 //   G · Internett-kortet (SpeedTest): Ned/Opp Mbit/s, «Ping 6 ms · målt 14:10» / «i går 22:10» / «3. okt», «Kjør test» →
@@ -223,7 +223,7 @@ const car = () => p.evaluate(() => {
 });
 X = await car();
 ok('F karusell: 5 faner flyter over (390 px) → scroll, flex 1 0 auto, min 84, padding 0 16, snap x proximity / center', X.sw > X.cw + 10 && X.ox === 'auto' && /^x( proximity)?$/.test(X.snap) && X.tb.every((t) => t.fl === '1 0' && t.mw === '84px' && t.pad === '16px' && t.sa.includes('center') && t.w >= 84), X);
-ok('F karusell: skjult scrollbar, overscroll-behavior-x contain, touch-action pan-x, spor #3a3a3a, tannhjul fast til høyre, ingen sideveis side-scroll', X.sbw === 'none' && X.osb === 'contain' && X.ta === 'pan-x' && X.track === 'rgb(58, 58, 58)' && X.gear && X.page, X);
+ok('F karusell: skjult scrollbar, overscroll-behavior-x contain, touch-action pan-x pan-y (56 G), spor #3a3a3a, tannhjul fast til høyre, ingen sideveis side-scroll', X.sbw === 'none' && X.osb === 'contain' && X.ta === 'pan-x pan-y' && X.track === 'rgb(58, 58, 58)' && X.gear && X.page, X);
 ok('F fade: bare høyre kant ved start (venstre har ingen skjult innhold)', X.sl === 0 && X.fade === 'r' && /transparent 100%/.test(X.mask) && !/transparent 0/.test(X.mask), { fade: X.fade, mask: X.mask });
 await p.evaluate(() => { const sc = __R('.trow .tabs'); sc.style.scrollSnapType = 'none'; sc.scrollLeft = Math.round((sc.scrollWidth - sc.clientWidth) / 2); });
 await wait(p, 120);
@@ -290,7 +290,7 @@ await p.close();
 p = await page({ velger: 'kort', start_tab: 'qbit' }, { fix: true });
 X = await p.evaluate(() => { const sc = __R('.hcards'), cs = getComputedStyle(sc), a = __R('.hc.on'), r = sc.getBoundingClientRect(), ar = a.getBoundingClientRect();
   return { sw: sc.scrollWidth, cw: sc.clientWidth, ox: cs.overflowX, ta: cs.touchAction, snap: cs.scrollSnapType, fade: sc.dataset.fade, act: a.dataset.v, edge: Math.round(sc.scrollLeft + sc.clientWidth - sc.scrollWidth), tr: !!sc.__tabReorder }; });
-ok('F kortvelger (velger: kort): karusell når kortene ikke får plass, aktiv inn i bildet, fade, omorganisering', X.sw > X.cw && X.ox === 'auto' && X.ta === 'pan-x' && /^x( proximity)?$/.test(X.snap) && X.act === 'qbit' && X.edge === 0 && X.fade === 'l' && X.tr, X);
+ok('F kortvelger (velger: kort): karusell når kortene ikke får plass, aktiv inn i bildet, fade, omorganisering', X.sw > X.cw && X.ox === 'auto' && X.ta === 'pan-x pan-y' && /^x( proximity)?$/.test(X.snap) && X.act === 'qbit' && X.edge === 0 && X.fade === 'l' && X.tr, X);
 await p.close();
 
 /* ================================================================ G · Internett-kortet (SpeedTest) + K · underfaner */

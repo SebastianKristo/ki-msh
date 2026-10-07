@@ -167,7 +167,7 @@ P0 = await pt('.sk[data-seek="-1"]');
 await touch(P0.x, P0.y, 700);
 const lm = await p.evaluate(() => {
   const m = window.__menu(), box = m.host.shadowRoot.querySelector('.m'), bt = m.host.shadowRoot.querySelector('button');
-  const hero = window.__all().find((e) => e.classList && e.classList.contains('pc') && e.getBoundingClientRect().height > 0);
+  const hero = window.__all().find((e) => e.classList && e.classList.contains('pc') && e.dataset.key === 'media_player.spotify_jem' && e.getBoundingClientRect().height > 0); // 56 E: kortet med mørkt omslag (andre kort uten art er hvite i lys modus)
   const ti = hero && (hero.querySelector('.al-ti') || hero.querySelector('.ti') || hero);
   return { bg: getComputedStyle(box).backgroundColor, fg: getComputedStyle(bt).color, cr: +window.MSH.theme.contrast(getComputedStyle(bt).color, getComputedStyle(box).backgroundColor).toFixed(2),
     island: !!hero && hero.hasAttribute('data-ki-island'), heroText: ti && getComputedStyle(ti).color };
@@ -176,7 +176,7 @@ await wait(300);
 await touch(20, 140, 60);
 await p.evaluate(() => window.__theme(false));
 ok('lys · spole-menyen: --ki-surface-2 + mørk tekst ≥ 4,5:1', lm.bg === 'rgb(235, 235, 235)' && lm.cr >= 4.5, lm);
-ok('lys · «spiller nå» er mørk øy (data-ki-island) med lys tekst', lm.island && /^rgb\((2[0-5]\d|1[89]\d)/.test(lm.heroText || ''), lm);
+ok('lys · «spiller nå» med mørkt omslag er mørk øy (data-ki-island) med lys tekst (56 E)', lm.island && /^rgb\((2[0-5]\d|1[89]\d)/.test(lm.heroText || ''), lm);
 
 ok('ingen sidefeil', !errs.length, errs);
 await b.close();

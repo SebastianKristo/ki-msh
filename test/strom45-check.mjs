@@ -122,7 +122,7 @@ await tabClick('Priser'); await wait(500);
 const sc = await rectOf('[data-scrub]');
 await p.mouse.move(sc.x - 60, sc.y); await p.mouse.down(); await p.mouse.move(sc.x + 20, sc.y, { steps: 4 }); await p.mouse.up(); await wait(300);
 const SC = await p.evaluate(() => ({ selH: window.__card.ui.selH, ta: window.__card.shadowRoot.querySelector('[data-scrub]').style.touchAction, lab: window.__card.shadowRoot.querySelector('.gh .sl').textContent }));
-ok('scrub i prisgrafen velger time (touch-action none)', SC.selH != null && SC.ta === 'none' && /kl\./.test(SC.lab), SC);
+ok('scrub i prisgrafen velger time (touch-action pan-y + retningslås, Fiks 56 G)', SC.selH != null && SC.ta === 'pan-y' && /kl\./.test(SC.lab), SC);
 
 // ---- Tilpass strøm-arket
 await p.evaluate(() => window.__card.shadowRoot.querySelector('[data-act="tilpass"]').click()); await wait(700);

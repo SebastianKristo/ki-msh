@@ -139,7 +139,7 @@
       return `<section class="hero">
         <div class="av press" ${p ? `data-act="more" data-id="${esc(pid)}" data-ent="${esc(pid)}"` : 'data-act="customize"'} title="${esc(name)}">
           <div class="halo" style="box-shadow:0 0 0 2px ${M.alpha(zc, 0.55)},0 0 40px ${M.alpha(zc, 0.25)}"></div>
-          <div class="img" style="background:${pic ? `center/cover no-repeat url('${esc(pic)}'), ${bg}` : bg};opacity:${away ? 0.75 : 1}">${pic ? '' : esc(p ? (name.trim()[0] || '?').toUpperCase() : '?')}</div>
+          <div class="img" style="background:${bg};opacity:${away ? 0.75 : 1}">${pic ? `<img src="${esc(pic)}" alt="" decoding="async" draggable="false">` : esc(p ? (name.trim()[0] || '?').toUpperCase() : '?')}</div>
           <span class="zb" style="color:${M.theme.accentText(zc)}">${M.icon(zi, 18)}</span>
         </div>
         <div class="txt">
@@ -156,6 +156,8 @@
         .av{position:relative;width:132px;height:132px;flex:none}
         .halo{position:absolute;inset:-8px;border-radius:50%;transition:box-shadow .4s}
         .img{position:relative;width:132px;height:132px;border-radius:66px;display:grid;place-items:center;font-size:48px;font-weight:600;color:var(--ki-text, var(--white,#fafafa));overflow:hidden}
+        /* Fiks 56 F: avataren er et <img decoding="async"> (samme src som på Hjem – allerede lastet/dekodet), ikke et CSS-bakgrunnsbilde */
+        .img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
         .zb{position:absolute;right:0;bottom:4px;width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));box-shadow:0 0 0 3px var(--ki-popup, #282828)}
         .txt{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
         .nm{font-size:26px;font-weight:500;letter-spacing:-0.015em}

@@ -31,7 +31,7 @@ const mk = async (cfg) => p.evaluate(async (cfg) => {
   window.__h = window.__h || window.mockHass();
   const bc = document.createElement('bubble-card');
   bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#vaer' });
-  bc.innerHTML = '<div class="pop bubble-pop-up" style="overflow:hidden;display:flex;flex-direction:column"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container" style="overflow:auto;flex:1;min-height:0"></div></div>';
+  bc.innerHTML = '<div class="pop bubble-pop-up is-popup-opened" style="overflow:hidden;display:flex;flex-direction:column"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container" style="overflow:auto;flex:1;min-height:0"></div></div>';
   document.getElementById('dash').appendChild(bc);
   location.hash = '#vaer';
   const c = document.createElement('msh-vaer-card');
@@ -42,7 +42,7 @@ const mk = async (cfg) => p.evaluate(async (cfg) => {
   await w(700);
   return true;
 }, cfg);
-await mk({});
+await mk({ view: 'sheet' }); // Fiks 56 I: «Ark» = oppsettet disse sjekkene gjelder (Fullskjerm testes i vaer56-check)
 const A = await p.evaluate(() => {
   const c = window.__c, sr = c.shadowRoot, q = (s) => sr.querySelector(s), qa = (s) => [...sr.querySelectorAll(s)], pop = window.__pop;
   const layer = pop.querySelector(':scope > .msh-vaer-scene'), ctl = sr.querySelector('.ctl-slot > .msh-vaer-ctl'), cr = c.getBoundingClientRect();
@@ -82,7 +82,7 @@ const Wd = await p.evaluate(async () => {
   await w(150);
   const sc = sr.querySelector('.wsc'), r = sc.getBoundingClientRect(), o = (x) => ({ bubbles: true, composed: true, clientX: x, clientY: r.top + 20, pointerId: 8, pointerType: 'touch', isPrimary: true });
   const smooth = [...sr.querySelectorAll('.wch path.sm')].map((e) => / C/.test(e.getAttribute('d')));
-  sc.dispatchEvent(new PointerEvent('pointerdown', o(r.left + 56 * 1.5))); await w(100);
+  sc.dispatchEvent(new PointerEvent('pointerdown', o(r.left + 56 * 1.5 - 12))); sc.dispatchEvent(new PointerEvent('pointermove', o(r.left + 56 * 1.5))); await w(100); // 56 G: berøring – scrub etter retningslås (horisontalt > 8 px)
   const t = sr.querySelector('.wtip') && sr.querySelector('.wtip').textContent, mark = !!sr.querySelector('.wmk'), ta = getComputedStyle(sc).touchAction;
   sc.dispatchEvent(new PointerEvent('pointerup', o(r.left + 56 * 1.5))); await w(100);
   const after = !!sr.querySelector('.wtip');
@@ -90,7 +90,7 @@ const Wd = await p.evaluate(async () => {
   sr.querySelector('.mb[data-k="temp"]').click(); await w(120);
   return { t, mark, ta, after, smooth };
 });
-ok('26.24/27.1 vind: glatt linje + kast, scrub-boble «HH · x m/s · kast y», touch-action none, slipp → tilbake', /^\d\d · [\d,]+ m\/s · kast [\d,]+$/.test(Wd.t || '') && Wd.mark && Wd.ta === 'none' && !Wd.after && Wd.smooth.length === 2 && Wd.smooth.every(Boolean), Wd);
+ok('26.24/27.1 vind: glatt linje + kast, scrub-boble «HH · x m/s · kast y», touch-action pan-y (56 G), slipp → tilbake', /^\d\d · [\d,]+ m\/s · kast [\d,]+$/.test(Wd.t || '') && Wd.mark && Wd.ta === 'pan-y' && !Wd.after && Wd.smooth.length === 2 && Wd.smooth.every(Boolean), Wd);
 
 // Dag folder ut (én åpen), setning + timestripe hver 3. time (de som finnes i timeprognosen) + 3×2
 const D = await p.evaluate(async () => {
@@ -242,7 +242,7 @@ ok('26.24 Tilpass Hjem → Popups → Vær: segment Klassisk · Scene, samme ver
 // Strategi/popup-malen: styles for #vaer (scene) via M.POPUP_FORCE
 const F = await p.evaluate(() => {
   const M = window.MSH, base = M.popupTemplateA({ name: 'Vær', icon: 'mdi:weather-partly-cloudy', hash: '#vaer', card: { type: 'custom:msh-vaer-card', card_id: 'pop-vaer' } });
-  const out = M.POPUP_FORCE['#vaer'](base), again = M.POPUP_FORCE['#vaer'](out);
+  const out = M.POPUP_FORCE['#vaer']({ ...base, cards: [{ ...base.cards[0], view: 'sheet' }] }), again = M.POPUP_FORCE['#vaer'](out); // Ark = mal A (Fullskjerm: vaer56)
   return { has: /data-ki-vaer="scene"/.test(out.styles) && /bubble-pop-up-background\{background:none!important;display:none!important\}/.test(out.styles), once: (again.styles.match(/ki-vaer:start/g) || []).length === 1, keep: /--vertical-stack-card-gap/.test(out.styles), bg: out.bg_opacity, cards: out.cards.length };
 });
 ok('26.25 popup-styles for #vaer (transparent bakgrunn/header, glass-lukk) settes av strategien, idempotent, ett kort', F.has && F.once && F.keep && F.bg === '98' && F.cards === 1, F);

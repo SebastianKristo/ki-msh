@@ -161,15 +161,13 @@
     if (k === 'wind') for (let i = 0; i < 7; i++) P.push(['w', `left:0;top:${20 + i * 24}px;width:${90 + (i % 3) * 40}px;height:2px;border-radius:1px;background:linear-gradient(90deg, transparent, rgba(220,230,245,0.45), transparent);animation:wx-wind ${(1.4 + (i % 4) * 0.3).toFixed(1)}s linear ${(-i * 0.4).toFixed(1)}s infinite`]);
     return P.map(([t, s]) => `<span data-fx="${t}" style="position:absolute;${s}"></span>`).join('');
   };
-  // Horisontal sveip (karusell/timeliste): la nettleseren scrolle vannrett, men stopp Bubble Cards swipe-to-close.
-  const guardSwipe = (el, ta = 'pan-x') => {
-    if (!el || el.__mshSwipe) return;
-    el.__mshSwipe = true;
-    el.__mshTA = ta; // bevares av MSH.morph
-    el.style.touchAction = el.__mshTA;
-    const stop = (e) => e.stopPropagation();
-    ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => el.addEventListener(t, stop, { passive: true }));
-  };
+  /* Fiks 56 G · horisontale scroll-lister (timestripen, døgnets 3-timersrad, karusellen): vertikal scroll skal virke uansett
+   * hvor sveipet starter. touch-action: pan-x pan-y (nettleseren eier begge retninger), overflow-x: auto, overscroll-behavior-x:
+   * contain, ingen preventDefault. Retningslås: første touchmove over 8 px bestemmer retningen – vertikal (|dy| > |dx|) slipper
+   * gesten helt (ingen stopPropagation, popupen scroller/lukkes som normalt); horisontal tar den (stopPropagation på resten av
+   * touchmove, så Bubble Cards swipe-to-close ikke ser den). Erstatter guardSwipe (pan-x + stopPropagation på alt). */
+  const hScroll = M.hScroll; // felles (00-base.js) – mønsteret herfra er generalisert til MSH.hScroll / MSH.dirLock
+  M.vaerHScroll = hScroll;
 
   /* ------------------------------------------------------------ felles prognose-mixin */
   const Forecast = (Base) => class extends Base {
@@ -285,7 +283,7 @@
     afterRender() {
       const car = this.shadowRoot.querySelector('.car');
       if (!car) return;
-      guardSwipe(car, 'pan-x');
+      hScroll(car); // 56 G: pan-x pan-y + retningslås (vertikalt sveip på karusellen scroller popupen)
       this._car = M.snapCarousel(car, {
         dots: () => this.shadowRoot.querySelector('.hero > .msh-dots'),
         index: () => 0,
@@ -297,7 +295,7 @@
     get styles() {
       return `${KEYFRAMES}
         .hero{display:flex;flex-direction:column;align-items:center;gap:10px}
-        .car{width:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding:0;overflow-anchor:none;border-radius:28px;overscroll-behavior-x:contain;touch-action:pan-x}
+        .car{width:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding:0;overflow-anchor:none;border-radius:28px;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
         .sl{flex:none;width:100%;scroll-snap-align:start;scroll-snap-stop:always;min-height:190px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:flex;flex-direction:column}
         .now{position:relative;padding:22px 24px;justify-content:space-between;overflow:hidden}
         .fx{position:absolute;inset:0;overflow:hidden;border-radius:28px;pointer-events:none}
@@ -634,6 +632,196 @@
     reorder: (c, ids) => ({ order: nz([...new Set(ids)]) }),
   };
   M.vaerPlaceOps = placeOps;
+  /* ------------------------------------------------------------ Fiks 56 H · «Føles som» og «Sikt» – kilder i prioritert rekkefølge */
+  // Enheter → °C og km/t (utregning), tilbake til værentitetens temperaturenhet for visning
+  const toC = (v, u) => (/F/i.test(String(u || '')) ? ((v - 32) * 5) / 9 : v);
+  const fromC = (v, u) => (/F/i.test(String(u || '')) ? (v * 9) / 5 + 32 : v);
+  const toKmh = (v, u) => { const s = String(u || 'km/h').toLowerCase(); return /m\/s/.test(s) ? v * 3.6 : /mph/.test(s) ? v * 1.609344 : /kn|kt/.test(s) ? v * 1.852 : /ft\/s/.test(s) ? v * 1.09728 : v; };
+  // Utregnet «føles som» (°C inn/ut): vindavkjøling (Environment Canada/NWS) under 10 °C og vind over 4,8 km/t; heat index
+  // (Rothfusz, NWS) over 27 °C; ellers selve temperaturen. → { v, kind: 'chill' | 'heat' | 'temp' }
+  M.vaerFeelsCalc = function (tC, rh, vKmh) {
+    if (tC == null || isNaN(tC)) return null;
+    if (tC < 10 && vKmh != null && vKmh > 4.8) { const p = Math.pow(vKmh, 0.16); return { v: 13.12 + 0.6215 * tC - 11.37 * p + 0.3965 * tC * p, kind: 'chill' }; }
+    if (tC > 27 && rh != null && !isNaN(rh)) {
+      const T = (tC * 9) / 5 + 32, R = rh;
+      const hi = -42.379 + 2.04901523 * T + 10.14333127 * R - 0.22475541 * T * R - 0.00683783 * T * T - 0.05481717 * R * R + 0.00122874 * T * T * R + 0.00085282 * T * R * R - 0.00000199 * T * T * R * R;
+      return { v: ((hi - 32) * 5) / 9, kind: 'heat' };
+    }
+    return { v: tC, kind: 'temp' };
+  };
+  const nameHit = (hh, id, rx) => rx.test(id) || rx.test(String((hh.states[id].attributes || {}).friendly_name || '').toLowerCase());
+  // Autofunnet sensor: helst samme område/integrasjon som værentiteten
+  const rankNear = (hh, wx, ids) => {
+    if (!wx || ids.length < 2) return ids;
+    const we = M.regEntry(hh, wx) || {}, wa = M.areaOf ? M.areaOf(hh, wx) : null;
+    const sc = (id) => { const e = M.regEntry(hh, id) || {}; return (we.platform && e.platform === we.platform ? 2 : 0) + (wa && M.areaOf && M.areaOf(hh, id) === wa ? 1 : 0); };
+    return [...ids].sort((a, b) => sc(b) - sc(a));
+  };
+  const FEELS_RX = /feels|apparent|f(ø|o)les|fuehlt|ressenti|windchill|wind_chill|heat_?index/i, VIS_RX = /visib|(^|[._\s])sikt($|[._\s])/i; // «sikt» som eget ord (ikke «oversikt»)
+  M.vaerFeelsAuto = (hh, wx) => (hh ? rankNear(hh, wx, M.all(hh, 'sensor', (s, id) => (s.attributes || {}).device_class === 'temperature' && nameHit(hh, id, FEELS_RX)))[0] || null : null);
+  M.vaerVisAuto = (hh, wx) => (hh ? rankNear(hh, wx, M.all(hh, 'sensor', (s, id) => nameHit(hh, id, VIS_RX) && !/_(min|max)$/.test(id) && M.isNum(s.state)))[0] || null : null);
+  // → { v (i værentitetens temperaturenhet), src: 'cfg'|'attr'|'auto'|'calc', ent, kind } | null
+  M.vaerFeels = function (hh, c, wx) {
+    c = c || {};
+    const st = wx && hh && hh.states[wx], A = (st && st.attributes) || {}, tu = A.temperature_unit || '°C';
+    const fromEnt = (id, src) => { const s = id && hh && hh.states[id]; if (!s || !M.isNum(s.state)) return null; const u = s.attributes.unit_of_measurement; return { v: u && !/F/i.test(u) === !/F/i.test(tu) ? Number(s.state) : fromC(toC(Number(s.state), u), tu), src, ent: id }; };
+    const r1 = fromEnt(c.feels_like_entity, 'cfg'); if (r1) return r1;
+    if (num(A.apparent_temperature) != null) return { v: num(A.apparent_temperature), src: 'attr', ent: wx };
+    const r3 = fromEnt(M.vaerFeelsAuto(hh, wx), 'auto'); if (r3) return r3;
+    if (c.compute_feels === false || !st) return null;
+    const t = num(A.temperature); if (t == null) return null;
+    const ws = num(A.wind_speed), r = M.vaerFeelsCalc(toC(t, tu), num(A.humidity), ws != null ? toKmh(ws, A.wind_speed_unit || 'km/h') : null);
+    return r ? { v: fromC(r.v, tu), src: 'calc', ent: wx, kind: r.kind } : null;
+  };
+  const kmOf = (v, u) => { const s = String(u || 'km').toLowerCase(); return s === 'm' ? v / 1000 : /mi/.test(s) ? v * 1.609344 : /ft/.test(s) ? v * 0.0003048 : v; };
+  // → { km, src, ent } | null
+  M.vaerVis = function (hh, c, wx) {
+    c = c || {};
+    const st = wx && hh && hh.states[wx], A = (st && st.attributes) || {};
+    const fromEnt = (id, src) => { const s = id && hh && hh.states[id]; if (!s || !M.isNum(s.state)) return null; const u = s.attributes.unit_of_measurement || (Number(s.state) > 100 ? 'm' : 'km'); return { km: kmOf(Number(s.state), u), src, ent: id }; };
+    const r1 = fromEnt(c.visibility_entity, 'cfg'); if (r1) return r1;
+    if (num(A.visibility) != null) return { km: kmOf(num(A.visibility), A.visibility_unit || 'km'), src: 'attr', ent: wx };
+    return fromEnt(M.vaerVisAuto(hh, wx), 'auto');
+  };
+  const visTxt = (km) => (km > 20 ? 'Svært god' : km >= 10 ? 'God' : km >= 4 ? 'Moderat' : km >= 1 ? 'Dårlig' : 'Tåke');
+  const visNum = (km) => (km < 10 ? M.nf(Math.round(km * 10) / 10, 1) : String(Math.round(km)));
+
+  /* ------------------------------------------------------------ Fiks 56 K · månen (SunCalc-algoritmen, V. Agafonkin, BSD) */
+  // Belysning (andel lys) og måneoppgang beregnes lokalt når det ikke finnes egne sensorer. Breddegrad/lengdegrad fra HA.
+  const RAD = Math.PI / 180, DAYMS = 864e5, OBL = RAD * 23.4397;
+  const toDays = (d) => d.valueOf() / DAYMS - 0.5 + 2440588 - 2451545;
+  const raOf = (l, b) => Math.atan2(Math.sin(l) * Math.cos(OBL) - Math.tan(b) * Math.sin(OBL), Math.cos(l));
+  const decOf = (l, b) => Math.asin(Math.sin(b) * Math.cos(OBL) + Math.cos(b) * Math.sin(OBL) * Math.sin(l));
+  const sunCo = (d) => { const Ma = RAD * (357.5291 + 0.98560028 * d), L = Ma + RAD * (1.9148 * Math.sin(Ma) + 0.02 * Math.sin(2 * Ma) + 0.0003 * Math.sin(3 * Ma)) + RAD * 102.9372 + Math.PI; return { dec: decOf(L, 0), ra: raOf(L, 0) }; };
+  const moonCo = (d) => { const L = RAD * (218.316 + 13.176396 * d), Ma = RAD * (134.963 + 13.064993 * d), F = RAD * (93.272 + 13.22935 * d), l = L + RAD * 6.289 * Math.sin(Ma), b = RAD * 5.128 * Math.sin(F); return { ra: raOf(l, b), dec: decOf(l, b), dist: 385001 - 20905 * Math.cos(Ma) }; };
+  const moonAlt = (date, lat, lng) => {
+    const d = toDays(date), c = moonCo(d), H = RAD * (280.16 + 360.9856235 * d) - RAD * -lng - c.ra, phi = RAD * lat;
+    const h = Math.asin(Math.sin(phi) * Math.sin(c.dec) + Math.cos(phi) * Math.cos(c.dec) * Math.cos(H));
+    return h + (RAD * 0.017) / Math.tan(h + (RAD * 10.26) / (h + RAD * 5.1));
+  };
+  M.vaerMoonIllum = function (date) {
+    const d = toDays(date || new Date()), s = sunCo(d), m = moonCo(d), sd = 149598000;
+    const phi = Math.acos(Math.sin(s.dec) * Math.sin(m.dec) + Math.cos(s.dec) * Math.cos(m.dec) * Math.cos(s.ra - m.ra));
+    const inc = Math.atan2(sd * Math.sin(phi), m.dist - sd * Math.cos(phi));
+    const ang = Math.atan2(Math.cos(s.dec) * Math.sin(s.ra - m.ra), Math.sin(s.dec) * Math.cos(m.dec) - Math.cos(s.dec) * Math.sin(m.dec) * Math.cos(s.ra - m.ra));
+    return { fraction: (1 + Math.cos(inc)) / 2, phase: 0.5 + (0.5 * inc * (ang < 0 ? -1 : 1)) / Math.PI };
+  };
+  // Måneoppgang/-nedgang for døgnet som inneholder date (lokal tid) → { rise, set } (ms) – mangler hvis den ikke står opp
+  M.vaerMoonTimes = function (date, lat, lng) {
+    const t = new Date(date); t.setHours(0, 0, 0, 0);
+    const at = (h) => new Date(t.getTime() + h * 3600000), hc = 0.133 * RAD;
+    let h0 = moonAlt(t, lat, lng) - hc, rise = null, set = null;
+    for (let i = 1; i <= 24; i += 2) {
+      const h1 = moonAlt(at(i), lat, lng) - hc, h2 = moonAlt(at(i + 1), lat, lng) - hc;
+      const a = (h0 + h2) / 2 - h1, b = (h2 - h0) / 2, xe = -b / (2 * a), ye = (a * xe + b) * xe + h1, D = b * b - 4 * a * h1;
+      let roots = 0, x1 = 0, x2 = 0;
+      if (D >= 0) { const dx = Math.sqrt(D) / (Math.abs(a) * 2); x1 = xe - dx; x2 = xe + dx; if (Math.abs(x1) <= 1) roots++; if (Math.abs(x2) <= 1) roots++; if (x1 < -1) x1 = x2; }
+      if (roots === 1) { if (h0 < 0) rise = i + x1; else set = i + x1; } else if (roots === 2) { rise = i + (ye < 0 ? x2 : x1); set = i + (ye < 0 ? x1 : x2); }
+      if (rise != null && set != null) break;
+      h0 = h2;
+    }
+    return { rise: rise != null ? at(rise).getTime() : null, set: set != null ? at(set).getTime() : null };
+  };
+  // Neste måneoppgang (i dag hvis den ikke har vært, ellers i morgen/overmorgen)
+  const nextMoonrise = (lat, lng, now) => {
+    for (let k = 0; k < 3; k++) { const r = M.vaerMoonTimes(now + k * DAYMS, lat, lng).rise; if (r != null && r >= now - 60000) return r; }
+    return null;
+  };
+  // HAs posisjon (config) → værentitetens latitude/longitude → zone.home
+  const latLon = (hh, A) => {
+    const z = hh && hh.states && hh.states['zone.home'] && hh.states['zone.home'].attributes;
+    for (const o of [hh && hh.config, A, z]) if (o && M.isNum(o.latitude) && M.isNum(o.longitude)) return [Number(o.latitude), Number(o.longitude)];
+    return null;
+  };
+
+  /* ------------------------------------------------------------ Fiks 56 K · solkurven (Soloppgang-flisen) */
+  // Dagens soltider ut fra sun.sun: { rise, set, next, post } – post = etter solnedgang (tittel «Solnedgang», ↑ neste soloppgang)
+  const sunDay = (sun, now) => {
+    if (!sun) return null;
+    const { r, s } = sun, t0 = new Date(now); t0.setHours(0, 0, 0, 0);
+    const day0 = t0.getTime(), day1 = day0 + DAYMS;
+    if (s < r) return { rise: r - DAYMS, set: s, next: r, post: false }; // sola er oppe
+    if (r < day1) return { rise: r, set: s, next: r, post: false }; // før soloppgang i dag
+    return { rise: r - DAYMS, set: s - DAYMS, next: r, post: true }; // etter solnedgang
+  };
+  // Kurve over døgnet (x 0–140 = 00–24) i en 44 px høy flate: dag over horisonten (y 30), natt stiplet under
+  const SUN_W = 140, SUN_H = 44, HZ = 30;
+  const sunCurve = (sd, now) => {
+    const t0 = new Date(now); t0.setHours(0, 0, 0, 0);
+    const xOf = (t) => ((t - t0.getTime()) / DAYMS) * SUN_W;
+    const len = Math.max(0, Math.min(DAYMS, sd.set - sd.rise)), noon = sd.rise + len / 2;
+    const c0 = Math.cos((Math.PI * len) / DAYMS);
+    const yAt = (t) => { const f = Math.cos((2 * Math.PI * (t - noon)) / DAYMS); return f >= c0 ? HZ - ((f - c0) / Math.max(1e-6, 1 - c0)) * (HZ - 4) : HZ + ((c0 - f) / Math.max(1e-6, 1 + c0)) * (SUN_H - 2 - HZ); };
+    const P = [];
+    for (let i = 0; i <= 48; i++) { const t = t0.getTime() + (i / 48) * DAYMS; P.push([xOf(t), yAt(t)]); }
+    const rx = xOf(sd.rise), sx = xOf(sd.set);
+    const day = P.filter((p) => p[0] > rx && p[0] < sx);
+    const dayPts = [[rx, HZ], ...day, [sx, HZ]];
+    const pre = [...P.filter((p) => p[0] < rx), [rx, HZ]], post = [[sx, HZ], ...P.filter((p) => p[0] > sx)];
+    return { dayD: smooth(dayPts), fillD: `${smooth(dayPts)} L${sx.toFixed(1)},${HZ} L${rx.toFixed(1)},${HZ} Z`, preD: pre.length > 1 ? smooth(pre) : '', postD: post.length > 1 ? smooth(post) : '', dot: [xOf(now), yAt(now)], up: yAt(now) <= HZ };
+  };
+  const durTxt = (ms) => { const m = Math.round(ms / 60000); return `${Math.floor(m / 60)} t ${m % 60} min`; };
+
+  /* ------------------------------------------------------------ Fiks 56 L · fylte værikoner (som Material Symbols FILL 1 i Vær v5) */
+  // HAs MDI har bare kontur-varianter av weather-* (MDI 7). Ikonene settes derfor sammen av fylte MDI-former (cloud,
+  // white-balance-sunny, moon-waning-crescent, lightning-bolt) + dråper/flak – samme tegning i timestripen og døgnlisten.
+  const P_CLOUD = 'M6.5 20Q4.22 20 2.61 18.43 1 16.85 1 14.58 1 12.63 2.17 11.1 3.35 9.57 5.25 9.15 5.88 6.85 7.75 5.43 9.63 4 12 4 14.93 4 16.96 6.04 19 8.07 19 11 20.73 11.2 21.86 12.5 23 13.78 23 15.5 23 17.38 21.69 18.69 20.38 20 18.5 20Z';
+  const P_SUN = 'M3.55 19.09L4.96 20.5L6.76 18.71L5.34 17.29M12 6C8.69 6 6 8.69 6 12S8.69 18 12 18 18 15.31 18 12C18 8.68 15.31 6 12 6M20 13H23V11H20M17.24 18.71L19.04 20.5L20.45 19.09L18.66 17.29M20.45 5L19.04 3.6L17.24 5.39L18.66 6.81M13 1H11V4H13M6.76 5.39L4.96 3.6L3.55 5L5.34 6.81L6.76 5.39M1 13H4V11H1M13 20H11V23H13';
+  const P_MOON = 'M2 12A10 10 0 0 0 15 21.54A10 10 0 0 1 15 2.46A10 10 0 0 0 2 12Z';
+  const P_BOLT = 'M11 15H6L13 1V9H18L11 23V15Z';
+  const P_WIND = 'M4,10A1,1 0 0,1 3,9A1,1 0 0,1 4,8H12A2,2 0 0,0 14,6A2,2 0 0,0 12,4C11.45,4 10.95,4.22 10.59,4.59C10.2,5 9.56,5 9.17,4.59C8.78,4.2 8.78,3.56 9.17,3.17C9.9,2.45 10.9,2 12,2A4,4 0 0,1 16,6A4,4 0 0,1 12,10H4M19,12A1,1 0 0,0 20,11A1,1 0 0,0 19,10C18.72,10 18.47,10.11 18.29,10.29C17.9,10.68 17.27,10.68 16.88,10.29C16.5,9.9 16.5,9.27 16.88,8.88C17.42,8.34 18.17,8 19,8A3,3 0 0,1 22,11A3,3 0 0,1 19,14H5A1,1 0 0,1 4,13A1,1 0 0,1 5,12H19M18,18H4A1,1 0 0,1 3,17A1,1 0 0,1 4,16H18A3,3 0 0,1 21,19A3,3 0 0,1 18,22C17.17,22 16.42,21.66 15.88,21.12C15.5,20.73 15.5,20.1 15.88,19.71C16.27,19.32 16.9,19.32 17.29,19.71C17.47,19.89 17.72,20 18,20A1,1 0 0,0 19,19A1,1 0 0,0 18,18Z';
+  const P_ALERT = 'M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z';
+  const cl = (tx, ty, k) => `<path d="${P_CLOUD}" transform="translate(${tx} ${ty}) scale(${k})"/>`;
+  const drops = (xs, y0, y1) => `<path d="${xs.map((x) => `M${x} ${y0}L${(x - (y1 - y0) * 0.3).toFixed(2)} ${y1}`).join('')}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>`;
+  const dots = (P, r) => P.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+  const WX_SVG = {
+    sunny: (y) => `<path d="${P_SUN}" fill="${y}"/>`,
+    'clear-night': () => `<path d="${P_MOON}" transform="translate(3 0)"/>`,
+    cloudy: () => `<path d="${P_CLOUD}" transform="translate(0 -1)"/>`,
+    fog: () => `${cl(1.5, -2.6, 0.875)}<rect x="3" y="17" width="18" height="2" rx="1"/><rect x="5" y="20.6" width="14" height="2" rx="1"/>`,
+    rainy: () => `${cl(1.5, -2.6, 0.875)}${drops([8.6, 12.6, 16.6], 17.6, 21.6)}`,
+    pouring: () => `${cl(1.5, -2.8, 0.875)}${drops([6.8, 10.4, 14, 17.6], 17.4, 22.6)}`,
+    snowy: () => `${cl(1.5, -2.6, 0.875)}${dots([[7.6, 19.4], [12, 21.6], [16.4, 19.4]], 1.45)}`,
+    'snowy-rainy': () => `${cl(1.5, -2.6, 0.875)}${drops([8.6, 15.6], 17.6, 21.6)}${dots([[12.2, 20.8]], 1.45)}`,
+    hail: () => `${cl(1.5, -2.6, 0.875)}${dots([[7.4, 19.6], [12, 21.8], [16.6, 19.6], [9.7, 22.6], [14.3, 22.6]], 1.25)}`,
+    lightning: () => `${cl(1.5, -3.2, 0.82)}<path d="${P_BOLT}" transform="translate(6.6 9.4) scale(.6)"/>`,
+    'lightning-rainy': () => `${cl(1.5, -3.2, 0.82)}<path d="${P_BOLT}" transform="translate(5.2 9.6) scale(.58)"/>${drops([15.4, 19], 15.4, 20.2)}`,
+    partlycloudy: (y) => `<path d="${P_SUN}" fill="${y}" transform="translate(0 0) scale(.62)"/>${cl(5.4, 5.2, 0.8)}`,
+    'partlycloudy-night': () => `<path d="${P_MOON}" transform="translate(1.6 .4) scale(.62)" opacity=".9"/>${cl(5.4, 5.2, 0.8)}`,
+    windy: () => `<path d="${P_WIND}"/>`,
+    'windy-variant': () => `${cl(4.6, -1.8, 0.62)}<path d="${P_WIND}" transform="translate(0 4.6) scale(.82)"/>`,
+    exceptional: () => `<path d="${P_ALERT}"/>`,
+  };
+  // Fylt værikon: sol gul (rgb(242 210 111)), resten hvite (#e6ebf1, ic() i Vær v5)
+  const wxSvg = (key, size, col) => `<svg class="wxi" data-wx="${key}" viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true" style="display:block;flex:none;width:${size}px;height:${size}px;color:${col || (key === 'sunny' ? YEL : ICO)}">${(WX_SVG[key] || WX_SVG.cloudy)(YEL)}</svg>`;
+  M.vaerWxSvg = wxSvg;
+
+  /* ------------------------------------------------------------ Fiks 56 G/L · kortflaten og tekst ut fra luminans */
+  const rgbOf = (s) => { const m = /rgba?\(([^)]+)\)/.exec(String(s)); if (m) { const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; } const h = /^#([0-9a-f]{6})$/i.exec(String(s).trim()); return h ? [parseInt(h[1].slice(0, 2), 16), parseInt(h[1].slice(2, 4), 16), parseInt(h[1].slice(4, 6), 16), 1] : null; };
+  const lin = (u) => { u /= 255; return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4); };
+  const relLum = (p) => 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2]);
+  const contrast = (a, b) => { const x = relLum(a), y = relLum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const hexOf = (p) => '#' + p.slice(0, 3).map((x) => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, '0')).join('');
+  // Kortfargen (rgba) lagt over den midterste værbakgrunnsfargen (C.bg[1]) → dekkende farge (Android uten blur, 56 L)
+  const cardOver = (card, bg) => { const c = rgbOf(card), b = rgbOf(bg); if (!c || !b) return null; const a = c[3]; return [0, 1, 2].map((i) => c[i] * a + b[i] * (1 - a)); };
+  M.vaerCardOver = (k) => { const s = SC[k] || SC.cloudy; const p = cardOver(s[3], s[2][1]); return p ? hexOf(p) : null; };
+  // Tekstfarger på værflaten (56 G, samme luminansregel som 56 E): mørk flate (L ≤ 0,179 – der hvit og svart gir lik kontrast)
+  // → lys tekst (#fff / rgba(255,255,255,.7)); lys flate → mørk tekst. Nedbørsprosenten (blå) løftes mot hvitt til ≥ 4,5:1.
+  const BLUE_P = [115, 185, 242];
+  const surfInk = (surf) => {
+    const dark = relLum(surf) <= 0.179;
+    let b = BLUE_P;
+    if (dark) { for (let k = 0; k <= 20 && contrast(b, surf) < 4.5; k++) b = BLUE_P.map((x) => x + (255 - x) * (k / 20)); }
+    else { for (let k = 0; k <= 20 && contrast(b, surf) < 4.5; k++) b = BLUE_P.map((x) => x * (1 - k / 25)); }
+    // sekundærtekst: rgba(255,255,255,.7) (mørk) / rgba(0,0,0,.66) (lys), alfa økes til ≥ 3:1 mot flaten (sol-/delvis skyet-kortene er lysest)
+    let a2 = dark ? 0.7 : 0.66;
+    const t2c = (a) => (dark ? [0, 1, 2].map((i) => 255 * a + surf[i] * (1 - a)) : [0, 1, 2].map((i) => surf[i] * (1 - a)));
+    while (a2 < 0.92 && contrast(t2c(a2), surf) < 3) a2 = Math.round((a2 + 0.02) * 100) / 100;
+    return { lum: dark ? 'dark' : 'light', t1: dark ? '#ffffff' : '#141414', t2: dark ? `rgba(255,255,255,${a2})` : `rgba(0,0,0,${a2})`, blue: `rgb(${b.map((x) => Math.round(x)).join(' ')})` }; // ki-hex-ok: værflate (mørk øy)
+  };
+  M.vaerSurfInk = (k) => { const s = SC[k] || SC.cloudy; return surfInk(cardOver(s[3], s[2][1]) || [56, 64, 77]); };
+  M.vaerContrast = (a, b) => { const x = rgbOf(a), y = rgbOf(b); return x && y ? contrast(x, y) : null; };
+
   const STIL = [['klassisk', 'Klassisk'], ['scene', 'Scene']];
   const HIDE = [['alerts', 'Farevarsel', 'warning'], ['hours', 'Neste timer', 'schedule'], ['days', 'Døgnvarsel', 'mdi:view-week'], ['tiles', 'Fliser', 'grid_view']];
   // 28.1 · config: style ('scene' | 'klassisk') · places · sections { alerts, hours, days, tiles: true/false } · tile_order.
@@ -642,6 +830,12 @@
   const SW = HIDE.map((x) => x[0]);
   const secMap = (c) => (c && c.sections && typeof c.sections === 'object' && !Array.isArray(c.sections) ? c.sections : {});
   const stilOf = (c) => { const v = c ? (c.style !== undefined ? c.style : c.stil) : null; return v === 'klassisk' ? 'klassisk' : 'scene'; }; // standard scene (26.24)
+  // Fiks 56 I · view: 'fullscreen' (standard) | 'sheet' (Ark = oppsettet før 56). hide_navbar (standard av) gjelder Fullskjerm;
+  // Ark skjuler navbaren som før (Fiks 28.4 / 55 A1).
+  const viewOf = (c) => (c && (c.view === 'sheet' || c.view === 'ark') ? 'sheet' : 'fullscreen');
+  const hideNavOf = (c) => viewOf(c) === 'sheet' || !!(c && c.hide_navbar === true);
+  M.vaerViewOf = viewOf;
+  M.vaerHideNavOf = hideNavOf;
   const hiddenOf = (c) => {
     const out = new Set([...(Array.isArray(c.hidden_sections) ? c.hidden_sections : []), ...(Array.isArray(c.hide) ? c.hide : [])]), S = secMap(c);
     Object.keys(S).forEach((k) => { if (S[k] === false) out.add(k); }); // true = på (bryteren fjerner samtidig nøkkelen fra hidden_sections)
@@ -768,6 +962,17 @@
         { type: 'order', name: 'tile_order', hiddenName: 'hidden_tiles', label: 'Fliser (rekkefølge – eller hold inne en flis og dra)', options: [...TILES.map((t) => [t[0], t[1]]), ['moon', 'Månefase (Scene)'], ['feels', 'Føles som (Scene)'], ['vis', 'Sikt (Scene)']] },
         { type: 'button', label: 'Tilbakestill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); M.haptic('medium'); } } },
         { type: 'overrides', label: 'Bytt entiteter', fields: FIELDS },
+        // 56 I · Visning (samme nøkler som Tilpass Hjem → Popups → Vær)
+        { type: 'section', label: 'Visning', icon: 'mdi:fullscreen', id: 'display', fields: [
+          { type: 'select', name: 'view', label: 'Visning', default: 'fullscreen', options: [['fullscreen', 'Fullskjerm'], ['sheet', 'Ark']], help: 'Fullskjerm = værbakgrunnen dekker hele dashbordflaten · Ark = popup med margin og runde hjørner' },
+          { type: 'boolean', name: 'hide_navbar', label: 'Skjul navbar i fullskjerm', default: false, help: 'Av = navbar og Now Playing vises over været (Ark skjuler alltid navbaren)' },
+        ] },
+        // 56 H · «Føles som» og «Sikt»: egne sensorer (ellers apparent_temperature/visibility → autofunnet sensor → utregning)
+        { type: 'section', label: 'Føles som og sikt', icon: 'mdi:thermometer', id: 'sensors', fields: [
+          { type: 'entity', name: 'feels_like_entity', label: 'Føles som-entitet', domain: 'sensor', auto: (hh, cc) => M.vaerFeelsAuto(hh, M.vaerAuto(hh, cc).weather) },
+          { type: 'entity', name: 'visibility_entity', label: 'Sikt-entitet', domain: 'sensor', auto: (hh, cc) => M.vaerVisAuto(hh, M.vaerAuto(hh, cc).weather) },
+          { type: 'boolean', name: 'compute_feels', label: 'Beregn føles som når sensor mangler', default: true, help: 'Vindavkjøling under 10 °C, heat index over 27 °C – merkes «beregnet»' },
+        ] },
         { type: 'order', name: 'section_order', hiddenName: 'hidden_sections', label: 'Rekkefølge seksjoner (Klassisk)', options: SECS.map((s) => [s[0], s[1]]) },
         { type: 'section', label: 'Toppkort', icon: 'mdi:view-carousel-outline', id: 'view', fields: [{ type: 'text', name: 'name', label: 'Stedsnavn', auto: (hh) => (hh.config && hh.config.location_name) || null, placeholder: 'Fra HA / værentiteten' }, ...VIEW_FIELDS] },
         { type: 'section', label: 'Prognose', icon: 'mdi:calendar-clock', id: 'forecast', fields: [
@@ -841,20 +1046,36 @@
     _pause(p) { const sc = this._layer && this._layer.shadowRoot.querySelector('.sc'); if (sc) sc.classList.toggle('paused', !!p); }
     disconnectedCallback() {
       super.disconnectedCallback();
+      if (this._rsFull) { window.removeEventListener('resize', this._rsFull); this._rsFull = null; }
       this._regUnsub();
       this._pause(true);
       this._tileMode(false);
       // Kortet er tatt ut (popup lukket / ombygd): ta lagene ut av popupen hvis ingen ny instans bruker dem
       setTimeout(() => { if (this.isConnected) return; [this._layer, this._ctl].forEach((el) => { if (el && el.parentNode) el.remove(); }); if (this._popRef && this._popRef.getAttribute('data-ki-vaer-owner') === this._uid) this._popRef.removeAttribute('data-ki-vaer'); }, 0);
     }
-    // Bunnluft: navbaren er skjult mens #vaer er åpen; stedsvelgeren og «Tilpass Vær» ligger sticky nederst i innholdet (28.1) → 16 px
+    // Bunnluft. Fiks 56 I: Fullskjerm med navbar (standard) → navbar + Now Playing + safe-area + 16 px (MSH.popupBottomPad(16)),
+    // og stedsvelgeren/«Tilpass Vær» (sticky nederst, 28.1) står over navbaren. Ark (28.4) / «Skjul navbar i fullskjerm» → 16 px.
     _applySpacing() {
       super._applySpacing();
       if (this._config.embedded || !M.popupContainer(this)) return;
-      this.style.paddingBottom = 'calc(16px + env(safe-area-inset-bottom, 0px))';
-      // sticky regnes fra innsiden av Bubble-containerens padding → trekk den fra, så knappene står 16 px over bunnen (Vær v5)
+      const nav = !hideNavOf(this._rawConfig || {}), base = nav && M.popupBottomPad ? M.popupBottomPad(16) : 'calc(16px + env(safe-area-inset-bottom, 0px))';
+      this.style.paddingBottom = base;
+      // sticky regnes fra innsiden av Bubble-containerens padding → trekk den fra, så knappene står 16 px over bunnen/navbaren
       const C = M.popupContainer(this), pb = C ? parseFloat(getComputedStyle(C).paddingBottom) || 0 : 0;
-      this.style.setProperty('--vaer-ctl-b', `calc(16px + env(safe-area-inset-bottom, 0px) - ${pb}px)`);
+      this.style.setProperty('--vaer-ctl-b', `calc(${base} - ${pb}px)`);
+    }
+    // Fiks 56 I · fullskjerm: popupen dekker dashbordflaten (dashbord-containeren, aldri HA-sidebaren) – målt her og lagt
+    // som --ki-vaer-top/left/w/h på .bubble-pop-up (stilene i VAER_BLOCK, aktive med data-ki-vaer-full)
+    _fitFull(pop) {
+      pop = pop || this._popEl();
+      if (!pop) return;
+      const D = M.rectOf && M.dashEl ? M.rectOf(M.dashEl(this)) : M.dashRect ? M.dashRect() : null;
+      if (!D) return;
+      const set = (k, v) => { if (pop.style.getPropertyValue(k) !== v) pop.style.setProperty(k, v); };
+      set('--ki-vaer-top', Math.round(D.top) + 'px'); set('--ki-vaer-left', Math.round(D.left) + 'px');
+      set('--ki-vaer-w', Math.round(D.width) + 'px'); set('--ki-vaer-h', Math.round(D.height) + 'px');
+      const dh = Math.round(D.height) + 'px';
+      if (this.style.getPropertyValue('--vaer-dh') !== dh) this.style.setProperty('--vaer-dh', dh);
     }
     // Scenelag (bak hele popupen, også bak headeren) + faste kontroller (stedsvelger · tune) i popup-laget
     _mountLayers() {
@@ -869,6 +1090,17 @@
         const rn = pop.getRootNode && pop.getRootNode(), host = rn && rn !== document ? rn : document.head;
         if (host && !host.querySelector('style[data-ki-vaer-skin]')) { const stl = document.createElement('style'); stl.setAttribute('data-ki-vaer-skin', ''); stl.textContent = VAER_BLOCK; host.appendChild(stl); }
         pop.setAttribute('data-ki-vaer-owner', this._uid);
+        // 56 I: Fullskjerm (standard) / Ark – live via attributtet, uten ny generering av popupen
+        const full = viewOf(this._rawConfig) === 'fullscreen' && !this._config.embedded;
+        pop.toggleAttribute('data-ki-vaer-full', full);
+        const hn = hideNavOf(this._rawConfig || {});
+        pop.toggleAttribute('data-ki-vaer-nonav', hn);
+        if (this._navHide !== hn && location.hash === '#vaer') setTimeout(syncNav, 0); // første montering / valget endret mens popupen er åpen
+        this._navHide = hn;
+        if (full) {
+          this._fitFull(pop);
+          if (!this._rsFull) { this._rsFull = () => { cancelAnimationFrame(this._rsRaf); this._rsRaf = requestAnimationFrame(() => this._fitFull()); }; window.addEventListener('resize', this._rsFull); }
+        }
       }
       this.toggleAttribute('data-scene', scene);
       if (!this._ctl) {
@@ -893,7 +1125,12 @@
           this._layer.shadowRoot.innerHTML = `<style>${SCENE_CSS}</style><div class="sc${fxOn ? '' : ' still'}" data-scene="${sc.key}" style="background:${sc.bg}">${sceneFx(sc.key)}</div>`;
         }
         this._pause(!!pop && !this.isOpen);
-        this.style.setProperty('--vaer-card', sc.card);
+        // 56 L: ÉN flate – var(--card) + blur(18px) rett over værbakgrunnen. Android (ki-android, uten blur): dekkende variant =
+        // --card blandet over den midterste bakgrunnsfargen (C.bg[1]), samme opplevde mørkhet
+        const andr = !!(M.perf && M.perf.android);
+        this.toggleAttribute('data-and', andr);
+        this.style.setProperty('--vaer-card', andr ? (M.vaerCardOver(sc.key) || sc.card) : sc.card);
+        if (pop) { const top = rgbOf((SC[sc.key] || SC.cloudy)[2][0]); pop.setAttribute('data-ki-vaer-lum', top && relLum(top) > 0.179 ? 'light' : 'dark'); }
       } else if (this._layer) { this._layer.remove(); this._layer = null; this.style.removeProperty('--vaer-card'); }
     }
     _drawCtl() {
@@ -931,43 +1168,34 @@
       }
       return undefined;
     }
-    // Scrub på alle grafer: touch-action none, setPointerCapture, stopPropagation, stiplet markør + verdi (26.24)
+    // Scrub på alle grafer (26.24) – Fiks 56 G: retningslås i stedet for touch-action none. touch-action: pan-y (nettleseren
+    // eier vertikal scroll), pointerdown registrerer bare startpunktet (berøring); første bevegelse over 8 px bestemmer:
+    // vertikal → gesten slippes (ingen preventDefault/stopPropagation – popupen scroller, nettleseren sender pointercancel);
+    // horisontal → scrub tar over (setPointerCapture + stopPropagation på pointer-/touchmove, så Bubble ikke lukker/scroller).
+    // Mus/penn: scrub straks ved trykk (som før). Stiplet markør + verdi; slipp → visningen går tilbake.
     _bindScrubs() {
       this.shadowRoot.querySelectorAll('[data-scrub]').forEach((el) => {
-        if (el.__scr) return;
-        el.__scr = true;
-        M.guardDrag(el, 'none');
         // data-mode="col" (27.1/27.2): n like kolonner – indeks = floor(f·n) (Vær v5 round(f·n − .5)); ellers punkt: round(f·(n−1))
         const pos = (e) => { const n = Number(el.dataset.n) || 1, r = el.getBoundingClientRect(), f = (e.clientX - r.left) / Math.max(1, r.width); return M.clamp(el.dataset.mode === 'col' ? Math.floor(f * n) : Math.round(f * (n - 1)), 0, Math.max(0, n - 1)); };
-        let down = null;
-        el.addEventListener('pointerdown', (e) => {
-          if (e.button) return;
-          e.stopPropagation();
-          down = { x: e.clientX, moved: false, id: e.pointerId };
-          try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ }
-          M.haptic('selection');
-          this.setUI({ scr: { k: el.dataset.scrub, i: pos(e) } });
-        });
-        el.addEventListener('pointermove', (e) => {
-          if (!down && e.pointerType !== 'mouse') return;
-          if (down) { e.stopPropagation(); if (Math.abs(e.clientX - down.x) > 4) down.moved = true; }
-          const i = pos(e), s = this.ui.scr;
-          if (!s || s.k !== el.dataset.scrub || s.i !== i) this.setUI({ scr: { k: el.dataset.scrub, i } });
-        });
-        const end = (e) => {
-          const wasDrag = down && down.moved;
-          down = null;
+        const show = (e) => { const i = pos(e), s0 = this.ui.scr; if (!s0 || s0.k !== el.dataset.scrub || s0.i !== i) this.setUI({ scr: { k: el.dataset.scrub, i } }); };
+        const end = (e, s) => {
           if (this.ui.scr) this.setUI({ scr: null }); // slipp → visningen går tilbake
-          if (wasDrag && e && e.type === 'pointerup') { this._swallow = true; setTimeout(() => { this._swallow = false; }, 350); } // dagrad: ingen utfolding etter dra
+          if (s && s.on && s.moved && e && e.type === 'pointerup') { this._swallow = true; setTimeout(() => { this._swallow = false; }, 350); } // dagrad: ingen utfolding etter dra
         };
-        ['pointerup', 'pointercancel'].forEach((t) => el.addEventListener(t, end));
-        el.addEventListener('pointerleave', (e) => { if (!down && e.pointerType === 'mouse') end(e); });
+        // felles retningslås (MSH.dirLock, 00-base.js): touch-action pan-y, 8 px, vertikal slippes, horisontal = scrub
+        M.dirLock(el, {
+          onStart: (e) => { M.haptic('selection'); this.setUI({ scr: { k: el.dataset.scrub, i: pos(e) } }); },
+          onMove: show, onHover: show, onEnd: end,
+        });
+        if (el.__scr) return;
+        el.__scr = true;
+        el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !(el.__mshDL && el.__mshDL.s)) end(e); });
       });
     }
     // 28.2 · Fliser: hold 400 ms → flyttemodus: flisen løftes (scale 1.04 + skygge, haptic medium) og de andre vugger lett.
     // Dra → flisene bytter plass live (FLIP 200 ms, haptic selection), slipp → haptic light + ny tile_order lagres. Flyttemodus
     // varer til Esc / trykk utenfor flisene (i flyttemodus løftes en flis straks). Kort trykk (< 400 ms) = vanlig trykk.
-    // Fallgruve 2: touch-action none + stopPropagation på pointerdown/touchstart/touchmove → popupen lukkes/scroller ikke.
+    // Fallgruve 2: i flyttemodus/løftet flis touch-action none + stopPropagation → popupen lukkes/scroller ikke (56 G: ellers ikke).
     _bindTiles() {
       const box = this.shadowRoot.querySelector('[data-tiles]');
       if (!box || box.__td) return;
@@ -1042,8 +1270,8 @@
       box.addEventListener('pointerup', end);
       box.addEventListener('pointercancel', (e) => { if (st && !st.on) { cancel(); st = null; } else end(e); });
       box.addEventListener('lostpointercapture', (e) => { if (st && st.on && e.pointerId === st.id) end(e); });
-      box.addEventListener('touchstart', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); }, { passive: true });
-      box.addEventListener('touchmove', (e) => { if (e.target.closest && e.target.closest('.tw')) e.stopPropagation(); if (st && st.on && e.cancelable) e.preventDefault(); }, { passive: false });
+      // 56 G: vertikalt sveip på flisene scroller popupen som normalt – touchmove stoppes bare mens en flis er løftet (dra)
+      box.addEventListener('touchmove', (e) => { if (st && st.on) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); } }, { passive: false });
       box.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     // Flyttemodus av/på: vugging (klassen tmode, også i render), Esc og trykk utenfor flisene avslutter
@@ -1286,7 +1514,7 @@
         const pp = num(f.precipitation_probability), mm = num(f.precipitation), T = num(f.temperature);
         let body;
         // 31.3: fast kolonnehøyde (152 px) i alle fanene – Temperatur: ikon, % og grader i en flex:1-boks (space-evenly)
-        if (metric === 'temp') body = `<span class="htb"><span class="hic">${M.icon(cd.icon, 26, `color:${icoCol(cd.key)}`)}</span><span class="hp num">${pp ? Math.round(pp) + '%' : ''}</span><span class="hv num">${T != null ? Math.round(T) : '–'}°</span></span>`;
+        if (metric === 'temp') body = `<span class="htb"><span class="hic">${wxSvg(cd.key, 26)}</span><span class="hp num">${pp ? Math.round(pp) + '%' : ''}</span><span class="hv num">${T != null ? Math.round(T) : '–'}°</span></span>`;
         else if (metric === 'rain') body = `<span class="rbx"><i class="l1"></i><i class="l2"></i><i class="rf" style="height:${mm ? Math.max(6, Math.min(100, (mm / 1.5) * 100)).toFixed(0) + '%' : '0'}"></i></span><span class="hmm">${mm ? nf(mm) : '0'} ${esc(pu)}</span><span class="hpr">${M.icon('mdi:water', 14, `color:${BLUE}`)}${pp != null ? Math.round(pp) + '%' : '–'}</span>`;
         else body = `<span class="hw"><span class="hwv">${ws1(num(f.wind_speed))}</span><span class="hwg">kast ${ws1(num(f.wind_gust_speed))}</span></span>`; // 31.3: ingen 58 px-spacer – grafen ligger absolutt nederst
         return `<div class="hc" data-key="hc${i}"><span class="ht${i ? '' : ' now'}">${tlab(f, i)}</span>${body}</div>`;
@@ -1362,11 +1590,11 @@
             const cells = [['mdi:water', 'Nedbør', pr != null ? `${nf(pr)} ${pu}` : '–'], ['mdi:weather-windy', 'Vind', ws != null ? `${nf(ws)} ${wu}` : '–'], ['mdi:weather-sunny', 'UV', uvD != null ? `${Math.round(uvD)} ${uvOf(uvD)[0].toLowerCase()}` : '–'],
               ['mdi:water-percent', 'Fukt', huD != null ? `${Math.round(huD)} %` : '–'], ['mdi:weather-sunset', 'Sol opp', sun ? hm(sun.rise + shift) : '–'], ['mdi:weather-night', 'Sol ned', sun ? hm(sun.set + shift) : '–']];
             det = `<div class="dx" data-key="dx-${esc(key)}"><p class="dsen">${esc(sent)}</p>
-              ${h3.length ? `<div class="d3 noscroll">${h3.map((y, j) => { const cy = sceneOf(y.condition, y.is_daytime != null ? !y.is_daytime : isNight(new Date(y.datetime).getTime(), sun)), py = num(y.precipitation_probability); return `<span class="hs" data-key="d3-${j}"><span class="dht">${M.pad(new Date(y.datetime).getHours())}</span>${M.icon(cy.icon, 20, `color:${icoCol(cy.key)}`)}<span class="dhv num">${num(y.temperature) != null ? Math.round(y.temperature) + '°' : '–'}</span><span class="dhp num">${py ? Math.round(py) + '%' : ''}</span></span>`; }).join('')}</div>` : ''}
+              ${h3.length ? `<div class="d3 noscroll">${h3.map((y, j) => { const cy = sceneOf(y.condition, y.is_daytime != null ? !y.is_daytime : isNight(new Date(y.datetime).getTime(), sun)), py = num(y.precipitation_probability); return `<span class="hs" data-key="d3-${j}"><span class="dht">${M.pad(new Date(y.datetime).getHours())}</span>${wxSvg(cy.key, 20)}<span class="dhv num">${num(y.temperature) != null ? Math.round(y.temperature) + '°' : '–'}</span><span class="dhp num">${py ? Math.round(py) + '%' : ''}</span></span>`; }).join('')}</div>` : ''}
               <div class="dgr">${cells.map(([ic, l, v]) => `<span class="dc"><span class="dcl">${M.icon(ic, 14)}${l}</span><span class="dcv">${esc(v)}</span></span>`).join('')}</div></div>`;
           }
           return `<div class="dw${open ? ' open' : ''}" data-key="${esc(key)}"><button class="dr" data-act="day" data-k="${esc(key)}" data-haptic="light" aria-expanded="${open}">
-            <span class="dn">${esc(dname(t))}</span><span class="di">${M.icon(cd.icon, 22, `color:${icoCol(cd.key)}`)}<span class="dp num">${pp ? Math.round(pp) + '%' : ''}</span></span>
+            <span class="dn">${esc(dname(t))}</span><span class="di">${wxSvg(cd.key, 22)}<span class="dp num">${pp ? Math.round(pp) + '%' : ''}</span></span>
             <span class="dlo num">${loD != null ? Math.round(loD) + '°' : '–'}</span><span class="dtr">${bar}${dot}</span><span class="dhi num">${hiD != null ? Math.round(hiD) + '°' : '–'}</span>
             <span class="chev">${M.icon('mdi:chevron-down', 18, `color:#8a8a8a;transition:transform .2s;transform:${open ? 'rotate(180deg)' : 'none'}`)}</span></button>${det}</div>`;
         }).join('')}</div></section>`;
@@ -1374,31 +1602,48 @@
       // ---- Fliser (Vær v5): Vind (kompass) · Soloppgang (bue) · Månefase · UV · Føles som · Nedbør · Sikt · Luftfuktighet · Lufttrykk
       const DIRN = ['nord', 'nordøst', 'øst', 'sørøst', 'sør', 'sørvest', 'vest', 'nordvest'];
       const dirOf = (b) => (b == null ? null : DIRN[Math.round((((b % 360) + 360) % 360) / 45) % 8]);
-      const ticks = Array.from({ length: 48 }, (_, i) => `<span class="tk2" style="height:${i % 12 ? 6 : 10}px;background:${i % 12 ? '#5a5a5a' : '#8a8a8a'};transform:rotate(${i * 7.5}deg)"></span>`).join('');
-      // solbuen: punkt for klokkeslettet langs kurven M0,50 C30,50 45,6 70,6 C95,6 110,50 140,50 (horisont y = 36)
-      const bz = (p0, p1, p2, p3, t) => { const u = 1 - t; return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3; };
-      const sunPt = (() => { const d0 = new Date(); d0.setHours(0, 0, 0, 0); let tx = ((Date.now() - d0.getTime()) / 86400000) * 140, best = [tx, 50], bd = 1e9;
-        for (let s = 0; s <= 1; s += 0.01) { [[0, 30, 45, 70, 50, 50, 6, 6], [70, 95, 110, 140, 6, 6, 50, 50]].forEach((q) => { const xx = bz(q[0], q[1], q[2], q[3], s), yy = bz(q[4], q[5], q[6], q[7], s); if (Math.abs(xx - tx) < bd) { bd = Math.abs(xx - tx); best = [xx, yy]; } }); }
-        return best; })();
-      const tile = (icon, l, v, u, k, sub, scale) => `<div class="g tl2 tg"><span class="th2">${M.icon(icon, 15)}${esc(l)}</span><span class="tv2"><span class="tvb">${v}</span><span class="tvu">${v === '–' ? '' : esc(u || '')}</span></span><span class="tk">${esc(k || '')}</span>${scale || ''}<span class="tsb">${esc(sub || '')}</span></div>`;
+      const now = Date.now();
+      // 56 K · felles bunnlinje (Vind / Soloppgang / Måne): primær til venstre (500), sekundær til høyre (#a8a8a8), festet nederst
+      const brow = (l, r) => `<span class="tbr"><b>${esc(l)}</b><span>${esc(r)}</span></span>`;
+      // 56 K · Vind: kompass 96 px – tynn ring + svak glød, 36 streker (N/Ø/S/V lengre og lysere), N/Ø/S/V 9 px, rosa nål etter
+      // wind_bearing (peker dit vinden blåser), mørk glass-sirkel i midten med verdi 17 px / enhet 11 px
+      const ticks = Array.from({ length: 36 }, (_, i) => `<span class="tk2${i % 9 ? '' : ' c'}" style="transform:rotate(${i * 10}deg)"></span>`).join('');
+      const card4 = [['N', 0], ['Ø', 90], ['S', 180], ['V', 270]].map(([l, d]) => `<span class="cmpl${l === 'N' ? ' n' : ''}" style="left:${(48 + 33 * Math.sin(d * RAD)).toFixed(1)}px;top:${(48 - 33 * Math.cos(d * RAD)).toFixed(1)}px">${l}</span>`).join('');
+      const tile = (icon, l, v, u, k, sub, scale, extra) => `<div class="g tl2 tg"><span class="th2">${M.icon(icon, 15)}${esc(l)}</span><span class="tv2"><span class="tvb">${v}</span><span class="tvu">${v === '–' ? '' : esc(u || '')}</span></span><span class="tk">${esc(k || '')}</span>${scale || ''}${extra || ''}<span class="tsb">${esc(sub || '')}</span></div>`;
       const track = (g, mark) => `<span class="ttr" style="background:${g}">${mark}</span>`;
-      const dotMk = (p) => (p == null ? '' : `<span style="position:absolute;top:-2px;left:calc(${p.toFixed(1)}% - 5px);width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d"></span>`); // ki-hex-ok: værscene/illustrasjon (mørk øy)
+      const dotMk = (p) => (p == null ? '' : `<span class="tdot" style="left:calc(${p.toFixed(1)}% - 5px)"></span>`);
       const today24 = H.filter((f) => new Date(f.datetime).toDateString() === today0).map((f) => num(f.uv_index)).filter((v) => v != null);
       const uvMax = today24.length ? Math.max(...today24) : null;
-      const app = num(A.apparent_temperature), feelsSub = app == null || temp == null ? '' : Math.abs(app - temp) < 1 ? 'Samme som faktisk temperatur.' : app < temp ? 'Føles kaldere enn faktisk temperatur.' : 'Føles varmere enn faktisk temperatur.';
+      // 56 H · Føles som: config → apparent_temperature → autofunnet sensor → utregning («beregnet»)
+      [raw.feels_like_entity, raw.visibility_entity, M.vaerFeelsAuto(h, a.weather), M.vaerVisAuto(h, a.weather)].forEach((id) => { if (id) this.s(id); }); // live (bare disse entitetene)
+      const FL = M.vaerFeels(h, raw, a.weather), app = FL ? FL.v : null;
+      const feelsK = app == null || temp == null ? '' : Math.abs(app - temp) <= 1 ? 'Omtrent som faktisk' : app < temp ? 'Kaldere enn faktisk pga. vind' : 'Varmere pga. fukt';
       const r6 = H.slice(0, 6).map((f) => num(f.precipitation) || 0).reduce((p, q) => p + q, 0);
-      const vis = num(A.visibility), visU = A.visibility_unit || 'km';
+      // 56 H · Sikt: config → visibility (+ visibility_unit) → autofunnet sensor → «–» + «Velg entitet»
+      const VS0 = M.vaerVis(h, raw, a.weather), vkm = VS0 ? VS0.km : null;
+      // 56 K · Soloppgang: gul dagkurve med gradient ned mot horisonten, stiplet natt, sola som prikk etter klokkeslettet
+      const SD = sunDay(sun, now), CV = SD ? sunCurve(SD, now) : null;
+      const sunSvg = CV ? `<div class="scv"><svg viewBox="0 0 ${SUN_W} ${SUN_H}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="vsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb(242 210 111)" stop-opacity=".35"/><stop offset="1" stop-color="rgb(242 210 111)" stop-opacity="0"/></linearGradient></defs>
+          <line x1="0" y1="${HZ}" x2="${SUN_W}" y2="${HZ}" stroke="rgba(255,255,255,.18)" stroke-width="1" vector-effect="non-scaling-stroke"/><!-- ki-hex-ok: værscene (mørk øy) -->
+          <path class="sfill" d="${CV.fillD}" fill="url(#vsg)" stroke="none"/>
+          ${CV.preD ? `<path class="snight" d="${CV.preD}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/><!-- ki-hex-ok -->` : ''}${CV.postD ? `<path class="snight" d="${CV.postD}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.5" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` : ''}<!-- ki-hex-ok: værscene (mørk øy) -->
+          <path class="sday" d="${CV.dayD}" fill="none" stroke="rgb(242 210 111)" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
+          <span class="sdot${CV.up ? '' : ' dn'}" style="left:${((CV.dot[0] / SUN_W) * 100).toFixed(2)}%;top:${CV.dot[1].toFixed(1)}px"><i></i><b></b></span></div>`
+        : `<div class="scv"><svg viewBox="0 0 ${SUN_W} ${SUN_H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="${HZ}" x2="${SUN_W}" y2="${HZ}" stroke="rgba(255,255,255,.18)" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>`; // ki-hex-ok: værscene (mørk øy)
+      // 56 K · Måne: fase og tittel fra sensor.moon_phase; belysning og måneoppgang beregnet (SunCalc) fra HAs posisjon
+      const LL = latLon(h, A), mIll = M.vaerMoonIllum(new Date(now)), mRise = LL ? nextMoonrise(LL[0], LL[1], now) : null;
       const T2 = {
-        wind: `<div class="g tl2"><span class="th2">${M.icon('mdi:weather-windy', 15)}Vind</span><div class="cmp">${ticks}<span class="cmpn">N</span><div class="ndl" style="transform:rotate(${X.bear != null ? (X.bear + 180) % 360 : 0}deg);opacity:${X.bear != null ? 1 : 0.3}"><b></b><i></i></div><span class="cmpc"><span class="cmpv">${ws1(X.ws)}</span><span class="cmpu">${esc(wu)}</span></span></div>
-          <span class="tfoot">${esc(`${dirOf(X.bear) ? `Fra ${dirOf(X.bear)}` : 'Retning –'} · kast ${ws1(X.gust)} ${wu}`)}</span></div>`,
-        sun: `<div class="g tl2"><span class="th2">${M.icon('mdi:weather-sunset', 15)}Soloppgang</span><span class="sbig num">${sun ? hm(sun.rise) : '–'}</span>
-          <svg class="sarc" viewBox="0 0 140 60" aria-hidden="true"><path d="M0,50 C30,50 45,6 70,6 C95,6 110,50 140,50" fill="none" stroke="#555" stroke-width="2"></path><line x1="0" y1="36" x2="140" y2="36" stroke="#6a6a6a" stroke-width="1"></line><circle cx="${sunPt[0].toFixed(1)}" cy="${sunPt[1].toFixed(1)}" r="5" fill="#303030" stroke="rgb(242 210 111)" stroke-width="2"></circle></svg>
-          <span class="tfoot">Solnedgang ${sun ? hm(sun.set) : '–'}</span></div>`,
-        moon: `<div class="g tl2 mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th2">${M.icon('mdi:weather-night', 15)}${esc(X.moon.name)}</span>${X.moon.none ? '<svg class="moon" style="width:84px;height:84px;align-self:center"><circle cx="42" cy="42" r="42" fill="#404040"/></svg>' : moonDisc(X.moon.p, 84)}</div>`, // ki-hex-ok: værscene/illustrasjon (mørk øy)
+        wind: `<div class="g tl2 twd"><span class="th2">${M.icon('mdi:weather-windy', 15)}Vind</span><div class="cmp"><span class="cmpr"></span>${ticks}${card4}<div class="ndl" style="transform:rotate(${X.bear != null ? (X.bear + 180) % 360 : 0}deg);opacity:${X.bear != null ? 1 : 0.3}"><b></b><i></i></div><span class="cmpc"><span class="cmpv">${ws1(X.ws)}</span><span class="cmpu">${esc(wu)}</span></span></div>
+          ${brow(dirOf(X.bear) ? `Fra ${dirOf(X.bear)}` : 'Retning –', `Kast ${ws1(X.gust)}`)}</div>`,
+        sun: `<div class="g tl2 tsn" data-phase="${SD ? (SD.post ? 'post' : 'day') : 'none'}"><span class="th2">${M.icon(SD && SD.post ? 'mdi:weather-sunset-down' : 'mdi:weather-sunset-up', 15)}${SD && SD.post ? 'Solnedgang' : 'Soloppgang'}</span><span class="sbig num">${SD ? hm(SD.post ? SD.set : SD.rise) : '–'}</span>
+          ${sunSvg}${brow(SD ? (SD.post ? `↑ ${hm(SD.next)}` : `↓ ${hm(SD.set)}`) : '↓ –', SD ? durTxt(SD.set - SD.rise) : '–')}</div>`,
+        moon: `<div class="g tl2 mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th2">${M.icon('mdi:weather-night', 15)}${esc(X.moon.name)}</span>${X.moon.none ? '<svg class="moon" style="width:84px;height:84px;align-self:center"><circle cx="42" cy="42" r="42" fill="#404040"/></svg>' : moonDisc(X.moon.p, 84)}${brow(mRise != null ? `↑ ${hm(mRise)}` : '↑ –', mIll ? `${Math.round(mIll.fraction * 100)} % lys` : '–')}</div>`, // ki-hex-ok: værscene/illustrasjon (mørk øy)
         uv: tile('mdi:weather-sunny', 'UV-indeks', X.uv != null ? String(Math.round(X.uv)) : '–', '', X.uv != null ? uvOf(X.uv)[0] : '', uvMax != null ? `${uvOf(uvMax)[0]} resten av dagen.` : '', track('linear-gradient(90deg,#6fd29a,#f2c94c,#f0a36b,#f07070,#c97ae0)', dotMk(X.uv != null ? M.clamp(X.uv / 11, 0, 1) * 100 : null))),
-        feels: tile('mdi:thermometer', 'Føles som', app != null ? Math.round(app) + '°' : '–', '', '', feelsSub),
+        feels: `<div class="g tl2 tg tfl" data-src="${FL ? FL.src : 'none'}" ${FL && FL.ent ? `data-ent="${esc(FL.ent)}"` : ''}><span class="th2">${M.icon('mdi:thermometer', 15)}Føles som</span><span class="tv2"><span class="tvb">${app != null ? Math.round(app) : '–'}</span><span class="tvd">${app != null ? '°' : ''}</span></span><span class="tk">${esc(feelsK)}</span>
+          ${FL && FL.src === 'calc' ? '<span class="tcalc">beregnet</span>' : ''}${!FL ? '<button class="tpick press" data-act="customize" data-section="sensors" data-haptic="light">Velg entitet</button>' : ''}</div>`,
         rain: tile('mdi:water', 'Nedbør', H.length ? nf(r6) : '–', pu, 'neste 6 t', X.rain24 != null ? `${nf(X.rain24)} ${pu} ventet neste døgn.` : ''),
-        vis: tile('mdi:eye', 'Sikt', vis != null ? nf(vis) : '–', visU, '', vis == null ? '' : vis >= 10 ? 'God sikt.' : vis >= 4 ? 'Moderat sikt.' : 'Dårlig sikt.'),
+        vis: `<div class="g tl2 tg tvs" data-src="${VS0 ? VS0.src : 'none'}" ${VS0 && VS0.ent ? `data-ent="${esc(VS0.ent)}"` : ''}><span class="th2">${M.icon('mdi:eye', 15)}Sikt</span><span class="tv2"><span class="tvb">${vkm != null ? visNum(vkm) : '–'}</span><span class="tvu">${vkm != null ? 'km' : ''}</span></span>
+          ${vkm != null ? `<span class="tk">${visTxt(vkm)}</span>${track('linear-gradient(90deg,rgba(255,255,255,.12),rgba(255,255,255,.5))', dotMk(M.clamp(vkm / 20, 0, 1) * 100))}<span class="tsc"><span>0</span><span>10</span><span>20+ km</span></span>` : '<button class="tpick press" data-act="customize" data-section="sensors" data-haptic="light">Velg entitet</button>'}</div>`, // ki-hex-ok: værscene (mørk øy)
         hum: tile('mdi:water-percent', 'Luftfuktighet', X.hum != null ? String(Math.round(X.hum)) : '–', '%', '', X.dew != null ? `Duggpunkt ${Math.round(X.dew)}° nå.` : ''),
         press: tile('mdi:arrow-collapse-vertical', 'Lufttrykk', X.pr != null ? String(Math.round(X.pr)) : '–', X.prU, X.pr != null ? X.trend[0] : '', 'Lavt ← → Høyt', track('linear-gradient(90deg,#4b4b4b,#8a8a8a,#4b4b4b)', X.pr != null ? `<span style="position:absolute;top:-3px;left:calc(${(M.clamp((X.pr - 960) / 100, 0, 1) * 100).toFixed(1)}% - 2px);width:4px;height:12px;border-radius:2px;background:#fafafa"></span>` : '')), // ki-hex-ok: værscene/illustrasjon (mørk øy)
       };
@@ -1407,7 +1652,11 @@
       const plat = (M.regEntry(h, a.weather) || {}).platform || '', attr = String(A.attribution || '');
       const src = plat === 'met' || /met\.no|yr\b|norwegian meteorological/i.test(attr) ? 'Yr / MET Norge' : attr;
       const blocks = ['now', 'alerts', 'hours', 'days', 'tiles'].filter((k) => S[k] && !hid.has(k)).map((k) => `<div class="blk" data-key="b-${k}" data-sec="${k}">${S[k]}</div>`);
-      return `<div class="wrap scene" data-ki-island data-scene="${sc.key}"><div class="scn-slot" data-nomorph></div>${empty}${blocks.join('')}${st && src ? `<span class="attr">Data fra ${esc(src)}</span>` : ''}<div class="ctl-slot" data-nomorph></div></div>`;
+      // 56 G: tekst ut fra kortflaten (lys modus): mørk værflate → lys tekst, lys flate → mørk; nedbørsblå ≥ 4,5:1 mot flaten
+      const ink = M.theme && M.theme.mode && M.theme.mode() === 'light' ? M.vaerSurfInk(sc.key) : null;
+      const inkA = ink ? ` data-lum="${ink.lum}" style="--vt1:${ink.t1};--vt2:${ink.t2};--vblue:${ink.blue}"` : '';
+      const full = viewOf(raw) === 'fullscreen' && !c.embedded && !!M.popupContainer(this);
+      return `<div class="wrap scene${full ? ' full' : ''}" data-ki-island data-scene="${sc.key}"${inkA}><div class="scn-slot" data-nomorph></div>${empty}${blocks.join('')}${st && src ? `<span class="attr">Data fra ${esc(src)}</span>` : ''}<div class="ctl-slot" data-nomorph></div></div>`;
     }
     onAction(name, el, ev) {
       if (name === 'alert') { if (ev.composedPath().some((n) => n.tagName === 'A')) return; return this.setUI({ alertOpen: this.ui.alertOpen === el.dataset.k ? null : el.dataset.k }); }
@@ -1417,8 +1666,8 @@
       return super.onAction(name, el, ev);
     }
     afterRender() {
-      guardSwipe(this.shadowRoot.querySelector('.hrs'), 'pan-x');
-      this.shadowRoot.querySelectorAll('.hsc,.d3').forEach((el) => guardSwipe(el, 'pan-x'));
+      // 56 G: timestripen (Klassisk/Scene) og døgnets 3-timersrad – pan-x pan-y + retningslås, ingen stopPropagation på vertikalt
+      this.shadowRoot.querySelectorAll('.hrs,.hsc,.d3').forEach((el) => hScroll(el));
       const seg = this.shadowRoot.querySelector('.mpill');
       if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', touchAction: 'pan-y' }); // Liquid Glass-drag (26.24/27.1): pan-y + stopPropagation, haptic ved bytte
       this._bindScrubs();
@@ -1452,7 +1701,7 @@
         .gw{position:relative;height:100px}
         .gw svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
         .gc{position:absolute;top:0;bottom:0;border-left:1px dashed ${M.alpha(SUNY, 0.6)};pointer-events:none}
-        .scrub{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+        .scrub{position:absolute;inset:0;touch-action:pan-y;cursor:crosshair}
         .day{display:flex;flex-direction:column;padding:18px 24px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a));width:100%}
         .dhi{font-size:40px;font-weight:300;letter-spacing:-0.03em;line-height:1}
         .dlo{font-size:15px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
@@ -1496,6 +1745,16 @@
         .scene>.blk{position:relative;z-index:1;gap:10px}
         .scene .g{background:var(--vaer-card,rgba(30,36,46,.42));-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-radius:24px;color:#fafafa} /* ki-hex-ok: værscene (mørk øy) */
         .scene .snw{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 0 22px;text-align:center}
+        /* 56 I · fullskjerm: innholdet padding 0 16px på telefon, sentrert maks 720 px på nettbrett/PC (bakgrunnen fyller bredden);
+           heroen ~30 % av dashbordhøyden, sentrert */
+        .scene.full{width:100%;max-width:752px;margin:0 auto;padding:0 16px;box-sizing:border-box}
+        .scene.full>.blk[data-sec="now"] .snw{min-height:calc(var(--vaer-dh, 100vh) * .3);justify-content:center;box-sizing:border-box}
+        /* 56 L · Android (ki-android): dekkende kortflate, ingen blur */
+        :host([data-and]) .scene .g{-webkit-backdrop-filter:none;backdrop-filter:none}
+        /* 56 G · lys modus: tekst ut fra kortflatens luminans (data-lum, --vt1/--vt2/--vblue satt i _scene) */
+        .scene[data-lum],.scene[data-lum] .g,.scene[data-lum] .ht.now,.scene[data-lum] .stp{color:var(--vt1)}
+        .scene[data-lum] .hp,.scene[data-lum] .dp,.scene[data-lum] .dhp{color:var(--vblue)}
+        .scene[data-lum] .th2,.scene[data-lum] .tvu,.scene[data-lum] .hsub,.scene[data-lum] .ht:not(.now),.scene[data-lum] .sals,.scene[data-lum] .hmm,.scene[data-lum] .hwg,.scene[data-lum] .dht,.scene[data-lum] .dcl,.scene[data-lum] .dlo,.scene[data-lum] .tbr span,.scene[data-lum] .cmpu,.scene[data-lum] .tsc,.scene[data-lum] .wdt span,.scene[data-lum] .tcalc,.scene[data-lum=light] .attr,.scene[data-lum=light] .sloc,.scene[data-lum=light] .scd,.scene[data-lum=light] .shl,.scene[data-lum=light] .tsb,.scene[data-lum=light] .dsen{color:var(--vt2)}
         .scene .sloc{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:600;letter-spacing:.08em;color:#e6ebf1;max-width:100%}
         .scene .stp{font-size:96px;font-weight:300;letter-spacing:-0.04em;line-height:1;padding-left:18px}
         .scene .scd{font-size:19px;font-weight:500;color:#e6ebf1}
@@ -1545,7 +1804,7 @@
         .scene .hwv{font-size:19px;font-weight:500;height:21px;line-height:21px;font-variant-numeric:tabular-nums}
         .scene .hwg{font-size:11px;color:#a8a8a8;height:13px;line-height:13px}
         .scene .wch{position:absolute;left:0;right:0;bottom:0;width:100%;height:58px;display:block}
-        .scene .wsc{position:absolute;left:0;right:0;bottom:0;height:58px;touch-action:none;cursor:crosshair}
+        .scene .wsc{position:absolute;left:0;right:0;bottom:0;height:58px;touch-action:pan-y;cursor:crosshair}
         .scene .wmk{position:absolute;bottom:0;height:58px;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none} /* ki-hex-ok: værscene (mørk øy) */
         .scene .wtip{position:absolute;bottom:62px;width:140px;text-align:center;padding:4px 8px;border-radius:10px;background:rgba(20,22,28,.85);font-size:12px;font-weight:500;white-space:nowrap;pointer-events:none;box-sizing:border-box}
         .scene .hph{padding:0 16px 4px;font-size:13px;color:#a8a8a8}
@@ -1558,7 +1817,7 @@
         .scene .di{width:40px;flex:none;display:flex;flex-direction:column;align-items:center}
         .scene .dp{font-size:11px;font-weight:500;color:${BLUE};line-height:1.2}
         .scene .dlo{width:30px;flex:none;text-align:right;font-size:15px;color:#a8a8a8}
-        .scene .dtr{flex:1;position:relative;height:6px;border-radius:3px;background:#2a2a2a;margin:0 4px;min-width:0}
+        .scene .dtr{flex:1;position:relative;height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:0 4px;min-width:0} /* 56 L: skinnen som i designet */ /* ki-hex-ok: værscene (mørk øy) */
         .scene .dbar{position:absolute;top:0;bottom:0;border-radius:3px}
         .scene .ddot{position:absolute;top:-2px;width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d} /* ki-hex-ok: værscene (mørk øy) */
         .scene .dhi{width:30px;flex:none;text-align:right;font-size:15px;font-weight:500;letter-spacing:0;line-height:normal}
@@ -1576,7 +1835,7 @@
         .scene .dcv{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .scene .rrow{display:flex;align-items:center;gap:10px;min-height:52px;border-top:1px solid rgba(255,255,255,.07)} /* ki-hex-ok: værscene (mørk øy) */
         .scene .rrow:first-child{border-top:none}
-        .scene .rsg{flex:1;display:flex;gap:3px;height:26px;align-items:stretch;min-width:0;touch-action:none;cursor:crosshair}
+        .scene .rsg{flex:1;display:flex;gap:3px;height:26px;align-items:stretch;min-width:0;touch-action:pan-y;cursor:crosshair}
         .scene .rs{flex:1;position:relative;border-radius:3px;overflow:hidden;background:#353535;transition:transform .12s}
         .scene .rs.d{background:#4a4a4a}
         .scene .rs.o{outline:1.5px solid #fafafa} /* ki-hex-ok: værscene (mørk øy) */
@@ -1584,37 +1843,58 @@
         .scene .rs i{position:absolute;left:0;right:0;bottom:0;background:${BLUE}}
         .scene .rmm{flex:none;text-align:right;font-size:15px;font-weight:500;white-space:nowrap;transition:width .15s}
         .scene .rpp{width:40px;flex:none;text-align:right;font-size:15px;font-weight:500}
-        .scene .wdc{position:relative;flex:1;min-width:0;height:30px;touch-action:none;cursor:crosshair}
+        .scene .wdc{position:relative;flex:1;min-width:0;height:30px;touch-action:pan-y;cursor:crosshair}
         .scene .wdc svg{width:100%;height:30px;display:block;border-radius:6px;background:#333}
         .scene .wdm{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed rgba(255,255,255,.7);pointer-events:none} /* ki-hex-ok: værscene (mørk øy) */
         .scene .wdt{width:88px;flex:none;text-align:right;font-size:15px;font-weight:500;white-space:nowrap}
         .scene .wdt span{font-weight:400;color:#a8a8a8}
-        .scene .stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-        .scene .tw{display:flex;flex-direction:column}
+        /* 56 J · flisgriden: alle rader minst 148 px og like høye (1fr = høyeste rads innhold) – ingen flis bestemmer høyden
+           alene; vokser innholdet (Sikt med skala, kompasset 96 px fra 56 K) vokser hele griden likt */
+        .scene .stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(148px,1fr);gap:8px;align-items:stretch}
+        .scene .tw{display:flex;flex-direction:column;min-height:0}
         .scene .tw.lift{border-radius:24px}
         .scene .tw.over>.tl2{box-shadow:inset 0 0 0 2px var(--pink,#f285c9)}
-        .scene .tl2{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0;box-sizing:border-box}
-        .scene .tl2.tg{gap:6px;min-height:150px}
-        .scene .th2{display:flex;align-items:center;gap:6px;font-size:12px;color:#a8a8a8;min-width:0}
+        .scene .tl2{flex:1;padding:14px 16px;border-radius:24px;display:flex;flex-direction:column;gap:8px;min-width:0;box-sizing:border-box}
+        .scene .tl2.tg{gap:6px}
+        .scene .th2{display:flex;align-items:center;gap:6px;font-size:12px;color:#a8a8a8;min-width:0;line-height:15px}
         .scene .tv2{display:flex;align-items:baseline;gap:4px}
         .scene .tvb{font-size:32px;font-weight:300;line-height:1.1}
+        .scene .tvd{font-size:32px;font-weight:300;line-height:1.1;margin-left:-4px}
         .scene .tvu{font-size:13px;color:#a8a8a8}
         .scene .tk{font-size:13px;font-weight:500}
         .scene .tk:empty{display:none}
         .scene .ttr{position:relative;height:6px;border-radius:3px;margin-top:4px;flex:none}
+        .scene .tdot{position:absolute;top:-2px;width:10px;height:10px;border-radius:50%;background:#fafafa;box-shadow:0 0 0 2px #3d3d3d} /* ki-hex-ok: værscene (mørk øy) */
+        .scene .tsc{display:flex;justify-content:space-between;font-size:10px;color:#a8a8a8;line-height:12px;margin-top:-2px}
         .scene .tsb{margin-top:auto;font-size:12px;color:#d6d6d6;line-height:1.4;text-wrap:pretty}
-        .scene .cmp{position:relative;width:112px;height:112px;align-self:center;flex:none}
-        .scene .cmp .tk2{position:absolute;left:55px;top:4px;width:2px;border-radius:1px;transform-origin:1px 52px}
-        .scene .cmpn{position:absolute;left:50%;top:2px;transform:translateX(-50%);font-size:10px;font-weight:600;color:#a8a8a8}
-        .scene .ndl{position:absolute;inset:8px;transition:transform .4s}
-        .scene .ndl b{position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid rgb(242 133 201)}
-        .scene .ndl i{position:absolute;left:50%;top:10px;bottom:6px;width:2px;transform:translateX(-50%);background:rgb(242 133 201)}
-        .scene .cmpc{position:absolute;inset:30px;border-radius:50%;background:#3d3d3d;display:flex;flex-direction:column;align-items:center;justify-content:center}
-        .scene .cmpv{font-size:22px;font-weight:500;line-height:1}
-        .scene .cmpu{font-size:11px;color:#a8a8a8}
-        .scene .tfoot{font-size:12px;color:#d6d6d6}
+        .scene .tsb:empty{display:none}
+        .scene .tcalc{margin-top:auto;font-size:11px;color:var(--ki-text-3, #a8a8a8);line-height:14px}
+        .scene .tpick{margin-top:auto;align-self:flex-start;height:32px;padding:0 14px;border-radius:16px;font-size:13px;font-weight:500;background:rgba(255,255,255,.14);color:#fafafa} /* ki-hex-ok: værscene (mørk øy) */
+        /* 56 K · felles bunnlinje (Vind/Soloppgang/Måne) */
+        .scene .tbr{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-top:auto;font-size:12px;line-height:16px;white-space:nowrap;min-width:0}
+        .scene .tbr b{font-weight:500;overflow:hidden;text-overflow:ellipsis}
+        .scene .tbr span{color:#a8a8a8;flex:none}
+        /* 56 K · Vind: kompass 96 px (J: 84 px – K er siste del) */
+        .scene .cmp{position:relative;width:96px;height:96px;align-self:center;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);background:radial-gradient(circle, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 70%)} /* ki-hex-ok: værscene (mørk øy) */
+        .scene .cmpr{position:absolute;inset:0;border-radius:50%;pointer-events:none}
+        .scene .cmp .tk2{position:absolute;left:47.5px;top:3px;width:1px;height:5px;border-radius:.5px;background:rgba(255,255,255,.22);transform-origin:.5px 45px} /* ki-hex-ok: værscene (mørk øy) */
+        .scene .cmp .tk2.c{height:9px;background:rgba(255,255,255,.55)} /* ki-hex-ok: værscene (mørk øy) */
+        .scene .cmpl{position:absolute;transform:translate(-50%,-50%);font-size:9px;line-height:9px;font-weight:500;color:#8a8a8a}
+        .scene .cmpl.n{color:#fff;font-weight:700}
+        .scene .ndl{position:absolute;inset:6px;transition:transform .4s}
+        .scene .ndl b{position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:10px solid rgb(242 133 201)}
+        .scene .ndl i{position:absolute;left:50%;top:8px;bottom:4px;width:2px;transform:translateX(-50%);background:rgb(242 133 201);border-radius:1px}
+        .scene .cmpc{position:absolute;inset:25px;border-radius:50%;background:rgba(20,22,28,.55);box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.06);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center} /* ki-hex-ok: værscene (mørk øy) */
+        .scene .cmpv{font-size:17px;font-weight:500;line-height:1}
+        .scene .cmpu{font-size:11px;color:#a8a8a8;line-height:13px}
         .scene .sbig{font-size:28px;font-weight:300;line-height:1}
-        .scene .sarc{display:block;width:calc(100% + 32px);margin:0 -16px;height:62px;flex:none}
+        /* 56 J/K · solkurven 44 px, kant til kant i flisen */
+        .scene .scv{position:relative;height:44px;margin:0 -16px;flex:none}
+        .scene .scv svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;display:block}
+        .scene .sdot{position:absolute;width:0;height:0}
+        .scene .sdot i{position:absolute;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;background:rgb(242 210 111);opacity:.18}
+        .scene .sdot b{position:absolute;left:-4.5px;top:-4.5px;width:9px;height:9px;border-radius:50%;background:rgb(242 210 111)}
+        .scene .sdot.dn b{opacity:.55}
         .scene .mnt .moon{align-self:center;flex:none;box-shadow:0 0 18px rgba(220,225,235,.18)}
         .scene .attr{font-size:11px;color:#8a8a8a;text-align:center;padding-top:6px}
         @keyframes vxh{from{opacity:0;max-height:0;transform:translateY(6px)}to{opacity:1;max-height:640px;transform:none}}
@@ -1648,6 +1928,13 @@
 .bubble-pop-up[data-ki-vaer="scene"][data-ki-theme=light] #header-container .bubble-close-button{background-color:rgba(28,30,36,.55)!important;color:#fff!important}
 .bubble-pop-up[data-ki-vaer="scene"][data-ki-theme=light] .bubble-close-button svg{fill:#fff!important}
 .bubble-pop-up[data-ki-vaer] > .bubble-pop-up-container{-webkit-mask-image:linear-gradient(to bottom,transparent 0px,black 24px)!important;mask-image:linear-gradient(to bottom,transparent 0px,black 24px)!important}
+.bubble-pop-up[data-ki-vaer="scene"][data-ki-vaer-lum="light"] .bubble-name{color:#141414!important;text-shadow:none} /* ki-hex-ok: 56 I – lys himmel → mørk headertekst */
+.bubble-pop-up[data-ki-vaer="scene"][data-ki-vaer-lum="light"] .bubble-close-button{background-color:rgba(255,255,255,.55)!important;color:#141414!important} /* ki-hex-ok */
+.bubble-pop-up[data-ki-vaer="scene"][data-ki-vaer-lum="light"] .bubble-close-button svg{fill:#141414!important} /* ki-hex-ok */
+.bubble-pop-up[data-ki-vaer-full]:not(.editor){top:var(--ki-vaer-top,0px)!important;bottom:0!important;height:auto!important;max-height:none!important;min-height:0!important;inset-inline-start:var(--ki-vaer-left,0px)!important;left:var(--ki-vaer-left,0px)!important;right:auto!important;width:var(--ki-vaer-w,100%)!important;min-width:0!important;max-width:none!important;margin:0!important;border-radius:0!important;--bubble-pop-up-border-radius:0px;--bubble-pop-up-content-border-radius:0px}
+.bubble-pop-up[data-ki-vaer-full] .bubble-pop-up-background{border-radius:0!important}
+.bubble-pop-up[data-ki-vaer-full] > .bubble-header-container{padding-top:max(0px, calc(env(safe-area-inset-top, 0px) - var(--ki-vaer-top, 0px)))!important;background:transparent!important;box-shadow:none!important;position:relative;z-index:3}
+.bubble-pop-up[data-ki-vaer-full] > .bubble-pop-up-container{padding-left:0!important;padding-right:0!important;border-radius:0!important}
 ${VE}`;
   const vaerStyles = (prev) => {
     let s0 = typeof prev === 'string' ? prev : '';
@@ -1656,20 +1943,44 @@ ${VE}`;
   };
   M.vaerPopupStyles = vaerStyles;
   M.POPUP_FORCE = M.POPUP_FORCE || {};
+  // Fiks 56 I · Bubble-oppsettet for #vaer (unntak fra mal A, bare Vær): Fullskjerm (standard) → margin_top 0, width_desktop =
+  // hele dashbordflaten (Bubble sentrerer på --bubble-pop-up-content-inline-start: «100%» alene ville lagt popupen halvveis over
+  // HA-sidebaren – derfor calc(100% − sidebaren), som #kart), bg_opacity 100, bg_blur 0. Radius 0 / høyde = dashbordflaten /
+  // max-height none ligger i styles (VAER_BLOCK, data-ki-vaer-full – live uten ny generering). Ark → mal A uendret.
+  const FULL = { margin_top_mobile: '0px', margin_top_desktop: '0px', width_desktop: 'calc(100% - var(--bubble-pop-up-content-inline-start, 0px))', bg_opacity: '100', bg_blur: '0' };
+  M.VAER_FULL = FULL;
+  const cardCfgOf = (cfg) => {
+    const card = (cfg && Array.isArray(cfg.cards) ? cfg.cards : []).find((c) => c && String(c.type || '').replace(/^custom:/, '') === 'msh-vaer-card') || {};
+    const id = card.card_id || 'pop-vaer', st = M.store && M.store.eff ? M.store.eff('cards.' + id) : null;
+    return { ...card, ...(st && typeof st === 'object' ? st : {}) };
+  };
   M.POPUP_FORCE['#vaer'] = (cfg) => {
     if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.cards) || !cfg.cards.some((c) => c && String(c.type || '').replace(/^custom:/, '') === 'msh-vaer-card')) return null;
-    return { ...cfg, styles: vaerStyles(cfg.styles) };
+    const out = { ...cfg, styles: vaerStyles(cfg.styles) };
+    return viewOf(cardCfgOf(cfg)) === 'fullscreen' ? { ...out, ...FULL } : out;
   };
   // Tilpass Hjem → Popups → Vær: samme stil-verdi som «Tilpass Vær» og GUI-editoren (kortets config via ki-store)
   const liveVaer = () => { const out = []; (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && el.localName === 'msh-vaer-card' && el.isConnected !== undefined) out.push(el); })); return out; };
-  M.vaerStil = () => { const el = liveVaer()[0]; if (el) return stilOf(el._rawConfig); const s0 = M.store && M.store.eff ? M.store.eff('cards.pop-vaer') : null; return stilOf(s0 || {}); };
+  const vaerCfg = () => { const el = liveVaer().find((x) => x.isConnected) || liveVaer()[0]; if (el && el._rawConfig) return el._rawConfig; const s0 = M.store && M.store.eff ? M.store.eff('cards.pop-vaer') : null; return s0 || {}; };
+  M.vaerStil = () => stilOf(vaerCfg());
+  M.vaerView = () => viewOf(vaerCfg());
+  // 56 I: skal navbaren skjules mens #vaer er åpen? Ark → ja (28.4); Fullskjerm → bare med «Skjul navbar i fullskjerm»
+  // (10-navbar.js _syncVaer spør her)
+  M.vaerHidesNav = () => hideNavOf(vaerCfg());
+  const syncNav = () => (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && el.localName === 'msh-navbar-card' && typeof el._syncVaer === 'function') { try { el._syncVaer(); } catch (e) { /* */ } } }));
+  // v: 'klassisk' | 'scene' (stil) · 'view:fullscreen' | 'view:sheet' · 'nav:on' | 'nav:off' (Skjul navbar i fullskjerm)
   M.setVaerStil = async (v) => {
-    v = v === 'klassisk' ? 'klassisk' : 'scene';
+    let patch;
+    if (/^view:/.test(String(v))) patch = { view: String(v).slice(5) === 'sheet' ? 'sheet' : 'fullscreen' };
+    else if (/^nav:/.test(String(v))) patch = { hide_navbar: String(v).slice(4) === 'on' };
+    else patch = { style: v === 'klassisk' ? 'klassisk' : 'scene', stil: undefined };
     const els = liveVaer(), el = els.find((x) => x.isConnected) || els[0];
     M.haptic('selection');
-    if (el && el._rawConfig) return el._saveCfg({ style: v, stil: undefined });
-    if (M.store) { const { stil, ...o } = M.store.get('cards.pop-vaer') || {}; return M.store.set('cards.pop-vaer', { ...o, style: v }, { immediate: true }); }
-    return undefined;
+    let r;
+    if (el && el._rawConfig) r = await el._saveCfg(patch);
+    else if (M.store) { const { stil, ...o } = M.store.get('cards.pop-vaer') || {}; const n = { ...o, ...patch }; Object.keys(n).forEach((k) => { if (n[k] === undefined) delete n[k]; }); r = await M.store.set('cards.pop-vaer', n, { immediate: true }); }
+    if ('view' in patch || 'hide_navbar' in patch) { liveVaer().forEach((x) => { if (x.isConnected && x._mountLayers) { x._mountLayers(); x._applySpacing(); x.update(); } }); syncNav(); }
+    return r;
   };
 
   // Segment «Klassisk · Scene» med miniatyr (Tilpass Hjem → Popups → Vær). act = data-a-verdien i vertsarket.
@@ -1681,7 +1992,17 @@ ${VE}`;
     return `<div class="msh-vsm" data-key="vsm" style="display:flex;flex-direction:column;gap:6px">
       <div style="font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 4px">Vær · stil</div>
       <div role="radiogroup" data-glass-drag="x" style="display:flex;gap:4px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${STIL.map(([k, l]) => { const on = k === cur; return `<button role="radio" aria-checked="${on}" ${on ? 'data-active="1"' : ''} data-a="${act}" data-v="${k}" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;padding:6px;border:0;border-radius:20px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:${on ? PINK : 'transparent'};color:${on ? 'var(--ki-on-accent, #2f2f2f)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${prev(k)}<span>${l}</span></button>`; }).join('')}</div>
-      <div style="font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:0 4px">${cur === 'scene' ? 'Værscene bak hele popupen (regn, snø, lyn, stjerner, sol og tåke)' : 'Vær v4 med toppkort og vanlige kort'} · samme valg som i «Tilpass Vær»</div></div>`;
+      <div style="font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:0 4px">${cur === 'scene' ? 'Værscene bak hele popupen (regn, snø, lyn, stjerner, sol og tåke)' : 'Vær v4 med toppkort og vanlige kort'} · samme valg som i «Tilpass Vær»</div>
+      ${vaerViewHTML(act, PINK)}</div>`;
+  };
+  // 56 I · «Visning: Fullskjerm / Ark» (standard Fullskjerm) + «Skjul navbar i fullskjerm» (standard av) – samme config-nøkler
+  // (view, hide_navbar) som GUI-editoren og kortets Tilpass
+  const vaerViewHTML = (act, PINK) => {
+    const c = vaerCfg(), v = viewOf(c), hn = c.hide_navbar === true;
+    const seg = [['fullscreen', 'Fullskjerm', 'mdi:fullscreen'], ['sheet', 'Ark', 'mdi:card-outline']].map(([k, l, ic]) => { const on = k === v; return `<button role="radio" aria-checked="${on}" ${on ? 'data-active="1"' : ''} data-a="${act}" data-v="view:${k}" style="flex:1;min-width:0;height:40px;display:flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:20px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:${on ? PINK : 'transparent'};color:${on ? 'var(--ki-on-accent, #2f2f2f)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${M.icon(ic, 18)}${l}</button>`; }).join('');
+    return `<div style="font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));padding:6px 4px 0">Vær · visning</div>
+      <div role="radiogroup" data-vaer-view data-glass-drag="x" style="display:flex;gap:4px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${seg}</div>
+      <button data-a="${act}" data-v="nav:${hn ? 'off' : 'on'}" data-vaer-nav role="switch" aria-checked="${hn}" ${v === 'sheet' ? 'disabled aria-disabled="true"' : ''} style="display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border:0;border-radius:20px;font:inherit;font-size:14px;cursor:pointer;text-align:left;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, #fafafa);opacity:${v === 'sheet' ? 0.5 : 1}"><span style="flex:1;min-width:0">Skjul navbar i fullskjerm<span style="display:block;font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))">${v === 'sheet' ? 'Ark skjuler navbaren som før' : 'Av = navbar og Now Playing vises over været'}</span></span><span style="position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:${hn ? PINK : 'var(--ki-ctrl, #545454)'}"><i style="position:absolute;top:3px;left:${hn ? 23 : 3}px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa)"></i></span></button>`;
   };
 
   /* ================================================================ «Tilpass Vær» (26.25 · ark portalet ut av popupen, MSH.overlay) */
@@ -1766,6 +2087,7 @@ ${VE}`;
           <div class="r">${M.icon('mdi:weather-snowy-rainy', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="col grow" style="min-width:0"><span class="rl ell">Animasjoner</span><span class="rs2 ell">Regn, snø, lyn, sol og vind i Scene</span></span>${sw('fx', 'fx', fxOn, 'Animasjoner')}</div></div>
         <span class="cap">Fliser</span>
         <div class="tbox"><span class="tnote">Hold inne en flis og dra for å endre rekkefølgen.</span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>${M.icon('mdi:restart', 18)}Tilbakestill rekkefølge</button></div>
+        <button class="more" data-a="sensors">${M.icon('mdi:thermometer', 18)}Føles som og sikt</button>
         <button class="more" data-a="more">${M.icon('mdi:cog-outline', 18)}Entiteter og prognose</button>`;
       const seg = box.querySelector('.stl');
       if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', touchAction: 'pan-y' });
@@ -1843,6 +2165,7 @@ ${VE}`;
         case 'fx': return apply({ hero_fx: D.hero_fx === false }, 'selection');
         case 'treset': return apply({ tile_order: undefined, tiles: undefined }, 'medium');
         case 'more': return Promise.resolve(ctl.done()).then((r) => { if (ctl.closed) M.Card.prototype.customize.call(card, 'overrides'); return r; });
+        case 'sensors': return Promise.resolve(ctl.done()).then((r) => { if (ctl.closed) M.Card.prototype.customize.call(card, 'sensors'); return r; }); // 56 H
         default: return undefined;
       }
     });

@@ -28,9 +28,10 @@
  * Fiks 47 E (fasit Kalender v2 `tabs` → down/up/cancel) – trykk registreres alltid, felles for ALLE fanelinjer:
  *   MSH.tabPress(row, { items?, isActive?(btn), busy?(), select?(btn) }) → kontroller (idempotent; MSH.tabReorder kobler
  *   den på selv – rader uten omorganisering kaller den direkte). Fanebytte på pointerup når bevegelse < 14 px og trykk
- *   < 450 ms; pointercancel innen 250 ms bytter likevel. click er reserve (tastatur), men ignoreres innen 400 ms etter et
+ *   < 450 ms; pointercancel innen 250 ms bytter likevel – men ikke når bevegelsen var overveiende loddrett (Fiks 56 G). click er reserve (tastatur), men ignoreres innen 400 ms etter et
  *   pekervalg (ingen dobbel haptic / dobbelt bytte). Aldri under hold-for-å-omorganisere (window.__tabReorder) eller dra.
- *   Hele knappen + sporets padding/mellomrom (nærmeste fane ≤ 10 px) er trykkflate; fanene får touch-action: pan-x og
+ *   Hele knappen + sporets padding/mellomrom (nærmeste fane ≤ 10 px) er trykkflate; fanene får touch-action: pan-x pan-y
+ *   (Fiks 56 G: vertikalt sveip som starter på en fane scroller popupen – snittet med radens touch-action gjelder) og
  *   ingen tap-highlight. Haptic «light» (i popups; ellers knappens data-haptic) kun ved faktisk bytte (aktiv fane = ingenting); valget skjer som et
  *   syntetisk click på knappen med data-haptic midlertidig «off», så kortets egen click-kode bytter fanen.
  */
@@ -128,7 +129,7 @@
     constructor(row, o) {
       this.row = row; this.o = o || {}; this.p = null; this.at = 0; this.synth = false;
       const cap = { capture: true };
-      // Fallgruve 2: fanene har touch-action pan-x → gestene skal ikke nå Bubble-popupen (swipe-to-close). Boble-fasen på
+      // Fallgruve 2: gestene på fanene skal ikke nå Bubble-popupen (swipe-to-close; vertikal scroll er nettleserens, Fiks 56 G). Boble-fasen på
       // raden: kortets egne capture-lyttere (hold → more-info på shadowRoot) får fortsatt hendelsene.
       const stop = (e) => e.stopPropagation();
       row.addEventListener('pointerdown', stop);
@@ -137,6 +138,15 @@
       row.addEventListener('pointerdown', (e) => this._down(e), cap);
       row.addEventListener('pointerup', (e) => this._up(e), cap);
       row.addEventListener('pointercancel', (e) => this._cancel(e), cap);
+      // Fiks 56 G: retning for pointercancel-regelen – siste kjente posisjon (pointermove før nettleseren tok gesten,
+      // touchmove også etterpå) og om berøringen fortsatt er nede (touchstart → touchend/-cancel)
+      row.addEventListener('pointermove', (e) => { const p = this.p; if (p && p.pid === e.pointerId) this._at(e.clientX, e.clientY); }, cap);
+      const tp = (e) => { const t = e.touches && e.touches[0]; return t && e.touches.length === 1 ? t : null; };
+      row.addEventListener('touchstart', (e) => { this.touch = !!tp(e); }, { capture: true, passive: true });
+      row.addEventListener('touchmove', (e) => { const t = tp(e); if (t && (this.p || this.pc)) this._at(t.clientX, t.clientY); }, { capture: true, passive: true });
+      const tend = () => { this.touch = false; if (this.pc) this._settle(); };
+      row.addEventListener('touchend', tend, { capture: true, passive: true });
+      row.addEventListener('touchcancel', tend, { capture: true, passive: true });
       row.addEventListener('click', (e) => {
         if (!this.eating(e)) return;
         this.eatB = null;
@@ -146,7 +156,9 @@
     items() { return (this.o.items ? Array.from(this.o.items() || []) : ownTabs(this.row)).filter((b) => b && b.isConnected && !(b.matches && b.matches(FIXED))); }
     style() {
       this.items().forEach((b) => {
-        if (!b.style.touchAction) b.style.touchAction = 'pan-x';
+        // Fiks 56 G: pan-x pan-y (ikke pan-x) – effektiv touch-action = snittet med raden (.msh-tr: pan-y → vertikalt sveip
+        // på en fane scroller popupen; vannrett er radens JS-pan / native scroll i rader med pan-x pan-y)
+        if (!b.style.touchAction || b.style.touchAction === 'pan-x') b.style.touchAction = 'pan-x pan-y';
         if (!b.style.webkitTapHighlightColor) b.style.webkitTapHighlightColor = 'transparent';
       });
     }
@@ -173,7 +185,16 @@
     _down(e) {
       if (e.button || e.isPrimary === false) { this.p = null; return; }
       const b = this._btn(e);
-      this.p = b && !b.disabled ? { b, pid: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now() } : null;
+      this.pc = null; clearTimeout(this.pcT);
+      this.p = b && !b.disabled ? { b, pid: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, t: Date.now() } : null;
+    }
+    _at(x, y) { const p = this.p || this.pc; if (p) { p.lx = x; p.ly = y; } }
+    // Overveiende loddrett bevegelse (> 4 px og |dy| > |dx|) = nettleseren startet en vertikal scroll → aldri fanebytte
+    _vert(p) { const dx = p.lx - p.x, dy = p.ly - p.y; return Math.abs(dy) > 4 && Math.abs(dy) > Math.abs(dx); }
+    _settle() {
+      const p = this.pc;
+      this.pc = null; clearTimeout(this.pcT);
+      if (p && !this._vert(p) && !this.busy()) this.pick(p.b);
     }
     _up(e) {
       const p = this.p;
@@ -186,7 +207,14 @@
       const p = this.p;
       if (!p || p.pid !== e.pointerId) return;
       this.p = null;
-      if (Date.now() - p.t < P_CANCEL && !this.busy()) this.pick(p.b); // scroll/glass/swipe-to-close tok pekeren – bytt likevel
+      // scroll/glass/swipe-to-close tok pekeren innen 250 ms – bytt likevel, men bare når bevegelsen ikke var overveiende
+      // loddrett (Fiks 56 G: et raskt vertikalt sveip på fanene scroller popupen og bytter ALDRI fane). Er berøringen fortsatt
+      // nede og retningen uviss (< 4 px), avgjøres det ved touchend (eller etter 300 ms) ut fra hele bevegelsen.
+      if (Date.now() - p.t >= P_CANCEL || this.busy() || this._vert(p)) return;
+      if (!this.touch) { this.pick(p.b); return; }
+      this.pc = p;
+      clearTimeout(this.pcT);
+      this.pcT = setTimeout(() => this._settle(), 300);
     }
     active(b) {
       if (this.o.isActive) return !!this.o.isActive(b);

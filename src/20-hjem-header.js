@@ -759,8 +759,11 @@
     :host{--ki-q-t:calc(var(--ki-hy,0px) + max(var(--ki-nav-occ-top,0px), env(safe-area-inset-top,0px)) + 60px);--ki-q-b:calc(max(var(--ki-nav-occ-bottom,0px), env(safe-area-inset-bottom,0px)) + 12px);
       --ki-q-l:max(0px, var(--ki-nav-occ-left,0px) - var(--ki-hx,0px));--ki-q-r:var(--ki-nav-occ-right,0px)}
     .sh{display:flex;flex-direction:column;contain:none;overflow:visible;top:var(--ki-q-t);bottom:var(--ki-q-b);left:var(--ki-q-l);right:var(--ki-q-r);margin:auto;width:300px;max-width:calc(100% - var(--ki-q-l) - var(--ki-q-r) - 40px);
-      height:-webkit-fit-content;height:fit-content;max-height:calc(100% - var(--ki-q-t) - var(--ki-q-b));transform:scale(.96)}
-    :host(.on) .sh{transform:none}
+      height:-webkit-fit-content;height:fit-content;max-height:calc(100% - var(--ki-q-t) - var(--ki-q-b))}
+    /* Fiks 56 F: inn/ut-animasjonen er MSH.overlay sin (center → .sh.c: scale(.94)+translateY(8px) → 1 på 180 ms, opasitet bare
+       de første 60 ms, Android bare transform). Arket sentreres med margin, ikke translate(-50%) → --ki-cy: 0. Android-flaten
+       (også med Liquid Glass) = samme dekkende flate som standard. */
+    .sh.c{--ki-cy:0px;--ki-c-solid:var(--ki-surface, var(--gray200,#3a3a3a))}
     .body{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
     .scr{display:flex;flex-direction:column;gap:10px;flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
     .body:has(> .scr){overflow:visible}
@@ -796,7 +799,7 @@
     button:active{transform:scale(.97)}
     /* Fiks 47 C · Liquid Glass (Hjem v3 · quick.glass / glassSeg GL) – KUN når navbar-profilen «Liquid Glass» er valgt
        (M.navGlassOn). Ellers solid #3a3a3a, spor #232323 og ingen glans (reglene over). */
-    :host(.lgq) .bg{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))));backdrop-filter:none;-webkit-backdrop-filter:none}
+    :host(.lgq) .bg:not(.c),:host(.lgq) .bg.c::before{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))));backdrop-filter:none;-webkit-backdrop-filter:none}
     .sh.lg{background:var(--ki-glass, rgba(52,52,56,0.42));backdrop-filter:blur(28px) saturate(190%) brightness(1.08);-webkit-backdrop-filter:blur(28px) saturate(190%) brightness(1.08);box-shadow:inset 0 1px 0 rgb(255 255 255/0.35),inset 0 -1px 1px rgb(255 255 255/0.08),inset 0 0 0 0.5px rgb(255 255 255/0.22),0 30px 60px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))))}
     .sh.lg::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 40%,rgb(255 255 255/0.05));pointer-events:none;z-index:-1}
     .sh.lg .seg{background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.28*var(--ki-ka-k,1))));box-shadow:inset 0 1px 2px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1)))),inset 0 0 0 0.5px rgb(255 255 255/0.08)}
@@ -1878,7 +1881,9 @@
         const cc = card.config || {}, HS = M.hjemStatusStyle(cc, 'home'), SS = M.hjemStatusStyle(cc, 'sleep'), AS = M.hjemStatusStyle(cc, 'away');
         const ringC = slp ? SS.color : zi === 0 ? HS.color : p.status.kind === 'zone' && !pend.zone ? p.status.color : AS.color;
         const ringS = M.navGlassOn() ? `0 0 0 4px rgb(20 20 22/0.55),0 0 0 6px ${ringC},0 10px 24px rgb(0 0 0/0.35)` : `0 0 0 4px var(--ki-bg, var(--gray000,#232323)),0 0 0 6px ${ringC}`; // 47 C
-        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:${ringS}">${faceInner(p, 96, card._picBad)}</div>
+        // Fiks 56 F: avataren er en del av kortet (ingen egen forhåndstegnet avatar); <img decoding="async"> med samme src som
+        // på Hjem (allerede lastet) – MSH.overlay viser kortet først etter img.decode() (maks 80 ms)
+        return `<div class="orb pic" style="background:${p.bg};font-size:${faceTxt(p, card._picBad) ? 36 : 0}px;box-shadow:${ringS}">${faceInner(p, 96, card._picBad).replace('<img ', '<img decoding="async" ')}</div>
           <div class="nm"><b>${esc(p.name)}</b><span data-st>${esc(place)} · ${slp ? 'Sover' : 'Våken'}</span></div>
           <div class="scr" data-key="scr">
           ${segH('zone', zi, [[HS.icon, 'Hjemme', 0, HS.color], [AS.icon, 'Borte', 1, AS.color]], Z)}

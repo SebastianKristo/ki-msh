@@ -43,7 +43,7 @@ for (const [bn, b] of browsers) {
         const h = window.mockHass();
         const bc = document.createElement('bubble-card');
         bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#vaer' });
-        bc.innerHTML = '<div class="pop bubble-pop-up"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container"></div></div>';
+        bc.innerHTML = '<div class="pop bubble-pop-up is-popup-opened"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container"></div></div>';
         document.getElementById('dash').appendChild(bc);
         location.hash = '#vaer';
         const c = document.createElement('msh-vaer-card');

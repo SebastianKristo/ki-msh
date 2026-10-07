@@ -83,6 +83,31 @@
   const BAR_CT = 'linear-gradient(90deg, #ff9f45, #ffd9a8, #fff6ea, #d6e6ff)'; // ki-hex-ok xBar (temperatur)
   const BAR_HUE = 'linear-gradient(90deg, hsl(0 85% 60%), hsl(60 85% 60%), hsl(120 70% 55%), hsl(180 70% 55%), hsl(240 75% 65%), hsl(300 75% 62%), hsl(360 85% 60%))';
   const SW_INK = '#e8c9a8'; // ki-hex-ok power_settings_new / swDot
+  // Fiks 56 M · lys modus: fyll/på-tommel = lampens farge som gradient (varmhvit #f6c48a → #f2a65a), pære-ikonet = lampefargen
+  // mørknet til ≥ 4,5:1 mot hvitt (MSH.theme.lampInk, OKLCH L ≈ 0,55). Verdiene settes per element med
+  // MSH.theme.lightOnly (space toggle --ki-lt), så mørk modus beholder Rom v4-fargene over (fallback).
+  const L_WARM = ['#f6c48a', '#f2a65a']; // ki-hex-ok lys modus: varmhvit fyll
+  const L_COOL = ['#dbe6f6', '#b5cbec']; // ki-hex-ok lys modus: kaldhvit fyll (temp > 4500 K)
+  const L_HUE = (h) => [`hsl(${h} 85% 68%)`, `hsl(${h} 85% 58%)`];
+  const hslRgb = (h, s, l) => { s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l); return [0, 8, 4].map((n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))))); };
+  const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const inkC = new Map(); // lampefarge → mørknet ikonfarge (cache)
+  function lightLook(L, st) {
+    const TH = M.theme;
+    let g, base;
+    if (L.fill) {
+      const p = TH && TH.parse(M.color(L.fill));
+      g = [L.fill, `color-mix(in srgb, ${L.fill} 82%, black)`];
+      base = p ? p.slice(0, 3) : hexRgb(L_WARM[1]);
+    } else if (st.type === 'color') { g = L_HUE(st.hue); base = hslRgb(st.hue, 85, 58); }
+    else if (st.type === 'ct' && st.ct > 4500) { g = L_COOL; base = hexRgb(L_COOL[1]); }
+    else { g = L_WARM; base = hexRgb(L_WARM[1]); }
+    const ck = base.join(',');
+    let ink = inkC.get(ck);
+    if (!ink && TH && TH.lampInk) { ink = TH.lampInk(base); if (inkC.size > 200) inkC.clear(); inkC.set(ck, ink); }
+    return { grad: `linear-gradient(90deg, ${g[0]}, ${g[1]})`, ink: ink || 'var(--ki-text, #fafafa)' };
+  }
+  const LO = (v) => (M.theme && M.theme.lightOnly ? M.theme.lightOnly(v) : 'var(--ki-lt) ' + v);
 
   /* ------------------------------------------------------------ tilstand */
   const pctOf = (s) => (!s || s.state !== 'on' ? 0 : s.attributes.brightness != null ? Math.max(1, Math.round((s.attributes.brightness / 255) * 100)) : 100);
@@ -135,18 +160,20 @@
 
   /* ------------------------------------------------------------ markup (Rom v4 lights) */
   function inner(card, L, st) {
-    const ic = M.icon(L.icon || 'lightbulb', 20, st.on && L.iconColor ? `color:${L.iconColor}` : '');
+    const lk = lightLook(L, st);
+    // pære-ikonet: mørk = Rom v4 (arvet tekstfarge / iconColor på gruppe), lys = lampefarge mørknet / --ki-lr-bulb-off
+    const ic = M.icon(L.icon || 'lightbulb', 20, `--lr-b:${LO(st.on ? lk.ink : 'var(--ki-lr-bulb-off)')};color:var(--lr-b, ${st.on && L.iconColor ? L.iconColor : 'currentColor'})`);
     const ent = !st.grp && st.S[0] ? ` data-ent="${esc(st.ids[0])}"` : '';
     let h = `<div class="lr-h"${ent}>${ic}<span class="lr-n">${esc(st.name)}</span><span class="lr-p">${esc(st.val)}</span></div>`;
     if (!st.onoff) {
       const p = st.p;
       h += `<div class="lr-c"><div class="lr-sl" role="slider" tabindex="0" aria-label="${esc(st.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}" aria-valuetext="${esc(st.val)}">`
-        + `<span class="lr-f" style="flex:${p} 1 0;display:${p > 0 ? 'block' : 'none'};background:${st.fill}"></span><span class="lr-k"></span>`
+        + `<span class="lr-f" style="flex:${p} 1 0;display:${p > 0 ? 'block' : 'none'};--lr-fl:${LO(lk.grad)};background:var(--lr-fl, ${st.fill})"></span><span class="lr-k"></span>`
         + `<span class="lr-t" style="flex:${100 - p} 1 0;display:${p < 100 ? 'block' : 'none'}"></span></div>`
         + (st.canX ? `<button class="lr-cv" type="button" aria-label="${st.type === 'ct' ? 'Temperatur' : 'Farge'}" aria-expanded="${st.open}">${M.icon('expand_more', 22, `transform:${st.open ? 'rotate(180deg)' : 'none'};transition:transform .2s`)}</button>` : '')
         + '</div>';
     } else {
-      h += `<button class="lr-sw${st.p > 0 ? ' on' : ''}" type="button" role="switch" aria-checked="${st.p > 0}" aria-label="${esc(st.name)}"><span class="lr-swf">${M.icon('power_settings_new', 18, `color:${SW_INK}`)}</span><span class="lr-swd"></span></button>`;
+      h += `<button class="lr-sw${st.p > 0 ? ' on' : ''}" type="button" role="switch" aria-checked="${st.p > 0}" aria-label="${esc(st.name)}" style="--lr-on:${LO(lk.grad)}"><span class="lr-swf">${M.icon('power_settings_new', 18)}</span><span class="lr-swd"></span></button>`;
     }
     if (st.open) {
       const ct = st.type === 'ct';
@@ -320,19 +347,21 @@
     .lr{display:flex;flex-direction:column;gap:8px;min-width:0}
     .lr-h{display:flex;align-items:center;gap:12px;min-width:0}
     .lr-n{flex:1;min-width:0;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .lr-p{font-size:12px;color:var(--ki-text-mid, #979797);font-variant-numeric:tabular-nums;white-space:nowrap}
+    .lr-p{font-size:12px;color:var(--ki-lr-p, var(--ki-text-mid, #979797));font-variant-numeric:tabular-nums;white-space:nowrap}
     .lr-c{display:flex;gap:8px;align-items:center}
     .lr-sl{flex:1;min-width:0;height:40px;display:flex;align-items:center;gap:6px;touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none}
     .lr-sl:focus-visible{box-shadow:0 0 0 2px var(--ki-text-2, #afafaf);border-radius:14px}
-    .lr-f{height:34px;min-width:0;border-radius:14px 5px 5px 14px;transition:flex-grow .3s}
-    .lr-k{width:4px;height:40px;border-radius:2px;flex:none;background:#b08a68} /* ki-hex-ok slHandle */
-    .lr-t{height:34px;min-width:0;border-radius:5px 14px 14px 5px;background:#6b5b50;transition:flex-grow .3s} /* ki-hex-ok slTrack */
+    .lr-f{height:34px;min-width:0;border-radius:14px 5px 5px 14px;transition:flex-grow .3s;box-shadow:var(--ki-lr-fill-sh, none)}
+    .lr-k{width:var(--ki-lr-kw, 4px);height:40px;border-radius:2px;flex:none;background:var(--ki-lr-k, #b08a68);box-shadow:var(--ki-lr-ksh, none)} /* ki-hex-ok slHandle */
+    .lr-t{height:34px;min-width:0;border-radius:5px 14px 14px 5px;background:var(--ki-track, #6b5b50);box-shadow:var(--ki-track-sh, none);transition:flex-grow .3s} /* ki-hex-ok slTrack */
     .lr-drag .lr-f,.lr-drag .lr-t{transition:none}
     .lr-cv{width:36px;height:40px;display:grid;place-items:center;flex:none;color:var(--ki-text-2, #afafaf)}
-    .lr-sw{position:relative;height:48px;width:100%;border-radius:24px;background:#695b51;display:flex;align-items:center;padding:4px;box-sizing:border-box;cursor:pointer} /* ki-hex-ok swBar */
-    .lr-swf{height:40px;width:52%;border-radius:20px;display:flex;align-items:center;padding-left:14px;box-sizing:border-box;background:#8e7563;transition:transform .35s cubic-bezier(.34,1.4,.64,1),background .25s} /* ki-hex-ok swFill av */
-    .lr-sw.on .lr-swf{background:linear-gradient(90deg, #b8875a, #e0b27e);transform:translateX(92%)} /* ki-hex-ok swFill på */
-    .lr-swd{position:absolute;right:18px;left:auto;top:20px;width:8px;height:8px;border-radius:4px;background:${SW_INK};opacity:.8}
+    .lr-sw{position:relative;height:48px;width:100%;border-radius:24px;background:var(--ki-track, #695b51);box-shadow:var(--ki-track-sh, none);display:flex;align-items:center;padding:4px;box-sizing:border-box;cursor:pointer} /* ki-hex-ok swBar */
+    .lr-swf{height:40px;width:52%;border-radius:20px;display:flex;align-items:center;padding-left:14px;box-sizing:border-box;background:var(--ki-lr-off, #8e7563);box-shadow:var(--ki-lr-off-sh, none);transition:transform .35s cubic-bezier(.34,1.4,.64,1),background .25s} /* ki-hex-ok swFill av */
+    .lr-sw.on .lr-swf{background:var(--lr-on, linear-gradient(90deg, #b8875a, #e0b27e));box-shadow:var(--ki-lr-fill-sh, none);transform:translateX(92%)} /* ki-hex-ok swFill på */
+    .lr-swf>ha-icon{color:var(--ki-lr-ic-off, ${SW_INK})}
+    .lr-sw.on .lr-swf>ha-icon{color:var(--ki-lr-ic-on, ${SW_INK})}
+    .lr-swd{position:absolute;right:18px;left:auto;top:20px;width:8px;height:8px;border-radius:4px;background:var(--ki-lr-dot, ${SW_INK});opacity:var(--ki-lr-dot-op, .8)}
     .lr-sw.on .lr-swd{right:auto;left:18px}
     .lr-x{display:flex;flex-direction:column;gap:6px;padding-left:11px}
     .lr-xh{display:flex;justify-content:space-between}

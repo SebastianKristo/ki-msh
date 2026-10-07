@@ -265,6 +265,7 @@ const def = await D.page.evaluate(async () => {
   const r = { android: !!(M.perf && M.perf.android), holdCss: !!(window.__bd() && window.__bd().getRootNode().getElementById('ki-and-bd')), stromAndCss: /@keyframes ss-fade\{from\{transform/.test(css), before: getComputedStyle(pop, '::before').backdropFilter, holds: (M.perf && M.perf.backdropHolds) || 0 };
   M.closePopup(); await new Promise((r2) => setTimeout(r2, 900));
   // Vær: navbaren tones ut straks (som før) på iOS/PC
+  if (M.store) M.store.set('cards.pop-vaer', { ...(M.store.get('cards.pop-vaer') || {}), view: 'sheet' }); // Fiks 56 I: «Ark» skjuler navbaren som før (Fullskjerm viser den – vaer56-check)
   M.openPopup('#vaer'); await new Promise((r2) => requestAnimationFrame(() => requestAnimationFrame(r2)));
   r.vaerNow = window.__portal().hasAttribute('data-vaer');
   M.closePopup(); await new Promise((r2) => setTimeout(r2, 900));

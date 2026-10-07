@@ -92,7 +92,7 @@ async function page(pn, cfg, width) {
     document.getElementById('dash').appendChild(bc);
     location.hash = '#kalender';
     const c = document.createElement('msh-kalender-card');
-    c.setConfig({ type: 'custom:msh-kalender-card', card_id: 'pop-kal46', ...(cfg || {}) });
+    c.setConfig({ type: 'custom:msh-kalender-card', card_id: 'pop-kal46', post_parcels: false, ...(cfg || {}) }); // 56 A: pakkeprikker/-liste testes i kalender56
     c.hass = H;
     bc.querySelector('.inner').appendChild(c);
     window.__c = c;
@@ -189,11 +189,11 @@ const RW = async (cfg, day) => p.evaluate(async ({ cfg, day }) => {
 ok('Fant dager i rutenettet med og uten levering', !!dayPn && !!dayNo, grid);
 const V0 = await RW(undefined, null), V1 = await RW('valgt', dayPn), V2 = await RW('valgt', dayNo);
 ok('«Ved valgt dag» (standard): ingen rad uten valgt dag', V0.rows.length === 0 && !/PostNord-levering/.test(V0.sub), V0);
-ok('«Ved valgt dag»: valgt dag med levering → raden (mellom rutenettet og chipsene) + « · PostNord-levering» i datolinjen', V1.rows.length === 1 && /^PostNord · Pakke UC333333333SE \| .+ 9–12 · Under transport$/.test(V1.rows[0]) && / · PostNord-levering$/.test(V1.sub) && V1.kids === 'pt,pg,pnday,pnchs', V1);
+ok('«Ved valgt dag»: valgt dag med levering → raden (mellom rutenettet og chipsene) + « · PostNord-levering» i datolinjen', V1.rows.length === 1 && /^PostNord · …3333SE \| .+ 9–12 · Under transport$/.test(V1.rows[0]) && / · PostNord-levering$/.test(V1.sub) && V1.kids === 'pt,pg,pnday,pnchs', V1);
 ok('«Ved valgt dag»: valgt dag uten levering → ingen rad, ingen « · PostNord-levering»', V2.rows.length === 0 && !/PostNord-levering/.test(V2.sub), V2);
 const A0 = await RW('alltid', null), A1 = await RW('alltid', dayPn), A2 = await RW('alltid', dayNo);
 ok('«Alltid» uten valgt dag → neste PostNord-levering (i dag: Zalando 14–18)', A0.rows.length === 1 && A0.rows[0] === 'PostNord · Zalando | I dag 14–18 · Ute for levering' && A0.kids === 'pt,pg,pnday,pnchs', A0);
-ok('«Alltid» med valgt dag → den dagens levering / ingen', A1.rows.length === 1 && /UC333333333SE/.test(A1.rows[0]) && A2.rows.length === 0, { A1, A2 });
+ok('«Alltid» med valgt dag → den dagens levering / ingen', A1.rows.length === 1 && /…3333SE/.test(A1.rows[0]) && A2.rows.length === 0, { A1, A2 });
 // leveringsmåte fra pakke-sensoren
 const LM = await p.evaluate(async () => { const id = `sensor.${window.PN.J}_pakke_ua111111111se`; newHass(); window.__h.states[id] = { ...window.__h.states[id], attributes: { ...window.__h.states[id].attributes, delivery_method: 'Hjemlevering' } }; window.__c.hass = window.__h; await sleep(250); const r = [...sr().querySelectorAll('.post .pnday')].map((x) => x.querySelector('.evc>span').textContent); return r; });
 ok('Linja: «<vindu> · <status> · <leveringsmåte>» fra pakke-sensorens attributter', LM.join() === 'I dag 14–18 · Ute for levering · Hjemlevering', LM);
