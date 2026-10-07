@@ -681,9 +681,9 @@
     const sc = (id) => { const e = M.regEntry(hh, id) || {}; return (we.platform && e.platform === we.platform ? 2 : 0) + (wa && M.areaOf && M.areaOf(hh, id) === wa ? 1 : 0); };
     return [...ids].sort((a, b) => sc(b) - sc(a));
   };
-  const FEELS_RX = /feels|apparent|f(ø|o)les|fuehlt|ressenti|windchill|wind_chill|heat_?index/i, VIS_RX = /visib|sikt/i;
+  const FEELS_RX = /feels|apparent|f(ø|o)les|fuehlt|ressenti|windchill|wind_chill|heat_?index/i, VIS_RX = /visib|(^|[._\s])sikt($|[._\s])/i; // «sikt» som eget ord (ikke «oversikt»)
   M.vaerFeelsAuto = (hh, wx) => (hh ? rankNear(hh, wx, M.all(hh, 'sensor', (s, id) => (s.attributes || {}).device_class === 'temperature' && nameHit(hh, id, FEELS_RX)))[0] || null : null);
-  M.vaerVisAuto = (hh, wx) => (hh ? rankNear(hh, wx, M.all(hh, 'sensor', (s, id) => VIS_RX.test(id) && !/_(min|max)$/.test(id)))[0] || null : null);
+  M.vaerVisAuto = (hh, wx) => (hh ? rankNear(hh, wx, M.all(hh, 'sensor', (s, id) => nameHit(hh, id, VIS_RX) && !/_(min|max)$/.test(id) && M.isNum(s.state)))[0] || null : null);
   // → { v (i værentitetens temperaturenhet), src: 'cfg'|'attr'|'auto'|'calc', ent, kind } | null
   M.vaerFeels = function (hh, c, wx) {
     c = c || {};
@@ -1119,7 +1119,7 @@
         pop.toggleAttribute('data-ki-vaer-full', full);
         const hn = hideNavOf(this._rawConfig || {});
         pop.toggleAttribute('data-ki-vaer-nonav', hn);
-        if (this._navHide !== undefined && this._navHide !== hn && this.isOpen) setTimeout(syncNav, 0); // valget endret mens popupen er åpen
+        if (this._navHide !== hn && location.hash === '#vaer') setTimeout(syncNav, 0); // første montering / valget endret mens popupen er åpen
         this._navHide = hn;
         if (full) {
           this._fitFull(pop);

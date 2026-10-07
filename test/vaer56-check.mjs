@@ -71,6 +71,7 @@ async function simple({ w = 390, h = 900, ua, light = false } = {}) {
       const wait = (ms) => new Promise((q) => setTimeout(q, ms));
       document.getElementById('dash').innerHTML = '';
       const H = window.mockHass(); H.themes = { ...(H.themes || {}), darkMode: !light };
+      H.states = { ...H.states }; // ingen lekkasje mellom oppsettene (mockHass deler states)
       Object.entries(patch || {}).forEach(([id, st]) => { if (st === null) delete H.states[id]; else H.states[id] = { entity_id: id, last_changed: new Date().toISOString(), last_updated: new Date().toISOString(), context: {}, ...(H.states[id] || {}), ...st, attributes: { ...((H.states[id] || {}).attributes || {}), ...(st.attributes || {}) } }; });
       if (attrs) H.states['weather.home'] = { ...H.states['weather.home'], attributes: attrs(H.states['weather.home'].attributes) };
       window.__h = H;
@@ -96,19 +97,26 @@ async function simple({ w = 390, h = 900, ua, light = false } = {}) {
 {
   const { p, ctx } = await bubble({ card: { view: 'sheet' } });
   const cdp = await ctx.newCDPSession(p);
+  // ekte touch-input (CDP Input.dispatchTouchEvent): nettleseren scroller/panorerer selv, Bubble får ekte touch-hendelser
+  const drag = async (x, y, dx, dy, steps = 16, dt = 16) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (let i = 1; i <= steps; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / steps, y: y + (dy * i) / steps }] }); await p.waitForTimeout(dt); }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
   const swipe = async (sel, dx, dy, at) => {
     const pt = await p.evaluate(({ sel, at }) => {
       const sr = window.__card.shadowRoot, el = typeof sel === 'string' ? sr.querySelector(sel) : null;
       if (!el) return null;
       if (at !== 'keep') el.scrollIntoView({ block: 'center' });
       const r = el.getBoundingClientRect();
-      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), st: window.__C.scrollTop, sl: (sr.querySelector('.hsc') || {}).scrollLeft };
+      const x = Math.round(Math.max(r.left, 0) + (Math.min(r.right, innerWidth) - Math.max(r.left, 0)) / 2);
+      return { x, y: Math.round(r.top + r.height / 2), st: window.__C.scrollTop, sl: (sr.querySelector('.hsc') || {}).scrollLeft };
     }, { sel, at });
     if (!pt) return { err: 'fant ikke ' + sel };
     if (pt.y < 2 || pt.y > 840 || pt.x < 2) return { err: 'utenfor', pt };
     await p.waitForTimeout(250);
     const p0 = await p.evaluate(() => ({ st: window.__C.scrollTop, sl: (window.__card.shadowRoot.querySelector('.hsc') || {}).scrollLeft }));
-    try { await cdp.send('Input.synthesizeScrollGesture', { x: pt.x, y: pt.y, xDistance: dx, yDistance: dy, gestureSourceType: 'touch', speed: 600, preventFling: true }); } catch (e) { return { err: e.message, pt }; }
+    try { await drag(pt.x, pt.y, dx, dy); } catch (e) { return { err: e.message, pt }; }
     await p.waitForTimeout(700);
     const p1 = await p.evaluate(() => ({ st: window.__C.scrollTop, sl: (window.__card.shadowRoot.querySelector('.hsc') || {}).scrollLeft, hash: location.hash, open: window.__pop.classList.contains('is-popup-opened') && !window.__pop.classList.contains('is-popup-closed') }));
     return { dSt: Math.round(p1.st - p0.st), dSl: Math.round((p1.sl || 0) - (p0.sl || 0)), hash: p1.hash, open: p1.open, x: pt.x, y: pt.y };
@@ -117,7 +125,7 @@ async function simple({ w = 390, h = 900, ua, light = false } = {}) {
   ok('56 G touch-action: timestripen pan-x pan-y (overflow-x auto, overscroll-behavior-x contain), pillen pan-y, fliser pan-y', TA.hsc === 'pan-x pan-y' && TA.mpill === 'pan-y' && TA.tw === 'pan-y' && TA.wd === 'contain/auto', TA);
   const G = {};
   G.hoursDown = await swipe('.hsc', 0, -320);
-  G.hoursUp = await swipe('.hsc', 0, 160, 'keep');
+  G.hoursUp = await swipe('.hsc', 0, 160);
   G.daysDown = await swipe('.dl .dw:nth-child(3) .dr', 0, -320);
   G.horiz = await swipe('.hsc', -220, 0);
   // grafene: Vind (scrub i timestripen) og nedbør per dag (scrub)
@@ -127,7 +135,7 @@ async function simple({ w = 390, h = 900, ua, light = false } = {}) {
   await p.evaluate(async () => { window.__card.shadowRoot.querySelector('.mb[data-k="rain"]').click(); await new Promise((q) => setTimeout(q, 250)); });
   const TA3 = await p.evaluate(() => getComputedStyle(window.__card.shadowRoot.querySelector('.rsg')).touchAction);
   G.rainDown = await swipe('.rsg', 0, -300);
-  G.rainUp = await swipe('.rsg', 0, 150, 'keep');
+  G.rainUp = await swipe('.rsg', 0, 150);
   G.tilesDown = await swipe('[data-tiles] .tw', 0, -300);
   const vOk = (r) => r && !r.err && r.dSt > 60 && r.hash === '#vaer' && r.open;
   ok('56 G vertikalt sveip fra «Neste timer» scroller popupen (ned og opp) og lukker den ikke', vOk(G.hoursDown) && G.hoursUp.dSt < -40 && G.hoursUp.hash === '#vaer', { down: G.hoursDown, up: G.hoursUp });
@@ -141,7 +149,7 @@ async function simple({ w = 390, h = 900, ua, light = false } = {}) {
   const sc = await p.evaluate(() => { const r = window.__card.shadowRoot.querySelector('.wsc').getBoundingClientRect(); return { x: Math.round(r.left + 40), y: Math.round(r.top + 30), st: window.__C.scrollTop }; });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sc.x, y: sc.y }] });
   for (let i = 1; i <= 6; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sc.x + i * 8, y: sc.y }] }); await p.waitForTimeout(16); }
-  const S1 = await p.evaluate(() => ({ tip: !!window.__card.shadowRoot.querySelector('.wtip'), lock: window.__card.shadowRoot.querySelector('.wsc').dataset.lock, st: window.__C.scrollTop }));
+  const S1 = await p.evaluate(({ x, y }) => { const sr = window.__card.shadowRoot, hit = sr.elementFromPoint(x, y); return { tip: !!sr.querySelector('.wtip'), lock: sr.querySelector('.wsc').dataset.lock, st: window.__C.scrollTop, hit: hit && hit.className && String(hit.className.baseVal != null ? hit.className.baseVal : hit.className) }; }, sc);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await p.waitForTimeout(200);
   const S2 = await p.evaluate(() => ({ tip: !!window.__card.shadowRoot.querySelector('.wtip') }));
@@ -149,7 +157,7 @@ async function simple({ w = 390, h = 900, ua, light = false } = {}) {
   // swipe-to-close fra headeren virker fortsatt (popupen scrollet til toppen)
   await p.evaluate(async () => { window.__C.scrollTop = 0; await new Promise((q) => setTimeout(q, 300)); });
   const hd = await p.evaluate(() => { const r = window.__pop.querySelector('.bubble-header-container').getBoundingClientRect(); return { x: Math.round(r.left + r.width / 3), y: Math.round(r.top + r.height / 2) }; });
-  await cdp.send('Input.synthesizeScrollGesture', { x: hd.x, y: hd.y, xDistance: 0, yDistance: 420, gestureSourceType: 'touch', speed: 1400, preventFling: false });
+  await drag(hd.x, hd.y, 0, 420, 14, 12);
   await p.waitForTimeout(900);
   const closed = await p.evaluate(() => location.hash);
   ok('56 G swipe-to-close fra headeren virker fortsatt', closed !== '#vaer', closed);
@@ -181,11 +189,12 @@ for (const vp of [{ w: 390, h: 844, sb: 0, tag: 'mobil' }, { w: 1400, h: 900, sb
   const col = vp.w >= 768 ? R.wrap[2] <= 752 && Math.abs(R.wrap[0] - R.wrap[1]) <= 2 : R.pad === '16px' && Math.abs(R.wrap[0]) <= 1;
   ok(`${T} 56 I innhold: padding 0 16px (telefon) / sentrert kolonne maks 720 px (nettbrett/PC)`, /full/.test(R.cls) && col, R);
   ok(`${T} 56 I heroen ~30 % av dashbordhøyden`, R.hero >= R.dashH * 0.3 - 2, R);
-  ok(`${T} 56 I navbar synlig over været (standard), stedsvelgeren står over navbaren, bunnluft = navbar + Now Playing + safe-area + 16`, R.navVis === true && R.navOp === '1' && R.ctlB <= R.navTop && /ki-nav-h/.test(R.cardPb) && /ki-mini-h/.test(R.cardPb) && /16px/.test(R.cardPb), R);
+  const bar = R.navTop > R.dashH / 2; // horisontal bar nederst (telefon) – ellers rail til venstre (Fold/PC, --ki-nav-h = 0)
+  ok(`${T} 56 I navbar synlig over været (standard), stedsvelgeren står over navbaren, bunnluft = navbar + Now Playing + safe-area + 16`, R.navVis === true && R.navOp === '1' && (bar ? R.ctlB <= R.navTop : R.ctlB <= R.dashH - 16) && /ki-nav-h/.test(R.cardPb) && /ki-mini-h/.test(R.cardPb) && /16px/.test(R.cardPb), R);
   if (shots) await p.screenshot({ path: `${shots}/vaer56-full-${vp.w}.png` });
   // scroll: headeren står fast, siste kort er over navbaren
   const S = await p.evaluate(async () => { const C = window.__C, hd = window.__pop.querySelector('.bubble-header-container'); const h0 = hd.getBoundingClientRect().top; C.scrollTop = 1e6; await new Promise((q) => setTimeout(q, 300)); const sr = window.__card.shadowRoot, at = sr.querySelector('.attr') || sr.querySelector('[data-tiles]'); return { hd: Math.round(hd.getBoundingClientRect().top - h0), last: Math.round(at.getBoundingClientRect().bottom) }; });
-  ok(`${T} 56 I headeren er fast ved scrolling, siste innhold vises over navbaren`, S.hd === 0 && S.last <= R.navTop, { S, navTop: R.navTop });
+  ok(`${T} 56 I headeren er fast ved scrolling, siste innhold vises over navbaren`, S.hd === 0 && S.last <= (bar ? R.navTop : R.dashH), { S, navTop: R.navTop, bar });
   await ctx.close();
 }
 { // «Skjul navbar i fullskjerm» + «Ark»
@@ -312,12 +321,15 @@ for (const [tag, ua] of [['iOS/PC', null], ['Android', ANDROID_UA]]) {
       const extra = []; for (let n = g[0].parentElement; n; n = n.parentElement) { const c = getComputedStyle(n); if (c.backgroundColor !== 'rgba(0, 0, 0, 0)' || c.backgroundImage !== 'none') extra.push(n.className || n.localName); }
       out[k] = { bg: cs.backgroundColor, bf: cs.backdropFilter, same: g.every((e) => getComputedStyle(e).backgroundColor === cs.backgroundColor), extra, ha: getComputedStyle(sr.querySelector('ha-card')).backgroundColor, exp: window.MSH.vaerCardOver(k) };
     }
-    return { out, android: !!(window.MSH.perf && window.MSH.perf.android) };
+    const cm = document.createElement('i'); cm.style.color = 'color-mix(in srgb, rgb(30 36 46) 42%, #3f4957)'; document.body.appendChild(cm); const mix = getComputedStyle(cm).color; cm.remove();
+    return { out, android: !!(window.MSH.perf && window.MSH.perf.android), mix };
   }, KEYS);
   const hex2rgb = (h) => `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
   if (tag === 'Android') {
     const bad = KEYS.filter((k) => L.out[k].bg !== hex2rgb(L.out[k].exp) || (L.out[k].bf && L.out[k].bf !== 'none') || !L.out[k].same);
-    ok('56 L Android (ki-android): dekkende kortflate = --card over C.bg[1] (rainy ≈ #38404d), ingen blur', L.android && !bad.length && L.out.rainy.exp === '#38404d', { bad, rainy: L.out.rainy });
+    // promptens eksempel color-mix(in srgb, rgb(30 36 46) 42%, #3f4957) – nettleserens egen color-mix er fasit (≈ #313a46; «≈ #38404d» i teksten er avrundet feil)
+    const near = (a, b2) => { const x = (a.match(/[\d.]+/g) || []).map(Number), y = (b2.match(/[\d.]+/g) || []).map(Number); return x.length >= 3 && y.length >= 3 && [0, 1, 2].every((i) => Math.abs((x[i] <= 1 && /color\(/.test(a) ? x[i] * 255 : x[i]) - (y[i] <= 1 && /color\(/.test(b2) ? y[i] * 255 : y[i])) <= 1.5); };
+    ok('56 L Android (ki-android): dekkende kortflate = --card blandet over C.bg[1] (rainy = color-mix(rgb(30 36 46) 42 %, #3f4957)), ingen blur', L.android && !bad.length && near(L.out.rainy.bg, L.mix), { bad, rainy: L.out.rainy, mix: L.mix });
   } else {
     const bad = KEYS.filter((k) => L.out[k].bg !== TABLE[k] || !/blur\(18px\)/.test(L.out[k].bf) || !L.out[k].same || L.out[k].extra.length || L.out[k].ha !== 'rgba(0, 0, 0, 0)');
     ok('56 L kortflaten = var(--card) per værtype (tabellen C) + blur(18px), ett lag (ha-card/wrap uten bakgrunn)', !L.android && !bad.length, bad.map((k) => [k, L.out[k]]));
