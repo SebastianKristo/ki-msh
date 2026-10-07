@@ -156,6 +156,8 @@ ${ISLAND_CSS}
 
   const DOC_CSS = `
 :root[data-ki-theme=light]{${decl(LIGHT)};${decl(LIGHT_EXTRA, '')};${ACC_LIGHT};--bubble-backdrop-background-color:rgba(0,0,0,0.2)}
+/* Fiks 57 A: lys modus – <html>/<body> har dashbordets bakgrunn bak alt (ingen annen flate som viser seg under/bak lag) */
+:root[data-ki-theme=light],:root[data-ki-theme=light]>body{background-color:var(--ki-bg)}
 :root[data-ki-theme=light][data-ki-gray=flip]{--ki-bg:var(--gray000,#e6e6e6);--ki-surface-2:var(--gray300,#ebebeb);--ki-surface-3:var(--gray100,#dedede);--ki-ctrl:var(--gray400,#cfcfcf)}
 ${ISLAND_CSS}
 `;
@@ -430,7 +432,7 @@ ${ISLAND_CSS}
   // Finn og merk alle røtter (dashbord, overlay, popups). Billig nok ved modusbytte/hash-endring (debounced).
   T.scan = function () {
     tag(document.documentElement);
-    const d = dashEl(); if (d) { tag(d); if (MSH.perf && MSH.perf.tag) MSH.perf.tag(d); } // Fiks 52: ki-android på dashbord-containeren
+    const d = dashEl(); if (d) { tag(d); if (MSH.perf && MSH.perf.tag) MSH.perf.tag(d); if (T.paintDash) T.paintDash(d); } // Fiks 52: ki-android på dashbord-containeren · 57: jevn bakgrunn
     const ov = document.querySelector('body > ki-overlay-root'); if (ov) tag(ov);
     for (const r of [...roots]) { if (!r.isConnected) { roots.delete(r); const p = pops.get(r); if (p) { p.mo.disconnect(); pops.delete(r); } } else tag(r); }
     const base = d ? (d.getRootNode() === document ? document : d) : document;
@@ -511,20 +513,225 @@ ${ISLAND_CSS}
     if (m === 'light' && T.grayFlips()) html.setAttribute('data-ki-gray', 'flip'); else html.removeAttribute('data-ki-gray');
     tag(html);
     T.scan();
+    // Fiks 57 B: statuslinjen følger modusen straks (popup åpen → popupens toppfarge regnes på nytt)
+    if (T.applyThemeColor) { if (location.hash && location.hash.length > 1 && T.popupTopColor) T.setThemeColor(T.popupTopColor(location.hash), 'popup', 0); else T.applyThemeColor(); }
     if (!changed) return;
     for (const rec of pops.values()) { if (m === 'light') rec.observe(rec.pop); else { rec.mo.disconnect(); rec.seen = new WeakSet(); clearTimeout(rec.t); rec.t = 0; rec.pending.clear(); } }
     if (m === 'dark') clearIslands(); else { classifyOpen(); later(classifyOpen, 400); }
     try { window.dispatchEvent(new CustomEvent('ki-theme-change', { detail: { mode: m } })); } catch (e) { /* */ }
   };
   // Kalles med hver nye hass (MSH.Card). Billig: gjør bare noe når darkMode endres.
-  let first = true;
+  let first = true, lastThemes = null;
   T.update = function (hass) {
     const th = hass && hass.themes;
     const m = th && typeof th.darkMode === 'boolean' ? (th.darkMode ? 'dark' : 'light') : mode;
+    // Fiks 57 B: HA bytter tema (hass.themes nytt objekt) og skriver da sin egen theme-color → sett vår på nytt etterpå
+    if (th && th !== lastThemes) { const had = lastThemes; lastThemes = th; if (had && T.applyThemeColor) { setTimeout(() => T.applyThemeColor(), 0); setTimeout(() => T.applyThemeColor(), 300); } }
     if (first) { first = false; T.set(m); later(() => T.scan(), 300); return; } // første hass: merk røttene (også i mørk)
     if (m !== mode || document.documentElement.getAttribute('data-ki-theme') !== m) T.set(m);
   };
   tag(document.documentElement);
+
+  /* ------------------------------------------------------------ Fiks 57 B/D · theme-color (statuslinjen på Android) */
+  // HA Companion på Android farger statuslinjen fra <meta name="theme-color">. Den settes til dashbordets FAKTISKE
+  // bakgrunn (getComputedStyle på dashbord-containeren, gjennomsiktige lag lagt over det som ligger bak) ved oppstart,
+  // ved bytte lys/mørk, etter HAs temabytte (hass.themes / settheme – HA skriver sin egen verdi) og ved visibilitychange.
+  // En MutationObserver på <head> setter vår verdi tilbake hvis HA skriver over den mens dashbordet vises.
+  // Popups: åpen Bubble-popup → fargen helt øverst (bakteppet/dimmingen over dashbordet, eller popupflaten + dimmingen når
+  // popupen går helt til toppen) – satt i samme hashchange som åpner popupen, tilbake ved lukking. Kort kan registrere en
+  // egen farge per hash (MSH.popupThemeColor – Vær: værbakgrunnens øverste farge C.bg[0]).
+  // Felles hjelper: MSH.setThemeColor(color, key?) husker forrige verdi (stabel per nøkkel), MSH.restoreThemeColor(key?)
+  // setter den tilbake. iOS/PC: theme-color-taggen er ufarlig (ingen layout endres der).
+  // My SmartHome Theme v3 (temafilen ligger ikke i dette repoet) – anbefalte verdier, begge moduser:
+  //   dark:  app-header-background-color: "#232323" · app-header-text-color: "#fafafa" · primary-background-color: "#232323"
+  //          lovelace-background: "#232323"
+  //   light: app-header-background-color: "#e6e6e6" (= --ki-bg) · app-header-text-color: "#1c1c1c" (= --ki-text)
+  //          primary-background-color: "#e6e6e6" · lovelace-background: "#e6e6e6"
+  const BG_VAR = 'var(--ki-bg, #232323)';
+  const TC = { stack: [], ours: null, ha: null, prov: new Map(), mo: null, t: 0 };
+  const andr = () => !!(MSH.perf && MSH.perf.android);
+  const solidHex = (c, under) => { const p = over(c, under || '#000000'); return hex2(p.slice(0, 3)); };
+  // Dashbordets faktiske bakgrunn: første dekkende lag fra containeren og utover (gjennom shadow roots), alfa-lag blandet inn
+  T.dashBg = function () {
+    const start = dashEl() || document.body || document.documentElement;
+    const layers = [];
+    let n = start;
+    const seen = new Set();
+    for (let i = 0; n && i < 80; i++) {
+      if (n.nodeType === 1 && !seen.has(n)) {
+        seen.add(n);
+        let p = null;
+        try { p = parse(getComputedStyle(n).backgroundColor); } catch (e) { /* */ }
+        if (p && p[3] > 0.001) { layers.push(p); if (p[3] >= 0.999) break; }
+      }
+      n = n.parentNode || n.host;
+      if (!n && layers.every((l) => l[3] < 0.999)) { n = null; }
+    }
+    if (!layers.length || layers[layers.length - 1][3] < 0.999) {
+      for (const e of [document.body, document.documentElement]) {
+        if (!e || seen.has(e)) continue;
+        let p = null; try { p = parse(getComputedStyle(e).backgroundColor); } catch (x) { /* */ }
+        if (p && p[3] > 0.001) { layers.push(p); if (p[3] >= 0.999) break; }
+      }
+    }
+    let out = parse(T.val('bg')) || [35, 35, 35, 1];
+    for (let i = layers.length - 1; i >= 0; i--) out = over(layers[i], out);
+    return hex2(out.slice(0, 3));
+  };
+  function metas(create) {
+    const h = document.head || document.documentElement;
+    let ms = [...h.querySelectorAll('meta[name="theme-color"]')];
+    if (!ms.length && create) { const m = document.createElement('meta'); m.setAttribute('name', 'theme-color'); h.appendChild(m); ms = [m]; }
+    return ms;
+  }
+  // Styrer vi theme-color nå? Bare mens et Lovelace-dashbord vises (eller utenfor HA, f.eks. testsiden).
+  const tcActive = () => !document.querySelector('home-assistant') || !!dashEl();
+  function writeMeta(v) {
+    const ms = metas(true);
+    ms.forEach((m) => { if (m.getAttribute('content') !== v) m.setAttribute('content', v); });
+  }
+  T.themeColor = function () {
+    const top = TC.stack.reduce((a, e) => (!a || e.prio >= a.prio ? e : a), null);
+    return top ? top.color : T.dashBg();
+  };
+  T.applyThemeColor = function () {
+    if (!tcActive()) { if (TC.ours && TC.ha != null) writeMeta(TC.ha); TC.ours = null; return null; }
+    const v = T.themeColor();
+    if (!v) return null;
+    if (TC.ours == null) { const m = metas(false)[0]; if (m && TC.ha == null) TC.ha = m.getAttribute('content'); }
+    TC.ours = v;
+    writeMeta(v);
+    watchMeta();
+    return v;
+  };
+  const applySoon = () => { clearTimeout(TC.t); TC.t = setTimeout(() => { TC.t = 0; T.applyThemeColor(); }, 0); };
+  function watchMeta() {
+    if (TC.mo || !window.MutationObserver) return;
+    TC.mo = new MutationObserver(() => {
+      if (TC.ours == null) return;
+      const ms = metas(false);
+      const foreign = ms.find((m) => m.getAttribute('content') !== TC.ours);
+      if (!foreign && ms.length) return;
+      if (foreign) TC.ha = foreign.getAttribute('content'); // HA sin verdi (gis tilbake når dashbordet ikke vises)
+      applySoon();
+    });
+    try { TC.mo.observe(document.head || document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['content'] }); } catch (e) { /* */ }
+  }
+  // Felles hjelper (D): setThemeColor(color, key = 'manual', prio) → forrige verdi. Farger med alfa legges over dashbordet.
+  T.setThemeColor = function (color, key, prio) {
+    key = key || 'manual';
+    const prev = T.themeColor();
+    if (color == null || color === '') { T.restoreThemeColor(key); return prev; }
+    const p = parse(color);
+    const hex = p ? (p[3] < 0.999 ? solidHex(p, T.dashBg()) : hex2(p.slice(0, 3))) : String(color);
+    const i = TC.stack.findIndex((e) => e.key === key);
+    const e = { key, color: hex, prio: prio == null ? (i >= 0 ? TC.stack[i].prio : 1) : prio, prev };
+    if (i >= 0) TC.stack.splice(i, 1);
+    TC.stack.push(e);
+    T.applyThemeColor();
+    return prev;
+  };
+  T.restoreThemeColor = function (key) {
+    key = key || 'manual';
+    const i = TC.stack.findIndex((e) => e.key === key);
+    if (i >= 0) TC.stack.splice(i, 1);
+    return T.applyThemeColor();
+  };
+  MSH.setThemeColor = (c, k, p) => T.setThemeColor(c, k, p);
+  MSH.restoreThemeColor = (k) => T.restoreThemeColor(k);
+
+  // Dashbord-containeren: én jevn bakgrunn (--ki-bg / #232323) over hele flaten – ingen lag fra HA/temaet (view-bakgrunn,
+  // lovelace-background) som slutter midt på siden (57 A). Android (57 B): headeren (om den vises) i samme farge, og med
+  // skjult header (kiosk) får containeren padding-top = safe area med samme bakgrunn. iOS/PC: bare bakgrunnsfargen.
+  function paintDash(d) {
+    if (!d || !d.style) return;
+    if (d.style.getPropertyValue('background-color') !== BG_VAR) {
+      d.style.setProperty('background-color', BG_VAR);
+      // HAs view-bakgrunnslag (hui-view-background / lovelace-background fra temaet) får samme farge
+      d.style.setProperty('--lovelace-background', BG_VAR);
+      d.style.setProperty('--view-background', BG_VAR);
+    }
+    if (!andr()) return;
+    const rn = d.getRootNode && d.getRootNode(), host = rn && rn.host;
+    if (host && host.style && host.style.getPropertyValue('--app-header-background-color') !== BG_VAR) {
+      host.style.setProperty('--app-header-background-color', BG_VAR);
+      host.style.setProperty('--app-header-text-color', 'var(--ki-text, var(--primary-text-color, #fafafa))');
+    }
+    try {
+      const hd = rn && rn.querySelector && rn.querySelector('.header');
+      const hidden = !hd || hd.offsetHeight === 0 || getComputedStyle(hd).display === 'none';
+      if (hidden) {
+        if (d.dataset.kiSafe !== '1') {
+          const pt = parseFloat(getComputedStyle(d).paddingTop) || 0;
+          if (pt < 1) { d.style.setProperty('padding-top', 'env(safe-area-inset-top, 0px)', 'important'); d.dataset.kiSafe = '1'; }
+        }
+      } else if (d.dataset.kiSafe === '1') { d.style.removeProperty('padding-top'); delete d.dataset.kiSafe; }
+    } catch (e) { /* */ }
+  }
+  T.paintDash = paintDash;
+
+  // Bubble-bakteppet (dimmingen): farge fra bakteppe-elementet (document.body > .bubble-backdrop-host), ellers variabelen
+  function dimColor() {
+    try {
+      const hostEl = document.querySelector('body > .bubble-backdrop-host');
+      const bd = hostEl && hostEl.shadowRoot && hostEl.shadowRoot.querySelector('.bubble-backdrop');
+      if (bd) { const p = parse(getComputedStyle(bd).backgroundColor); if (p) return p; }
+      const v = getComputedStyle(document.body).getPropertyValue('--bubble-backdrop-background-color').trim();
+      const p = v && parse(v); if (p) return p;
+    } catch (e) { /* */ }
+    return mode === 'light' ? [0, 0, 0, 0.2] : [0, 0, 0, 0.5];
+  }
+  function popFor(hash) {
+    for (const pop of pops.keys()) {
+      if (!pop.isConnected) continue;
+      const host = pop.getRootNode && pop.getRootNode().host;
+      const cfg = host && (host.config || host._config);
+      if (cfg && cfg.hash === hash) return pop;
+    }
+    return null;
+  }
+  // Fargen øverst mens popupen er åpen (dashbord + dimming, eller popupflate + dimming når popupen dekker toppen)
+  T.popupTopColor = function (hash) {
+    const pv = TC.prov.get(hash);
+    const own = typeof pv === 'function' ? pv() : pv;
+    if (own) return own;
+    const under = over(dimColor(), T.dashBg());
+    const pop = popFor(hash);
+    if (pop) {
+      try {
+        const r = pop.getBoundingClientRect();
+        if (r.height > 0 && r.top <= 1 && !pop.classList.contains('is-opening')) {
+          const bgEl = pop.querySelector('.bubble-pop-up-background') || pop;
+          const p = parse(getComputedStyle(bgEl).backgroundColor);
+          if (p && p[3] > 0.01) return hex2(over(p, under).slice(0, 3));
+        }
+      } catch (e) { /* */ }
+    }
+    return hex2(under.slice(0, 3));
+  };
+  // Kort registrerer egen statuslinjefarge for popupen sin (null = fjern). Er popupen åpen, brukes den straks.
+  MSH.popupThemeColor = T.popupThemeColor = function (hash, color) {
+    if (!hash) return;
+    if (color) TC.prov.set(hash, color); else TC.prov.delete(hash);
+    if (location.hash === hash) T.setThemeColor(T.popupTopColor(hash), 'popup', 0);
+  };
+  let popRaf = 0, popT = 0;
+  function onHashTC() {
+    const h = location.hash;
+    cancelAnimationFrame(popRaf); clearTimeout(popT);
+    if (h && h.length > 1) {
+      T.setThemeColor(T.popupTopColor(h), 'popup', 0); // samme hendelse som åpner popupen (Bubble lytter på hashchange)
+      const again = () => { if (location.hash === h) T.setThemeColor(T.popupTopColor(h), 'popup', 0); };
+      popRaf = requestAnimationFrame(again);
+      popT = setTimeout(again, 420); // når åpne-animasjonen er ferdig (bakteppe/plassering endelig)
+    } else T.restoreThemeColor('popup');
+  }
+  window.addEventListener('hashchange', onHashTC);
+  window.addEventListener('location-changed', () => { if (!location.hash) T.restoreThemeColor('popup'); else applySoon(); });
+  window.addEventListener('settheme', () => { applySoon(); setTimeout(() => T.applyThemeColor(), 300); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { T.applyThemeColor(); setTimeout(() => T.applyThemeColor(), 250); } });
+  window.addEventListener('pageshow', applySoon);
+
   // Popup åpnes (hash) → merk nye popup-røtter og omklassifiser (regel 8).
   // Fiks 52: T.scan går gjennom hele DOM-en (alle shadow roots) – før kom den 120 ms etter hash-byttet, midt i Bubbles
   // åpne-animasjon (300 ms), og ble en lang oppgave på Android. Nå etter animasjonen og i ledig tid. Kortet i popupen

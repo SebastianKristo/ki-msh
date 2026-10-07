@@ -23,6 +23,9 @@
  *   badges:  { id: [{ entity, op: '>'|'<'|'='|'!=', value, text }] }
  *   show_names, menu_names, shrink, width (kompakt|std|full), style (white|glass), layout (auto|mobil|stor),
  *   reserve_space, toasts, admin_tools
+ *   hide_in_popups: ['#vaer'] (standard) – Fiks 57 C: popup-hasher der navbaren og Now Playing (mini-spilleren) glir ut
+ *     (data-hidden på portalen, bare translate/opacity 180 ms, aldri display:none) og inn igjen når popupen lukkes.
+ *     Flervalg «Skjul navbar og Now Playing i popups» i Tilpass navbar = GUI-editoren (samme element). [] = aldri skjul.
  *   mini: { on, cond: 'playing'|'always'|'entity', entity, state, hide_in_media, hide_in_popups, players: [], tv_vol: 'steps'|'slider' } – flytende
  *     mini-spiller over navbaren (Fiks 17.26), eget lag i portalen; skjules i #media, hold på play/pause = bare skjult til neste
  *     avspilling (sessionStorage, ingen pause – 19.7); TV: − / + i volum-pillen (19.15); players velges i MSH.entityMultiPicker (19.6)
@@ -70,6 +73,16 @@
     return { left, top, width: Math.max(280, right - left), height: window.innerHeight - top, right };
   };
 
+  // Fiks 57 C: rektangelet uten elementets egen translate (skjul-forskyvningen, også midt i overgangen) – plassmålingene
+  // (--ki-nav-occ-*, reserve) skal ikke endre seg når navbaren glir ut/inn
+  const unT = (el, r) => {
+    const t = el && getComputedStyle(el).translate;
+    if (!t || t === 'none') return r;
+    const px = (x, size) => { const n = parseFloat(x) || 0; return /%$/.test(x) ? (n * size) / 100 : n; }; // «-100%» = egen bredde/høyde
+    const v = t.split(' '), dx = px(v[0] || '0', el.offsetWidth), dy = px(v[1] || '0', el.offsetHeight);
+    if (!dx && !dy) return r;
+    return { left: r.left - dx, right: r.right - dx, top: r.top - dy, bottom: r.bottom - dy, width: r.width, height: r.height, x: r.left - dx, y: r.top - dy };
+  };
   // Liquid glass-drag (glass-drag.js, men koblet direkte på elementet – fungerer i shadow DOM).
   // --ki-nav-h (navbarens høyde, 0 = skjult/rail) på dokumentet – popupene legger luft i bunnen etter den
   M.setNavVars = (h) => {
@@ -435,8 +448,6 @@
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:var(--ki-text, #fafafa);font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
     :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .3s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
     :host([data-sheet]) nav.nb,:host([data-sheet]) .mini,:host([data-sheet]) .mbg,:host([data-sheet]) .mpos,:host([data-sheet]) .mpos *{pointer-events:none !important} /* 26.16: under Tilpass-arkets bakteppe */
-    :host([data-vaer]) nav.nb,:host([data-vaer]) .mini{opacity:0 !important;pointer-events:none !important} /* 28.4: skjult mens #vaer er åpen */
-    :host([data-vfade]) nav.nb,:host([data-vfade]) .mini{transition:opacity .2s ease !important} /* 28.4: fade 200 ms begge veier */
     :host([data-kart]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .25s ease !important} /* 20.22: mini-spilleren skjult mens #kart er åpen */
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -481,7 +492,7 @@
     .mbox{animation:none!important}
     .mbox>*{animation:mshMenuIn .22s ease-out;will-change:transform}
     .mini.glass,.mini.glass.drag{transition:height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease!important}
-    :host([data-ring]) nav.nb,:host([data-ring]) .mini,:host([data-vfade]) nav.nb,:host([data-vfade]) .mini,:host([data-kart]) .mini{transition:none!important}
+    :host([data-ring]) nav.nb,:host([data-ring]) .mini,:host([data-kart]) .mini{transition:none!important}
     @keyframes mshMenuIn{from{opacity:0;transform:translateY(6px)}}
     /* Fiks 53 · sveip mellom spillerne i mini-spilleren: blur-laget er et eget, fast ::before (translateZ(0)) bak raden;
        .mini selv har ingen backdrop-filter og flytter seg ikke under sveipet – bare raden (.msw, gjennomsiktig, uten blur)
@@ -501,6 +512,30 @@
     .mdots button span{transition:opacity .2s,transform .2s!important}
   `;
 
+  // Fiks 57 C · hide_in_popups: popupen i listen er åpen → data-hidden på portalen (navbarens rot): navbaren glir ned
+  // (bunn, translate 0 100%) / til venstre (rail, −100% 0) og mini-spilleren ned, opasitet → 0, 180 ms – samme bilde som
+  // popupen begynner å åpne (hashchange) og tilbake i samme bilde som den begynner å lukke. Bare translate (egen egenskap,
+  // komponeres med den inline transformen) og opasitet – aldri display/visibility (54 A2: nodene blir liggende), ingen
+  // blur-overgang (52 A). data-hfade gir overgangen bare mens byttet pågår. Står sist i stilen (vinner over ANDROID_CSS).
+  const HIDE_CSS = `
+    :host([data-hidden]) nav.nb,:host([data-hidden]) .mini,:host([data-hidden]) .mrmf{opacity:0 !important;pointer-events:none !important}
+    :host([data-hidden]) nav.nb.row,:host([data-hidden]) .mini{translate:0 100% !important}
+    :host([data-hidden]) nav.nb.rail{translate:-100% 0 !important}
+    :host([data-hfade]) nav.nb,:host([data-hfade]) .mini{transition:translate .18s ease,opacity .18s ease !important}
+    @media (prefers-reduced-motion: reduce){:host([data-hidden]) nav.nb,:host([data-hidden]) .mini{translate:none !important}:host([data-hfade]) nav.nb,:host([data-hfade]) .mini{transition:opacity .18s ease !important}}
+  `;
+  const HIDE_DEF = ['#vaer'];
+  const hideHash = (h) => { let x = String(h == null ? '' : h).trim(); if (!x) return ''; if (x[0] !== '#') x = '#' + x; return M.canonHash ? M.canonHash(x) : x; };
+  // Listen i config (hide_in_popups). Mangler den: standard ['#vaer'] – unntak (migrering, Fiks 56 I): Vær-kortets gamle
+  // hide_navbar: false (eksplisitt «vis navbaren i fullskjerm») gir [] til listen lagres første gang (M.vaerNavLegacy, 48-vaer.js).
+  const hideListOf = (c) => {
+    if (c && Array.isArray(c.hide_in_popups)) return [...new Set(c.hide_in_popups.map(hideHash).filter(Boolean))];
+    if (M.vaerNavLegacy && M.vaerNavLegacy() === false) return [];
+    return [...HIDE_DEF];
+  };
+  M.NAV_HIDE_DEF = HIDE_DEF;
+  M.navHideListOf = hideListOf;
+
   /* ------------------------------------------------------------ kortet */
   class Navbar extends M.Card {
     static get cardName() { return 'Navbar'; }
@@ -519,6 +554,8 @@
           { type: 'nbplace' },
         ] },
         { type: 'navbar', part: 'style' },
+        // Fiks 57 C: flervalg av popup-hasher (hide_in_popups, standard ['#vaer']) – etter Stil/Mini-spiller (20.6: Stil rett etter «Plassering og oppførsel»)
+        { type: 'section', id: 'nbhide', label: 'Skjul i popups', icon: 'mdi:eye-off-outline', meta: (h, c) => { const L = hideListOf(c); return L.length ? L.join(' · ') : 'Ingen'; }, fields: [{ type: 'nbhidepop' }] },
       ];
     }
     static getConfigElement() { const e = document.createElement('msh-navbar-editor'); e.cardClass = this; return e; }
@@ -589,7 +626,7 @@
       window.removeEventListener('orientationchange', this._onVis);
       if (window.visualViewport) window.visualViewport.removeEventListener('resize', this._onResize);
       if (this._hostRO) { this._hostRO.disconnect(); this._hostRO = null; this._hostOn = undefined; }
-      cancelAnimationFrame(this._msRaf); clearTimeout(this._msT); clearTimeout(this._msT2); clearTimeout(this._keepT);
+      cancelAnimationFrame(this._msRaf); clearTimeout(this._msT); clearTimeout(this._msT2); clearTimeout(this._keepT); clearTimeout(this._hfT);
       window.removeEventListener('ki-nav-bottom', this._onResize);
       window.removeEventListener('ki-device-info', this._onResize);
       window.removeEventListener('msh-tcol', this._onTCol);
@@ -938,7 +975,7 @@
       const parent = this._fixedSafe() ? this : document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
       this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke'); // 19.17: navbar og mini-spiller skjules (#ringeklokke)
-      this._syncVaer(); // 26.24 / 28.4: … og fades ut 200 ms mens #vaer er åpen
+      this._syncHide(); // Fiks 57 C: glir ut mens en popup i hide_in_popups er åpen (standard #vaer)
       this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); // 26.16
       this._portal.toggleAttribute('data-kart', location.hash === '#kart'); // 20.22: mini-spilleren skjules, navbaren vises over kartet
       this._tcUsed = false; // settes av _tCol når mini-spilleren plasseres over fliskolonnen
@@ -950,7 +987,7 @@
       // navbaren – opptaket viste navbaren borte i enkeltrammer, også utenom sveip). innerHTML brukes bare ved første
       // tegning av portalen, aldri på navbaren etterpå.
       const sr0 = this._portal.shadowRoot;
-      const css = `${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}${M.perf && M.perf.android ? ANDROID_CSS : ''}`;
+      const css = `${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}${M.perf && M.perf.android ? ANDROID_CSS : ''}${HIDE_CSS}`;
       const navH = this._navHtml(N, geo, false), menuH = this.ui.menu ? this._menuHtml(N, geo) : '';
       if (this._pFirst) {
         sr0.innerHTML = `<style>${css}</style><div class="pnav" data-sec="nav" style="display:contents">${navH}</div><div class="pmini" data-sec="mini" style="display:contents">${mini}</div><div class="pmenu" data-sec="menu" style="display:contents">${menuH}</div>`;
@@ -994,7 +1031,7 @@
       // av --ki-nav-h o.l. endrer størrelsen på grunnere observerte elementer → «ResizeObserver loop»-feil.)
       setTimeout(() => {
         if (!nav || !nav.isConnected) return;
-        const r = nav.getBoundingClientRect();
+        const r = unT(nav, nav.getBoundingClientRect()); // 57 C: plassen måles uten skjul-forskyvningen
         // popupenes bunnluft (MSH.popupBottomPad): faktisk høyde på bunn-navbaren, 0 som rail
         M.setNavVars(geo.rail ? 0 : Math.round(r.height));
         if (!geo.rail && !this.ui.compact) this._navH = Math.round(r.height);
@@ -1016,36 +1053,26 @@
       }, 0);
     }
 
-    // Fiks 28.4: #vaer åpen → navbar + «Spilles nå» fades ut (200 ms), og inn igjen når popupen lukkes. Kalles fra hashchange
-    // (straks, ingen polling) og fra tegningen. data-vfade gir opacity-overgangen bare mens byttet pågår.
-    // Fiks 55 A1: navbaren og mini-spilleren står synlige til Vær-popupen har glidd helt inn og dekker dashbordet (før:
-    // skjult straks hashen ble satt – opptaket viste Hjem-innholdet der baren skulle vært i ~0,4 s før popupen kom). Ved
-    // lukking vises de igjen straks hashen fjernes, før popupen glir ned. Aldri display/visibility – bare opasitet.
-    _syncVaer() {
-      const P = this._portal, v = location.hash === '#vaer' && (!M.vaerHidesNav || M.vaerHidesNav()); // Fiks 56 I: Fullskjerm viser navbaren (standard); Ark / «Skjul navbar i fullskjerm» skjuler
-      if (!P) return;
-      if (!v) { this._vGen = (this._vGen || 0) + 1; cancelAnimationFrame(this._vRaf); this._vWait = false; if (P.hasAttribute('data-vaer')) this._vFade(false); return; }
-      if (P.hasAttribute('data-vaer') || this._vWait) return;
-      if (!AND) { this._vFade(true); return; } // iOS/PC: uendret (fade 200 ms straks)
-      const gen = (this._vGen = (this._vGen || 0) + 1), t0 = performance.now();
-      const popOf = () => { for (const set of (M.liveCards ? M.liveCards.values() : [])) for (const c of set) { if (c.localName === 'msh-vaer-card' && c.isConnected) { const p = M.popupEl ? M.popupEl(c) : null; if (p && p.isConnected) return p; } } return null; };
-      this._vWait = true;
-      const tick = () => {
-        if (gen !== this._vGen || location.hash !== '#vaer') { this._vWait = false; return; }
-        const pop = popOf(), ok = pop && M.popupSettled && M.popupSettled(pop);
-        if (ok || performance.now() - t0 > 2000) { this._vWait = false; this._vFade(true); return; }
-        this._vRaf = requestAnimationFrame(tick);
-      };
-      this._vRaf = requestAnimationFrame(tick);
+    // Fiks 57 C (erstatter 28.4 / 55 A1 / 56 I): hashen er i hide_in_popups → data-hidden + aria-hidden på portalen (navbar
+    // og mini-spiller), ellers fjernet. Kalles fra hashchange/location-changed/popstate (straks – samme bilde som Bubble
+    // begynner å åpne/lukke popupen, også på Android: ingen venting på at popupen har satt seg) og fra tegningen. Bare
+    // attributter – ingen ny tegning. Listen endret (config) → window-event 'ki-nav-hide' (Vær legger om bunnluften).
+    _hideList() { return hideListOf(this._rawConfig || this._config); }
+    _syncHide() {
+      const L = this._hideList(), sig = L.join(',');
+      if (sig !== this._hSig) { const first = this._hSig === undefined; this._hSig = sig; if (!first) window.dispatchEvent(new CustomEvent('ki-nav-hide', { detail: { list: L } })); }
+      if (!this._portal) return;
+      this._hFade(!this._inline && L.includes(hideHash(location.hash)));
     }
-    _vFade(on) {
+    _syncVaer() { this._syncHide(); } // gammelt navn (48-vaer.js før 57)
+    _hFade(on) {
       const P = this._portal;
-      if (!P || P.hasAttribute('data-vaer') === on) return;
-      P.setAttribute('data-vfade', '');
-      void P.offsetWidth;
-      P.toggleAttribute('data-vaer', on);
-      clearTimeout(this._vfT);
-      this._vfT = setTimeout(() => { if (this._portal) this._portal.removeAttribute('data-vfade'); }, 260);
+      if (!P || P.hasAttribute('data-hidden') === on) return;
+      P.setAttribute('data-hfade', ''); // overgangen leses fra stilen ETTER byttet → ingen tvungen layout her
+      P.toggleAttribute('data-hidden', on);
+      if (on) P.setAttribute('aria-hidden', 'true'); else P.removeAttribute('aria-hidden');
+      clearTimeout(this._hfT);
+      this._hfT = setTimeout(() => { const Q = this._portal; if (!Q) return; Q.removeAttribute('data-hfade'); this._measureOcc(); }, 240);
     }
     // Fiks 23.3: navbaren måler seg selv (ResizeObserver på <nav> + resize/orientering via _schedule) → MSH.setNavOcc
     _measureOcc() {
@@ -1056,9 +1083,9 @@
         this._occRO = new ResizeObserver(() => this._measureOcc());
         this._occRO.observe(nav); this._occROel = nav;
       }
-      const D = M.rectOf(this._dEl), n = nav.getBoundingClientRect();
+      const D = M.rectOf(this._dEl), n = unT(nav, nav.getBoundingClientRect()); // 57 C: uten skjul-forskyvningen (translate)
       let r = { left: n.left, top: n.top, right: n.right, bottom: n.bottom, width: n.width, height: n.height };
-      const hid = this._portal && (this._portal.hasAttribute('data-kart') || this._portal.hasAttribute('data-ring') || this._portal.hasAttribute('data-vaer')); // mini-spilleren er skjult i #kart/#ringeklokke
+      const hid = this._portal && (this._portal.hasAttribute('data-kart') || this._portal.hasAttribute('data-ring') || this._portal.hasAttribute('data-hidden')); // mini-spilleren er skjult i #kart/#ringeklokke/hide_in_popups
       const mEl = this._mShow && !hid && sr.querySelector('[data-mini]');
       if (mEl && n.width >= n.height) { const m = mEl.getBoundingClientRect(); if (m.height && m.top < r.top) { r.top = m.top; r.height = r.bottom - r.top; } }
       M.setNavOcc(M.navOccFrom(r, D), this._dEl);
@@ -1214,11 +1241,13 @@
       mb.addEventListener('click', (e) => { if (Date.now() - swallow < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
     }
     // Lagre ny rekkefølge i config.bar (ki-store via MSH.saveCardConfig – samme config som «Tilpass navbar»); key 'more' = Mer-menyen (22.6)
-    _saveBar(bar, key = 'bar') {
-      const old = this._rawConfig || this.config || {}, next = { ...old, [key]: bar };
+    _saveBar(bar, key = 'bar') { return this._saveKeys({ [key]: bar }); }
+    _saveKeys(patch) {
+      const old = this._rawConfig || this.config || {}, next = { ...old, ...patch };
       delete next.__eff;
       this.setConfig(M.store ? { ...next, __eff: 1 } : next); // lokalt først (som MSH.applyLive), ki-store-lagringen følger
-      try { const r = M.saveCardConfig(this.hass, old, next); if (r && r.catch) r.catch((err) => console.error('msh-navbar-card', 'lagring feilet', err)); } catch (err) { console.error('msh-navbar-card', err); }
+      try { const r = M.saveCardConfig(this.hass, old, next); if (r && r.catch) r.catch((err) => console.error('msh-navbar-card', 'lagring feilet', err)); return r; } catch (err) { console.error('msh-navbar-card', err); }
+      return null;
     }
 
     /* ---------------- mini-spiller (Fiks 17.26): eget lag i portalen (aldri inni en popup), over bunn-navbaren / nederst (rail) */
@@ -2054,7 +2083,7 @@
     }
     // Fiks 52: bare navbarens egen tilstand etter hash-bytte (se _onHashNav)
     _hashSync() {
-      this._syncVaer();
+      this._syncHide(); // Fiks 57 C
       const P = this._portal, hh = location.hash, prev = this._hashPrev;
       if (hh === prev && !this.ui.menu) return; // samme hash (popstate + hashchange for ett bytte)
       this._hashPrev = hh;
@@ -2136,6 +2165,23 @@
       `;
     }
   }
+  // Fiks 57 C · felles tilgang til hide_in_popups (Vær-snarveien i Tilpass Vær / Tilpass Hjem → Popups → Vær og GUI-editoren)
+  const liveNav = () => { const out = []; (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && el.localName === 'msh-navbar-card') out.push(el); })); return out.find((x) => x.isConnected) || out[0] || null; };
+  const navStoreCfg = () => { const id = M.CARD_IDS && M.CARD_IDS.navbar; const v = id && M.store && M.store.eff ? M.store.eff('cards.' + id) : null; return v && typeof v === 'object' ? v : {}; };
+  M.navHideList = () => { const el = liveNav(); return hideListOf(el ? el._rawConfig || el._config : navStoreCfg()); };
+  M.navHidesIn = (hash) => M.navHideList().includes(hideHash(hash));
+  // Legg til / fjern én hash i listen og lagre navbarens config (ki-store via MSH.saveCardConfig, som _saveBar)
+  M.setNavHide = async (hash, on) => {
+    const h = hideHash(hash), L = M.navHideList().filter((x) => x !== h);
+    if (on) L.push(h);
+    const el = liveNav();
+    if (el) return el._saveKeys({ hide_in_popups: L });
+    const id = M.CARD_IDS && M.CARD_IDS.navbar;
+    if (!id || !M.store) return null;
+    const r = await M.store.set('cards.' + id, { ...(M.store.get('cards.' + id) || {}), hide_in_popups: L }, { immediate: true });
+    window.dispatchEvent(new CustomEvent('ki-nav-hide', { detail: { list: L } }));
+    return r;
+  };
   M.define('msh-navbar-card', Navbar, 'MSH Navbar', 'Flytende navbar utenfor popups: bunn på mobil, rail til venstre på bred skjerm. Åpner popups via hash, merker med vilkår, «Mer»-meny og liquid glass.');
 
   /* ------------------------------------------------------------ editor («Tilpass navbar») */
@@ -2261,6 +2307,7 @@
       if (f.type === 'navbar') return this._navbar(f.part);
       if (f.type === 'nbplace') return this._nbPlace(); // Fiks 20.6
       if (f.type === 'nbkiosk') return this._nbKiosk(); // Fiks 23.5
+      if (f.type === 'nbhidepop') return this._nbHidePop(); // Fiks 57 C
       return super._field(f, key);
     }
     _render() {
@@ -2419,6 +2466,21 @@
         ${this._nbBottom()}
       </div>`;
     }
+    // Fiks 57 C · «Skjul navbar og Now Playing i popups»: flervalg av alle popups (MSH.allPopups) + hasher i listen som ikke
+    // finnes (egne). Lagres som hide_in_popups (alltid eksplisitt liste, [] = aldri skjul). Samme felt i Tilpass navbar og GUI-editoren.
+    _nbHidePop() {
+      const c = this._config || {}, L = hideListOf(c), pops = M.allPopups ? M.allPopups(this._hass) : [];
+      const opts = pops.map((p) => [p.hash, p.name, p.icon || 'mdi:card-outline']);
+      if (!opts.some((o) => o[0] === '#vaer')) opts.unshift(['#vaer', 'Vær', 'mdi:weather-partly-cloudy']);
+      L.forEach((x) => { if (!opts.some((o) => o[0] === x)) opts.push([x, x, 'mdi:pound']); });
+      opts.sort((a, b) => (L.includes(b[0]) ? 1 : 0) - (L.includes(a[0]) ? 1 : 0)); // valgte først (stabil sortering)
+      const def = L.length === 1 && L[0] === '#vaer';
+      return `<style>.nbhp .hpl{display:flex;flex-wrap:wrap;gap:6px;padding:0 2px}.nbhp .chp.hp{height:36px;padding:0 12px 0 10px;border-radius:18px}.nbhp .chp.hp:not(.on){background:var(--ki-surface-2, #404040)}:host([glass]) .nbhp .chp.hp:not(.on){background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.14*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}</style>
+        <div class="nbx nbhp" data-key="nbhp"><span class="gt">Skjul navbar og Now Playing i popups</span>
+        <div class="hpl" role="group" aria-label="Skjul navbar og Now Playing i popups">${opts.map(([k, l, ic]) => { const on = L.includes(k); return `<button class="chp hp${on ? ' on' : ''}" role="checkbox" aria-checked="${on}" data-a="nbhpop" data-v="${esc(k)}" title="${esc(k)}">${M.icon(on ? 'mdi:check' : ic, 16)}<span>${esc(l)}</span></button>`; }).join('')}</div>
+        <span class="hint" style="padding:0 6px">Navbaren og Now Playing glir bort mens en valgt popup er åpen, og popupen fyller hele dashbordflaten. Standard: Vær.</span>
+        ${def ? '' : `<button class="rsb" data-a="nbhpstd">${M.icon('restart_alt', 18)}Standard (bare Vær)</button>`}</div>`;
+    }
     // Fiks 18.6 · «Avstand fra bunnen» – per enhet (MSH.navBottom, localStorage ki-nav-bottom + ki-store), ikke kortets config
     _nbBottom() {
       if (!M.navBottom) return '';
@@ -2506,6 +2568,8 @@
           window.dispatchEvent(new CustomEvent('ki-nav-bottom'));
           return this._render();
         }
+        case 'nbhpop': { const L = hideListOf(c), v = hideHash(d.v); return this._set('hide_in_popups', L.includes(v) ? L.filter((x) => x !== v) : [...L, v]); } // Fiks 57 C
+        case 'nbhpstd': return this._set('hide_in_popups', [...HIDE_DEF]);
         case 'nbmtv': return this._set('mini.tv_vol', d.v === 'slider' ? 'slider' : undefined); // Fiks 19.15
         case 'nbment': this._menu = null; this._q = {}; return this._set('mini.entity', d.v);
         case 'nbmpl': {

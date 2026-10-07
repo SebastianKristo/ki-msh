@@ -235,7 +235,8 @@ if (existsSync(BC)) {
   }
 } else ok('28.3 ekte Bubble Card (test/.vendor/bubble-card.js – kjør npm run checklist først)', false, 'mangler');
 
-/* ------------------------------------------------ 28.4 Hjem: navbar + «Spilles nå» fades ut 200 ms når #vaer er åpen */
+/* ------------------------------------------------ 28.4 Hjem: navbar + «Spilles nå» skjules når #vaer er åpen
+   (Fiks 57 C: navbarens hide_in_popups, standard ['#vaer'] – data-hidden, glir ut/inn 180 ms, i Ark og Fullskjerm; test/navbar57-check.mjs) */
 {
   const p = await page({ width: 390, height: 844 });
   const N = await p.evaluate(async () => {
@@ -244,11 +245,11 @@ if (existsSync(BC)) {
     const nb = document.createElement('msh-navbar-card');
     const wrap = document.createElement('div'); document.getElementById('dash').appendChild(wrap); // ikke «#dash > msh-navbar-card» (mock-selvtesten)
     nb.setConfig({ type: 'custom:msh-navbar-card', card_id: 'nb' }); nb.hass = h; wrap.appendChild(nb);
-    window.MSH.store.set('cards.pop-vaer', { view: 'sheet' }); // 56 I: navbaren skjules i Ark (28.4); Fullskjerm (standard) viser den – vaer56
+    window.MSH.store.set('cards.pop-vaer', { view: 'sheet' }); // Ark – 57 C: listen gjelder begge visningene
     await w(600);
     const pt = document.querySelector('.msh-navbar-portal') || [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('[data-nav]'));
     const nav = pt.shadowRoot.querySelector('nav.nb'), mini = pt.shadowRoot.querySelector('.mini');
-    const st = () => ({ hash: location.hash, v: pt.hasAttribute('data-vaer'), op: getComputedStyle(nav).opacity, tr: getComputedStyle(nav).transitionDuration, pe: getComputedStyle(nav).pointerEvents, mini: mini ? [getComputedStyle(mini).opacity, getComputedStyle(mini).transitionDuration] : null });
+    const st = () => ({ hash: location.hash, v: pt.hasAttribute('data-hidden'), op: getComputedStyle(nav).opacity, tr: getComputedStyle(nav).transitionDuration, pe: getComputedStyle(nav).pointerEvents, mini: mini ? [getComputedStyle(mini).opacity, getComputedStyle(mini).transitionDuration] : null });
     const s0 = st();
     location.hash = '#vaer'; window.dispatchEvent(new HashChangeEvent('hashchange'));
     const s1 = st(); // straks etter hashchange (ingen polling)
@@ -258,9 +259,9 @@ if (existsSync(BC)) {
     const s3 = st(); await w(100); const s3m = st(); await w(400); const s4 = st();
     return { s0, s1, sMid, s2, s3, s3m, s4 };
   });
-  const dur = (t) => /^0\.2s/.test(t);
-  ok('28.4 (Ark) #vaer åpnes → navbar + Spilles nå skjules straks på hashchange, fade 200 ms', !N.s0.v && N.s1.v && dur(N.s1.tr) && Number(N.sMid.op) > 0 && Number(N.sMid.op) < 1 && N.s2.op === '0' && N.s2.pe === 'none' && (!N.s1.mini || dur(N.s1.mini[1])), N);
-  ok('28.4 #vaer lukkes → vises igjen med fade 200 ms', !N.s3.v && dur(N.s3.tr) && Number(N.s3m.op) > 0 && Number(N.s3m.op) < 1 && N.s4.op === '1' && N.s4.pe !== 'none', N);
+  const dur = (t) => /^0\.18s/.test(t);
+  ok('28.4/57 C (Ark) #vaer åpnes → navbar + Spilles nå skjules straks på hashchange, 180 ms', !N.s0.v && N.s1.v && dur(N.s1.tr) && Number(N.sMid.op) > 0 && Number(N.sMid.op) < 1 && N.s2.op === '0' && N.s2.pe === 'none' && (!N.s1.mini || dur(N.s1.mini[1])), N);
+  ok('28.4/57 C #vaer lukkes → vises igjen, 180 ms', !N.s3.v && dur(N.s3.tr) && Number(N.s3m.op) > 0 && Number(N.s3m.op) < 1 && N.s4.op === '1' && N.s4.pe !== 'none', N);
   await p.close();
 }
 

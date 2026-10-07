@@ -164,9 +164,13 @@
     }
     get styles() {
       return `
-        .tr{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;padding:40px 8px;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;box-sizing:border-box;border-radius:0;background:transparent;transition:background .3s,border-radius .3s,padding .3s,color .3s}
+        /* Fiks 57 A · lys modus: ÉN dekkende flate (--ki-surface #fff, radius 28 som Låst/Stue/Strømpris, --ki-card-sh = kant
+           inset 0 0 0 1px rgba(0,0,0,.05) + svak skygge), ingen alfa/backdrop-filter – ingen skjøt fra bakgrunnen bak kan synes
+           gjennom. Mørk modus: tokenene er udefinert → transparent, ingen skygge, samme padding (uendret). */
+        :host{--sop-pad:var(--ki-lt) 40px 20px}
+        .tr{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;padding:var(--sop-pad, 40px 8px);cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;box-sizing:border-box;border-radius:28px;background:var(--ki-surface, transparent);box-shadow:var(--ki-card-sh, none);-webkit-backdrop-filter:none;backdrop-filter:none;transition:background .3s,border-radius .3s,padding .3s,color .3s,box-shadow .3s}
         /* Fiks 19.10 · tømmedagen (Hjem v3 trashToday): rosa kort, radius 30, padding 24/20, høyden følger innholdet (ca. 120 px) */
-        .tr.pink{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center;min-height:0;padding:24px 20px;border-radius:30px;background:${PINK};color:var(--ki-on-accent, #2a1720);border:0}
+        .tr.pink{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center;min-height:0;padding:24px 20px;border-radius:30px;background:${PINK};color:var(--ki-on-accent, #2a1720);border:0;box-shadow:none}
         .pink .nw{height:auto}
         .pink .n{font-size:60px;font-weight:600;color:var(--ki-on-accent, #2a1720);letter-spacing:-0.04em}
         .pink .tx{gap:6px;min-width:0}

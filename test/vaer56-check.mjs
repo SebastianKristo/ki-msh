@@ -4,7 +4,8 @@
 //   H: «Føles som» og «Sikt» – kilder i prioritert rekkefølge (config → attributt → autofunnet sensor → utregning/«Velg entitet»),
 //      vindavkjøling/heat index, live oppdatering uten ny tegning av popupen, editorfeltene
 //   I: fullskjerm innenfor dashbordflaten (mobil og PC med HA-sidebar), Bubble-oppsettet, header, innholdskolonne, bunnluft over
-//      navbaren, «Skjul navbar i fullskjerm», «Ark» gir det gamle oppsettet
+//      navbaren (57 C: navbaren skjult i #vaer som standard – navbarens hide_in_popups; med [] vises den over været),
+//      «Skjul navbar og Now Playing» (snarvei til listen), «Ark» gir det gamle oppsettet
 //   J/K: like høye fliser (minst 148 px), kompass 96 px, solkurve 44 px, bunnlinjene, måne (belysning/oppgang beregnet)
 //   L: kortflaten per værtype (ett lag, blur 18 px), Android dekkende, fylte ikoner, døgnlistens gradient/skinne
 //   G (lys modus): tekstkontrast på værflatene (sol, sky, regn, natt)
@@ -28,7 +29,7 @@ const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 
 
 /* ------------------------------------------------------------------ sider */
 // Ekte Bubble Card (harness-bubble): popupen fra mal A + M.POPUP_FORCE['#vaer'] (som strategien), valgfritt navbar
-async function bubble({ w = 390, h = 844, sb = 0, light = false, card = {}, nav = false, ua } = {}) {
+async function bubble({ w = 390, h = 844, sb = 0, light = false, card = {}, nav = false, navCfg = {}, ua } = {}) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: w < 900, ...(ua ? { userAgent: ua } : {}) });
   const p = await ctx.newPage();
   p.on('pageerror', (e) => errs.push(e.message));
@@ -37,13 +38,13 @@ async function bubble({ w = 390, h = 844, sb = 0, light = false, card = {}, nav 
   await p.addScriptTag({ path: bundle });
   await p.addScriptTag({ path: BC, type: 'module' });
   await p.waitForFunction(() => customElements.get('bubble-card'), null, { timeout: 15000 });
-  const cfg = await p.evaluate(async ({ sb, light, card, nav }) => {
+  const cfg = await p.evaluate(async ({ sb, light, card, nav, navCfg }) => {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     document.documentElement.style.setProperty('--sb', sb + 'px');
     const H = window.mockHass(); H.themes = { ...(H.themes || {}), darkMode: !light };
     window.__h = H;
     await MSH.store.load(H);
-    if (nav) { const nb = document.createElement('msh-navbar-card'); const wr = document.createElement('div'); document.getElementById('dash').appendChild(wr); nb.setConfig({ type: 'custom:msh-navbar-card', card_id: 'nb' }); nb.hass = H; wr.appendChild(nb); window.__nb = nb; await wait(400); }
+    if (nav) { const nb = document.createElement('msh-navbar-card'); const wr = document.createElement('div'); document.getElementById('dash').appendChild(wr); nb.setConfig({ type: 'custom:msh-navbar-card', card_id: 'nb', ...navCfg }); nb.hass = H; wr.appendChild(nb); window.__nb = nb; await wait(400); }
     const base = MSH.popupTemplateA({ name: 'Vær', icon: 'mdi:weather-partly-cloudy', hash: '#vaer', card: { type: 'custom:msh-vaer-card', card_id: 'pop-vaer', ...card } });
     const pop = MSH.POPUP_FORCE['#vaer'](base) || base;
     const bc = document.createElement('bubble-card'); bc.setConfig(pop); bc.hass = H; document.getElementById('dash').appendChild(bc);
@@ -55,7 +56,7 @@ async function bubble({ w = 390, h = 844, sb = 0, light = false, card = {}, nav 
     window.__C = window.__pop.querySelector('.bubble-pop-up-container');
     await wait(300);
     return { margin: pop.margin_top_mobile, md: pop.margin_top_desktop, wd: pop.width_desktop, op: pop.bg_opacity, blur: pop.bg_blur };
-  }, { sb, light, card, nav });
+  }, { sb, light, card, nav, navCfg });
   return { p, ctx, cfg };
 }
 // Enkel harness (falsk popup, raskere): kort med config, valgfritt endret weather-state
@@ -167,7 +168,7 @@ async function simple({ w = 390, h = 900, ua, light = false } = {}) {
 
 /* ================================================================== I · fullskjerm (ekte Bubble Card) */
 for (const vp of [{ w: 390, h: 844, sb: 0, tag: 'mobil' }, { w: 1400, h: 900, sb: 256, tag: 'PC (HA-sidebar 256 px)' }, { w: 884, h: 1104, sb: 0, tag: 'Fold åpen' }]) {
-  const { p, ctx, cfg } = await bubble({ w: vp.w, h: vp.h, sb: vp.sb, nav: true });
+  const { p, ctx, cfg } = await bubble({ w: vp.w, h: vp.h, sb: vp.sb, nav: true, navCfg: { hide_in_popups: [] } }); // 57 C: Vær fjernet fra listen → navbaren over været
   const R = await p.evaluate(() => {
     const pop = window.__pop, pr = pop.getBoundingClientRect(), dash = document.getElementById('dash').getBoundingClientRect(), sbr = document.getElementById('sidebar').getBoundingClientRect();
     const sr = window.__card.shadowRoot, wrap = sr.querySelector('.wrap'), wr = wrap.getBoundingClientRect(), hd = pop.querySelector('.bubble-header-container');
@@ -179,7 +180,7 @@ for (const vp of [{ w: 390, h: 844, sb: 0, tag: 'mobil' }, { w: 1400, h: 900, sb
     return { pop: [pr.left, pr.top, pr.width, pr.height].map(Math.round), dash: [dash.left, dash.top, dash.width, window.innerHeight - dash.top].map(Math.round), sbR: Math.round(sbr.right), radius: getComputedStyle(pop).borderTopLeftRadius,
       full: pop.hasAttribute('data-ki-vaer-full'), wrap: [Math.round(wr.left - pr.left), Math.round(pr.right - wr.right), Math.round(wr.width)], cls: wrap.className, pad: getComputedStyle(wrap).paddingLeft,
       hdBg: getComputedStyle(hd).backgroundColor, hdPos: getComputedStyle(hd).position, layer: lr && [Math.round(lr.top - pr.top), Math.round(lr.height - pr.height), Math.round(lr.width - pr.width)], layerPos: lay && getComputedStyle(lay).position,
-      hero: nr && Math.round(nr.height), dashH: window.innerHeight, navVis: pt ? !pt.hasAttribute('data-vaer') : null, navOp: nav && getComputedStyle(nav).opacity, navTop: navR && Math.round(navR.top), ctlB: Math.round(ctl.bottom), cardPb: window.__card.style.paddingBottom };
+      hero: nr && Math.round(nr.height), dashH: window.innerHeight, navVis: pt ? !pt.hasAttribute('data-hidden') : null, navOp: nav && getComputedStyle(nav).opacity, navTop: navR && Math.round(navR.top), ctlB: Math.round(ctl.bottom), cardPb: window.__card.style.paddingBottom };
   });
   const T = vp.tag;
   ok(`${T} 56 I Bubble-oppsett (Fullskjerm): margin_top 0, bredde = dashbordflaten, bg_opacity 100, bg_blur 0`, cfg.margin === '0px' && cfg.md === '0px' && /100%/.test(cfg.wd) && cfg.op === '100' && cfg.blur === '0', cfg);
@@ -190,17 +191,17 @@ for (const vp of [{ w: 390, h: 844, sb: 0, tag: 'mobil' }, { w: 1400, h: 900, sb
   ok(`${T} 56 I innhold: padding 0 16px (telefon) / sentrert kolonne maks 720 px (nettbrett/PC)`, /full/.test(R.cls) && col, R);
   ok(`${T} 56 I heroen ~30 % av dashbordhøyden`, R.hero >= R.dashH * 0.3 - 2, R);
   const bar = R.navTop > R.dashH / 2; // horisontal bar nederst (telefon) – ellers rail til venstre (Fold/PC, --ki-nav-h = 0)
-  ok(`${T} 56 I navbar synlig over været (standard), stedsvelgeren står over navbaren, bunnluft = navbar + Now Playing + safe-area + 16`, R.navVis === true && R.navOp === '1' && (bar ? R.ctlB <= R.navTop : R.ctlB <= R.dashH - 16) && /ki-nav-h/.test(R.cardPb) && /ki-mini-h/.test(R.cardPb) && /16px/.test(R.cardPb), R);
+  ok(`${T} 56 I/57 C navbar synlig over været (hide_in_popups uten #vaer), stedsvelgeren står over navbaren, bunnluft = navbar + Now Playing + safe-area + 16`, R.navVis === true && R.navOp === '1' && (bar ? R.ctlB <= R.navTop : R.ctlB <= R.dashH - 16) && /ki-nav-h/.test(R.cardPb) && /ki-mini-h/.test(R.cardPb) && /16px/.test(R.cardPb), R);
   if (shots) await p.screenshot({ path: `${shots}/vaer56-full-${vp.w}.png` });
   // scroll: headeren står fast, siste kort er over navbaren
   const S = await p.evaluate(async () => { const C = window.__C, hd = window.__pop.querySelector('.bubble-header-container'); const h0 = hd.getBoundingClientRect().top; C.scrollTop = 1e6; await new Promise((q) => setTimeout(q, 300)); const sr = window.__card.shadowRoot, at = sr.querySelector('.attr') || sr.querySelector('[data-tiles]'); return { hd: Math.round(hd.getBoundingClientRect().top - h0), last: Math.round(at.getBoundingClientRect().bottom) }; });
   ok(`${T} 56 I headeren er fast ved scrolling, siste innhold vises over navbaren`, S.hd === 0 && S.last <= (bar ? R.navTop : R.dashH), { S, navTop: R.navTop, bar });
   await ctx.close();
 }
-{ // «Skjul navbar i fullskjerm» + «Ark»
-  const { p, ctx } = await bubble({ nav: true, card: { hide_navbar: true } });
-  const N = await p.evaluate(() => { const pt = window.__nb._portal || document.querySelector('.msh-navbar-portal'); return { hidden: pt.hasAttribute('data-vaer'), pb: window.__card.style.paddingBottom, full: window.__pop.hasAttribute('data-ki-vaer-full') }; });
-  ok('56 I «Skjul navbar i fullskjerm» på → navbaren skjules, bunnluft 16 px + safe-area', N.hidden && N.full && /^calc\(16px/.test(N.pb) && !/ki-nav-h/.test(N.pb), N);
+{ // 57 C: standard (navbarens hide_in_popups ['#vaer']) + «Ark»
+  const { p, ctx } = await bubble({ nav: true });
+  const N = await p.evaluate(() => { const pt = window.__nb._portal || document.querySelector('.msh-navbar-portal'); return { hidden: pt.hasAttribute('data-hidden'), pb: window.__card.style.paddingBottom, full: window.__pop.hasAttribute('data-ki-vaer-full') }; });
+  ok('57 C Fullskjerm (standard): navbaren skjules, bunnluft 16 px + safe-area', N.hidden && N.full && /^calc\(16px/.test(N.pb) && !/ki-nav-h/.test(N.pb), N);
   await ctx.close();
   const A = await bubble({ card: { view: 'sheet' } });
   const Sh = await A.p.evaluate(() => { const pr = window.__pop.getBoundingClientRect(); return { full: window.__pop.hasAttribute('data-ki-vaer-full'), top: Math.round(pr.top), radius: getComputedStyle(window.__pop).borderTopLeftRadius, cls: window.__card.shadowRoot.querySelector('.wrap').className }; });
@@ -212,18 +213,18 @@ for (const vp of [{ w: 390, h: 844, sb: 0, tag: 'mobil' }, { w: 1400, h: 900, sb
     const before = MSH.vaerView();
     await MSH.setVaerStil('view:fullscreen'); await wait(500);
     const pr = window.__pop.getBoundingClientRect();
-    const r = { html: /data-v="view:fullscreen"/.test(html) && /data-v="view:sheet"/.test(html) && /Skjul navbar i fullskjerm/.test(html), before, after: MSH.vaerView(), cfg: window.__card._rawConfig.view, full: window.__pop.hasAttribute('data-ki-vaer-full'), top: Math.round(pr.top), radius: getComputedStyle(window.__pop).borderTopLeftRadius };
-    await MSH.setVaerStil('nav:on'); await wait(200); r.nav = window.__card._rawConfig.hide_navbar;
-    await MSH.setVaerStil('nav:off'); await wait(200); r.nav2 = window.__card._rawConfig.hide_navbar;
+    const r = { html: /data-v="view:fullscreen"/.test(html) && /data-v="view:sheet"/.test(html) && /Skjul navbar og Now Playing/.test(html), before, after: MSH.vaerView(), cfg: window.__card._rawConfig.view, full: window.__pop.hasAttribute('data-ki-vaer-full'), top: Math.round(pr.top), radius: getComputedStyle(window.__pop).borderTopLeftRadius };
+    await MSH.setVaerStil('nav:off'); await wait(200); r.nav2 = MSH.navHidesIn('#vaer');
+    await MSH.setVaerStil('nav:on'); await wait(200); r.nav = MSH.navHidesIn('#vaer'); r.list = MSH.navHideList(); r.legacy = window.__card._rawConfig.hide_navbar;
     return r;
   });
-  ok('56 I Tilpass Hjem → Popups → Vær: «Visning: Fullskjerm / Ark» + «Skjul navbar i fullskjerm», lagres i kortets config, live', L.html && L.before === 'sheet' && L.after === 'fullscreen' && L.cfg === 'fullscreen' && L.full && L.top === 0 && L.radius === '0px' && L.nav === true && L.nav2 === false, L);
+  ok('56 I/57 C Tilpass Hjem → Popups → Vær: «Visning: Fullskjerm / Ark» (kortets config, live) + «Skjul navbar og Now Playing» (navbarens hide_in_popups)', L.html && L.before === 'sheet' && L.after === 'fullscreen' && L.cfg === 'fullscreen' && L.full && L.top === 0 && L.radius === '0px' && L.nav === true && L.nav2 === false && JSON.stringify(L.list) === '["#vaer"]' && L.legacy === undefined, L);
   // GUI-editoren har de samme valgene
   const E = await A.p.evaluate(async () => {
     const C = customElements.get('msh-vaer-card'), ed = C.getConfigElement(); document.body.appendChild(ed); ed.hass = window.__h; ed.setConfig({ type: 'custom:msh-vaer-card', card_id: 'gui56' });
     await new Promise((q) => setTimeout(q, 300));
     const t = ed.shadowRoot.innerHTML; ed.remove();
-    return { view: /data-name="view"/.test(t), nav: /Skjul navbar i fullskjerm/.test(t), feels: /feels_like_entity/.test(t), vis: /visibility_entity/.test(t), calc: /Beregn føles som når sensor mangler/.test(t) };
+    return { view: /data-name="view"/.test(t), nav: /Skjul navbar og Now Playing/.test(t), feels: /feels_like_entity/.test(t), vis: /visibility_entity/.test(t), calc: /Beregn føles som når sensor mangler/.test(t) };
   });
   ok('56 H/I GUI-editoren: Visning, Skjul navbar, Føles som-entitet, Sikt-entitet, «Beregn føles som når sensor mangler»', Object.values(E).every(Boolean), E);
   await A.ctx.close();

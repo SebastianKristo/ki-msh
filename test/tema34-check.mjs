@@ -312,7 +312,10 @@ if (BASE) {
   const OLD = await b.page.evaluate(ALLCOL, '#dash');
   const mOld = new Map(OLD), diff = [];
   let same = 0;
-  for (const [k, v] of NEWALL) { if (!mOld.has(k)) continue; if (mOld.get(k) === v) same++; else diff.push({ k: k.slice(-80), før: mOld.get(k), nå: v }); }
+  // Fiks 57 A: dashbord-containeren (hui-root #view) males med dashbordets bakgrunn (#232323 i mørk) – samme farge som
+  // flaten bak (piksel-lik), men beregnet bakgrunn går fra transparent til #232323. Godtas bare akkurat den endringen.
+  const viewOk = (k, a, c) => /hui-root0#\/div0$/.test(k) && a.split('|').map((x, i) => (i === 1 ? '' : x)).join('|') === c.split('|').map((x, i) => (i === 1 ? '' : x)).join('|') && a.split('|')[1] === 'rgba(0, 0, 0, 0)' && c.split('|')[1] === 'rgb(35, 35, 35)';
+  for (const [k, v] of NEWALL) { if (!mOld.has(k)) continue; if (mOld.get(k) === v || viewOk(k, mOld.get(k), v)) same++; else diff.push({ k: k.slice(-80), før: mOld.get(k), nå: v }); }
   ok(`mørk: alle beregnede farger = før-koden (${same} like elementer, ${NEWALL.length} nå / ${OLD.length} før)`, diff.length === 0, diff.slice(0, 6));
   if (process.env.TEMA_DIFF) { const seenD = new Set(); diff.forEach((d) => { const key = d.før + '→' + d.nå; if (!seenD.has(key)) { seenD.add(key); console.log('DIFF', d.k, '\n  før', d.før, '\n  nå ', d.nå); } }); }
   await b.page.close();

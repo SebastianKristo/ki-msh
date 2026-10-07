@@ -247,16 +247,16 @@ const F = await p.evaluate(() => {
 });
 ok('26.25 popup-styles for #vaer (transparent bakgrunn/header, glass-lukk) settes av strategien, idempotent, ett kort', F.has && F.once && F.keep && F.bg === '98' && F.cards === 1, F);
 
-// Navbar + mini-spiller skjules mens #vaer er åpen (samme mekanisme som ringeklokke)
+// Navbar + mini-spiller skjules mens #vaer er åpen (Fiks 57 C: hide_in_popups, standard ['#vaer'] → data-hidden)
 const N = await p.evaluate(async () => {
   const w = (ms) => new Promise((q) => setTimeout(q, ms));
   const nb = document.createElement('msh-navbar-card');
   nb.setConfig({ type: 'custom:msh-navbar-card', card_id: 'nb' }); nb.hass = window.__h; document.getElementById('dash').appendChild(nb);
   location.hash = '#vaer'; window.dispatchEvent(new HashChangeEvent('hashchange')); await w(400);
   const find = () => { const all = [nb, document.body]; for (const r of all) { const x = (r.shadowRoot || r).querySelector ? [...(r.querySelectorAll ? r.querySelectorAll('*') : [])].find((e) => e.shadowRoot && e.shadowRoot.querySelector('[data-nav]')) : null; if (x) return x; } return null; };
-  const portal = find(), on = portal && portal.hasAttribute('data-vaer'), nav = portal && portal.shadowRoot.querySelector('nav.nb'), op = nav && getComputedStyle(nav).opacity, pe = nav && getComputedStyle(nav).pointerEvents;
+  const portal = find(), on = portal && portal.hasAttribute('data-hidden') && portal.getAttribute('aria-hidden') === 'true', nav = portal && portal.shadowRoot.querySelector('nav.nb'), op = nav && getComputedStyle(nav).opacity, pe = nav && getComputedStyle(nav).pointerEvents;
   location.hash = ''; window.dispatchEvent(new HashChangeEvent('hashchange')); await w(400);
-  return { on, op, pe, off: portal && !portal.hasAttribute('data-vaer') };
+  return { on, op, pe, off: portal && !portal.hasAttribute('data-hidden') };
 });
 ok('26.24 navbar/mini-spiller skjult mens #vaer er åpen, tilbake når lukket', N.on && N.op === '0' && N.pe === 'none' && N.off, N);
 
