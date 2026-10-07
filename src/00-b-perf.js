@@ -47,6 +47,10 @@
 .bubble-pop-up.is-fast-opening:not(.editor):not(.popup-mode-centered):not(.popup-mode-adaptive-dialog){animation-name:ki-and-pop-in!important}
 @keyframes ki-and-pop-in{from{transform:translateY(14px)}to{transform:translateY(0)}}
 .bubble-pop-up-background{background-color:var(--bubble-pop-up-main-background-color,var(--bubble-pop-up-background-color,color-mix(in srgb,var(--ki-popup,#282828) var(--ki-pop-op,98%),transparent)))}`;
+  /* Fiks 55 A4 · «Blur i popups på Android» (Tilpass Hjem → Popups, ki-store popup_android_blur, standard av): av → popupens
+   * bg_blur er 0 hele tiden på Android (fast bg_opacity uten blur – ingen blur som slår inn når glidingen stopper); på → som
+   * Fiks 52: 0 under åpning/lukking (AND_POP), konfigurert verdi når popupen står stille. */
+  const AND_NOBLUR = `.bubble-pop-up:not(.editor),.bubble-pop-up:not(.editor)::before,.bubble-pop-up:not(.editor)::after{--custom-popup-filter:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}`;
   const AND_DOC = `html.ki-android,html.ki-android>body{background-color:var(--ki-bg,#232323)}:root.ki-android{--ki-android:1}`;
   const isApple = () => /iPhone|iPad|iPod|Macintosh/i.test(ua());
   const lowEnd = () => {
@@ -91,11 +95,29 @@
       const txt = popTxt(P.lite);
       if (st.textContent !== txt) st.textContent = txt;
       popStyles.add(st);
-      if (ANDROID) { P.tag(pop); fixPopBg(pop); }
+      if (ANDROID) { P.tag(pop); fixPopBg(pop); watchStore(); knowPop(pop); }
     },
   });
 
-  const popTxt = (lite) => (lite ? POP + ALL : POP) + (ANDROID ? AND_POP : '');
+  const androidBlur = () => { try { return !!(MSH.store && MSH.store.get && MSH.store.get('popup_android_blur') === true); } catch (e) { return false; } };
+  // «På» vinner over Ytelsesmodus Auto (som ellers tar all blur på Android), men ikke over Ytelsesmodus «På» (lite valgt)
+  const popTxt = (lite) => {
+    if (!ANDROID) return lite ? POP + ALL : POP;
+    if (androidBlur()) return (lite && pref() === 'lite' ? POP + ALL : '') + AND_POP;
+    return (lite ? POP + ALL : POP) + AND_POP + AND_NOBLUR;
+  };
+  P.androidBlur = androidBlur;
+  // Valget endret (ki-store, også fra en annen enhet) → stilen i alle popup-røtter oppdateres uten omlasting
+  let storeOff = null;
+  function watchStore() {
+    if (storeOff || !ANDROID || !MSH.store || !MSH.store.subscribe) return;
+    storeOff = MSH.store.subscribe((d, path) => { if (!path || path === 'popup_android_blur') refreshPops(); });
+  }
+  function refreshPops() {
+    const txt = popTxt(P.lite);
+    for (const st of [...popStyles]) { if (!st.isConnected) { popStyles.delete(st); continue; } if (st.textContent !== txt) st.textContent = txt; }
+  }
+  P.refreshPops = refreshPops;
   // Android: Bubble regner ut popupens flate fra --ha-card-background/--card-background-color én gang (første åpning).
   // Mangler temaet da (kald start i appen), blir flaten rgba(0,0,0,op) – svart blink/svart popup. Uten eget bg_color i
   // popupens config → popup-nivået #282828 (--ki-popup) med samme opasitet.
@@ -108,7 +130,69 @@
     pop.style.setProperty('--bubble-pop-up-background-color', `color-mix(in srgb, var(--ki-popup, #282828) ${Math.round(op * 100)}%, transparent)`);
     pop.style.setProperty('--bubble-pop-up-fade-color', `color-mix(in srgb, var(--ki-popup, #282828) ${Math.round(op * 65)}%, transparent)`);
   }
+  /* Fiks 55 A4 · Android: bakgrunnsdimmingen og glidingen starter i SAMME bilde. Bubble viser bakteppet (.bubble-backdrop,
+   * eget lag på document.body) før kortene i popupen er bygget, og starter glidingen (is-opening) først 1–3 bilder senere –
+   * opptaket viste dimmet dashbord før popupen beveget seg. Bakteppet holdes derfor på opasitet 0 (klassen ki-hold, uten
+   * overgang) fra det blir synlig til popupen for hashen får is-opening; da fjernes klassen i samme mikrooppgave (samme
+   * bilde) og bakteppet toner inn med Bubbles egen overgang mens popupen glir. Vern: slippes etter 800 ms uansett. */
+  const popByHash = new Map();
+  function knowPop(pop) {
+    const host = pop.getRootNode && pop.getRootNode().host, cfg = host && (host.config || host._config), h = cfg && cfg.hash;
+    if (h) popByHash.set(String(h).startsWith('#') ? String(h) : '#' + h, pop);
+  }
+  function findPop(hash) {
+    const k = popByHash.get(hash);
+    if (k && k.isConnected) return k;
+    let hit = null;
+    const walk = (r, d) => { if (hit || !r || d > 14) return; const L = r.querySelectorAll('*'); for (const e of L) { if (hit) return; if (e.classList && e.classList.contains('bubble-pop-up')) { knowPop(e); if (popByHash.get(hash) === e) { hit = e; return; } } if (e.shadowRoot) walk(e.shadowRoot, d + 1); } };
+    walk(document, 0);
+    return hit;
+  }
+  const opening = (pop) => pop.classList.contains('is-opening') || (pop.classList.contains('is-popup-opened') && !pop.classList.contains('is-popup-closed') && !pop.style.transform);
+  let hold = null;
+  function release() {
+    if (!hold) return;
+    const H = hold; hold = null;
+    clearTimeout(H.cap); cancelAnimationFrame(H.raf); if (H.mo) H.mo.disconnect();
+    H.bd.classList.remove('ki-hold');
+  }
+  function holdBackdrop(bd) {
+    release();
+    const H = (hold = { bd, mo: null, cap: 0, raf: 0, pop: null });
+    const attach = (pop) => {
+      if (H.pop || !pop) return;
+      H.pop = pop;
+      if (pop.classList.contains('is-opening')) return release();
+      H.mo = new MutationObserver(() => { if (hold === H && pop.classList.contains('is-opening')) release(); });
+      H.mo.observe(pop, { attributes: true, attributeFilter: ['class'] });
+    };
+    bd.classList.add('ki-hold');
+    attach(findPop(location.hash));
+    // Popup-elementet kan bli satt inn etter bakteppet (første åpning) – let videre én gang per bilde til det finnes
+    const tick = () => { if (hold !== H) return; if (!H.pop) attach(popByHash.get(location.hash) && popByHash.get(location.hash).isConnected ? popByHash.get(location.hash) : null); else if (opening(H.pop)) return release(); H.raf = requestAnimationFrame(tick); };
+    H.raf = requestAnimationFrame(tick);
+    H.cap = setTimeout(release, 800);
+    P.backdropHolds = (P.backdropHolds || 0) + 1;
+  }
+  function armBackdrop(host) {
+    const sr = host && host.shadowRoot, bd = sr && sr.querySelector('.bubble-backdrop');
+    if (!bd || bd.__kiHold) return;
+    bd.__kiHold = true;
+    if (!sr.getElementById('ki-and-bd')) { const st = document.createElement('style'); st.id = 'ki-and-bd'; st.textContent = '.bubble-backdrop.ki-hold{opacity:0!important;transition:none!important}'; sr.appendChild(st); }
+    let was = false;
+    const chk = () => { const v = bd.classList.contains('is-visible'); if (v && !was && location.hash) holdBackdrop(bd); else if (!v && hold && hold.bd === bd) release(); was = v; };
+    new MutationObserver(chk).observe(bd, { attributes: true, attributeFilter: ['class'] });
+    chk();
+  }
+  function watchBackdrop() {
+    const cur = document.querySelector('body > .bubble-backdrop-host');
+    if (cur) armBackdrop(cur);
+    if (!document.body) return;
+    new MutationObserver((L) => { for (const r of L) r.addedNodes.forEach((n) => { if (n.nodeType === 1 && n.classList && n.classList.contains('bubble-backdrop-host')) armBackdrop(n); }); }).observe(document.body, { childList: true });
+  }
+  P.release = release;
   if (ANDROID) {
+    if (document.body) watchBackdrop(); else document.addEventListener('DOMContentLoaded', watchBackdrop, { once: true });
     const html = document.documentElement;
     html.classList.add('ki-android');
     const st = document.createElement('style');

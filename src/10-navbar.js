@@ -397,7 +397,8 @@
   const NAV_CSS = `
     nav.nb{position:fixed;z-index:24;display:flex;box-sizing:border-box;overflow:hidden;isolation:isolate;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:${M.FONT};transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
     nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:var(--ki-nav-bottom, 8px)}
-    nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center}
+    nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none} /* 55 B2: for høy rail scroller internt */
+    nav.nb.rail::-webkit-scrollbar{display:none}
     nav.nb.white{background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323));backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
     nav.nb.glass{background:var(--ki-glass, rgba(40,40,44,0.38));color:var(--ki-glass-fg, #fafafa);backdrop-filter:blur(22px) saturate(190%) brightness(1.1);-webkit-backdrop-filter:blur(22px) saturate(190%) brightness(1.1);box-shadow:0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1)))),0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
     nav.nb.inline{position:relative;left:auto!important;top:auto!important;bottom:auto!important;transform:none!important;margin:0 auto}
@@ -543,6 +544,27 @@
       window.addEventListener('popstate', this._onHashNav);
       window.addEventListener('resize', this._onResize);
       window.addEventListener('orientationchange', this._onResize); // Fiks 23.3: ny måling av ledig flate
+      // Fiks 55 B2: layout-modus (bunn ↔ rail) måles på nytt når appen kommer tilbake (visibilitychange → visible,
+      // pageshow), ved rotasjon og når visualViewport endres – med én tvungen rAF først (Android rapporterer gammel
+      // størrelse i første bilde) og en kontrollmåling etterpå. Kortets egen størrelse observeres også (0 → synlig).
+      this._onVis = (e) => { if (e && e.type === 'visibilitychange' && document.visibilityState !== 'visible') return; this._remeasure(); };
+      document.addEventListener('visibilitychange', this._onVis);
+      window.addEventListener('pageshow', this._onVis);
+      window.addEventListener('orientationchange', this._onVis);
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', this._onResize);
+      if (window.ResizeObserver && !this._hostRO) {
+        this._hostRO = new ResizeObserver(() => {
+          const on = this.getClientRects().length > 0;
+          if (on === this._hostOn) return;
+          const first = this._hostOn === undefined;
+          this._hostOn = on;
+          if (first) return; // første varsel (observe) = tilstanden ved oppkobling – connectedCallback tegner allerede (én tegning ved oppstart)
+          // panelet fikk layout (oppstart etter splash / appen tilbake) og navbaren mangler → tegn i samme bilde
+          if (on && !this._portal && this._config && this._hass) { if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; } this._force = true; this._render(); }
+          else this._schedule(true);
+        });
+        this._hostRO.observe(this);
+      }
       window.addEventListener('ki-nav-bottom', this._onResize); // Fiks 18.6: slideren i Tilpass navbar (live)
       window.addEventListener('ki-device-info', this._onResize);
       // fiks 18.8: høyre fliskolonne målt på nytt – tegn bare når mini-spilleren faktisk står over kolonnen (rail)
@@ -562,6 +584,12 @@
       window.removeEventListener('popstate', this._onHashNav);
       window.removeEventListener('resize', this._onResize);
       window.removeEventListener('orientationchange', this._onResize);
+      document.removeEventListener('visibilitychange', this._onVis); // Fiks 55 B2
+      window.removeEventListener('pageshow', this._onVis);
+      window.removeEventListener('orientationchange', this._onVis);
+      if (window.visualViewport) window.visualViewport.removeEventListener('resize', this._onResize);
+      if (this._hostRO) { this._hostRO.disconnect(); this._hostRO = null; this._hostOn = undefined; }
+      cancelAnimationFrame(this._msRaf); clearTimeout(this._msT); clearTimeout(this._msT2); clearTimeout(this._keepT);
       window.removeEventListener('ki-nav-bottom', this._onResize);
       window.removeEventListener('ki-device-info', this._onResize);
       window.removeEventListener('msh-tcol', this._onTCol);
@@ -602,7 +630,32 @@
     }
     // Vises kun når kortet er koblet til, synlig og brukeren står i kortets dashbord.
     _active() {
-      return this.isConnected && this._pathOk() && this.getClientRects().length > 0;
+      const on = this.isConnected && this._pathOk() && this.getClientRects().length > 0;
+      if (on) this._laidT = Date.now();
+      return on;
+    }
+    // Fiks 55 B2 · «navbaren mangler etter appbytte/omstart»: når HA-appen kommer tilbake / starter på nytt, er kortet et
+    // øyeblikk uten layout (getClientRects() tom – panelet vises på nytt, siden er skjult). Før ble portalen da fjernet, og
+    // ingenting tegnet den igjen før neste resize (opptaket 11,3–13,6 s). Nå beholdes navbaren urørt mens kortet bare
+    // midlertidig mangler layout: siden er skjult, eller det er < 1,2 s siden kortet sist hadde layout. Den skjules bare når
+    // kortet er koblet fra, brukeren er i et annet dashbord, eller kortet har vært uten layout lenger (f.eks. et vilkår).
+    _keepPortal() {
+      if (!this._portal || !this.isConnected || !this._pathOk()) return false;
+      if (document.visibilityState === 'hidden') return true;
+      const age = Date.now() - (this._laidT || 0);
+      if (age >= 1200) return false;
+      clearTimeout(this._keepT);
+      this._keepT = setTimeout(() => this._schedule(true), 1250 - age);
+      return true;
+    }
+    // Ny måling etter appbytte/rotasjon: én tvungen rAF før navbaren posisjoneres (Android gir gammel størrelse i første
+    // bilde), deretter kontrollmålinger (rotasjonen er ikke alltid ferdig rapportert når hendelsen kommer).
+    _remeasure() {
+      cancelAnimationFrame(this._msRaf);
+      this._msRaf = requestAnimationFrame(() => { this._msRaf = 0; this._schedule(true); });
+      clearTimeout(this._msT); clearTimeout(this._msT2);
+      this._msT = setTimeout(() => this._schedule(true), 250);
+      this._msT2 = setTimeout(() => this._schedule(true), 700);
     }
 
     // Dashbord-elementet kortet faktisk ligger i (host-kjeden opp fra kortet, aldri et globalt oppslag):
@@ -700,7 +753,10 @@
       const compact = !rail && !inline && !!this.ui.compact && c.shrink !== false;
       let style;
       if (inline) style = rail ? `gap:${GAP}px` : '';
-      else if (rail) style = `left:${geo.left + M.RAIL.gap}px;top:${geo.top + geo.height / 2}px;gap:${GAP}px;transform:translateY(-50%)${AND ? ' translateZ(0)' : ''}`;
+      // Fiks 55 B2: railen sentreres loddrett på dashbordflaten med CSS (fixed: 50 % = visningshøyden, + halve toppen av
+      // flaten) – ikke med en målt høyde fra JS, som var gammel etter rotasjon (railen havnet nede i hjørnet og ble kuttet).
+      // Høyden er max-content, maks flatens høyde − 32 px; for høy rail scroller internt.
+      else if (rail) { const t = Math.max(0, Math.round(geo.top)); style = `left:${geo.left + M.RAIL.gap}px;top:calc(50% + ${t / 2}px);max-height:calc(100% - ${t + 32}px);gap:${GAP}px;transform:translateY(-50%)${AND ? ' translateZ(0)' : ''}`; }
       else style = `left:${geo.left + geo.width / 2}px;width:${Math.round(Math.min(geo.width - 28, 392))}px;transform:translateX(-50%) scale(${compact ? 0.8 : 1}) translateY(${compact ? 8 : 0}px)${AND ? ' translateZ(0)' : ''}`;
       const mv = this._moving && act >= 0, d = Math.min(this._dist || 0, 4);
       const indT = mv ? `scaleX(${1 + d * 0.12}) scaleY(${1 - d * 0.04})` : 'scale(1)';
@@ -838,7 +894,10 @@
         const n = N.bar.filter((id) => !N.hidden.has(id)).length;
         return `<div class="pv"><div class="pvh">${M.icon('mdi:dock-bottom', 18)}<span>Navbar · ${n} knapper + Mer · ${rail ? 'rail til venstre' : 'bunn'} (flytende utenfor redigering)</span></div>${this._navHtml(N, { ...geo, rail: false }, true)}</div>`;
       }
-      if (!this._active()) { this._hidePortal(); return ''; }
+      if (!this._active()) {
+        if (this._keepPortal()) return '<slot name="nav"></slot>'; // Fiks 55 B2: midlertidig uten layout – navbaren står urørt
+        this._hidePortal(); return '';
+      }
       this._renderPortal(N, geo);
       return '<slot name="nav"></slot>';
     }
@@ -907,6 +966,13 @@
       }
       if (AND) this._miniArtSync(sr0);
       const nav = sr0.querySelector('[data-nav]');
+      // Fiks 55 B2: bunn ↔ rail = klassebytte på SAMME <nav> (morph), aldri ny node. Ingen transform-overgang i byttet
+      // (den gled ellers på tvers av skjermen i 0,55 s) – navbaren står straks på sin nye plass.
+      if (nav && this._railWas != null && this._railWas !== !!geo.rail) {
+        nav.style.transition = 'none';
+        requestAnimationFrame(() => requestAnimationFrame(() => { if (nav.isConnected) nav.style.transition = ''; }));
+      }
+      this._railWas = !!geo.rail;
       const glassOn = () => this.config.style === 'glass';
       if (nav && !nav.__b) {
         nav.__b = true;
@@ -952,12 +1018,32 @@
 
     // Fiks 28.4: #vaer åpen → navbar + «Spilles nå» fades ut (200 ms), og inn igjen når popupen lukkes. Kalles fra hashchange
     // (straks, ingen polling) og fra tegningen. data-vfade gir opacity-overgangen bare mens byttet pågår.
+    // Fiks 55 A1: navbaren og mini-spilleren står synlige til Vær-popupen har glidd helt inn og dekker dashbordet (før:
+    // skjult straks hashen ble satt – opptaket viste Hjem-innholdet der baren skulle vært i ~0,4 s før popupen kom). Ved
+    // lukking vises de igjen straks hashen fjernes, før popupen glir ned. Aldri display/visibility – bare opasitet.
     _syncVaer() {
       const P = this._portal, v = location.hash === '#vaer';
-      if (!P || P.hasAttribute('data-vaer') === v) return;
+      if (!P) return;
+      if (!v) { this._vGen = (this._vGen || 0) + 1; cancelAnimationFrame(this._vRaf); this._vWait = false; if (P.hasAttribute('data-vaer')) this._vFade(false); return; }
+      if (P.hasAttribute('data-vaer') || this._vWait) return;
+      if (!AND) { this._vFade(true); return; } // iOS/PC: uendret (fade 200 ms straks)
+      const gen = (this._vGen = (this._vGen || 0) + 1), t0 = performance.now();
+      const popOf = () => { for (const set of (M.liveCards ? M.liveCards.values() : [])) for (const c of set) { if (c.localName === 'msh-vaer-card' && c.isConnected) { const p = M.popupEl ? M.popupEl(c) : null; if (p && p.isConnected) return p; } } return null; };
+      this._vWait = true;
+      const tick = () => {
+        if (gen !== this._vGen || location.hash !== '#vaer') { this._vWait = false; return; }
+        const pop = popOf(), ok = pop && M.popupSettled && M.popupSettled(pop);
+        if (ok || performance.now() - t0 > 2000) { this._vWait = false; this._vFade(true); return; }
+        this._vRaf = requestAnimationFrame(tick);
+      };
+      this._vRaf = requestAnimationFrame(tick);
+    }
+    _vFade(on) {
+      const P = this._portal;
+      if (!P || P.hasAttribute('data-vaer') === on) return;
       P.setAttribute('data-vfade', '');
       void P.offsetWidth;
-      P.toggleAttribute('data-vaer', v);
+      P.toggleAttribute('data-vaer', on);
       clearTimeout(this._vfT);
       this._vfT = setTimeout(() => { if (this._portal) this._portal.removeAttribute('data-vfade'); }, 260);
     }
@@ -1221,7 +1307,9 @@
       let pos;
       if (geo.rail) {
         // Fiks 18.4/18.8: nederst til høyre, nøyaktig over høyre fliskolonne i Hjem (målt av msh-hjem-faner-card → M.hjemTCol)
-        const T = this._tCol(geo);
+        // Fiks 55 B2: alltid til høyre for railen og innenfor flaten (en gammel måling etter rotasjon kan ligge utenfor)
+        const T0 = this._tCol(geo), lo = Math.round(geo.left + M.railPad()), hi = Math.round(geo.left + geo.width - 8);
+        const tl = Math.max(lo, Math.min(T0.left, hi - 200)), T = { left: tl, width: Math.max(200, Math.min(T0.width - (tl - T0.left), hi - tl)) };
         pos = `left:${T.left}px;width:${T.width}px;bottom:max(16px, env(safe-area-inset-bottom, 0px));transform:translateY(var(--mo,0px)) translate(var(--mx,0px),var(--my,0px))${AND ? ' translateZ(0)' : ''}`;
       }
       else {

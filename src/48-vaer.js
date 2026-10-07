@@ -180,7 +180,11 @@
       if (sf == null || sf & 1) t.push('daily');
       return t;
     }
-    onOpen() { this._subscribe(); }
+    // Fiks 55 A4: værmeldingen abonneres først når Bubble-popupen har satt seg (MSH.whenPopupSettled via basekortet) –
+    // ingen tegning/oppslag under åpne-animasjonen; forrige værmelding (this._fc) står i DOM-en så lenge
+    static get settleOnOpen() { return true; }
+    onOpen() { if (!this._settling) this._subscribe(); }
+    onSettled() { if (this.isOpen) this._subscribe(); }
     onClose() { this._unsubscribe(); }
     _subscribe() {
       const ent = M.vaerAuto(this.hass, this.config).weather, st = ent && this.hass.states[ent];
@@ -805,9 +809,11 @@
       for (let i = 0; n && i < 60; i++) { if (n.classList && n.classList.contains('bubble-pop-up')) return n; n = n.parentNode || n.host; }
       return null;
     }
+    // Fiks 55 A4: registeret (som værmeldingen i Forecast) først når popupen har satt seg
+    onSettled() { super.onSettled(); if (this.isOpen) this._regSub(); }
     onOpen() {
       super.onOpen();
-      this._regSub();
+      if (!this._settling) this._regSub();
       // én haptic ved åpning (26.24) – Fiks 52: bare når trykket som åpnet ikke allerede ga en (navbar/«Mer»/header), ellers to
       if (!this._config.embedded && M.isPopupOpen(this) && M.popupHash(this) && !(M.hapticAge && M.hapticAge() < 1500)) M.haptic('light');
       this._pause(false);

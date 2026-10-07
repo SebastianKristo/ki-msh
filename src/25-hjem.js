@@ -66,8 +66,10 @@
       return { card_id: M.uid(), layout_mode: 'auto', cards };
     }
     static get schema() {
-      return [
+      // Fiks 55 B3: funksjon (hass, config) – «Tittel per skjerm» leser header-configen (cards.header + ki-store)
+      return (hh, cc) => [
         { type: 'info', label: 'Hjem-visningen i ett kort. Hvert delkort har egen «Tilpass» (hold / tannhjul) og lagres under cards.<navn>.' },
+        ...(M.hjemPerScreenSection ? [M.hjemPerScreenSection('cards.header.', hh, M.hjemHeaderEff ? M.hjemHeaderEff(cc) : {}, { preview: true })] : []),
         { type: 'section', id: 'layout', label: 'Layout', icon: 'mdi:page-layout-body', open: true, fields: [
           { type: 'select', name: 'layout_mode', label: 'Layout', options: [['auto', 'Auto (mål dashbordet)'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto', help: 'Stor skjerm = Fold-oppsettet: telefon-innholdet i full bredde med navbaren til venstre (auto: ≥ 1000 px, berøring ≥ 600 px).' },
           { type: 'boolean', name: 'breakout', label: 'Mål margene mot dashbordflaten (bryt ut av seksjonens padding)', default: true },
@@ -240,6 +242,7 @@
       const gap = on && M.hjemProseGap ? M.hjemProseGap(hd.config) : null;
       const mt = gap == null ? '' : `${gap - 22}px`; // containerens gap er 22 px
       if (s.style.marginTop !== mt) s.style.marginTop = mt;
+      if (M.hjemProseApply) M.hjemProseApply(s, hd && M.hjemProseView ? M.hjemProseView(hd) : null); // Fiks 55 B3: prosa av/på + linjer per skjermtype
     }
     get styles() {
       return `

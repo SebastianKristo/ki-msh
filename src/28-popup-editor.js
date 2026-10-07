@@ -438,7 +438,7 @@
     } else rows = (g === 'egne' ? gRow : '') + (E.map(row).join('') + extra(g) || `<div class="hint" data-key="ppnone">${g === 'egne' ? 'Ingen egne popups ennå – trykk «Ny popup» eller «Importer».' : 'Ingen popups her.'}</div>`);
     return `<div style="display:flex;flex-direction:column;gap:12px" data-key="pops"><style>${CSS}</style>
       ${bar}${warns}
-      <div class="pl">${rows}</div>${gapRow(ed, null)}${g === 'alle' || g === 'rom' ? roomDefaults() : ''}
+      <div class="pl">${rows}</div>${gapRow(ed, null)}${androidBlurRow()}${g === 'alle' || g === 'rom' ? roomDefaults() : ''}
       ${(g === 'alle' || g === 'fn') && M.doorbellModeHTML && M.ringFind && M.ringFind(ed.hass) ? M.doorbellModeHTML('ppring') : ''}
       ${(g === 'alle' || g === 'fn') && M.vaerStilHTML ? M.vaerStilHTML('ppvaer') : ''}
       <span class="hint">Trykk en popup for å redigere navn, ikon og farge – eller hele YAML-en. Egne popups kan ha alle Bubble Card-valg og vilkårlige kort${nCustom > 1 ? '; dra i ⠿ for rekkefølge' : ''}. Endringer tas i bruk straks.</span>
@@ -463,6 +463,16 @@
     const cur = { ...(userPops(ed)[key] || {}), header_gap: v };
     if (v === undefined) delete cur.header_gap;
     save(ed, 'popups.' + key, Object.keys(cur).length ? cur : undefined);
+  }
+
+  /* Fiks 55 A4 · «Blur i popups på Android: av/på» (ki-store popup_android_blur, standard av). Av: popupene har fast
+   * bg_opacity uten blur på Android (ingen blur som slår inn når glidingen stopper). På: blur 0 under åpning/lukking,
+   * konfigurert bg_blur når popupen står stille. Lest av popup-CSS-kroken (MSH.perf, 00-b-perf.js) – ingen rebuild. */
+  function androidBlurRow() {
+    const on = store().popup_android_blur === true;
+    const b = (v, l, icn) => `<button class="ppb" aria-pressed="${on === v}" data-a="ppablur" data-v="${v ? 1 : 0}" data-h="selection" style="${on === v ? `background:rgb(242 133 201 / 0.18);color:var(--ki-pink-text, ${PINK})` : ''}">${ic(icn, 18)}${l}</button>`;
+    return `<div class="ppf" data-key="ppablur"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:14px;font-weight:500">Blur i popups på Android</b><span class="hint" style="padding:0">${on ? 'På: ingen blur mens popupen glir, bg_blur når den står stille.' : 'Av: fast bakgrunn (bg_opacity) uten blur – jevnest på Android.'} Gjelder bare Android.</span></span>
+      <div class="ppacts">${b(false, 'Av', 'mdi:blur-off')}${b(true, 'På', 'mdi:blur')}</div></div>`;
   }
 
   // Rom-popups · «Åpen ved start» (Fiks 7): global standard i ki-store room_defaults.open_on_start [ids].
@@ -887,6 +897,7 @@
           const nx = cur.includes(d.v) ? cur.filter((k) => k !== d.v) : [...cur, d.v];
           save(ed, 'room_defaults', { ...rd, open_on_start: nx }); ed.render(); return true;
         }
+        case 'ppablur': save(ed, 'popup_android_blur', d.v === '1' ? true : undefined); ed.render(); return true; // Fiks 55 A4
         case 'ppgapreset': gapSave(ed, d.k || null, undefined); ed.render(); return true; // 26.18
         case 'pprdreset': { const { open_on_start, ...rd } = store().room_defaults || {}; save(ed, 'room_defaults', Object.keys(rd).length ? rd : undefined); ed.render(); return true; }
         case 'ppmenu': u.ppMenu = !u.ppMenu; ed.render(); return true;

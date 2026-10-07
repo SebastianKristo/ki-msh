@@ -185,7 +185,7 @@ ok('GUI-editoren: samme fire faner og samme nøkler (tabStyle, cardSize, start, 
 
 // ---- undersider
 await p.evaluate(() => window.__card.shadowRoot.querySelector('.bill').click()); await wait(700);
-const S1 = await p.evaluate(() => { const R = window.__card.shadowRoot; return { page: window.__card.ui.page, hero: !!R.querySelector('.hero'), ss: !!R.querySelector('[data-sshost]'), txt: (R.querySelector('[data-sshost]') || { textContent: '' }).textContent.replace(/\s+/g, ' ').slice(0, 80), back: !!R.querySelector('[data-ss-act="back"],[data-act="back"]') }; });
+const S1 = await p.evaluate(() => { const R = window.__card.shadowRoot; return { page: window.__card.ui.page, hero: !!R.querySelector('.hero') && !R.querySelector('.mainv[hidden] .hero'), /* Fiks 55 A3: hovedvisningen står skjult i DOM-en */ ss: !!R.querySelector('[data-sshost]'), txt: (R.querySelector('[data-sshost]') || { textContent: '' }).textContent.replace(/\s+/g, ' ').slice(0, 80), back: !!R.querySelector('[data-ss-act="back"],[data-act="back"]') }; });
 ok('Regning-kortet åpner undersiden Strømregning (modul C) med tilbake-pil' + (G.mods.C ? '' : ' (plassholder)'), S1.page === 'stromregning' && !S1.hero && S1.ss && S1.back && (!G.mods.C || /Strømregning/.test(S1.txt)), S1);
 await p.evaluate(() => window.__card.shadowRoot.querySelector('[data-ss-act="back"],[data-act="back"]').click()); await wait(500);
 const S2 = await p.evaluate(() => ({ page: window.__card.ui.page || null, hero: !!window.__card.shadowRoot.querySelector('.hero') }));

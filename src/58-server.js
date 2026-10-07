@@ -934,51 +934,9 @@
     // Bubble bygger popupen og starter åpningen selv (klassene is-popup-opened + is-opening på .bubble-pop-up, overgang på
     // transform). Vi venter: rAF × 2 → til popupen er åpnet og is-opening er borte → rAF × 2 → til gjenværende overganger på
     // popup-elementet er ferdige. Uten Bubble-popup (vanlig kort, editor): bare rAF × 2. Maks 2 s uansett.
-    _whenSettled() {
-      return new Promise((res) => {
-        let done = false, mo = null;
-        const fin = () => { if (done) return; done = true; clearTimeout(cap); if (mo) { mo.disconnect(); mo = null; } res(); };
-        const cap = setTimeout(fin, 2000);
-        const raf2 = (f) => requestAnimationFrame(() => requestAnimationFrame(f));
-        const anims = () => raf2(() => {
-          const A = this._popAnims();
-          if (!A.length) return fin();
-          Promise.all(A.map((a) => a.finished.catch(() => null))).then(fin);
-        });
-        raf2(() => {
-          const pop = this._popEl();
-          const ready = () => !pop || !pop.isConnected || (pop.classList.contains('is-popup-opened') && !pop.classList.contains('is-opening'));
-          if (ready()) return anims();
-          mo = new MutationObserver(() => { if (ready()) { mo.disconnect(); mo = null; anims(); } });
-          mo.observe(pop, { attributes: true, attributeFilter: ['class'] });
-        });
-      });
-    }
-    _popEl() {
-      let n = this.parentNode || (this.getRootNode && this.getRootNode().host);
-      for (let i = 0; n && i < 40; i++) {
-        if (n.classList && n.classList.contains('bubble-pop-up')) return n;
-        if (n.tagName === 'BUBBLE-CARD') return null;
-        n = n.parentNode || n.host;
-      }
-      return null;
-    }
-    _popAnims() {
-      const out = [];
-      const take = (a, el) => { try { const t = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : {}; if ((a.playState === 'running' || a.playState === 'pending') && t.iterations !== Infinity && (!el || (a.effect && a.effect.target === el))) out.push(a); } catch (e) { /* */ } };
-      let n = this.parentNode || (this.getRootNode && this.getRootNode().host);
-      for (let i = 0; n && i < 40; i++) {
-        if (n.nodeType === 1 && n.getAnimations) {
-          try {
-            if (n.classList && n.classList.contains('bubble-pop-up')) n.getAnimations({ subtree: true }).forEach((a) => take(a, n)); // også ::before (blur-fade)
-            else n.getAnimations().forEach((a) => take(a));
-          } catch (e) { /* */ }
-        }
-        if (n.tagName === 'BUBBLE-CARD') break;
-        n = n.parentNode || n.host;
-      }
-      return out;
-    }
+    // Fiks 55 A4: generalisert til MSH.whenPopupSettled (00-base.js) – samme regel (rAF × 2 → åpnet uten is-opening →
+    // rAF × 2 → popup-elementets egne overganger ferdige, maks 2 s)
+    _whenSettled() { return M.whenPopupSettled(this); }
     // Hva tegningen viser: vert/underfane/velger/config – samme nøkkel = DOM-en fra forrige åpning kan stå under animasjonen
     _viewKey() { return [this.tab, this._sub(this.tab), isCards(this.config) ? 'k' : 'f', this._cfgV].join('|'); }
     _render() {

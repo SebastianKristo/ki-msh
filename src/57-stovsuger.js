@@ -499,7 +499,10 @@
       const prev = AE.get(E.vacuum); AE.set(E.vacuum, st.state);
       if (c.auto_empty && prev && ACTIVE.includes(prev) && st.state === 'docked' && E.empty && h.states[E.empty]) this._run(h, E.empty);
     }
-    onOpen() { this.update(); this._tick(); }
+    // Fiks 55 A4: ingen tegning under åpne-animasjonen (DOM-en fra forrige åpning står); én tegning når popupen har satt seg
+    static get settleOnOpen() { return true; }
+    onOpen() { this.update(); if (!this._settling) this._tick(); }
+    onSettled() { this._tick(); }
     onClose() { clearInterval(this._timer); this._timer = 0; this._ui = { ...this._ui, armed: 0, emptying: 0 }; }
     get holdMs() { return 500; } // 47 L2: hold 500 ms → more-info (valgliste for select.*)
     disconnectedCallback() { super.disconnectedCallback(); clearInterval(this._timer); this._timer = 0; }

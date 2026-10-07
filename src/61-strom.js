@@ -241,6 +241,14 @@
     return `<div class="tbw" style="flex:1;min-width:0;display:flex;${S.wrap}"><div class="tbar" ${preview ? '' : 'data-glass-drag="x" data-tabbar'} style="${bar}">${items}</div></div>`;
   }
 
+  /* Fiks 55 A3 · Android (ki-android): ingen opasitet-animasjon på flisene i popupen – inngangsanimasjonene (fade, ss-fade,
+   * sk-kfade) er bare den lille glidingen (transform), og prisgrafens flate tegnes uten inn-toning. iOS/PC: uendret. */
+  const AND_CSS = `
+    @keyframes fade{from{transform:translateY(6px)}to{transform:none}}
+    @keyframes ss-fade{from{transform:translateY(6px)}to{transform:none}}
+    @keyframes sk-kfade{from{transform:translateY(6px)}to{transform:none}}
+    .gc svg path[fill^="url"]{animation:none!important}`;
+
   /* ------------------------------------------------------------ CSS (kort) */
   const CSS = `
     :host{--s-card:${SURF};--s-in:${SURF2};--ln:${WA(0.08)}}
@@ -249,8 +257,10 @@
     @keyframes ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.6);opacity:0}}
     @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
     @keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-    .wrap{display:flex;flex-direction:column;gap:12px}
+    .wrap,.mainv,.pagev{display:flex;flex-direction:column;gap:12px}
+    .mainv[hidden]{display:none}
     .na .wrap *{animation:none !important}
+    .wrap.ent .fade,.wrap.ent .tgear,.wrap.ent .gc,.wrap.ent .uc2,.wrap.ent .gc path{animation:none!important} /* Fiks 55 A3: inngangsanimasjon bare ved åpning */
     button{text-align:inherit}
     .hero{position:relative;min-height:250px;border-radius:28px;overflow:hidden;background:radial-gradient(ellipse 55% 50% at 70% 55%,rgba(242,176,79,.22),transparent 70%),linear-gradient(175deg,#1f232c 0%,#272d39 55%,#313948 100%);padding:16px 18px 18px;display:flex;flex-direction:column;color:var(--ki-text, #fafafa)}
     .hglow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 40% 38% at 72% 52%, rgba(242,176,79,.28), transparent 70%);animation:glowP 4s ease-in-out infinite}
@@ -410,6 +420,7 @@
     render() { if (this._inR) return this._html(); this._persistUI(); this.update(); return ''; }
     go(page) {
       const p = page && PAGES[page] ? page : null;
+      this._enter(); // Fiks 55 A3: ingen ny inngangsanimasjon når hovedvisningen vises igjen
       this.setUI({ page: p });
       const cont = M.popupContainer ? M.popupContainer(this) : null;
       try { const sc = cont && (cont.closest ? cont.closest('.bubble-pop-up') : null); [cont, sc].forEach((x) => { if (x && x.scrollTop) x.scrollTop = 0; }); } catch (e) { /* */ }
@@ -419,14 +430,27 @@
     setUI(p, quiet) { super.setUI(p, quiet); this._persistUI(); }
 
     /* ---------------- åpne/lukke: data hentes bare mens popupen er åpen */
+    // Fiks 55 A4: datahenting (dag/måned/år-historikk) og grafene først når Bubble-popupen har satt seg (onSettled) –
+    // under åpne-animasjonen står DOM-en fra forrige åpning (eller første, lette tegning). Fiks 55 A3: inngangsanimasjonen
+    // (fade) kjøres ved åpning, ikke ved fanebytte eller tilbake fra en underside (klassen «ent» på .wrap, se _entered).
+    static get settleOnOpen() { return true; }
     onOpen() {
       const pg = M.__stromPage;
       if (pg && Date.now() - pg.t < 8000) { M.__stromPage = null; this._ui.page = pg.page; }
       this._wSnap = null;
-      if (M.energiPrefs) M.energiPrefs(this.hass);
-      this._load();
+      this._ent = false; clearTimeout(this._entT);
+      if (!this._settling) { if (M.energiPrefs) M.energiPrefs(this.hass); this._load(); }
       this._schedule(true);
     }
+    onSettled() {
+      if (!this.isOpen) return;
+      if (M.energiPrefs) M.energiPrefs(this.hass);
+      this._load();
+      clearTimeout(this._entT);
+      this._entT = setTimeout(() => this._enter(), 1000); // inngangsanimasjonene (maks .9 s) er ferdige
+    }
+    // Fra nå av: ingen inngangsanimasjon (fade) på elementer som vises igjen (tilbake, fanebytte) – til neste åpning
+    _enter() { if (this._ent) return; this._ent = true; const w = this.shadowRoot && this.shadowRoot.querySelector('.wrap'); if (w) w.classList.add('ent'); }
     onClose() { if (this._ui.page) { this._ui.page = null; } this._ui.selH = null; }
     _R() { const h = this.hass; if (!h || !M.energiSources || !M.energiPrefs) return null; const p = M.energiPrefs(h); if (p === undefined) return null; try { return M.energiSources(h, {}); } catch (e) { return null; } }
     _load(force) {
@@ -489,14 +513,19 @@
     _html() {
       const c = this.config, u = this._ui, page = u.page && PAGES[u.page] ? u.page : null;
       const V = this._vals();
-      if (page) return `<div class="wrap${this.anim ? '' : ' na'}">${this._pageHTML(page)}</div>`;
+      // Fiks 55 A3: hovedvisningen ligger i DOM-en (skjult med hidden) mens en underside vises – «tilbake» viser den straks,
+      // uten ny bygging/fade. Er den aldri tegnet (åpnet rett på en underside) bygges den først ved «tilbake».
+      const cls = `wrap${this.anim ? '' : ' na'}${this._ent ? ' ent' : ''}`;
+      if (page) {
+        return `<div class="${cls}"><div class="mainv" data-key="mainv" hidden data-nomorph></div><div class="pagev" data-key="pagev">${this._pageHTML(page)}</div></div>`;
+      }
       const vis = visTabs(c), tab = vis.includes(u.tab) ? u.tab : vis[0];
       const gearTab = c.gear === 'tab';
-      return `<div class="wrap${this.anim ? '' : ' na'}">
+      return `<div class="${cls}"><div class="mainv" data-key="mainv">
         ${this._heroHTML(V, !gearTab)}
         <div class="tabrow">${tabBarHTML(c, tab)}${gearTab ? `<button class="tgear" data-act="tilpass" data-tr-fixed title="Tilpass strøm">${ic('mdi:cog', 22)}</button>` : ''}</div>
         ${this._tabHTML(tab, V)}
-      </div>`;
+      </div></div>`;
     }
     _heroHTML(V, gear) {
       const c = this.config, lv = V.lvl, st = V.step, h = this.hass;
@@ -731,7 +760,7 @@
 
     get styles() {
       const B = M.stromKurser && M.stromKurser.css ? M.stromKurser.css : '', Cs = M.stromSider && M.stromSider.css ? M.stromSider.css : '';
-      return (M.segment ? M.segment.css : '') + CSS + B + Cs;
+      return (M.segment ? M.segment.css : '') + CSS + B + Cs + (M.perf && M.perf.android ? AND_CSS : '');
     }
     afterRender() {
       const R = this.shadowRoot;
@@ -758,7 +787,7 @@
     /* ---------------- handlinger */
     onAction(name, el, e) {
       const d = el.dataset;
-      if (name === 'tab') { if (this._ui.tab !== d.v) { this.setUI({ tab: d.v, selH: null }); if (d.v === 'Forbruk') this._load(); } return; }
+      if (name === 'tab') { if (this._ui.tab !== d.v) { this._enter(); this.setUI({ tab: d.v, selH: null }); if (d.v === 'Forbruk') this._load(); } return; }
       if (name === 'tilpass') return this.customize();
       if (name === 'page') { if (d.bp) { this._ui.billPer = d.bp; this._ui.ssBp = d.bp; } return this.go(d.page); }
       if (name === 'back') return this.go(null);
