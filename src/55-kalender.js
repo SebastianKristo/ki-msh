@@ -49,6 +49,14 @@
  *   Inn/Hentes/Levert/Ut (summert over kontoene, trykk = filter på Pakker) + oppdater (button.press på alle kontoenes
  *   knapper). Delen `postnord` («PostNord-tall», øye) av → chips, oppdater, prikker og leveringsrad skjules.
  *   Det egne PostNord-kortet (42.2), forklaringen og `postnord_view` er fjernet (gammel config tolereres).
+ * Fiks 56 A/B1 · pakker i «Når kommer Posten»: prikker per dag (maks 3 + «+N»; levert blå, klar gul, på vei grønn,
+ *   utgående/retur grå), dag i lokal tid (levert = siste leveringshendelse, klar = da den ble klar, på vei = ETA), lør/søn
+ *   → nærmeste viste dag før; liste for valgt dag (standard i dag) mellom rutenettet og tall-chipsene, trykk = kortet i
+ *   Pakker. Posten (Norwegian Parcel Tracker) og PostNord deler komponenten (parcelDays), dedup på sporingsnummer.
+ *   Config: post_parcels (true) · post_parcel_list (true) · post_parcel_out (false). Det finnes ingen egen PostNord-fane.
+ * Fiks 56 B2 · transportøren i undertittelen («PostNord · …», «PostNord ↑ · …»), carrier_view: text|icon|chip;
+ *   tittel = navn/avsender, ellers «…<6 siste>»; status maks 96 px / to linjer. B3: pad_top ≥ 0 (standard 12) målt fra
+ *   Bubble-headerens synlige bunn (lukk-knapp/ikon) – aldri negativ margin-top.
  */
 (function () {
   const M = window.MSH;

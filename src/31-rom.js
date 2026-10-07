@@ -1116,7 +1116,7 @@
       if (area && (this._pubArea !== area || this._pubCfg !== this._rawConfig)) { this._pubArea = area; this._pubCfg = this._rawConfig; M.setRoomCfg(area, this._roomCfg()); }
       if (!this._spaced && M.popupContainer(this)) { this._spaced = true; requestAnimationFrame(() => this._applySpacing()); }
       R.querySelectorAll('[data-slide]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindSlide(el); });
-      R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x'); });
+      R.querySelectorAll('[data-hs]').forEach((el) => { if (el.__b) return; el.__b = true; this._guard(el, 'pan-x pan-y'); }); // Fiks 56 G: vertikalt sveip fra scenene scroller popupen
       R.querySelectorAll('[data-tvvol]').forEach((el) => { if (el.__b) return; el.__b = true; this._bindTvVol(el); });
       // Vifte −/+ (16.8): egen handling – ikke radens toggle/hold, og ikke Bubble Cards sveip
       R.querySelectorAll('.fbtn').forEach((el) => { if (el.__b) return; el.__b = true; el.addEventListener('pointerdown', (e) => { e.stopPropagation(); this._cancelHold(); }); el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true }); });
@@ -1158,7 +1158,7 @@
         .cvn2{font-size:14px;font-weight:500}
         .cvp2{font-size:14px;min-width:40px;text-align:right}
         /* scener */
-        .scn{display:flex;gap:8px;width:100%;overflow-x:auto;overflow-y:hidden;margin:0;padding:0;border-radius:0;scroll-padding-left:0;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none}
+        .scn{display:flex;gap:8px;width:100%;overflow-x:auto;overflow-y:hidden;margin:0;padding:0;border-radius:0;scroll-padding-left:0;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x pan-y;scrollbar-width:none}
         .scn::-webkit-scrollbar{display:none}
         .sc{flex:none;scroll-snap-align:start;width:100px;height:100px;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:${G.g200};color:${G.w};transition:transform .2s;padding:0 8px}
         .sc:active{transform:scale(.95)}
