@@ -91,9 +91,11 @@ async function stedvelger(ua) {
     return { x: t.left + t.width / 2, y: t.top + t.height / 2, perf: document.documentElement.getAttribute('data-ki-perf'), android: document.documentElement.classList.contains('ki-android') };
   });
   await S.cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
-  const reset = () => S.p.evaluate(() => { const L = window.__L; Object.assign(L, { renders: {}, opened: [], sted: [], removed: [], frames: [], live: true, t0: performance.now() }); const h = window.__host(); if (h && h.shadowRoot && !h.shadowRoot.__te) { h.shadowRoot.__te = 1; h.shadowRoot.addEventListener('transitionend', (e) => { if (e.target.classList.contains('lag')) L.tEnd.push(performance.now()); }); } });
+  // transitionend måles i capture-fasen på shadow-roten: produktets lytter på .lag fjerner verten i selve hendelsen, og
+  // MutationObserver-mikrooppgaven (removed) kjøres før en boble-lytter på roten → under CPU-struping ga det rem < te − 1.
+  const reset = () => S.p.evaluate(() => { const L = window.__L; Object.assign(L, { renders: {}, opened: [], sted: [], removed: [], frames: [], live: true, t0: performance.now() }); const h = window.__host(); if (h && h.shadowRoot && !h.shadowRoot.__te) { h.shadowRoot.__te = 1; h.shadowRoot.addEventListener('transitionend', (e) => { if (e.target.classList.contains('lag')) L.tEnd.push(performance.now()); }, true); } });
   const grab = () => S.p.evaluate(() => { const L = window.__L; L.live = false; return JSON.parse(JSON.stringify({ renders: L.renders, opened: L.opened, sted: L.sted, removed: L.removed, frames: L.frames, tEnd: L.tEnd, t0: L.t0 })); });
-  const hookTE = () => S.p.evaluate(() => { const L = window.__L, h = window.__host(); if (h && h.shadowRoot && !h.shadowRoot.__te) { h.shadowRoot.__te = 1; h.shadowRoot.addEventListener('transitionend', (e) => { if (e.target.classList.contains('lag') && e.propertyName === 'opacity') L.tEnd.push(performance.now()); }); } L.tEnd = []; });
+  const hookTE = () => S.p.evaluate(() => { const L = window.__L, h = window.__host(); if (h && h.shadowRoot && !h.shadowRoot.__te) { h.shadowRoot.__te = 1; h.shadowRoot.addEventListener('transitionend', (e) => { if (e.target.classList.contains('lag') && e.propertyName === 'opacity') L.tEnd.push(performance.now()); }, true); } L.tEnd = []; });
   const res = { box };
   // åpne
   await reset();

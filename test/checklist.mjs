@@ -97,12 +97,19 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => P && P.addEventListener(t, spy));
       // Fiks 56 G: retningslås-flater (MSH.dirLock / MSH.hScroll) slipper bevisst vertikale gester (popupen skal scrolle) – testes i scroll56-check
       const drags = cards.flatMap((c) => [...c.shadowRoot.querySelectorAll('*')].filter((e) => !e.__mshDL && !e.__mshHS && (e.__mshGuard || e.__mshSc || !['auto', 'manipulation'].includes(getComputedStyle(e).touchAction))));
+      const leakers = [];
+      // 56 G: flater merket __mshVPass (Vær-flisene: hold for å flytte, ellers vertikal scroll) slipper touch bevisst –
+      // for dem sjekkes bare at pointerdown stoppes (løftet flis/touchmove under dra testes i vaer-sjekkene)
+      const vpass = (e) => { for (let n = e; n; n = n.parentElement) if (n.__mshVPass) return true; return false; };
       for (const d of drags.slice(0, 20)) {
+        const l0 = leaked;
         const rr = d.getBoundingClientRect(); const x = rr.left + rr.width / 2, y = rr.top + rr.height / 2;
         d.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true, clientX: x, clientY: y, pointerId: 9 }));
-        try { const t = new Touch({ identifier: 9, target: d, clientX: x, clientY: y + 30 }); d.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, composed: true, touches: [t] })); d.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, composed: true, touches: [t] })); } catch (e) { /* */ }
+        if (!vpass(d)) try { const t = new Touch({ identifier: 9, target: d, clientX: x, clientY: y + 30 }); d.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, composed: true, touches: [t] })); d.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, composed: true, touches: [t] })); } catch (e) { /* */ }
         d.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, clientX: x, clientY: y, pointerId: 9 }));
+        if (leaked > l0) leakers.push(`${d.localName}${d.className && typeof d.className === 'string' ? '.' + d.className.trim().split(/\s+/).join('.') : ''}[${getComputedStyle(d).touchAction}]×${leaked - l0}`);
       }
+      res.leakDbg = leakers.slice(0, 8).join(' ');
       ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => P && P.removeEventListener(t, spy));
       await wait(100);
       res.drag = drags.length ? (leaked === 0 && location.hash === pop.hash ? `ok ${Math.min(drags.length, 20)}` : `LEKK ${leaked}`) : 'ingen drag';
@@ -113,7 +120,17 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       res.navDbg = nr ? `x ${Math.round(nr.left)} b ${Math.round(nr.width)} h ${Math.round(nr.height)}` : '';
       // Fiks 18.7: PC = Fold-oppsettet → vertikal navbar (rail); popupen sentreres på innholdsflaten og dekker ikke railen
       const railOk = vp.w > 800 ? nv.classList.contains('rail') && !!P && P.getBoundingClientRect().left >= nr.right - 1 && Math.abs((P.getBoundingClientRect().left + P.getBoundingClientRect().right) / 2 - (vp.sb + 120 + vp.w) / 2) < 2 : !nv.classList.contains('rail');
-      res.navbar = nr && nr.width > 0 ? (nr.left >= vp.sb - 1 && nr.right <= vp.w + 1 && railOk ? `ok (${vp.w > 800 ? 'rail' : 'bunn'} x=${Math.round(nr.left)})` : railOk ? 'DEKKER' : `FEIL ${vp.w > 800 ? 'ikke rail / popup over railen' : 'rail på mobil'}`) : 'ikke funnet';
+      // Fiks 57 C: navbaren (og Now Playing) er bevisst skjult i popups fra hide_in_popups (standard #vaer, data-hidden på
+      // portalen) – da kreves ikke synlig navbar/rail, men den skal være usynlig og ikke klikkbar, og popupen (Vær fullskjerm,
+      // 56 I) skal ligge innenfor dashbordflaten og aldri over HA-sidebaren.
+      const hidNav = !!(np && np.hasAttribute('data-hidden'));
+      if (hidNav) {
+        const pr = P && P.getBoundingClientRect(), ns = getComputedStyle(nv);
+        const inv = Number(ns.opacity) === 0 && ns.pointerEvents === 'none';
+        const inside = !!pr && pr.width > 0 && pr.left >= vp.sb - 1 && pr.right <= vp.w + 1;
+        res.navDbg = `${res.navDbg} · popup ${pr ? Math.round(pr.left) + '–' + Math.round(pr.right) : '–'} op ${ns.opacity} pe ${ns.pointerEvents}`;
+        res.navbar = inv && inside ? `ok (skjult i ${pop.hash}, popup x=${Math.round(pr.left)}–${Math.round(pr.right)})` : !inside ? 'FEIL popup utenfor dashbordflaten / over sidebaren' : 'FEIL skjult navbar er synlig/klikkbar';
+      } else res.navbar = nr && nr.width > 0 ? (nr.left >= vp.sb - 1 && nr.right <= vp.w + 1 && railOk ? `ok (${vp.w > 800 ? 'rail' : 'bunn'} x=${Math.round(nr.left)})` : railOk ? 'DEKKER' : `FEIL ${vp.w > 800 ? 'ikke rail / popup over railen' : 'rail på mobil'}`) : 'ikke funnet';
       // 10. GUI-editor (Bubble «Legg til kort») + speiling mot kortets egen editor
       const eds = [];
       for (const c of cards) {
@@ -169,7 +186,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
 await browser.close();
 try { unlinkSync(bundle); } catch (e) { /* */ }
 const yn = (v) => (v === true ? 'ja' : v === false ? 'NEI' : v);
-const lines = rows.map((r) => `| ${r.ok ? '✔' : '✘'} | ${r.vp} | ${r.pop} | ${yn(r.opens)} | ${r.width} | ${yn(r.header)} | ${yn(r.top)} | ${yn(r.close)} / ${yn(r.back)} | ${yn(r.haptic)} | ${r.drag} | ${r.navbar} | ${r.icons} | ${yn(r.auto)} | ${r.editor} | ${r.oneCard ? '1' : 'FLERE'} · mal ${r.mal} |${!r.navbar.startsWith('ok') ? ' ' + r.navDbg : ''}${r.errors ? ' ' + r.errors : ''}`);
+const lines = rows.map((r) => `| ${r.ok ? '✔' : '✘'} | ${r.vp} | ${r.pop} | ${yn(r.opens)} | ${r.width} | ${yn(r.header)} | ${yn(r.top)} | ${yn(r.close)} / ${yn(r.back)} | ${yn(r.haptic)} | ${r.drag} | ${r.navbar} | ${r.icons} | ${yn(r.auto)} | ${r.editor} | ${r.oneCard ? '1' : 'FLERE'} · mal ${r.mal} |${!r.navbar.startsWith('ok') ? ' ' + r.navDbg : ''}${String(r.drag).startsWith('LEKK') ? ' lekk: ' + r.leakDbg : ''}${r.errors ? ' ' + r.errors : ''}`);
 const table = ['| | Visning | Popup | Åpnes via hash | Fyller bredden | Bubble-header | Toppkort | Lukk / tilbake | Haptic | Drag lukker ikke | Navbar ≠ sidebar | Ikoner | Autokonfig | GUI-editor ↔ egen editor | Kort · Bubble-mal |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|', ...lines].join('\n');
 console.log(table);
 if (!only) writeFileSync('docs/sjekkliste.md', `# Sjekk før levering – resultat\n\nGenerert av \`node test/checklist.mjs\` mot ekte Bubble Card (${new Date().toISOString().slice(0, 10)}), med mock-hass fra \`test/\`. Popupene er de i \`examples/dashboard.yaml\`.\n\n${table}\n`);

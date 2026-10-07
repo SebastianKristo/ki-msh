@@ -266,7 +266,7 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
   if (link) { await click(p, '[data-a="tall"]'); await p.waitForTimeout(500); t = await sheet(p); ok(/Gå gjennom alt/.test(t), 'lenken åpner Tilpass alt', t.slice(0, 60)); }
   await p.evaluate(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await new Promise((q) => setTimeout(q, 350)); });
   // GUI-editoren til msh-hjem-card: knapp
-  const gui = await p.evaluate(() => { const S = customElements.get('msh-hjem-card').schema; const s = S.find((x) => x.id === 'tilpass_alt'); return s ? s.fields.map((f) => f.label) : null; });
+  const gui = await p.evaluate(() => { const S0 = customElements.get('msh-hjem-card').schema, S = typeof S0 === 'function' ? S0(window.H, {}) : S0; /* Fiks 55 B3: schema kan være (hass, config) => [] */ const s = S.find((x) => x.id === 'tilpass_alt'); return s ? s.fields.map((f) => f.label) : null; });
   ok(gui && gui.includes('Tilpass alt'), 'GUI-editoren (msh-hjem-card) har knappen «Tilpass alt»', gui);
   // Kjør oppsettet på nytt → onboarding med dagens valg
   await p.evaluate(() => window.MSH.openTilpassAlt({ id: 'rerun' })); await p.waitForTimeout(200);

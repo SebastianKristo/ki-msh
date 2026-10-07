@@ -1207,6 +1207,9 @@
       const box = this.shadowRoot.querySelector('[data-tiles]');
       if (!box || box.__td) return;
       box.__td = true;
+      // 56 G: flisene (touch-action pan-y) slipper bevisst touchstart/-move til popupen (vertikal scroll) – pointerdown og
+      // touchmove under et løft stoppes. Merket for drag-sjekken i test/checklist.mjs (som __mshDL/__mshHS).
+      box.__mshVPass = true;
       let st = null;
       const kids = () => [...box.querySelectorAll(':scope > .tw')];
       const cancel = () => { if (st && st.timer) clearTimeout(st.timer); };

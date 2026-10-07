@@ -75,7 +75,7 @@ r2 = await rowInfo();
 ok('20.3 loddrett bevegelse velger ikke', r2.cur === cur1, r2.cur);
 
 /* ---------- 20.3 · MSH.glassDrag: rad som flyter over (pending/scroll) og rad som passer (glass-drag som før) */
-const gd = await p.evaluate(() => {
+const gd = await p.evaluate(async () => {
   const mk = (w, n) => {
     const host = document.createElement('div'); host.style.cssText = `width:${w}px;margin:10px 18px`;
     host.innerHTML = `<div class="seg" style="display:flex;gap:2px;overflow-x:auto;scrollbar-width:none">${Array.from({ length: n }, (_, i) => `<button style="flex:0 0 auto;height:36px;padding:0 16px;border-radius:18px;${i === 0 ? 'background:#f285c9' : ''}" ${i === 0 ? 'aria-selected="true"' : ''} data-i="${i}">Fane ${i + 1}</button>`).join('')}</div>`;
@@ -87,6 +87,8 @@ const gd = await p.evaluate(() => {
   };
   window.segO = mk(284, 8); window.segF = mk(284, 2);
   window.scrollTo(0, 0);
+  // glassDrag setter touch-action etter layout (MSH.afterLayout, to rAF – ytelse ved oppstart): les den først da
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))));
   const i = (s) => { const r = s.getBoundingClientRect(); return { x: r.left, y: r.top + r.height / 2, w: r.width, sw: s.scrollWidth, cw: s.clientWidth, ta: getComputedStyle(s).touchAction }; };
   return { o: i(window.segO), f: i(window.segF) };
 });
