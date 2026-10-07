@@ -1,5 +1,6 @@
-// Dokumentasjonsbilder: Hjem + ALLE popups fra strategien (custom:ki-dashboard) mot ekte Bubble Card og mock-hass,
-// i iPhone-ramme (390×844 @3x) og PC-vindu (1440×900), på en myk bakgrunn i My SmartHome-paletten.
+// Dokumentasjonsbilder: Hjem + popupene fra strategien (custom:ki-dashboard; alle funksjons-popups, rommene i DOC_ROOMS og
+// personen i DOC_PERSONS) mot ekte Bubble Card og mock-hass (+ __docsData: ingen ekte navn, emoji-avatarer, header i
+// «Stor hilsen»), i iPhone-ramme (390×844 @3x) og PC-vindu (1440×900), på en myk bakgrunn i My SmartHome-paletten.
 //   npm run shots                  → docs/images/iphone/<popup>.webp, docs/images/pc/<popup>.webp + README-bildene
 //   node test/docs-shots.mjs vaer  → bare popups som matcher filteret (hash/navn)
 //   DEVICES=iphone|pc              → bare én enhet
@@ -44,10 +45,69 @@ const ICON = `customElements.define('ha-icon', class extends HTMLElement {
   let h = readFileSync(R + 'test/harness-bubble.html', 'utf8');
   h = h.replace(/customElements\.define\('ha-icon'[^\n]*\n/, ICON + '\n');
   h = h.replace('<script src="mock-hass.js">', '<script src="../mock-hass.js">');
-  // HA arver dashbordfonten (Bubble-headeren bruker var(--ha-font-family-body, inherit)) – ikke nettleserens serif
-  h = h.replace('</style>', "  html,body{font-family:'Space Grotesk',system-ui,sans-serif}\n</style>");
+  // HA arver dashbordfonten (Bubble-headeren bruker var(--ha-font-family-body, inherit)) – ikke nettleserens serif.
+  // HA-temaets variabler (My SmartHome v3): Bubble regner popupens flate fra --ha-card-background/--card-background-color
+  // (bg_opacity 98 %) – uten dem blir popupen svart i stedet for #282828 som i HA.
+  h = h.replace('</style>', `  html,body{font-family:'Space Grotesk',system-ui,sans-serif}
+  :root{--primary-background-color:#232323;--card-background-color:#282828;--ha-card-background:#282828;--primary-text-color:#fafafa;--secondary-text-color:#afafaf;--divider-color:#3a3a3a}
+  :root[data-ki-theme=light]{--primary-background-color:#e6e6e6;--card-background-color:#ffffff;--ha-card-background:#ffffff;--primary-text-color:#212121;--secondary-text-color:#727272;--divider-color:#e0e0e0}
+</style>`);
   writeFileSync(HARNESS, h);
 }
+
+/* ---------------------------------------------------------------- dokumentasjonsdata (oppå test/mock) */
+// Popupene som tas: alle funksjons-popups, et utvalg rom (ikke alle ni) og én person-popup.
+const DOC_ROOMS = ['#stue', '#kjokken', '#soverom', '#basseng'], DOC_PERSONS = ['#person-kari'];
+// Kjøres i siden før dashbordet bygges: ingen ekte navn i popupene (Cybele → Kari, Rune → Ola, Emma ut – tre personer i
+// headeren som i designet; Sebastian byttes til Jonas i popup-tekster av scrub()), emoji-avatarer, header i «Stor hilsen»
+// (overlappende bilder + ▾ for stedsmenyen) via ki-store, og prosaen uten vaskemaskin/planter. Hilsenen «👋 Sebastian!»
+// (hass.user.name) røres ikke.
+const DOCS_DATA = `window.__docsData = function (hass) {
+  const S = hass.states, E = hass.entities || {};
+  const seg = (k) => new RegExp('(^|[._])' + k + '(?=[._]|$)');
+  const ren = (from, to) => {
+    Object.keys(S).forEach((id) => {
+      if (!seg(from).test(id)) return;
+      const nid = id.replace(seg(from), '$1' + to);
+      S[nid] = S[id]; delete S[id]; S[nid].entity_id = nid;
+      if (E[id]) { E[nid] = { ...E[id], entity_id: nid }; delete E[id]; }
+    });
+    const Cap = from[0].toUpperCase() + from.slice(1), ToCap = to[0].toUpperCase() + to.slice(1);
+    const sub = (v) => typeof v === 'string'
+      ? v.replace(new RegExp('\\\\b' + Cap + '\\\\b', 'g'), ToCap).replace(new RegExp('(^|[._\\\\s])' + from + '(?=[._\\\\s]|$)', 'g'), '$1' + to)
+      : Array.isArray(v) ? v.map(sub) : v;
+    Object.values(S).forEach((st) => { const a = st.attributes || {}; Object.keys(a).forEach((k) => { a[k] = sub(a[k]); }); });
+  };
+  Object.keys(S).forEach((id) => { if (seg('emma').test(id)) { delete S[id]; delete E[id]; } });
+  ren('cybele', 'kari'); ren('rune', 'ola');
+  // Status som i designet: Kari og Sebastian hjemme, Ola på reise (✈)
+  const set = (id, state, attrs) => { if (S[id]) { if (state !== undefined) S[id].state = state; Object.assign(S[id].attributes, attrs || {}); } };
+  set('person.kari', 'home'); set('input_boolean.kari_sover', 'off'); set('binary_sensor.kari_sover', 'off');
+  set('person.ola', 'Reise'); set('input_boolean.ola_hjemme', 'off');
+  // Emoji-avatarer (ingen ekte bilder) på myk gradient – entity_picture som data-URL
+  const avatar = (emoji, c1, c2) => {
+    const c = document.createElement('canvas'); c.width = c.height = 192; const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 192, 192); gr.addColorStop(0, c1); gr.addColorStop(1, c2);
+    g.fillStyle = gr; g.fillRect(0, 0, 192, 192);
+    g.font = '118px "Noto Color Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(emoji, 96, 108);
+    return c.toDataURL('image/png');
+  };
+  set('person.kari', undefined, { entity_picture: avatar('👩🏼', '#f285c9', '#ad99e6') });
+  set('person.ola', undefined, { entity_picture: avatar('👨🏻', '#73b9f2', '#66d19e') });
+  set('person.sebastian', undefined, { entity_picture: avatar('🧑🏽', '#f2b573', '#f28073') });
+  // Prosa: vaskemaskinen står, ingen planter trenger vann
+  set('input_select.vaskemaskin_status', 'Av');
+  Object.values(S).forEach((st) => {
+    const a = st.attributes || {}; if (a.integrasjon !== 'ki_planter') return;
+    if (a.type === 'sted') { st.state = '0'; a.trenger_vann = []; a.trenger_vann_tekst = ''; } else if (a.type === 'plante') st.state = 'off';
+  });
+  // ki-store (frontend/get_user_data): header i «Stor hilsen»; på telefon 26 px tittel så «👋 Sebastian! ▾» og de tre
+  // bildene står på én linje (30 px bryter navnet på 390 px)
+  const ws = hass.callWS;
+  hass.callWS = (m) => (m && m.type === 'frontend/get_user_data' && m.key === 'ki_dashboard')
+    ? Promise.resolve({ value: { cards: { 'ki-home-header': { mode: 'stor', per_screen: { phone: { size: 26 } } } } } }) : ws(m);
+};`;
 
 /* ---------------------------------------------------------------- nett (fonter, Leaflet, kartfliser) via curl-cache */
 // Chromium i testen går ikke via proxyen: Google Fonts og kartfliser hentes med curl (mellomlagret i test/.vendor),
@@ -195,6 +255,7 @@ async function openDashboard(dev, light) {
   const lj = leafletFile('leaflet.js');
   if (lj) await page.addScriptTag({ content: lj.toString() });
   for (const m of mocks) await page.addScriptTag({ path: m });
+  await page.addScriptTag({ content: DOCS_DATA });
   await page.addScriptTag({ path: bundle });
   await page.addScriptTag({ path: BC, type: 'module' });
   await page.waitForFunction(() => customElements.get('bubble-card'), null, { timeout: 15000 });
@@ -202,6 +263,7 @@ async function openDashboard(dev, light) {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     document.documentElement.style.setProperty('--sb', '0px');
     const hass = window.mockHass();
+    window.__docsData(hass);
     hass.themes = { ...(hass.themes || {}), darkMode: !light };
     window.__H = hass;
     if (light) document.documentElement.style.background = document.body.style.background = '#e6e6e6';
@@ -225,6 +287,17 @@ const tidy = (page) => page.evaluate(async () => {
   document.querySelectorAll('ha-more-info-dialog,dialog-box').forEach((d) => d.remove());
   try { await document.fonts.ready; } catch (e) { /* */ }
 });
+// Ingen ekte navn i popupene: tekstnoder (også i shadow DOM) får Jonas/Kari/Ola/Nora – alt unntatt Hjem-headeren
+// (hilsenen «👋 Sebastian!» er designet). Fanger det mock-dataene ikke dekker (f.eks. standard kursnavn i Strøm).
+const scrub = (page) => page.evaluate(() => {
+  const MAP = [[/Sebastian/g, 'Jonas'], [/Cybele/g, 'Kari'], [/\bRune\b/g, 'Ola'], [/\bEmma\b/g, 'Nora']];
+  const walk = (root) => {
+    const it = document.createNodeIterator(root, NodeFilter.SHOW_TEXT);
+    let n; while ((n = it.nextNode())) { const t = n.nodeValue; let u = t; MAP.forEach(([r, s]) => { u = u.replace(r, s); }); if (u !== t) n.nodeValue = u; }
+    root.querySelectorAll('*').forEach((e) => { if (e.shadowRoot && e.tagName !== 'MSH-HJEM-HEADER-CARD') walk(e.shadowRoot); });
+  };
+  walk(document);
+});
 const topColor = (page) => page.evaluate(() => {
   const deep = (root, out) => { root.querySelectorAll('*').forEach((e) => { out.push(e); if (e.shadowRoot) deep(e.shadowRoot, out); }); return out; };
   const open = deep(document, []).some((e) => e.classList && e.classList.contains('bubble-pop-up') && e.classList.contains('is-popup-opened'));
@@ -239,7 +312,7 @@ for (const dn of devs) {
   for (const light of [false, true]) {
     if (only && !'hjem'.includes(only)) break;
     const { ctx, page } = await openDashboard(dev, light);
-    await page.waitForTimeout(800); await tidy(page);
+    await page.waitForTimeout(800); await tidy(page); await scrub(page);
     const png = await page.screenshot();
     const out = R + `docs/images/${dn}/hjem${light ? '-lys' : ''}.webp`;
     await compose(dev, png, out, { light, top: light ? '#e6e6e6' : '#232323' });
@@ -251,10 +324,11 @@ for (const dn of devs) {
   await c0.close();
   for (const pop of pops) {
     if (only && !pop.hash.includes(only) && !pop.name.toLowerCase().includes(only.toLowerCase())) continue;
+    if ((pop.group === 'rom' && !DOC_ROOMS.includes(pop.hash)) || (pop.group === 'person' && !DOC_PERSONS.includes(pop.hash))) continue;
     const { ctx, page, errs } = await openDashboard(dev, false);
     await page.evaluate((h) => { location.hash = h; }, pop.hash);
     await page.waitForTimeout(2200);
-    await tidy(page);
+    await tidy(page); await scrub(page);
     const st = await topColor(page);
     await page.waitForTimeout(200);
     const png = await page.screenshot();
@@ -268,8 +342,12 @@ for (const dn of devs) {
 await browser.close();
 try { unlinkSync(bundle); unlinkSync(HARNESS); } catch (e) { /* */ }
 
-// README-bildene (rammede versjoner)
+// README-bildene (rammede versjoner) + rydd bort bilder som ikke lenger tas (rom/personer utenfor utvalget)
 if (!only) {
+  for (const dn of devs) {
+    const keep = new Set(report.filter((r) => r.dev === dn).map((r) => r.file));
+    for (const f of readdirSync(R + 'docs/images/' + dn)) { const p = R + 'docs/images/' + dn + '/' + f; if (!keep.has(p)) unlinkSync(p); }
+  }
   const cp = (src, dst) => { if (existsSync(R + src)) copyFileSync(R + src, R + dst); };
   const firstRoom = report.find((r) => r.dev === 'iphone' && r.hash === '#stue');
   cp('docs/images/iphone/hjem.webp', 'docs/images/hjem.webp');
@@ -291,7 +369,7 @@ function writeGallery() {
   const pcOf = (r) => pc.find((x) => key(x) === key(r));
   const GROUPS = [['Hjem', (r) => !r.hash], ['Rom', (r) => r.group === 'rom'], ['Funksjoner', (r) => r.group === 'fn'], ['Personer', (r) => r.group === 'person']];
   const title = (r) => `${r.name}${r.hash ? ` · \`${r.hash}\`` : ''}`;
-  let md = `# Galleri\n\nHjem og alle popups fra strategien (\`custom:ki-dashboard\`), tatt med \`npm run shots\` (\`test/docs-shots.mjs\`) mot ekte\nBubble Card og testdataene i \`test/mock\` – mørkt tema, Hjem også i lyst. iPhone: 390×844 @3x i iPhone-ramme. PC: 1440×900\nhi-DPI i nettleservindu. Ingen ekte personer, adresser eller kameraer.\n`;
+  let md = `# Galleri\n\nHjem og popupene fra strategien (\`custom:ki-dashboard\`) – alle funksjons-popups, et utvalg rom og én person-popup – tatt med\n\`npm run shots\` (\`test/docs-shots.mjs\`) mot ekte Bubble Card og testdataene i \`test/mock\` – mørkt tema, Hjem også i lyst.\niPhone: 390×844 @3x i iPhone-ramme. PC: 1440×900 hi-DPI i nettleservindu. Ingen ekte personer, adresser eller kameraer.\n`;
   for (const [g, f] of GROUPS) {
     const rows = ip.filter(f);
     if (!rows.length) continue;

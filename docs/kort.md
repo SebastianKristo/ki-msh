@@ -1402,6 +1402,10 @@ Toppkort, farevarsler, time for time, dagskort, detaljkort og månefase med «Ti
 | `style` | Stil (klassisk \| scene) |  |
 | `tile_order · hidden_tiles` | rekkefølge/synlighet: sky, wind, gust, sun, hum, uv, press, rain, moon, feels, vis |  |
 | `overrides.{weather, sol, mane, uv}` | bytt entitet |  |
+| `view` | Visning (fullscreen \| sheet) | Visning |
+| `feels_like_entity` | Føles som-entitet · entity | Føles som og sikt |
+| `visibility_entity` | Sikt-entitet · entity | Føles som og sikt |
+| `compute_feels` | Beregn føles som når sensor mangler · boolean | Føles som og sikt |
 | `section_order · hidden_sections` | rekkefølge/synlighet: hero, alerts, hours, days, tiles, moon |  |
 | `name` | Stedsnavn | Toppkort |
 | `hero_fx` | Bakgrunnsanimasjon · boolean | Toppkort |

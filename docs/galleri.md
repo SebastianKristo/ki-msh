@@ -1,8 +1,8 @@
 # Galleri
 
-Hjem og alle popups fra strategien (`custom:ki-dashboard`), tatt med `npm run shots` (`test/docs-shots.mjs`) mot ekte
-Bubble Card og testdataene i `test/mock` – mørkt tema, Hjem også i lyst. iPhone: 390×844 @3x i iPhone-ramme. PC: 1440×900
-hi-DPI i nettleservindu. Ingen ekte personer, adresser eller kameraer.
+Hjem og popupene fra strategien (`custom:ki-dashboard`) – alle funksjons-popups, et utvalg rom og én person-popup – tatt med
+`npm run shots` (`test/docs-shots.mjs`) mot ekte Bubble Card og testdataene i `test/mock` – mørkt tema, Hjem også i lyst.
+iPhone: 390×844 @3x i iPhone-ramme. PC: 1440×900 hi-DPI i nettleservindu. Ingen ekte personer, adresser eller kameraer.
 
 ## Hjem
 
@@ -20,18 +20,6 @@ hi-DPI i nettleservindu. Ingen ekte personer, adresser eller kameraer.
 
 ## Rom
 
-### Hage · `#hage`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/hage.webp" alt="Hage – iPhone" width="260"> | <img src="images/pc/hage.webp" alt="Hage – PC" width="560"> |
-
-### Gang · `#gang`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/gang.webp" alt="Gang – iPhone" width="260"> | <img src="images/pc/gang.webp" alt="Gang – PC" width="560"> |
-
 ### Kjøkken · `#kjokken`
 
 | iPhone | PC |
@@ -44,41 +32,17 @@ hi-DPI i nettleservindu. Ingen ekte personer, adresser eller kameraer.
 |:---:|:---:|
 | <img src="images/iphone/stue.webp" alt="Stue – iPhone" width="260"> | <img src="images/pc/stue.webp" alt="Stue – PC" width="560"> |
 
-### Bad · `#bad`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/bad.webp" alt="Bad – iPhone" width="260"> | <img src="images/pc/bad.webp" alt="Bad – PC" width="560"> |
-
-### Kontor · `#kontor`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/kontor.webp" alt="Kontor – iPhone" width="260"> | <img src="images/pc/kontor.webp" alt="Kontor – PC" width="560"> |
-
 ### Soverom · `#soverom`
 
 | iPhone | PC |
 |:---:|:---:|
 | <img src="images/iphone/soverom.webp" alt="Soverom – iPhone" width="260"> | <img src="images/pc/soverom.webp" alt="Soverom – PC" width="560"> |
 
-### Vaskerom · `#vaskerom`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/vaskerom.webp" alt="Vaskerom – iPhone" width="260"> | <img src="images/pc/vaskerom.webp" alt="Vaskerom – PC" width="560"> |
-
 ### Basseng · `#basseng`
 
 | iPhone | PC |
 |:---:|:---:|
 | <img src="images/iphone/basseng.webp" alt="Basseng – iPhone" width="260"> | <img src="images/pc/basseng.webp" alt="Basseng – PC" width="560"> |
-
-### Garasje · `#garasje`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/garasje.webp" alt="Garasje – iPhone" width="260"> | <img src="images/pc/garasje.webp" alt="Garasje – PC" width="560"> |
 
 ## Funksjoner
 
@@ -210,26 +174,8 @@ hi-DPI i nettleservindu. Ingen ekte personer, adresser eller kameraer.
 
 ## Personer
 
-### Cybele · `#person-cybele`
+### Kari · `#person-kari`
 
 | iPhone | PC |
 |:---:|:---:|
-| <img src="images/iphone/person-cybele.webp" alt="Cybele – iPhone" width="260"> | <img src="images/pc/person-cybele.webp" alt="Cybele – PC" width="560"> |
-
-### Emma · `#person-emma`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/person-emma.webp" alt="Emma – iPhone" width="260"> | <img src="images/pc/person-emma.webp" alt="Emma – PC" width="560"> |
-
-### Rune · `#person-rune`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/person-rune.webp" alt="Rune – iPhone" width="260"> | <img src="images/pc/person-rune.webp" alt="Rune – PC" width="560"> |
-
-### Sebastian · `#person-sebastian`
-
-| iPhone | PC |
-|:---:|:---:|
-| <img src="images/iphone/person-sebastian.webp" alt="Sebastian – iPhone" width="260"> | <img src="images/pc/person-sebastian.webp" alt="Sebastian – PC" width="560"> |
+| <img src="images/iphone/person-kari.webp" alt="Kari – iPhone" width="260"> | <img src="images/pc/person-kari.webp" alt="Kari – PC" width="560"> |
