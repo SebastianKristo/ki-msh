@@ -14,7 +14,7 @@
  *   prose_font_size (valgfri overstyring i em av kortets 14 px, 1,4–2,8; tom = automatisk clamp(22px, 7,4cqi, 34px)
  *   med kortet som container – MySmartHome), prose_line_height (ganger tekststørrelsen, 1,3–2,0, standard 1,55),
  *   overrides.<kilde> (alle setninger), price_high/price_mid, alarm_hash, toasts.
- * Seksjoner (Fiks 17.9, som ki-prosa-card): vaer, hjemkomst[], ringeklokke, apparater[], planter, pris, bursdag – brukerens
+ * Seksjoner (Fiks 17.9, som ki-prosa-card): vaer, hjemkomst[] (Fiks 58: tom som standard), ringeklokke, apparater[], planter, pris, bursdag – brukerens
  *   standard-config (SEC_STD) i getStubConfig og fylt inn for manglende nøkler (exclude: [pris] / pris: false = av).
  *   Hver seksjon vises bare når entiteten finnes. Rekkefølge: rekkefolge[] (standard vær → hjemkomst → ringeklokke →
  *   apparater → planter → pris → setninger (prose[]) → bursdag). Aktive vær/pris-seksjoner erstatter standardprosaens vær/pris.
@@ -249,7 +249,8 @@
     vaer: { entity: 'sensor.dashboard_index', attributt: 'weather', enhet: '°', mellomrom: false, ikon: 'attributt:current.icon', ikon_plassering: 'slutt', 'små_bokstaver': true, tekst: 'Ute er det {pille}.', path: '#vaer' },
     apparater: [{ navn: 'Vaskemaskinen', vis: { entity: 'input_select.vaskemaskin_status', state: 'Vasker' }, verdi: 'sensor.vaskemaskin_power', ikon: 'ki:vaskemaskin', animasjon: 'auto' }],
     pris: { entity: 'sensor.norgespris_total_strompris_norgespris' },
-    hjemkomst: [{ navn: 'Mamma', aktiv: 'input_boolean.ki_cybele_pa_vei_hjem_fra_jobb', reisetid: 'sensor.cybele_reisetid_fra_job', ikon: '🚗', animasjon: 'hopp', tekst: '{navn} kommer hjem ca. kl {pille}.', path: '#personer' }],
+    // Fiks 58: ingen hjemkomst-person som standard (seksjonen kan fortsatt legges til i Tilpass → Hjemkomst)
+    hjemkomst: [],
     bursdag: { vis: 'binary_sensor.vis_bursdagskort' },
     ringeklokke: { entity: 'input_boolean.ki_ringeklokke_varsel_aktiv' },
     planter: { auto: true, sted: [], ikon: 'mdi:sprout', animasjon: 'vugg', tekst: '{planter} trenger vann.', path: '#planter' },
@@ -266,6 +267,12 @@
   const KI_FIG = { vaskemaskin: 'washer', oppvask: 'dishwasher', oppvaskmaskin: 'dishwasher', torketrommel: 'dryer', 'tørketrommel': 'dryer' };
   const BDAY_BG = 'linear-gradient(135deg, #f294c8, #f5cfd0)';
   const clone = (o) => JSON.parse(JSON.stringify(o));
+  // Fiks 58: den gamle standard-hjemkomsten («Mamma kommer hjem ca. kl …») fjernes fra lagrede configer.
+  // Bare en rad som er identisk med den gamle standarden – egne rader røres ikke.
+  const OLD_HJEMKOMST = { navn: 'Mamma', aktiv: 'input_boolean.ki_cybele_pa_vei_hjem_fra_jobb', reisetid: 'sensor.cybele_reisetid_fra_job', ikon: '🚗', animasjon: 'hopp', tekst: '{navn} kommer hjem ca. kl {pille}.', path: '#personer' };
+  const isOldHjemkomst = (a) => !!a && typeof a === 'object' && Object.keys(a).length === Object.keys(OLD_HJEMKOMST).length
+    && Object.keys(OLD_HJEMKOMST).every((k) => a[k] === OLD_HJEMKOMST[k]);
+  const hasOldHjemkomst = (c) => !!c && Array.isArray(c.hjemkomst) && c.hjemkomst.some(isOldHjemkomst);
   const exOf = (c) => new Set((c && c.exclude) || []);
   // Effektiv seksjon (null = av)
   function secOf(c, k) {
@@ -274,6 +281,7 @@
     if (v === false) return null;
     const d = SEC_STD[k];
     if (v == null) return clone(d);
+    if (k === 'hjemkomst' && Array.isArray(v)) return v.filter((a) => !isOldHjemkomst(a));
     if (Array.isArray(d)) return Array.isArray(v) ? v : clone(d);
     if (typeof v === 'string') return { ...clone(d), entity: v };
     return { ...clone(d), ...v };
@@ -849,6 +857,7 @@
     }
     // Fiks 18.1 · migrering, lagres én gang per kort: eldre vær/pris-nøkler → vaer/pris, og vær/pris-setninger i prose[]
     // fjernes når seksjonen er aktiv. Bare det levende kortet (ikke editorens frakoblede instans), ikke mens et utkast er åpent.
+    // Fiks 58: + den gamle standard-hjemkomsten (Mamma) fjernes fra hjemkomst[]
     _migrate(R) {
       const raw = this._rawConfig, id = raw && raw.card_id;
       if (!id || !this.isConnected || !this.hass || !M.store || !M.store.loaded || (M.draftOf && M.draftOf(this))) return;
@@ -856,10 +865,12 @@
       if (done.has(id)) return;
       const L = legacyOf(raw), base = L || raw;
       const cut = Array.isArray(base.prose) && R.rows.length !== base.prose.length;
-      if (!L && !cut) return;
+      const hk = hasOldHjemkomst(base); // Fiks 58
+      if (!L && !cut && !hk) return;
       done.add(id);
       const nc = { ...base };
       if (cut) nc.prose = R.rows.map((x) => clone(x));
+      if (hk) nc.hjemkomst = base.hjemkomst.filter((a) => !isOldHjemkomst(a));
       try { M.saveCardConfig(this.hass, raw, nc, { toasts: false, card: this }); } catch (e) { console.warn('[ki-msh] prosa-migrering', e); }
     }
     onHold(id, el) {
