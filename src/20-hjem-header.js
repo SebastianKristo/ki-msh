@@ -1245,6 +1245,200 @@
 
   // 20.22/22.7: #kart finnes (strategien laget den / manuell popup) – ellers faller trykk tilbake til hurtigarket
   const kartOk = (h) => !!customElements.get('msh-kart-card') && (!M.allPopups || M.allPopups(h).some((p) => p.hash === '#kart'));
+
+  /* ------------------------------------------------------------ Fiks 55 B3 · tittel per skjermtype */
+  // header.per_screen: { phone: {...}, unfolded: {...}, desktop: {...} } – felt: title (hilsen_navn | navn | hilsen | egen |
+  // ingen), text (egendefinert: {navn} {hilsen} {fornavn} {sted} + de gamle {name} {server} {temp} {vaer}), emoji, avatars,
+  // size (20–40 px, fast – skalerer aldri med bredden), prose, prose_lines (0 = alle, 2/3/4). Mangler en verdi for
+  // Fold åpen / PC → arves fra Telefon, ellers standard (PS_DEF).
+  // Skjermtypen velges automatisk fra dashbord-containeren: < 600 px telefon; PC = > 1100 px med mus ((pointer: fine))
+  // og ikke nær kvadratisk; ellers (600–1100 px, nær kvadratisk 0,8–1,25, berøring) Fold åpen / nettbrett.
+  // Tittelstørrelse uten egen verdi (tolerant migrering, iOS/telefon/PC uendret): Telefon og PC følger det gamle oppsettet
+  // (hFont / title_size med tilpasning) – Fold åpen får fast 30 px (med mindre en eldre hFont er satt), og «Stor hilsen»
+  // bruker alltid fast px (cqw/clamp-skaleringen med bredden er fjernet).
+  const PS_KEYS = ['title', 'text', 'emoji', 'avatars', 'size', 'prose', 'prose_lines'];
+  const PS_TYPES = [['phone', 'Telefon / Fold lukket', 'mdi:cellphone'], ['unfolded', 'Fold åpen / nettbrett', 'mdi:tablet'], ['desktop', 'PC', 'mdi:monitor']];
+  const PS_TITLES = [['hilsen_navn', 'Hilsen + navn'], ['navn', 'Bare navn'], ['hilsen', 'Bare hilsen'], ['egen', 'Egendefinert'], ['ingen', 'Ingen tittel']];
+  const PS_DEF = { title: 'hilsen_navn', text: '', emoji: true, avatars: true, prose: true, prose_lines: 0, size: { phone: 30, unfolded: 30, desktop: 34 } };
+  const PS_LINES = [[2, '2'], [3, '3'], [4, '4'], [0, 'Alle']];
+  M.HJEM_PS = { KEYS: PS_KEYS, TYPES: PS_TYPES, TITLES: PS_TITLES, DEF: PS_DEF };
+  M.hjemScreenType = function (w, h) {
+    const W = Number(w) || 0, H = Number(h) || 0;
+    if (W < 600) return 'phone';
+    const r = H > 0 ? W / H : 0, square = r >= 0.8 && r <= 1.25;
+    let fine = false;
+    try { fine = !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches) && !((navigator.maxTouchPoints || 0) > 0); } catch (e) { /* */ }
+    return W > 1100 && fine && !square ? 'desktop' : 'unfolded';
+  };
+  M.hjemScreenNow = function () { const R = M.dashRect ? M.dashRect() : { width: window.innerWidth, height: window.innerHeight }; return M.hjemScreenType(R.width, R.height); };
+  // Rå verdier for én skjermtype (egen → Telefon → udefinert) – brukes av kortet og editorene
+  M.hjemPerScreenRaw = function (c, t) {
+    const P = (c && c.per_screen && typeof c.per_screen === 'object') ? c.per_screen : {}, own = P[t] || {}, ph = t === 'phone' ? {} : (P.phone || {}), out = {};
+    PS_KEYS.forEach((k) => { const v = own[k] != null && own[k] !== '' ? own[k] : ph[k] != null && ph[k] !== '' ? ph[k] : undefined; if (v !== undefined) out[k] = v; });
+    return out;
+  };
+  // Effektive verdier (med standard) for skjermtype t. size = null → gammelt oppsett (tilpasning som før).
+  M.hjemPerScreen = function (c, t) {
+    c = c || {};
+    const R = M.hjemPerScreenRaw(c, t), Md = modeOf(c);
+    const n = (v, d) => (v == null || v === '' ? d : v);
+    let size = R.size != null && isFinite(Number(R.size)) ? Math.max(20, Math.min(40, Math.round(Number(R.size)))) : null;
+    if (size == null && Md === 'stor') size = PS_DEF.size[t];
+    if (size == null && t === 'unfolded' && !(isHil(Md) && c.hFont != null && Number(c.hFont) !== HIL_DEF.hFont)) size = PS_DEF.size.unfolded;
+    const pl = Number(n(R.prose_lines, PS_DEF.prose_lines));
+    return {
+      title: PS_TITLES.some(([k]) => k === R.title) ? R.title : (Md === 'navn' ? 'navn' : PS_DEF.title),
+      text: String(n(R.text, '')), emoji: n(R.emoji, PS_DEF.emoji) !== false, avatars: n(R.avatars, PS_DEF.avatars) !== false,
+      size, sizeSet: R.size != null, prose: n(R.prose, PS_DEF.prose) !== false, prose_lines: [2, 3, 4].includes(pl) ? pl : 0,
+    };
+  };
+  // «God morgen» … «God natt» etter klokka
+  M.hjemTimeGreeting = function (d) {
+    const hr = (d || new Date()).getHours();
+    return hr < 5 ? 'God natt' : hr < 10 ? 'God morgen' : hr < 12 ? 'God formiddag' : hr < 18 ? 'God ettermiddag' : hr < 23 ? 'God kveld' : 'God natt';
+  };
+  const EMOJI_RE = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}\u{FE0F}\u{200D}\u{20E3}]/gu;
+  M.hjemStripEmoji = (t) => String(t || '').replace(EMOJI_RE, '').replace(/\s{2,}/g, ' ').trim();
+  // Tittelteksten for en skjermtype: base = dagens tittel (hilsen + navn / stedsnavn), o = { first, full, place, temp, vaer }
+  M.hjemTitleText = function (ps, base, o) {
+    o = o || {};
+    let t;
+    switch (ps.title) {
+      case 'navn': t = o.first || base; break;
+      case 'hilsen': t = M.hjemTimeGreeting(); break;
+      case 'egen': t = SV.rydd(SV.fyll(String(ps.text || '').replace(/\{navn\}/g, o.full || o.first || '').replace(/\{fornavn\}/g, o.first || '').replace(/\{hilsen\}/g, M.hjemTimeGreeting()).replace(/\{sted\}/g, o.place || ''), { server: o.place, name: o.first, temp: o.temp, vaer: o.vaer })); break;
+      case 'ingen': t = ''; break;
+      default: t = base;
+    }
+    return ps.emoji ? t : M.hjemStripEmoji(t);
+  };
+  // Prosaen (oppsummeringsteksten) i msh-hjem-card følger headerens skjermtype: { show, lines } – brukt av _proseGap
+  M.hjemProseView = function (hd) {
+    if (!hd || !hd.config) return null;
+    const ps = M.hjemPerScreen(hd.config, hd._psType ? hd._psType() : M.hjemScreenNow());
+    return { show: ps.prose, lines: ps.prose_lines };
+  };
+  M.hjemProseApply = function (slot, pv) {
+    if (!slot || !slot.style) return;
+    const show = !pv || pv.show !== false, lines = pv && show ? pv.lines : 0;
+    const d = show ? '' : 'none';
+    if (slot.style.display !== d) slot.style.display = d;
+    let mh = '';
+    if (lines) {
+      const kid = slot.firstElementChild, pz = kid && kid.shadowRoot && kid.shadowRoot.querySelector('.pz');
+      const cs = pz ? getComputedStyle(pz) : null, fs = cs ? parseFloat(cs.fontSize) || 22 : 22;
+      const lh = cs && /px$/.test(cs.lineHeight) ? parseFloat(cs.lineHeight) : fs * 1.55;
+      mh = `${Math.ceil(lh * lines + 2)}px`;
+    }
+    if (slot.style.maxHeight !== mh) { slot.style.maxHeight = mh; slot.style.overflow = mh ? 'hidden' : ''; }
+  };
+  // Fast størrelse med to linjer: får ikke tittelen plass ved siden av bildene på to linjer (lengste ord / hele teksten)
+  // → bildene på egen rad under (wrap). Aldri krymping. tw1/wl1 = tekst-/lengste ord-bredde per px skrift.
+  const fitFixed = (W, tw1, wl1, arr, n, S, narrow, fs) => {
+    const av = narrow ? Math.round(S.av * HIL_NARROW.av) : S.av, gap = S.gap, bs = hilBadge(S, av, narrow), k = Math.min(n, HIL_MAX);
+    const R = (wrap) => ({ fs, av, gap, k, bs, wrap: !!wrap, cut: false, pil: true, fixed: true });
+    if (!(W > 0) || !n) return R(false);
+    const m = k < n ? k + 1 : k, row = m ? m * av + (m - 1) * gap + Math.round(bs * 0.25) : 0;
+    const avail = W - row - S.tgap - arr;
+    if (avail <= 0 || wl1 * fs > avail || tw1 * fs > avail * 1.9) return R(true);
+    return R(false);
+  };
+  // Seksjonen «Tittel per skjerm» i «Tilpass header» (pre = '') og i GUI-editoren til msh-hjem-card (pre = 'cards.header.').
+  // c = configen feltene leser (header-configen), sel = valgt fane (forhåndsvisningen øverst følger den).
+  M.hjemPerScreenSection = function (pre, hass, c, opt) {
+    pre = pre || ''; c = c || {}; opt = opt || {};
+    const tabs = PS_TYPES.map(([t, label, icon]) => {
+      const R = M.hjemPerScreenRaw(c, t), P = M.hjemPerScreen(c, t), own = ((c.per_screen || {})[t]) || {};
+      const nm = (k) => `${pre}per_screen.${t}.${k}`;
+      const inh = t !== 'phone' ? ' Tom = arver fra Telefon.' : '';
+      const legacy = P.size == null;
+      const fields = [
+        { type: 'select', name: nm('title'), label: 'Tittel', options: PS_TITLES, default: P.title },
+        ...(P.title === 'egen' ? [{ type: 'text', name: nm('text'), label: 'Egendefinert tekst', placeholder: R.text || '{hilsen}, {fornavn}', help: 'Variabler: {navn} {hilsen} {fornavn} {sted}.' + inh }] : []),
+        { type: 'boolean', name: nm('emoji'), label: 'Vis emoji', default: P.emoji },
+        { type: 'boolean', name: nm('avatars'), label: 'Vis avatarer (personer)', default: P.avatars },
+        { type: 'range', name: nm('size'), label: 'Tittelstørrelse', icon: 'mdi:format-size', min: 20, max: 40, step: 1, unit: 'px', default: P.size != null ? P.size : PS_DEF.size[t],
+          help: legacy ? `Ikke satt: som før (tilpasses plassen). Standard ${PS_DEF.size[t]} px når du flytter slideren. Fast px – skalerer ikke med bredden.` : `Fast ${P.size} px – skalerer ikke med bredden.${own.size == null && t !== 'phone' && R.size != null ? ' Arvet fra Telefon.' : ''}` },
+        { type: 'boolean', name: nm('prose'), label: 'Vis oppsummeringsteksten', default: P.prose, help: '«Ute er det … i dag» under headeren.' },
+        ...(P.prose ? [{ type: 'select', name: nm('prose_lines'), label: 'Antall linjer', options: PS_LINES, default: P.prose_lines }] : []),
+      ];
+      return { key: t, label, icon, fields };
+    });
+    return { type: 'section', id: 'per_screen', label: 'Tittel per skjerm', icon: 'mdi:monitor-cellphone', open: !!opt.open, meta: () => { const n = Object.keys(c.per_screen || {}).filter((k) => Object.keys((c.per_screen || {})[k] || {}).length).length; return n ? `${n} med eget oppsett` : 'Standard'; }, fields: [
+      ...(opt.preview ? [M.hjemPerScreenPreviewField(pre)] : []),
+      { type: 'info', label: 'Velges automatisk fra dashbordflaten: under 600 px = Telefon / Fold lukket, 600–1100 px eller nær kvadratisk = Fold åpen / nettbrett, over 1100 px med mus = PC. Tomme verdier arver fra Telefon.' },
+      { type: 'tabs', id: 'ps', tabs },
+    ] };
+  };
+  // Liten forhåndsvisning av tittelen for valgt fane (riktig størrelse). host(ed) → header-kortet som gir tekst/avatarer.
+  M.hjemPerScreenPreviewField = function (pre) {
+    const f = { type: 'html', render: (h, cfg, ed) => f.html(h, cfg, '', ed), html: (h, cfg, key, ed) => {
+      const c = pre ? M.hjemHeaderEff(cfg) : (cfg || {});
+      const cur = M.hjemScreenNow();
+      // GUI-editoren til msh-hjem-card: endringer i cards.header.per_screen speiles til header-kortets ki-store-oppsett
+      if (pre && ed && typeof ed._set === 'function' && !ed.__psMirror) {
+        ed.__psMirror = true;
+        const o = ed._set;
+        ed._set = function (p, v, cm) {
+          const ps = String(p).startsWith(pre + 'per_screen');
+          if (ps) { // første endring: start fra det «Tilpass header» har lagret (ki-store vinner), så ingenting går tapt
+            const cfg = this._config || {}, y = (cfg.cards || {}).header || {}, eff = M.hjemHeaderEff(cfg).per_screen;
+            if (eff && JSON.stringify(eff) !== JSON.stringify(y.per_screen || null)) this._config = { ...cfg, cards: { ...(cfg.cards || {}), header: { ...y, per_screen: JSON.parse(JSON.stringify(eff)) } } };
+          }
+          const r = o.call(this, p, v, cm);
+          if (ps) M.hjemPerScreenMirror(this._config);
+          return r;
+        };
+      }
+      if (ed && !(ed._tab && ed._tab.ps)) (ed._tab = ed._tab || {}).ps = cur; // fanen for skjermen du står på er valgt først
+      const t = (ed && ed._tab && ed._tab.ps) || cur;
+      const ps = M.hjemPerScreen(c, t), info = M.hjemTitleInfo ? M.hjemTitleInfo(h, c) : { base: '👋', o: {}, pics: [] };
+      const txt = M.hjemTitleText(ps, info.base, info.o);
+      const HS = hilSizes(c, t !== 'phone'), fs = ps.size != null ? ps.size : Math.min(40, HS.font);
+      const av = Math.round(Math.min(48, fs * 1.4));
+      const faces = ps.avatars ? info.pics.slice(0, 3).map((p) => `<span style="width:${av}px;height:${av}px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;background:${p.bg};margin-left:6px">${p.pic ? `<img src="${esc(p.pic)}" alt="" style="width:100%;height:100%;object-fit:cover">` : ''}</span>`).join('') : '';
+      const lab = PS_TYPES.find((x) => x[0] === t);
+      return `<div class="f" data-key="pspv"><div data-pspv="${esc(t)}" style="border-radius:20px;padding:12px 14px;background:var(--ki-bg, var(--gray000,#232323));display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ki-text-mid, #979797)">${M.icon(lab[2], 16)}<span>${esc(lab[1])}${t === cur ? ' · denne skjermen' : ''}</span><span style="margin-left:auto">${ps.size != null ? ps.size + ' px' : 'tilpasses (som før)'}</span></div>
+        <div style="display:flex;align-items:center;gap:6px;min-width:0"><span class="pstx" style="flex:1 1 auto;min-width:0;font-size:${fs}px;font-weight:500;letter-spacing:-0.02em;line-height:1.15;color:var(--ki-text, #fafafa);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:break-word">${txt ? esc(txt) : '<i style="font-style:normal;font-size:14px;color:var(--ki-text-mid, #979797)">Ingen tittel</i>'}</span>${faces}</div>
+        ${ps.prose ? `<div style="font-size:13px;color:var(--ki-text-2, #afafaf)">Oppsummeringstekst · ${ps.prose_lines ? ps.prose_lines + ' linjer' : 'alle linjer'}</div>` : '<div style="font-size:13px;color:var(--ki-text-mid, #979797)">Ingen oppsummeringstekst</div>'}
+      </div></div>`;
+    } };
+    return f;
+  };
+  // Tittel-grunnlaget (som render) for forhåndsvisningen: base = dagens tittel, o = variablene, pics = personbildene
+  M.hjemTitleInfo = function (h, c) {
+    c = c || {};
+    if (!h || !h.states) return { base: '👋', o: {}, pics: [] };
+    const D = { greeting: '👋 {name}!' }, Md = modeOf(c), rd = (id) => h.states[id] || null;
+    let pics = [];
+    try { const P = M.hjemPersons(h, c); pics = P.visible.map((id) => M.hjemPersonInfo(h, id, c, rd)); } catch (e) { pics = []; }
+    const meP = pics.find((p) => p.me);
+    if (meP) pics = [meP, ...pics.filter((p) => p !== meP)];
+    const full = (h.user && h.user.name) || (meP && meP.name) || '', first = firstName(full);
+    const sc = SV.cfg(c), std = M.hjemServerPlassStd(Md), place = SV.navn(sc, h) || 'Hjem', plass = SV.plass(sc, std);
+    const wid = M.pick(c, 'weather', M.all(h, 'weather')[0]), v = SV.vaer(h, wid);
+    const fill = (t) => SV.fyll(t, { server: place, name: first, temp: v.temp, vaer: v.vaer });
+    const hil = c.greeting != null ? c.greeting : D.greeting, greet = fill(hil);
+    const base = plass === 'tittel' ? fill(SV.tittelMal(sc, std, hil)) : Md === 'navn' ? first || greet : greet;
+    return { base, o: { first, full, place, temp: v.temp, vaer: v.vaer }, pics };
+  };
+  // Header-configen slik headeren ser den, fra msh-hjem-card-configen: cards.header (YAML) + ki-store (vinner)
+  M.hjemHeaderEff = function (hc) {
+    const y = ((hc || {}).cards || {}).header || {};
+    try { return M.effectiveConfig ? M.effectiveConfig({ type: 'custom:msh-hjem-header-card', ...y }, null, { shared: true }) : y; } catch (e) { return y; }
+  };
+  // Speil: GUI-editoren til msh-hjem-card skriver også til header-kortets ki-store-oppsett (samme som «Tilpass header»)
+  M.hjemPerScreenMirror = function (cfg) {
+    try {
+      const hd = cfg && cfg.cards && cfg.cards.header;
+      if (!hd || !hd.card_id || !M.store || !M.store.card || !M.store.card(hd.card_id)) return;
+      const cur = M.store.card(hd.card_id).per_screen, nxt = hd.per_screen;
+      if (JSON.stringify(cur || null) === JSON.stringify(nxt || null)) return;
+      M.store.set('cards.' + hd.card_id + '.per_screen', nxt && Object.keys(nxt).length ? nxt : undefined);
+    } catch (e) { /* */ }
+  };
+
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
     static get defaults() {
@@ -1259,8 +1453,10 @@
         const PROSE_GAP = { type: 'range', name: 'prose_gap', label: 'Avstand til prosa', icon: 'mdi:arrow-expand-vertical', min: -20, max: 60, step: 2, default: D.prose_gap, unit: 'px', presets: M.HJEM_PROSE_GAP_PRESETS, help: 'Mellomrommet mellom headeren og prosaen. Minus trekker prosaen opp mot headeren.' };
         const PL = (Array.isArray(c && c.people) ? c.people : peopleDefaults(hass, c || {})).map((r) => M.hjemPeopleNorm(c || {}, r));
         return [
+          M.hjemPerScreenPreviewField(''), // Fiks 55 B3: forhåndsvisning av tittelen for valgt skjerm-fane, øverst i arket
           { type: 'profilebar' }, // Fiks 19.13: «Redigerer: bruker · enhet ▾» (msh-hjem-editor)
           { type: 'modes', name: 'mode', label: 'Oppsett', options: MODES, default: D.mode },
+          M.hjemPerScreenSection('', hass, c || {}), // Fiks 55 B3: «Tittel per skjerm»
           { type: 'section', id: 'title_actions', label: 'Handlinger på tittelen', icon: 'mdi:gesture-tap', meta: (h, cc) => { const A = M.hjemTitleActions(cc); return TACT_L[A.tap]; }, fields: [
             { type: 'titleacts' },
             { type: 'entity', name: 'kiosk_entity', label: 'Kiosk-modus-entitet', domain: 'input_boolean', auto: (h, cc) => ((cc.overrides || {}).kiosk) || KIOSK_DEF },
@@ -1410,14 +1606,19 @@
       let people = P.visible.map((id) => M.hjemPersonInfo(h, id, c, rd));
       const meP = people.find((p) => p.me);
       if (isHil(Md) && meP) people = [meP, ...people.filter((p) => p !== meP)]; // 26.22: den innloggede først
-      const userFirst = firstName((h.user && h.user.name) || (meP && meP.name) || '');
+      const userFull = (h.user && h.user.name) || (meP && meP.name) || '', userFirst = firstName(userFull);
+      // Fiks 55 B3: tittel per skjermtype (telefon / Fold åpen / PC) – målt fra dashbordflaten ved hver tegning
+      const psT = (this._psT = M.hjemScreenNow()), PS = M.hjemPerScreen(c, psT), fixed = PS.size;
+      this._psFixed = fixed;
+      if (!PS.avatars) people = [];
       // Fiks 37 (37.4): stedsnavnets plass (tittel | under | navn), plassholdere {server} {name}/{first_name} {temp} {vaer}
       const srv = this._server(), sc = this._sc(), plass = srv.plass;
       const W = this._weather();
       const fill = (t) => SV.fyll(t, { server: srv.name, name: userFirst, temp: W.temp, vaer: W.vaer });
       const hilsen = c.greeting != null ? c.greeting : '👋 {name}!';
       const greet = fill(hilsen);
-      const title = plass === 'tittel' ? fill(SV.tittelMal(sc, this._plassStd(), hilsen)) : Md === 'navn' ? userFirst || greet : greet;
+      const title0 = plass === 'tittel' ? fill(SV.tittelMal(sc, this._plassStd(), hilsen)) : Md === 'navn' ? userFirst || greet : greet;
+      const title = M.hjemTitleText(PS, title0, { first: userFirst, full: userFull, place: srv.name, temp: W.temp, vaer: W.vaer });
       const ut = c.undertekst ? SV.rydd(fill(c.undertekst)) : '';
       const sub = ut || ((Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '');
       // Pil på den store linja bare når den åpner menyen (servere + tittel/navn); uten servere: ingen meny, ingen pil
@@ -1427,10 +1628,15 @@
       // 26.22: smal dashbordflate (< 420 px) → 56 px bilder og 26 px merke
       const narrow = hil && (M.dashRect ? M.dashRect().width : window.innerWidth) < HIL_NARROW.w;
       // Fiks 17.20: målt tilpasning (tittel, bilder, mellomrom) gjelder bare samme tittel/antall/størrelser
-      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap, narrow, pilOn].join('|') : '';
+      const hSig = hil ? [title, people.length, HS.font, HS.av, HS.badge, HS.gap, HS.tgap, narrow, pilOn, fixed].join('|') : '';
       if (this._hSig !== hSig) { this._hSig = hSig; this._hFit = null; this._hN = 0; }
       // Fiks 19.12: målt tilpasning (_hFitNow); før første måling et estimat fra radens bredde (tegnvekt-estimat)
-      const HF = hil ? this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, pilOn ? HIL_ARR : 0, people.length, HS, narrow) : {};
+      // Fiks 55 B3: fast størrelse → aldri krymping; teksten brytes til to linjer, og får den ikke plass på to linjer ved
+      // siden av bildene, flyttes bildene til egen rad (estimat her, målt i _hFitNow)
+      const longW = Math.max(0, ...String(title).split(/\s+/).map((x) => emWidth(x)));
+      const HF = !hil ? {} : fixed != null
+        ? (this._hFit && this._hFit.fixed ? this._hFit : (this._hFit = fitFixed(this._hroW || 0, emWidth(title) + 0.1, longW + 0.05, pilOn ? HIL_ARR : 0, people.length, HS, narrow, fixed)))
+        : this._hFit || fitHil(this._hroW || 0, emWidth(title) + 0.1, pilOn ? HIL_ARR : 0, people.length, HS, narrow);
       // 37.4: får ikke navn + pil plass – pila skjules først (trykk virker fortsatt)
       const uPil = pilOn && (hil ? HF.pil === false : !!(this._tFit && this._tFit.upil));
       this._hNarrow = narrow;
@@ -1441,16 +1647,18 @@
       let fs = '30px', fw = 600, ls = '-0.03em', ht = '34px', pb = '0';
       const prof = Md === 'profil';
       const pTitle = clampN(c.title_size, 28, 48, 36), pPic = clampN(c.pic_size, 40, 72, 60), pPers = clampN(c.persons_size, 32, 56, 46);
-      if (prof) { fs = pTitle + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; }
+      if (prof) { fs = (fixed != null ? fixed : pTitle) + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; }
       else if (hil) { fs = (HF.fs || HS.font) + 'px'; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '0'; } // 26.22: 44 px/500 (fitHil)
       else if (big) {
         const r = [...greet].reduce((t, ch) => t + (/\s/.test(ch) ? 0.27 : /[iltjf!.,:;'|]/.test(ch) ? 0.3 : /[mwMW]/.test(ch) ? 0.82 : /[A-ZÆØÅ]/.test(ch) ? 0.64 : /[a-zæøå0-9?]/.test(ch) ? 0.56 : ch.codePointAt(0) > 0x2000 ? 1.15 : 0.55), 0) + 0.9;
-        fs = this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
+        // Fiks 55 B3: «Stor hilsen» har fast px per skjermtype – cqw-skaleringen med bredden er fjernet (fixed er alltid satt)
+        fs = fixed != null ? fixed + 'px' : this._gFit ? this._gFit + 'px' : `min(${(97 / Math.max(r, 1)).toFixed(2)}cqw, ${Number(c.g_font) || 4.5}em)`; fw = 500; ls = '-0.02em'; ht = 'auto'; pb = '4px';
       }
+      else if (fixed != null) { fs = fixed + 'px'; ht = 'auto'; }
       const gAv = Number(c.g_avatar) || 50, gBadge = Number(c.g_badge) || 20, gGap = c.g_gap != null && c.g_gap !== '' && !isNaN(Number(c.g_gap)) ? Number(c.g_gap) : -8;
       // Avatar som originalen: 55×55, border-radius 25 (skaleres likt for Liten/Stor og de store oppsettene).
       const szN = hil ? HS.av : big ? gAv : ({ S: 40, M: 55, L: 64 }[c.size] || 55);
-      const SZ = hil ? hSZ : big ? `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)` : szN + 'px';
+      const SZ = hil ? hSZ : big ? (fixed != null ? gAv + 'px' : `clamp(30px, ${(gAv / 4.2).toFixed(2)}cqw, ${gAv}px)`) : szN + 'px';
       const RAD = hil ? '50%' : big ? `calc(${SZ} * ${(25 / 55).toFixed(4)})` : Math.round((szN * 25) / 55) + 'px'; // 26.22: runde bilder i Hilsen
       const bad = this._picBad;
       const ov = !c.show_name && !c.show_place && !big && !hil;
@@ -1491,7 +1699,7 @@
       const more = hMore ? people[hK] : null;
       const moreHTML = more ? `<button class="face more press" data-key="__more" data-act="person" data-haptic="off" data-id="${esc(more.id)}" data-ent="${esc(more.id)}" title="${esc(people.slice(hK).map((p) => p.name).join(', '))}" style="margin-left:${hK ? hGapN : 0}px"><span class="fw"><span class="av" style="width:${hSZ};height:${hSZ};border-radius:50%;background:var(--ki-surface-2, var(--gray300,#404040));font-size:${Math.round(hAvN * 0.34)}px;font-weight:600;color:var(--ki-text, var(--white,#fafafa))">+${hMore}</span></span></button>` : '';
       const facesHTML = (Md === 'profil' ? faces.map((p) => face(p, 0, { sz: pPic, bs: 21 })).join('') : faces.map((p, k) => face(p, k)).join('')) + moreHTML;
-      const empty = !people.length ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
+      const empty = !people.length && PS.avatars ? `<button class="nop press" data-act="customize" data-section="entities">${M.icon('person_add', 20)}</button>` : '';
       this._sheets && this._sheets.forEach((sh) => sh.update());
       const TA = M.hjemTitleActions(c);
       const tTip = TGESTS.filter(([g]) => TA[g] !== 'none').map(([g, l]) => `${l}: ${TACT_L[TA[g]]}`).join(' · ') || esc(title);
@@ -1502,10 +1710,10 @@
       const subHTML = under
         ? `<div class="sub2">${underMeny ? `<button class="svv" data-act="srvmenu" data-haptic="off" aria-haspopup="menu" aria-expanded="${apen}">${esc(srv.name)}<span class="pil liten${apen ? ' apen' : ''}">${M.icon('mdi:menu-down', 20)}</span></button>` : `<span class="svn">${esc(srv.name)}</span>`}${subT ? `<span class="sk">•</span>${wBtn(subT)}` : ''}</div>`
         : sub ? wBtn(sub) : '';
-      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}${hil && HF.wrap ? ' hwrap' : ''}${uPil ? ' upil' : ''}" data-ent="__tilpass">
+      return `<header class="hd${prof ? ' prof' : ''}${hil ? ' hil' : ''}${hil && HF.cut ? ' hcut' : ''}${hil && HF.wrap ? ' hwrap' : ''}${uPil ? ' upil' : ''}${fixed != null ? ' t2' : ''}${title ? '' : ' notl'}" data-ent="__tilpass" data-ps="${psT}">
         <div class="top" ${hil ? `style="gap:${HS.tgap}px"` : ''}>
           <div class="lc" data-gcol="1">
-            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}${this._tFit && this._tFit.fs && !hil && !big ? `;font-size:${this._tFit.fs}px` : ''}" data-haptic="off" ${srv.meny ? `aria-haspopup="menu" aria-expanded="${apen}"` : ''} title="${esc(tTip)}">
+            <button class="ttl" data-act="title" style="font-size:${fs};font-weight:${fw};letter-spacing:${ls};height:${ht};padding-block:${pb}${this._tFit && this._tFit.fs && !hil && !big && fixed == null ? `;font-size:${this._tFit.fs}px` : ''}" data-haptic="off" ${srv.meny ? `aria-haspopup="menu" aria-expanded="${apen}"` : ''} title="${esc(tTip)}">
               <span class="tx">${esc(title)}</span>${pilOn ? `<span class="pil${apen ? ' apen' : ''}">${arrow}</span>` : ''}
             </button>
             ${subHTML}
@@ -1760,7 +1968,7 @@
         if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) fail();
       });
       // Stor hilsen: tilpass skriftstørrelsen til tilgjengelig bredde (som gFitNow i designet)
-      if (modeOf(this.config) === 'stor') {
+      if (modeOf(this.config) === 'stor' && this._psFixed == null) {
         const col = this.shadowRoot.querySelector('.lc');
         if (col && !this._ro && window.ResizeObserver) { this._ro = new ResizeObserver((en) => { const w = Math.round(en[0].contentRect.width); if (w === this._roW) return; const first = this._roW === undefined && this._gFit == null; this._roW = w; if (first) return; /* ytelse: første varsel (start) endrer ingenting – ingen ekstra tegning */ this._gFit = null; this.update(); }); this._ro.observe(col); }
         requestAnimationFrame(() => {
@@ -1786,7 +1994,7 @@
         this._hRaf = requestAnimationFrame(() => this._hFitNow());
       } else if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; this._hFit = null; }
       // Fiks 37.4: andre oppsett (Hjem/Profil/Navn) – pila skjules først, så krymper teksten (min. 85 %), til slutt «…»
-      if (!isHil(modeOf(this.config)) && modeOf(this.config) !== 'stor') {
+      if (!isHil(modeOf(this.config)) && modeOf(this.config) !== 'stor' && this._psFixed == null) {
         cancelAnimationFrame(this._tRaf);
         this._tRaf = requestAnimationFrame(() => this._tFitNow());
       } else this._tFit = null;
@@ -1817,6 +2025,17 @@
       const HS = hilSizes(this.config, this._isFold()), cur = this._hFit || {};
       const fs = parseFloat(getComputedStyle(sp).fontSize) || 30, tw = sp.scrollWidth, W = top.clientWidth; // offset*/client* = uten CSS-zoom
       if (!tw || !W) return;
+      // Fiks 55 B3: fast størrelse – bare én beslutning: får teksten ikke plass på to linjer ved siden av bildene (et ord
+      // flyter over, eller mer enn to linjer), flyttes bildene til egen rad. Skriften krymper aldri.
+      if (cur.fixed) {
+        if (cur.wrap || !this._hNum) return;
+        const lh = parseFloat(getComputedStyle(sp).lineHeight) || fs * 1.15;
+        if (!(sp.scrollHeight > lh * 2 + 2 || sp.scrollWidth > sp.clientWidth + 1)) return;
+        if ((this._hN = (this._hN || 0) + 1) > 12) return;
+        this._hFit = { ...cur, wrap: true };
+        this.update();
+        return;
+      }
       const arr = sp.nextElementSibling ? HIL_ARR : 0; // fast bredde – pila kan være skjult (37.4)
       const next = fitHil(W, tw / fs, arr, this._hNum || 0, HS, !!this._hNarrow);
       const ch = !cur.fs || Math.abs(next.fs - cur.fs) > 0.4 || next.av !== cur.av || next.gap !== cur.gap || next.k !== cur.k || next.bs !== cur.bs || !!next.wrap !== !!cur.wrap || !!next.cut !== !!cur.cut || next.pil !== cur.pil;
@@ -1843,11 +2062,15 @@
       if (M.store && !this._hpOff) this._hpOff = M.store.subscribe((d, path) => { if (!path || String(path).startsWith(HPROF)) { this._hFit = null; this._hN = 0; this.update(); } });
       if (!this._onCls) this._onCls = () => { this._hFit = null; this._hN = 0; this.update(); };
       window.addEventListener('ki-device-class', this._onCls); // bretting: ny enhetsklasse → ny profil uten reload
+      // Fiks 55 B3: ny skjermtype (bretting, rotasjon, appen tilbake) → bare headeren tegnes (morph, ingen blink, ikke hele Hjem)
+      if (!this._onPsT) this._onPsT = (e) => { if (e && e.type === 'visibilitychange' && document.visibilityState !== 'visible') return; requestAnimationFrame(() => { if (this.isConnected && this._psT && M.hjemScreenNow() !== this._psT) { this._hFit = null; this._hN = 0; this.update(); } }); };
+      window.addEventListener('resize', this._onPsT); window.addEventListener('orientationchange', this._onPsT); document.addEventListener('visibilitychange', this._onPsT);
     }
     disconnectedCallback() {
       super.disconnectedCallback();
       if (this._hpOff) { this._hpOff(); this._hpOff = null; }
       if (this._onCls) window.removeEventListener('ki-device-class', this._onCls);
+      if (this._onPsT) { window.removeEventListener('resize', this._onPsT); window.removeEventListener('orientationchange', this._onPsT); document.removeEventListener('visibilitychange', this._onPsT); }
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._hro) { this._hro.disconnect(); this._hro = this._hroEl = null; }
       cancelAnimationFrame(this._hRaf);
@@ -1904,6 +2127,11 @@
         .svv{cursor:pointer}
         .sk{opacity:.6;flex:none}
         .sub2 .sub{min-width:0;overflow:hidden;text-overflow:ellipsis}
+        /* Fiks 55 B3: fast tittelstørrelse per skjermtype – lang tekst brytes til to linjer før «…» (aldri «Sebast…» på én
+           linje når to får plass). Gjelder også gammel tilpasning når den må korte (hcut). Ingen tittel → .notl */
+        .t2 .ttl{height:auto !important}
+        .t2 .ttl .tx,.hcut .ttl .tx{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:break-word;text-overflow:ellipsis;line-height:1.15}
+        .notl .ttl{display:none}
         .nop{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text-mid, var(--gray700,#979797))}
       `;
     }

@@ -1036,7 +1036,10 @@
     _bid(k) { return btnCfg(this.config, k).entity || this._e(k); }
     // Hovedbryteren (Avansert, standard på) + valget per knapp (Bil) – designets «Spør før lås, tut, frunk og bagasje»
     _conf(k) { const b = btnCfg(this.config, k); return this.config.confirm !== false && (b.confirm != null ? !!b.confirm : CONF_DEF[k]); }
-    onOpen() { this._load(); }
+    // Fiks 55 A4: statistikk (7/31 dager) hentes først når popupen har satt seg – ingen tegning under åpne-animasjonen
+    static get settleOnOpen() { return true; }
+    onOpen() { if (!this._settling) this._load(); }
+    onSettled() { this._load(); }
 
     /* ---------------------------------------------------------- data */
     async _load() {

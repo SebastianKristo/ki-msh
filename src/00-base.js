@@ -750,6 +750,47 @@
     return !h || location.hash === h;
   };
 
+  /* Fiks 55 A4 · MSH.whenPopupSettled(el) → Promise som løses når Bubble-popupen elementet ligger i har «satt seg»
+   * (generalisert fra Server-kortets _whenSettled, Fiks 52 A3): rAF × 2 → til popupen er åpnet og is-opening er borte →
+   * rAF × 2 → til gjenværende (endelige) animasjoner/overganger på popup-elementet er ferdige. Uten Bubble-popup (vanlig
+   * kort, editor): bare rAF × 2. Maks 2 s uansett. Tunge ting (datahenting, grafer, lister) startes først da, så
+   * åpne-animasjonen (transform) aldri deler hovedtråden med en stor tegning. */
+  MSH.popupEl = function (el) {
+    let n = el && (el.parentNode || (el.getRootNode && el.getRootNode().host));
+    for (let i = 0; n && i < 60; i++) {
+      if (n.classList && n.classList.contains('bubble-pop-up')) return n;
+      if (n.tagName === 'BUBBLE-CARD') return null;
+      n = n.parentNode || n.host;
+    }
+    return null;
+  };
+  MSH.popupAnims = function (pop) {
+    const out = [];
+    if (!pop || !pop.getAnimations) return out;
+    try {
+      pop.getAnimations({ subtree: true }).forEach((a) => {
+        try { const t = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : {}; if ((a.playState === 'running' || a.playState === 'pending') && t.iterations !== Infinity && a.effect && a.effect.target === pop) out.push(a); } catch (e) { /* */ }
+      });
+    } catch (e) { /* */ }
+    return out;
+  };
+  MSH.popupSettled = function (pop) { return !pop || !pop.isConnected || (pop.classList.contains('is-popup-opened') && !pop.classList.contains('is-opening')); };
+  MSH.whenPopupSettled = function (el, max) {
+    return new Promise((res) => {
+      let done = false, mo = null;
+      const fin = () => { if (done) return; done = true; clearTimeout(cap); if (mo) { mo.disconnect(); mo = null; } res(); };
+      const cap = setTimeout(fin, max || 2000);
+      const raf2 = (f) => requestAnimationFrame(() => requestAnimationFrame(f));
+      raf2(() => {
+        const pop = MSH.popupEl(el);
+        const anims = () => raf2(() => { const A = MSH.popupAnims(pop); if (!A.length) return fin(); Promise.all(A.map((a) => a.finished.catch(() => null))).then(fin); });
+        if (MSH.popupSettled(pop)) return anims();
+        mo = new MutationObserver(() => { if (MSH.popupSettled(pop)) { mo.disconnect(); mo = null; anims(); } });
+        mo.observe(pop, { attributes: true, attributeFilter: ['class'] });
+      });
+    });
+  };
+
   /* ------------------------------------------------------------ dashbordflate */
   function deep(root, sel, depth = 0) {
     if (!root || depth > 12) return null;
@@ -2126,8 +2167,33 @@
       if (!this._hass || !this.isConnected) return;
       const open = MSH.isPopupOpen(this);
       if (open && MSH.theme && !(this._themePop && this._themePop.isConnected)) this._themePop = MSH.theme.adopt(this); // Fiks 34: popup-roten får data-ki-theme
-      if (open && !this._open) { this._open = true; if (MSH.startTab) MSH.startTab.apply(this); /* Fiks 36.5: startfanen */ this._safeCall('onOpen'); if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); } }
-      else if (!open && this._open) { if (MSH.startTab) MSH.startTab.closed(this); this._open = false; this._safeCall('onClose'); }
+      if (open && !this._open) {
+        this._open = true;
+        const gate = this._settleGate();
+        let u0 = null; if (gate) try { u0 = JSON.stringify(this._ui); } catch (e) { /* */ }
+        if (MSH.startTab) MSH.startTab.apply(this); /* Fiks 36.5: startfanen */
+        this._safeCall('onOpen');
+        if (gate) { let u1 = null; try { u1 = JSON.stringify(this._ui); } catch (e) { /* */ } if (u1 !== u0) this._settleOnce = true; }
+        if (!this._config.embedded) { requestAnimationFrame(() => this._applySpacing()); setTimeout(() => this._applySpacing(), 400); }
+      }
+      else if (!open && this._open) { if (MSH.startTab) MSH.startTab.closed(this); this._open = false; this._settleGen = (this._settleGen || 0) + 1; this._settling = false; this._safeCall('onClose'); }
+    }
+    /* Fiks 55 A4: kort med «static get settleOnOpen() { return true; }» tegner ikke under Bubbles åpne-animasjon når DOM-en
+     * fra forrige åpning allerede står (Bubble tar innholdet ut av DOM-en ved lukking og setter det inn igjen – tegningen
+     * er den samme). hass-oppdateringer og update() i animasjonen samles til ÉN tegning når popupen har satt seg
+     * (MSH.whenPopupSettled). Unntak: startfanen/onOpen endret UI-tilstanden → én tegning straks. Kortets onSettled()
+     * kalles da (tunge oppslag, grafer, lister). Første åpning (ingen DOM ennå) tegnes som før – før Bubble starter glidingen. */
+    _settleGate() {
+      if (!this.constructor.settleOnOpen || (this._config.embedded && !this._host) || !MSH.popupEl(this)) return false; // innebygd toppkort: følger popupen det ligger i
+      const g = (this._settleGen = (this._settleGen || 0) + 1);
+      this._settling = true;
+      MSH.whenPopupSettled(this).then(() => {
+        if (g !== this._settleGen) return;
+        this._settling = false; this._settleOnce = false;
+        if (this._settlePend) { this._settlePend = false; this._schedule(true); }
+        this._safeCall('onSettled');
+      });
+      return true;
     }
     get isOpen() { return !!this._open; }
     _schedule(force) {
@@ -2156,6 +2222,7 @@
     get ui() { return this._ui; }
     _render() {
       if (!this._config || !this._hass) return;
+      if (this._settling && this._firstRender) { if (this._settleOnce) this._settleOnce = false; else { this._settlePend = true; return; } } // Fiks 55 A4
       if (this._busy && !this._force) { this._skipped = true; return; } // drag/sveip pågår – tegnes når den slipper
       // Native velger (09-pickers) har fokus: ikke tegn på nytt før den slippes (_ventTegn-regelen, fiks-4 4.5)
       if (this._pickerFocus || (MSH.pickerBusy && MSH.pickerBusy(this.shadowRoot))) { this._force = true; return; }
