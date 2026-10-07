@@ -556,7 +556,9 @@
         this._hostRO = new ResizeObserver(() => {
           const on = this.getClientRects().length > 0;
           if (on === this._hostOn) return;
+          const first = this._hostOn === undefined;
           this._hostOn = on;
+          if (first) return; // første varsel (observe) = tilstanden ved oppkobling – connectedCallback tegner allerede (én tegning ved oppstart)
           // panelet fikk layout (oppstart etter splash / appen tilbake) og navbaren mangler → tegn i samme bilde
           if (on && !this._portal && this._config && this._hass) { if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; } this._force = true; this._render(); }
           else this._schedule(true);
