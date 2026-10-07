@@ -1842,6 +1842,89 @@
     el.addEventListener('touchstart', stop, { passive: true });
     el.addEventListener('touchmove', stop, { passive: true });
   };
+  /* Fiks 56 G · vertikal scroll skal virke uansett hvor sveipet starter (fallgruve 2 gjelder bare rene «dra i»-kontroller).
+   * MSH.hScroll(el): horisontal scroll-liste (native). touch-action: pan-x pan-y, overscroll-behavior-x: contain, ingen
+   *   preventDefault. Retningslås på touch: første touchmove over 8 px bestemmer – vertikal slipper gesten helt (popupen
+   *   scroller/lukkes som normalt), horisontal → stopPropagation på resten av touchmove (Bubble ser den ikke). el._lock = 'v'|'h'.
+   * MSH.dirLock(el, { onStart(e, s), onMove(e, s), onEnd(e, s), onTap?(e), onHover?(e), touchAction: 'pan-y', lock: 8 }):
+   *   horisontal dra-/scrub-flate. touch-action pan-y (nettleseren eier vertikal scroll). Berøring: pointerdown registrerer bare
+   *   startpunktet; første pointermove over 8 px: vertikal (|dy| > |dx|) → slipp (ingen preventDefault/stopPropagation,
+   *   nettleseren scroller og sender pointercancel), horisontal → ta over (setPointerCapture, onStart, stopPropagation på
+   *   pointer-/touchmove). Mus/penn: tar over straks (onStart + onMove). Slipp uten å ha tatt over og < 8 px = onTap.
+   *   s = { id, x, y, on, touch, moved }. Idempotent (nye callbacks erstatter de gamle). */
+  MSH.DIR_LOCK = 8;
+  MSH.hScroll = function (el) {
+    if (!el) return;
+    el.__mshTA = 'pan-x pan-y'; // bevares av MSH.morph
+    if (el.style.touchAction !== el.__mshTA) el.style.touchAction = el.__mshTA;
+    if (el.__mshHS) return;
+    el.__mshHS = true;
+    el.style.overscrollBehaviorX = 'contain';
+    let s = null;
+    el.addEventListener('touchstart', (e) => { const t = e.touches && e.touches[0]; s = t && e.touches.length === 1 ? { x: t.clientX, y: t.clientY, d: null } : null; }, { passive: true });
+    el.addEventListener('touchmove', (e) => {
+      const t = e.touches && e.touches[0];
+      if (!s || !t) return;
+      if (!s.d) {
+        const dx = t.clientX - s.x, dy = t.clientY - s.y;
+        if (Math.abs(dx) <= MSH.DIR_LOCK && Math.abs(dy) <= MSH.DIR_LOCK) return;
+        s.d = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
+        el._lock = s.d; // (test/diagnose)
+      }
+      if (s.d === 'h') e.stopPropagation();
+    }, { passive: true });
+    const end = () => { s = null; };
+    el.addEventListener('touchend', end, { passive: true });
+    el.addEventListener('touchcancel', end, { passive: true });
+  };
+  MSH.dirLock = function (el, o) {
+    if (!el) return null;
+    o = o || {};
+    const ta = o.touchAction || 'pan-y';
+    el.__mshTA = ta; // bevares av MSH.morph
+    if (el.style.touchAction !== ta) el.style.touchAction = ta;
+    if (el.__mshDL) { el.__mshDL.o = o; return el.__mshDL; }
+    const C = (el.__mshDL = { o, s: null });
+    const L = () => C.o.lock || MSH.DIR_LOCK;
+    const take = (e) => {
+      const s = C.s;
+      s.on = true;
+      el._lock = 'h'; // (test/diagnose)
+      try { el.setPointerCapture(s.id); } catch (x) { /* */ }
+      if (C.o.onStart) C.o.onStart(e, s);
+    };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button || (C.s && C.s.on)) return; // høyreklikk / finger nr. 2 under et dra
+      C.s = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, touch: e.pointerType === 'touch', moved: false };
+      if (!C.s.touch) { e.stopPropagation(); take(e); if (C.s && C.o.onMove) C.o.onMove(e, C.s); } // mus/penn: ingen scroll-konflikt
+    });
+    el.addEventListener('pointermove', (e) => {
+      const s = C.s;
+      if (!s) { if (e.pointerType === 'mouse' && C.o.onHover) C.o.onHover(e); return; }
+      if (e.pointerId !== s.id) return;
+      if (!s.on) {
+        const dx = e.clientX - s.x, dy = e.clientY - s.y;
+        if (Math.abs(dx) <= L() && Math.abs(dy) <= L()) return;
+        if (Math.abs(dy) > Math.abs(dx)) { el._lock = 'v'; C.s = null; return; } // vertikal: slipp gesten
+        take(e);
+      }
+      e.stopPropagation();
+      if (Math.abs(e.clientX - s.x) > 4) s.moved = true;
+      if (C.o.onMove) C.o.onMove(e, s);
+    });
+    // touchmove: stopPropagation bare når flaten har tatt gesten (horisontal) – vertikal går videre til Bubble/siden
+    el.addEventListener('touchmove', (e) => { if (C.s && C.s.on) e.stopPropagation(); }, { passive: true });
+    const end = (e) => {
+      const s = C.s;
+      if (!s || e.pointerId !== s.id) return;
+      C.s = null;
+      if (s.on) { if (C.o.onEnd) C.o.onEnd(e, s); return; }
+      if (e.type === 'pointerup' && C.o.onTap && Math.hypot(e.clientX - s.x, e.clientY - s.y) <= L()) C.o.onTap(e);
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    return C;
+  };
   // Enkel drag-hjelper: onMove(frac 0..1, e), onEnd(frac). Horisontal som standard.
   MSH.drag = function (el, { axis = 'x', onStart, onMove, onEnd } = {}) {
     MSH.guardDrag(el, 'none');

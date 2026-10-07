@@ -1795,6 +1795,7 @@
       if (M.tabRow) M.tabRow(this, R.querySelector('.top>.tabs'), { active: () => this.tab, order: () => tabOrder(this.config), field: 'tab_order' });
       // Hytta-karusellen: scroll-snap, prikkene følger (MSH.snapCarousel)
       const car = R.querySelector('.hcar');
+      if (car && M.hScroll) M.hScroll(car); // Fiks 56 G: pan-x pan-y + retningslås (vertikalt sveip scroller popupen)
       if (car && M.snapCarousel) M.snapCarousel(car, { dots: () => R.querySelector('.hdots'), index: () => Number(this.ui.hCar) || 0, onIndex: (i) => { if (i !== (Number(this.ui.hCar) || 0)) this.setUI({ hCar: i }); }, haptic: true });
     }
     get styles() {
@@ -1811,7 +1812,7 @@
         .tabs.itabs>.itab{min-width:30px;height:${TV('th', 40)};border-radius:calc(${TV('th', 40)} / 2);font-size:${TV('tf', 14)}}
         .tabs.itabs>.itab ha-icon{--mdc-icon-size:${TV('ti', 20)} !important;width:${TV('ti', 20)} !important;height:${TV('ti', 20)} !important}
         .tabs.itabs>.itab[aria-selected="true"]{padding:0 12px 0 10px}
-        .tabs.names{overflow-x:auto;touch-action:pan-x}
+        .tabs.names{overflow-x:auto;touch-action:pan-x pan-y}
         .ntab{flex:1 0 auto;height:${TV('th', 40)};padding:0 ${TV('tp', 14)};border-radius:calc(${TV('th', 40)} / 2);font-size:${TV('tf', 13)};white-space:nowrap;color:var(--ki-text-2, var(--gray800,#afafaf))}
         .mode{position:relative;flex:none;display:flex;align-items:center}
         .mb{width:var(--mbh, 48px);height:var(--mbh, 48px);border-radius:calc(var(--mbh, 48px) / 2);background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;color:var(--ki-text, var(--white,#fafafa));box-shadow:${C.edge}}

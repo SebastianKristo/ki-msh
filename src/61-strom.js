@@ -321,7 +321,7 @@
     .pc .nl{position:absolute;top:0;bottom:0;border-left:1.5px dashed rgb(242 176 110);pointer-events:none}
     .pc .nt{position:absolute;top:-2px;transform:translateX(-50%);padding:2px 5px;border-radius:4px;background:rgb(246 190 140);color:#3a2a1e;font-size:10px;font-weight:600;pointer-events:none}
     .pc .sd{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:${T};box-shadow:0 0 0 3px rgb(242 133 201);pointer-events:none}
-    .pc .scrub{position:absolute;inset:0;display:flex;touch-action:none;cursor:pointer}.pc .scrub>span{flex:1;min-width:0;height:100%}
+    .pc .scrub{position:absolute;inset:0;display:flex;touch-action:pan-y;cursor:pointer}.pc .scrub>span{flex:1;min-width:0;height:100%}
     .pc .xl{position:absolute;top:calc(100% + 6px);transform:translateX(-50%);font-size:11px;color:${T2}}
     .pc .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;color:${T2};padding:0 12px}
     .lg{display:flex;gap:16px;font-size:11px;color:${T2}}.lg span{display:flex;align-items:center;gap:6px}
@@ -804,19 +804,14 @@
     }
     customize() { return this._openTilpass(); }
 
-    /* ---------------- scrub i prisgrafen (touch-action none + stopPropagation, fallgruve 2) */
+    /* ---------------- scrub i prisgrafen – Fiks 56 G: retningslås (MSH.dirLock) i stedet for touch-action none.
+     * touch-action pan-y: vertikalt sveip på grafen scroller popupen (ingen stopPropagation); horisontalt (> 8 px) = scrub
+     * (pointer capture + stopPropagation, så Bubble ikke lukker/scroller). Trykk velger timen; mus/penn scrubber straks. */
     _scrubInit(el) {
-      if (!el || el.__sc) return;
-      el.__sc = true;
-      el.style.touchAction = 'none'; el.__mshTA = 'none';
+      if (!el) return;
       const hourAt = (x) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(23, Math.floor(((x - r.left) / Math.max(1, r.width)) * 24))); };
-      let on = null;
-      const set = (x) => { const h = hourAt(x); if (h !== this._ui.selH) { M.haptic('selection'); this.setUI({ selH: h }); } };
-      el.addEventListener('pointerdown', (e) => { if (e.button) return; e.stopPropagation(); on = e.pointerId; try { el.setPointerCapture(e.pointerId); } catch (x) { /* */ } set(e.clientX); });
-      el.addEventListener('pointermove', (e) => { if (on !== e.pointerId) return; e.stopPropagation(); set(e.clientX); });
-      const end = (e) => { if (on !== e.pointerId) return; on = null; };
-      el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
-      ['touchstart', 'touchmove'].forEach((t) => el.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
+      const set = (e) => { const h = hourAt(e.clientX); if (h !== this._ui.selH) { M.haptic('selection'); this.setUI({ selH: h }); } };
+      M.dirLock(el, { onStart: set, onMove: set, onTap: set });
     }
 
     /* ---------------- hold 400 ms + dra: seksjoner, Forbruk-kort og -rader (designets hold()) */

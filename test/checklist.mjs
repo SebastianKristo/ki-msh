@@ -95,7 +95,8 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
       let leaked = 0;
       const spy = () => leaked++;
       ['pointerdown', 'touchstart', 'touchmove'].forEach((t) => P && P.addEventListener(t, spy));
-      const drags = cards.flatMap((c) => [...c.shadowRoot.querySelectorAll('*')].filter((e) => e.__mshGuard || e.__mshSc || !['auto', 'manipulation'].includes(getComputedStyle(e).touchAction)));
+      // Fiks 56 G: retningslås-flater (MSH.dirLock / MSH.hScroll) slipper bevisst vertikale gester (popupen skal scrolle) – testes i scroll56-check
+      const drags = cards.flatMap((c) => [...c.shadowRoot.querySelectorAll('*')].filter((e) => !e.__mshDL && !e.__mshHS && (e.__mshGuard || e.__mshSc || !['auto', 'manipulation'].includes(getComputedStyle(e).touchAction))));
       for (const d of drags.slice(0, 20)) {
         const rr = d.getBoundingClientRect(); const x = rr.left + rr.width / 2, y = rr.top + rr.height / 2;
         d.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true, clientX: x, clientY: y, pointerId: 9 }));

@@ -166,31 +166,7 @@
    * contain, ingen preventDefault. Retningslås: første touchmove over 8 px bestemmer retningen – vertikal (|dy| > |dx|) slipper
    * gesten helt (ingen stopPropagation, popupen scroller/lukkes som normalt); horisontal tar den (stopPropagation på resten av
    * touchmove, så Bubble Cards swipe-to-close ikke ser den). Erstatter guardSwipe (pan-x + stopPropagation på alt). */
-  const LOCK = 8;
-  const hScroll = (el) => {
-    if (!el) return;
-    el.__mshTA = 'pan-x pan-y'; // bevares av MSH.morph
-    if (el.style.touchAction !== el.__mshTA) el.style.touchAction = el.__mshTA;
-    if (el.__mshHS) return;
-    el.__mshHS = true;
-    el.style.overscrollBehaviorX = 'contain';
-    let s = null;
-    el.addEventListener('touchstart', (e) => { const t = e.touches && e.touches[0]; s = t && e.touches.length === 1 ? { x: t.clientX, y: t.clientY, d: null } : null; }, { passive: true });
-    el.addEventListener('touchmove', (e) => {
-      const t = e.touches && e.touches[0];
-      if (!s || !t) return;
-      if (!s.d) {
-        const dx = t.clientX - s.x, dy = t.clientY - s.y;
-        if (Math.abs(dx) <= LOCK && Math.abs(dy) <= LOCK) return;
-        s.d = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
-        el._lock = s.d; // (test/diagnose)
-      }
-      if (s.d === 'h') e.stopPropagation();
-    }, { passive: true });
-    const end = () => { s = null; };
-    el.addEventListener('touchend', end, { passive: true });
-    el.addEventListener('touchcancel', end, { passive: true });
-  };
+  const hScroll = M.hScroll; // felles (00-base.js) – mønsteret herfra er generalisert til MSH.hScroll / MSH.dirLock
   M.vaerHScroll = hScroll;
 
   /* ------------------------------------------------------------ felles prognose-mixin */
@@ -1199,48 +1175,21 @@
     // Mus/penn: scrub straks ved trykk (som før). Stiplet markør + verdi; slipp → visningen går tilbake.
     _bindScrubs() {
       this.shadowRoot.querySelectorAll('[data-scrub]').forEach((el) => {
-        el.__mshTA = 'pan-y'; // bevares av MSH.morph
-        if (el.style.touchAction !== 'pan-y') el.style.touchAction = 'pan-y';
-        if (el.__scr) return;
-        el.__scr = true;
         // data-mode="col" (27.1/27.2): n like kolonner – indeks = floor(f·n) (Vær v5 round(f·n − .5)); ellers punkt: round(f·(n−1))
         const pos = (e) => { const n = Number(el.dataset.n) || 1, r = el.getBoundingClientRect(), f = (e.clientX - r.left) / Math.max(1, r.width); return M.clamp(el.dataset.mode === 'col' ? Math.floor(f * n) : Math.round(f * (n - 1)), 0, Math.max(0, n - 1)); };
-        let down = null;
-        const take = (e) => {
-          down.on = true;
-          try { el.setPointerCapture(down.id); } catch (x) { /* */ }
-          M.haptic('selection');
-          this.setUI({ scr: { k: el.dataset.scrub, i: pos(e) } });
-        };
-        el.addEventListener('pointerdown', (e) => {
-          if (e.button) return;
-          down = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId, on: false, touch: e.pointerType === 'touch' };
-          if (!down.touch) { e.stopPropagation(); take(e); } // mus/penn: ingen scroll-konflikt
-        });
-        el.addEventListener('pointermove', (e) => {
-          if (!down && e.pointerType !== 'mouse') return;
-          if (down && e.pointerId !== down.id) return;
-          if (down && !down.on) { // berøring: retningslås ved 8 px
-            const dx = e.clientX - down.x, dy = e.clientY - down.y;
-            if (Math.abs(dx) <= LOCK && Math.abs(dy) <= LOCK) return;
-            if (Math.abs(dy) > Math.abs(dx)) { el._lock = 'v'; down = null; return; } // vertikal: slipp
-            el._lock = 'h';
-            take(e);
-          }
-          if (down) { e.stopPropagation(); if (Math.abs(e.clientX - down.x) > 4) down.moved = true; }
-          const i = pos(e), s0 = this.ui.scr;
-          if (!s0 || s0.k !== el.dataset.scrub || s0.i !== i) this.setUI({ scr: { k: el.dataset.scrub, i } });
-        });
-        // touchmove: bare stopPropagation når scrubben har tatt gesten (horisontal) – vertikal går videre til Bubble/siden
-        el.addEventListener('touchmove', (e) => { if (down && down.on) e.stopPropagation(); }, { passive: true });
-        const end = (e) => {
-          const wasDrag = down && down.on && down.moved;
-          down = null;
+        const show = (e) => { const i = pos(e), s0 = this.ui.scr; if (!s0 || s0.k !== el.dataset.scrub || s0.i !== i) this.setUI({ scr: { k: el.dataset.scrub, i } }); };
+        const end = (e, s) => {
           if (this.ui.scr) this.setUI({ scr: null }); // slipp → visningen går tilbake
-          if (wasDrag && e && e.type === 'pointerup') { this._swallow = true; setTimeout(() => { this._swallow = false; }, 350); } // dagrad: ingen utfolding etter dra
+          if (s && s.on && s.moved && e && e.type === 'pointerup') { this._swallow = true; setTimeout(() => { this._swallow = false; }, 350); } // dagrad: ingen utfolding etter dra
         };
-        ['pointerup', 'pointercancel'].forEach((t) => el.addEventListener(t, end));
-        el.addEventListener('pointerleave', (e) => { if (!down && e.pointerType === 'mouse') end(e); });
+        // felles retningslås (MSH.dirLock, 00-base.js): touch-action pan-y, 8 px, vertikal slippes, horisontal = scrub
+        M.dirLock(el, {
+          onStart: (e) => { M.haptic('selection'); this.setUI({ scr: { k: el.dataset.scrub, i: pos(e) } }); },
+          onMove: show, onHover: show, onEnd: end,
+        });
+        if (el.__scr) return;
+        el.__scr = true;
+        el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !(el.__mshDL && el.__mshDL.s)) end(e); });
       });
     }
     // 28.2 · Fliser: hold 400 ms → flyttemodus: flisen løftes (scale 1.04 + skygge, haptic medium) og de andre vugger lett.

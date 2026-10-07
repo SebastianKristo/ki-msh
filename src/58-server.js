@@ -10,7 +10,8 @@
  *      fra 58b-server-unifi.js; Enheter/Switch tegnes av M.serverUnifi når den finnes) · Proxmox Gjester · Lagring · Backup
  *      · Unraid Array · Gjester · HA Tillegg · Oppdateringer · System · qBittorrent Torrenter · Statistikk (Fiks 50 E).
  *   Fiks 50 F: vertvelgeren er en vannrett karusell (faner og kort): flex 1 0 auto, min 84 px, scroll-snap, fade 18 px bare på
- *      siden med skjult innhold, aktiv fane sentreres, touch-action pan-x + stopPropagation, hold-dra omorganiserer fortsatt.
+ *      siden med skjult innhold, aktiv fane sentreres, touch-action pan-x pan-y (Fiks 56 G: vertikalt sveip på velgeren scroller
+ *      popupen; fanetrykk bytter aldri ved loddrett sveip) + stopPropagation, hold-dra omorganiserer fortsatt.
  *   Fiks 50 E: qBittorrent (plattform qbittorrent, translation_key) skjules automatisk når integrasjonen mangler (qbit_force).
  *   Fiks 50 G: Internett-kortet bruker SpeedTest (speedtestdotnet): Ned/Opp Mbit/s, «Ping 6 ms · målt 14:10», «Kjør test».
  *   Vert-grensesnitt for M.serverUnifi: card._host = { hass, config, ui, setUI, render, haptic, moreInfo, setCfg, go, confirm }.
@@ -781,13 +782,13 @@
     ${TAB_CSS('.svp')}`;
   const TAB_CSS = (pre) => `${pre} .trow{display:flex;align-items:center;gap:8px;min-width:0}
     ${pre} .tbox{flex:1;min-width:0;border-radius:999px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));overflow:hidden}
-    ${pre} .tabs{display:flex;gap:2px;padding:4px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain}
+    ${pre} .tabs{display:flex;gap:2px;padding:4px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x pan-y;overscroll-behavior-x:contain}
     ${pre} .tabs::-webkit-scrollbar,${pre} .hcards::-webkit-scrollbar{display:none}
     ${pre} .tb{flex:1 0 auto;min-width:84px;height:var(--sv-th,44px);padding:0 16px;scroll-snap-align:center;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;white-space:nowrap;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
     ${pre} .tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
     ${pre} .gear{width:calc(var(--sv-th,44px) + 8px);height:calc(var(--sv-th,44px) + 8px);border-radius:999px;flex:none;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));color:var(--ki-text, #fafafa)}
     ${pre} .gear:active{transform:scale(.92)}
-    ${pre} .hcards{display:flex;gap:8px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain}
+    ${pre} .hcards{display:flex;gap:8px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x pan-y;overscroll-behavior-x:contain}
     ${pre} .hc{flex:1 0 140px;min-width:140px;scroll-snap-align:center;display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:12px;border-radius:24px;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));transition:background .2s,box-shadow .2s,transform .12s;text-align:left}
     ${pre} .hc:active{transform:scale(.97)}
     ${pre} .hc.on{background:var(--ki-surface-2, #404040);box-shadow:inset 0 0 0 1.5px ${PK}}

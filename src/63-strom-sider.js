@@ -626,6 +626,9 @@ ${eledHtml}`;
       }
     }
     try { if (M.segment && M.segment.glass) M.segment.glass(el); } catch (e) { /* */ } // Liquid Glass-drag på periodevelgerne
+    // Fiks 56 G: scrub i timegrafen med retningslås (MSH.dirLock): pan-y, vertikalt sveip scroller popupen, horisontalt = scrub
+    const g0 = el.querySelector('[data-ss-scrub]');
+    if (g0 && M.dirLock) { const pk = (e) => { if (el.__ssPick) el.__ssPick(e); }; M.dirLock(g0, { onStart: pk, onMove: pk, onTap: pk }); }
     if (el.__ssBound) return;
     el.__ssBound = true;
     const H = () => el.__ssHost;
@@ -695,7 +698,7 @@ ${eledHtml}`;
       // Ny render (feltet byttes ut) → ingen lagring, bind() gir det nye feltet fokus; ellers = brukeren gikk ut av feltet
       setTimeout(() => { if (sOf(host2).edit === k && inp.isConnected && !inp.matches(':focus')) commit(host2, k); }, 0);
     });
-    // Scrub i timegrafen (fallgruve 2: touch-action none + stopPropagation)
+    // Scrub i timegrafen (Fiks 56 G: MSH.dirLock på [data-ss-scrub] over – touch-action pan-y + retningslås)
     const pick = (ev) => {
       const g = el.querySelector('[data-ss-scrub]');
       if (!g) return;
@@ -711,19 +714,7 @@ ${eledHtml}`;
       if (lab) { lab.textContent = scrubTxt(i, nv('kr'), nv('d')); lab.classList.remove('pos', 'neg'); const k = nv('kr'); if (k != null && Math.abs(k) >= 0.005) lab.classList.add(k > 0 ? 'pos' : 'neg'); }
       if (det) det.textContent = detTxt({ s: nv('s'), q: nv('q'), e: nv('e'), fut: c.classList.contains('fut') });
     };
-    const stop = (ev) => { if (ev.target.closest && ev.target.closest('[data-ss-scrub]')) ev.stopPropagation(); };
-    el.addEventListener('pointerdown', (ev) => {
-      const g = ev.target.closest && ev.target.closest('[data-ss-scrub]');
-      if (!g) return;
-      ev.stopPropagation();
-      try { g.setPointerCapture(ev.pointerId); } catch (e) { /* */ }
-      pick(ev);
-      const mv = (e2) => { e2.stopPropagation(); pick(e2); };
-      const up = () => { g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up); };
-      g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
-    });
-    el.addEventListener('touchstart', stop, { passive: true });
-    el.addEventListener('touchmove', stop, { passive: true });
+    el.__ssPick = pick;
   }
 
   function html(host, page) {
@@ -803,7 +794,7 @@ ${eledHtml}`;
 .ss-dot{width:8px;height:8px;border-radius:2px;flex:none}
 .ss-track{height:10px;border-radius:5px;background:var(--ki-surface-3, #2f2f2f);overflow:hidden;display:block}
 .ss-bar{display:block;height:100%;border-radius:5px;transition:width .4s cubic-bezier(.2,.8,.2,1)}
-.ss-hrs{position:relative;height:110px;display:flex;align-items:center;gap:2px;touch-action:none;cursor:crosshair;user-select:none}
+.ss-hrs{position:relative;height:110px;display:flex;align-items:center;gap:2px;touch-action:pan-y;cursor:crosshair;user-select:none}
 .ss-mid{position:absolute;left:0;right:0;top:50%;border-top:1px solid ${WA(0.25)};pointer-events:none}
 .ss-hcol{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;border-radius:3px}
 .ss-hcol.sel{background:${WA(0.08)}}
