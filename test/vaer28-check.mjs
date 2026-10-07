@@ -30,7 +30,7 @@ const mk = (p, cfg) => p.evaluate(async (cfg) => {
   h.states['weather.home'] = { ...h.states['weather.home'], state: 'sunny' };
   const bc = document.createElement('bubble-card');
   bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#vaer' });
-  bc.innerHTML = '<div class="pop bubble-pop-up" style="overflow:hidden;display:flex;flex-direction:column"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container" style="overflow:auto;flex:1;min-height:0"></div></div>';
+  bc.innerHTML = '<div class="pop bubble-pop-up is-popup-opened" style="overflow:hidden;display:flex;flex-direction:column"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container" style="overflow:auto;flex:1;min-height:0"></div></div>';
   document.getElementById('dash').appendChild(bc);
   location.hash = '#vaer';
   const c = document.createElement('msh-vaer-card');
@@ -59,7 +59,7 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
   ok(`${T} 28.1 ny nøkkel vinner over gammel (style over stil), sections.hours = false skjuler`, /scene/.test(Mg2.wrap) && !Mg2.hours && Mg2.days, Mg2);
 
   /* ------------------------------------------------ 28.1 Tilpass-knappen nederst etter siste seksjon */
-  await mk(p, { places: [{ name: 'Hjem', entity: 'weather.home' }, { name: 'Hytta', entity: 'weather.hytta' }] });
+  await mk(p, { view: 'sheet', places: [{ name: 'Hjem', entity: 'weather.home' }, { name: 'Hytta', entity: 'weather.hytta' }] }); // 56 I: «Ark» (Fullskjerm: vaer56)
   const Pos = await p.evaluate(async () => {
     const w = (ms) => new Promise((q) => setTimeout(q, ms));
     const c = window.__c, sr = c.shadowRoot, slot = sr.querySelector('.ctl-slot'), inner = window.__pop.querySelector('.inner'), hdr = window.__pop.querySelector('.hdr').getBoundingClientRect();
@@ -184,7 +184,7 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
   ok(`${T} 28.2 dra → live omorganisering med FLIP 200 ms, touchmove preventDefault`, H.live.mid.indexOf(H.before[0]) === 3 && H.live.flip >= 2 && H.live.prevented, H.live);
   ok(`${T} 28.2 slipp → haptic light + tile_order lagret, flyttemodus består`, H.hap2.includes('light') && Array.isArray(H.saved) && H.saved.indexOf(H.before[0]) === 3 && H.after.join() === H.live.mid.join() && H.stillMode, H);
   ok(`${T} 28.2 i flyttemodus løftes en flis straks; Esc og trykk utenfor avslutter`, H.instant && H.escOff && H.on2 && H.outOff, H);
-  ok(`${T} 28.2 fallgruve 2: pointerdown/touchstart/touchmove fra flisene når aldri Bubble-popupen`, !H.bub.length, H.bub);
+  ok(`${T} 28.2 fallgruve 2: pointerdown og touchmove under dra fra flisene når aldri Bubble-popupen (56 G: touchstart slippes, så vertikal scroll/lukking virker)`, !H.bub.includes('pointerdown') && !H.bub.includes('touchmove'), H.bub);
 
   /* ------------------------------------------------ 28.2 mus: hold og dra med ekte musehendelser */
   await mk(p, {});
@@ -210,7 +210,7 @@ if (existsSync(BC)) {
       document.documentElement.style.setProperty('--sb', sb + 'px');
       const h = window.mockHass();
       // popupen slik HA-brukeren har den: mal A-styles med mørk header-bakgrunn, UTEN strategiens ki-vaer-blokk
-      const pop = window.MSH.popupTemplateA({ name: 'Vær', icon: 'mdi:weather-partly-cloudy', hash: '#vaer', card: { type: 'custom:msh-vaer-card', card_id: 'pop-vaer' } });
+      const pop = window.MSH.popupTemplateA({ name: 'Vær', icon: 'mdi:weather-partly-cloudy', hash: '#vaer', card: { type: 'custom:msh-vaer-card', card_id: 'pop-vaer', view: 'sheet' } }); // 56 I: Ark
       pop.styles = (pop.styles || '') + '\n#header-container > div > div { background: var(--gray000)!important; }\n.bubble-header-container{background:#111!important}';
       const bc = document.createElement('bubble-card'); bc.setConfig(pop); bc.hass = h; document.getElementById('dash').appendChild(bc);
       await w(400); location.hash = '#vaer'; await w(1500);
@@ -244,6 +244,7 @@ if (existsSync(BC)) {
     const nb = document.createElement('msh-navbar-card');
     const wrap = document.createElement('div'); document.getElementById('dash').appendChild(wrap); // ikke «#dash > msh-navbar-card» (mock-selvtesten)
     nb.setConfig({ type: 'custom:msh-navbar-card', card_id: 'nb' }); nb.hass = h; wrap.appendChild(nb);
+    window.MSH.store.set('cards.pop-vaer', { view: 'sheet' }); // 56 I: navbaren skjules i Ark (28.4); Fullskjerm (standard) viser den – vaer56
     await w(600);
     const pt = document.querySelector('.msh-navbar-portal') || [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('[data-nav]'));
     const nav = pt.shadowRoot.querySelector('nav.nb'), mini = pt.shadowRoot.querySelector('.mini');
@@ -258,7 +259,7 @@ if (existsSync(BC)) {
     return { s0, s1, sMid, s2, s3, s3m, s4 };
   });
   const dur = (t) => /^0\.2s/.test(t);
-  ok('28.4 #vaer åpnes → navbar + Spilles nå skjules straks på hashchange, fade 200 ms', !N.s0.v && N.s1.v && dur(N.s1.tr) && Number(N.sMid.op) > 0 && Number(N.sMid.op) < 1 && N.s2.op === '0' && N.s2.pe === 'none' && (!N.s1.mini || dur(N.s1.mini[1])), N);
+  ok('28.4 (Ark) #vaer åpnes → navbar + Spilles nå skjules straks på hashchange, fade 200 ms', !N.s0.v && N.s1.v && dur(N.s1.tr) && Number(N.sMid.op) > 0 && Number(N.sMid.op) < 1 && N.s2.op === '0' && N.s2.pe === 'none' && (!N.s1.mini || dur(N.s1.mini[1])), N);
   ok('28.4 #vaer lukkes → vises igjen med fade 200 ms', !N.s3.v && dur(N.s3.tr) && Number(N.s3m.op) > 0 && Number(N.s3m.op) < 1 && N.s4.op === '1' && N.s4.pe !== 'none', N);
   await p.close();
 }

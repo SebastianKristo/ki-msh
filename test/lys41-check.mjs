@@ -116,16 +116,18 @@ for (const dark of [true, false]) {
   ok(`[Rom ${MO}] header 66 px, floor_lamp, «${st.sum}» (KI Rom-teksten), seksjon radius 32`, st.hdH === 66 && st.hdIcon === 'mdi:floor-lamp' && /^2 på/.test(st.sum) && st.box === '32px', { h: st.hdH, i: st.hdIcon, s: st.sum, b: st.box });
   const P = (s, cls) => Object.entries(s.parts).filter(([k]) => k.split('#')[0] === cls).map(([, v]) => v);
   const T = st.tak, ic = P(T, 'ha-icon')[0], nm = P(T, 'lr-n')[0], pc = P(T, 'lr-p')[0], sl = P(T, 'lr-sl')[0], fl = P(T, 'lr-f')[0], kn = P(T, 'lr-k')[0], tk = P(T, 'lr-t')[0];
-  ok(`[Rom ${MO}] rad: lightbulb 20 px, navn 14/500, prosent 12 px tabular-nums ${dark ? '#979797' : '--ki-text-mid'}, «100%»`, ic.g[2] === 20 && ic.g[3] === 20 && nm.fs === '14px' && nm.fw === '500' && pc.fs === '12px' && /tabular-nums/.test(pc.fv) && pc.col === (dark ? 'rgb(151, 151, 151)' : 'rgb(91, 91, 91)') && st.txt[0] === '100%', { ic, nm, pc, t: st.txt });
+  ok(`[Rom ${MO}] rad: lightbulb 20 px, navn 14/500, prosent 12 px tabular-nums ${dark ? '#979797' : '--ki-text-2 (Fiks 56 M)'}, «100%»`, ic.g[2] === 20 && ic.g[3] === 20 && nm.fs === '14px' && nm.fw === '500' && pc.fs === '12px' && /tabular-nums/.test(pc.fv) && pc.col === (dark ? 'rgb(151, 151, 151)' : 'rgb(86, 86, 86)') && st.txt[0] === '100%', { ic, nm, pc, t: st.txt });
   ok(`[Rom ${MO}] navn ${dark ? '#fafafa' : '--ki-text'}`, nm.col === (dark ? 'rgb(250, 250, 250)' : 'rgb(28, 28, 28)'), nm.col);
   const hdB = Math.max(ic.g[1] + ic.g[3], nm.g[1] + nm.g[3]);
   ok(`[Rom ${MO}] dimbar: slider 40 px 8 px under topplinjen, touch-action pan-y`, sl.g[3] === 40 && near(sl.g[1] - hdB, 8, 1) && sl.ta === 'pan-y', { sl, hdB });
-  ok(`[Rom ${MO}] 100 %: fyll 34 px r14/5/5/14 #ffc896, håndtak 4 × 40 r2 helt til høyre, spor skjult`, fl.g[3] === 34 && fl.br === '14px 5px 5px 14px' && fl.bg === 'rgb(255, 200, 150)' && kn.g[2] === 4 && kn.g[3] === 40 && kn.br === '2px' && near(kn.g[0] + 4, sl.g[0] + sl.g[2], 1) && tk.d === 'none' && fl.tr.includes('0.3s'), { fl, kn, tk, sl });
+  // Fiks 56 M: lys modus = varm gradient (#f6c48a → #f2a65a) og strek-tommel 3 px (--ki-text); mørk = Rom v4 uendret
+  const KW = dark ? 4 : 3;
+  ok(`[Rom ${MO}] 100 %: fyll 34 px r14/5/5/14 ${dark ? '#ffc896' : 'varm gradient'}, håndtak ${KW} × 40 r2 helt til høyre, spor skjult`, fl.g[3] === 34 && fl.br === '14px 5px 5px 14px' && (dark ? fl.bg === 'rgb(255, 200, 150)' : /^linear-gradient\(90deg, rgb\(246, 196, 138\), rgb\(242, 166, 90/.test(fl.bgi)) && kn.g[2] === KW && kn.g[3] === 40 && kn.br === '2px' && near(kn.g[0] + KW, sl.g[0] + sl.g[2], 1) && tk.d === 'none' && fl.tr.includes('0.3s'), { fl, kn, tk, sl });
   const Z = st.lampe, zf = P(Z, 'lr-f')[0], zk = P(Z, 'lr-k')[0], zt = P(Z, 'lr-t')[0], zs = P(Z, 'lr-sl')[0], zc = P(Z, 'lr-cv')[0];
-  ok(`[Rom ${MO}] 0 % (fargetemp av): «0%», ingen fyll, håndtaket helt til venstre, spor 34 px r5/14/14/5 #6b5b50`, Z && zf.d === 'none' && near(zk.g[0], zs.g[0], 1) && zt.g[3] === 34 && zt.br === '5px 14px 14px 5px' && zt.bg === 'rgb(107, 91, 80)' && st.txt[1] === '0%', { zf, zk, zt, zs, t: st.txt[1] });
+  ok(`[Rom ${MO}] 0 % (fargetemp av): «0%», ingen fyll, håndtaket helt til venstre, spor 34 px r5/14/14/5 ${dark ? '#6b5b50' : '--ki-track #ececec'}`, Z && zf.d === 'none' && near(zk.g[0], zs.g[0], 1) && zt.g[3] === 34 && zt.br === '5px 14px 14px 5px' && zt.bg === (dark ? 'rgb(107, 91, 80)' : 'rgb(236, 236, 236)') && st.txt[1] === '0%', { zf, zk, zt, zs, t: st.txt[1] });
   ok(`[Rom ${MO}] chevron 36 × 40 (expand_more) bare på farge-/temp-lys, ikke på kun dimbar`, zc && zc.g[2] === 36 && zc.g[3] === 40 && P(st.led, 'lr-cv').length === 1 && !P(T, 'lr-cv').length, { zc });
   const L0 = st.led, lf = P(L0, 'lr-f')[0];
-  ok(`[Rom ${MO}] fargelys: fyll hsl(24 85% 72%), «50%»`, lf.bg === 'rgb(244, 171, 123)' && st.txt[2] === '50%', { bg: lf.bg, t: st.txt[2] });
+  ok(`[Rom ${MO}] fargelys: fyll ${dark ? 'hsl(24 85% 72%)' : 'gradient hsl(24 85% 68%) → 58 %'}, «50%»`, (dark ? lf.bg === 'rgb(244, 171, 123)' : /^linear-gradient\(90deg, rgb\(24\d, 1[5-7]\d, 1[0-1]\d\), rgb\(2[34]\d, 1[23]\d, [5-7]\d/.test(lf.bgi)) && st.txt[2] === '50%', { bg: lf.bg, bgi: lf.bgi, t: st.txt[2] });
 
   // chevron → panel (Farge: xLabel 11 px, xVal «24°», xBar 28 px r14, xKnob 34 px r17)
   const cvp = await page.evaluate(async () => {

@@ -47,7 +47,7 @@ await p.evaluate(async () => {
   document.getElementById('dash').innerHTML = '';
   const bc = document.createElement('bubble-card');
   bc.setConfig({ type: 'custom:bubble-card', card_type: 'pop-up', hash: '#vaer' });
-  bc.innerHTML = '<div class="pop bubble-pop-up" style="overflow:hidden;display:flex;flex-direction:column"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container" style="overflow:auto;flex:1;min-height:0"></div></div>';
+  bc.innerHTML = '<div class="pop bubble-pop-up is-popup-opened" style="overflow:hidden;display:flex;flex-direction:column"><div class="hdr bubble-header-container">Vær</div><div class="inner bubble-pop-up-container" style="overflow:auto;flex:1;min-height:0"></div></div>';
   document.getElementById('dash').appendChild(bc);
   location.hash = '#vaer';
   try { localStorage.clear(); } catch (e) { /* */ }

@@ -1022,7 +1022,7 @@
     // skjult straks hashen ble satt – opptaket viste Hjem-innholdet der baren skulle vært i ~0,4 s før popupen kom). Ved
     // lukking vises de igjen straks hashen fjernes, før popupen glir ned. Aldri display/visibility – bare opasitet.
     _syncVaer() {
-      const P = this._portal, v = location.hash === '#vaer';
+      const P = this._portal, v = location.hash === '#vaer' && (!M.vaerHidesNav || M.vaerHidesNav()); // Fiks 56 I: Fullskjerm viser navbaren (standard); Ark / «Skjul navbar i fullskjerm» skjuler
       if (!P) return;
       if (!v) { this._vGen = (this._vGen || 0) + 1; cancelAnimationFrame(this._vRaf); this._vWait = false; if (P.hasAttribute('data-vaer')) this._vFade(false); return; }
       if (P.hasAttribute('data-vaer') || this._vWait) return;
@@ -1333,7 +1333,8 @@
         // Fiks 54 · Android: omslaget eies av _miniArtSync (data-nomorph) – samme <img>-node per spiller, ny src først
         // etter img.decode() (det gamle omslaget står til da), aldri tomt omslag/ny node ved spor- eller spillerbytte.
         if (AND) { (this._mArtWant || (this._mArtWant = {}))[id] = img ? { src: pic, html: img } : null; img = `<span class="mimgw" data-nomorph data-key="mi_${esc(id)}" data-art="${esc(id)}"></span>`; }
-        const art = `<span class="mart" data-sa-kind="${SA.kind || 'none'}" style="background:${acc ? acc : `linear-gradient(135deg,${C.pink},${C.orange || '#f2b573'})`}${glow}">${M.icon(tv ? 'mdi:television' : /radio/i.test(id + ' ' + name) || a.media_channel ? 'mdi:radio' : 'mdi:music-note', 24)}${img}</span>`;
+        // 56 E: art-plassholder (uten kanallogo) i lys modus = --ki-surface-2 med ikon --ki-text-3 (mørk: rosa gradient som før)
+        const art = `<span class="mart" data-sa-kind="${SA.kind || 'none'}" style="background:${acc ? acc : `var(--ki-surface-2, linear-gradient(135deg,${C.pink},${C.orange || '#f2b573'}))`}${acc ? '' : ';color:var(--ki-text-3, var(--ki-text, #fafafa))'}${glow}">${M.icon(tv ? 'mdi:television' : /radio/i.test(id + ' ' + name) || a.media_channel ? 'mdi:radio' : 'mdi:music-note', 24)}${img}</span>`;
         const vol = this._mVolId === id, feat = Number(a.supported_features) || 0, drag = !steps && (!!(feat & 4) || (!feat && a.volume_level != null)); // uten volume_set / TV: −/+
         const muted = !!a.is_volume_muted;
         let mid;

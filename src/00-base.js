@@ -1242,7 +1242,56 @@
   // Inn: translateY(100%) → 0 på 280 ms cubic-bezier(.2,.8,.2,1). Dra ned på håndtaket lukker (> 90 px eller raskt sveip).
   // Fiks 52 · Android: glassarket (blur) glir/fader ikke selv – blur-laget står stille og bare innholdet (.body, uten blur)
   // animeres med transform/opasitet. Tilpass-arkene (tilpass: true) er alltid helt dekkende uten blur og glir som før.
-  const AND_SHEET = '.sh:not(.tp){transition:none!important}:host(.on) .sh:not(.tp)>.body{animation:kiAndSheetIn .26s cubic-bezier(.2,.8,.2,1);will-change:transform}@keyframes kiAndSheetIn{from{opacity:0;transform:translate3d(0,24px,0)}}';
+  const AND_SHEET = '.sh:not(.tp):not(.c){transition:none!important}:host(.on) .sh:not(.tp):not(.c)>.body{animation:kiAndSheetIn .26s cubic-bezier(.2,.8,.2,1);will-change:transform}@keyframes kiAndSheetIn{from{opacity:0;transform:translate3d(0,24px,0)}}';
+  /* Fiks 56 F · små, sentrerte popups (center: true – person-hurtigarket, bekreftelser, tastatur …). Oppskrift:
+   *   · kortet (.sh.c) glir inn med transform scale(.94) → 1 + translateY(8px) → 0 på 180 ms; opasitet 0 → 1 bare de
+   *     første 60 ms (lukking: omvendt, opasitet bare de siste 60 ms). Android (ki-android): bare transform – kortet er helt
+   *     dekkende fra første bilde, flaten alltid dekkende (ingen backdrop-filter, glass → --ki-c-solid).
+   *   · bakteppet (.bg.c) fader opasitet 0 → 1 på 180 ms (ingen blur) og starter i SAMME rAF som kortets transform
+   *     (verten er usynlig til start – ingen ramme med kortet alene eller dimmingen alene). Lukking: samme varighet, verten
+   *     fjernes først på transitionend (transform på kortet), med tidsfrist som reserve.
+   *   · bilder i kortet (avataren, <img decoding="async"> med samme src som på Hjem) dekodes før start, maks 80 ms.
+   *   · navbaren og «Spilles nå» dimmes ikke (Fiks 56 F2 a): dimmingen ligger i .bg.c::before med et hull (clip-path,
+   *     evenodd, avrundet) der navbaren/mini-spilleren er – de ser ut som de ligger over bakteppet. .bg selv dekker alt,
+   *     så trykk der treffer fortsatt bakteppet (navbaren har pointer-events: none mens arket er åpent, 26.16). */
+  MSH.CENTER_FX = { ms: 180, opMs: 60, dy: 8, scale: 0.94, decodeMs: 80 };
+  const CEN_CSS = () => {
+    const F = MSH.CENTER_FX, E_IN = 'cubic-bezier(.2,.8,.2,1)', E_OUT = 'cubic-bezier(.8,0,.8,.2)';
+    return `.bg.c{background:transparent!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;transition:opacity ${F.ms}ms linear;will-change:opacity}
+      .bg.c::before{content:'';position:absolute;inset:0;${MSH.scrimStyle(false)}clip-path:var(--ki-scrim-clip,none);-webkit-clip-path:var(--ki-scrim-clip,none)}
+      .sh.c{--ki-c-solid:var(--ki-popup, #282828);transform:translate3d(0,calc(var(--ki-cy,-50%) + ${F.dy}px),0) scale(${F.scale});opacity:0;transition:transform ${F.ms}ms ${E_IN},opacity ${F.opMs}ms linear;will-change:transform}
+      :host(.on) .sh.c{transform:translate3d(0,var(--ki-cy,-50%),0) scale(1);opacity:1}
+      :host(.out) .sh.c{transition:transform ${F.ms}ms ${E_OUT},opacity ${F.opMs}ms linear ${F.ms - F.opMs}ms}
+      :host(.pre){visibility:hidden}`;
+  };
+  // Android: alltid (uavhengig av Liquid Glass / Ytelsesmodus) – bare transform, helt dekkende flate uten blur
+  const CEN_AND = '.sh.c,:host(.on) .sh.c,:host(.out) .sh.c{opacity:1!important;transition-property:transform!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}.sh.c.lg,:host([data-glass]) .sh.c{background:var(--ki-c-solid)!important}';
+  const CEN_GL = () => `.bg.c::before{${MSH.scrimStyle(true)}}`; // Liquid Glass: sterkere dim, fortsatt uten blur
+  let navPortal = null;
+  // Navbarens portal (msh-navbar-card._portal – i kortet eller i document.body); søkes én gang og huskes
+  const navPortalEl = () => {
+    if (navPortal && navPortal.isConnected) return navPortal;
+    navPortal = document.querySelector('body > .msh-navbar-portal');
+    if (!navPortal) { const nb = deep(document, 'msh-navbar-card'); navPortal = (nb && nb._portal) || null; }
+    return navPortal;
+  };
+  // Hull i bakteppet der navbaren og mini-spilleren er → clip-path: path(evenodd, …) relativt til verten (x0 = vertens venstre)
+  MSH.scrimHoles = function (x0, W, H) {
+    const P = navPortalEl(), sr = P && P.shadowRoot;
+    if (!sr) return '';
+    const els = [sr.querySelector('nav.nb'), sr.querySelector('[data-mini]') || sr.querySelector('.mini')].filter(Boolean);
+    let d = '';
+    for (const el of els) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility !== 'visible' || Number(cs.opacity) < 0.5) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      const x = r.left - x0, y = r.top, w = r.width, h = r.height, q = Math.max(0, Math.min(parseFloat(cs.borderTopLeftRadius) || 0, w / 2, h / 2));
+      const n = (v) => Math.round(v * 10) / 10;
+      d += `M${n(x + q)} ${n(y)}H${n(x + w - q)}A${n(q)} ${n(q)} 0 0 1 ${n(x + w)} ${n(y + q)}V${n(y + h - q)}A${n(q)} ${n(q)} 0 0 1 ${n(x + w - q)} ${n(y + h)}H${n(x + q)}A${n(q)} ${n(q)} 0 0 1 ${n(x)} ${n(y + h - q)}V${n(y + q)}A${n(q)} ${n(q)} 0 0 1 ${n(x + q)} ${n(y)}Z`;
+    }
+    return d ? `path(evenodd, 'M0 0H${Math.ceil(W)}V${Math.ceil(H)}H0Z${d}')` : '';
+  };
   MSH.TILPASS_TOP = 52;
   MSH.TILPASS_MAXW = 440;
   // 36.7 · Tilpass-ark i popups er ALLTID helt dekkende (#282828 / --ki-popup, ingen blur/opasitet): rotårsaken til
@@ -1252,9 +1301,10 @@
   // (MSH.TILPASS_TOP 52 / MSH.TILPASS_MAXW 440) – ingen kort bruker dem lenger (Fiks 40).
   MSH.overlay = function ({ html = '', css = '', sheet = true, maxWidth = 420, onClose, center = false, glass, guard = 0, bgHaptic = true, tall = false, footer = false, tilpass = false, tpTop = null, tpMaxW = null } = {}) {
     const tp = !!tilpass && !center;
+    const cen = !!center && !tp; // Fiks 56 F: små, sentrerte popups (CEN_CSS)
     if (tp) sheet = true;
     const host = document.createElement('div');
-    host.className = 'msh-portal';
+    host.className = cen ? 'msh-portal pre' : 'msh-portal';
     const gl = tp ? false : glass != null ? !!glass : MSH.glassOn();
     if (gl) { host.classList.add('glass'); host.setAttribute('data-glass', ''); }
     if (!glassSub && MSH.store && MSH.store.subscribe) glassSub = MSH.store.subscribe((d, p) => { if (!p || /^(theme|cards\.ki-navbar)(\.|$)/.test(p)) MSH.glassNotify(); });
@@ -1292,11 +1342,12 @@
       :host(.on) .bg{opacity:1} :host(.on) .sh{opacity:1;transform:${center ? 'translate3d(0,-50%,0) scale(1)' : 'translate3d(0,0,0)'}}
       .gz{position:sticky;top:calc(-1 * var(--ki-sh-pt));z-index:6;box-sizing:border-box;height:var(--ki-grab-h);margin:calc(-1 * var(--ki-sh-pt)) calc(-1 * var(--ki-sh-px)) 0;padding:10px 0;background:var(--ki-sheet-bg);-webkit-backdrop-filter:var(--ki-sheet-blur);backdrop-filter:var(--ki-sheet-blur)}
       .grab{width:40px;height:5px;border-radius:3px;background:var(--ki-sheet-grab);margin:0 auto}
-</style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}${MSH.sheetVars(true)}}
+      ${cen ? CEN_CSS() + (MSH.perf && MSH.perf.android ? CEN_AND : '') : ''}
+</style><style data-gl${gl ? '' : ' media="not all"'}>:host{${MSH.GLASS_VARS}${MSH.sheetVars(true)}}${cen ? CEN_GL() : ''}
       .bg{${MSH.scrimStyle(true)}}
       .sh{${MSH.sheetStyle(true)}${center ? 'border-radius:32px;' : ''}}
       .sh.tp{border-radius:38px 38px 0 0}
-      ${MSH.glassFallback('.sh', 'sheet')}${MSH.perf && MSH.perf.android ? AND_SHEET : ''}</style><style>${css}</style><div class="bg"></div><div class="sh${footer ? ' ft' : ''}${tp ? ' tp' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
+      ${MSH.glassFallback('.sh', 'sheet')}${MSH.perf && MSH.perf.android ? AND_SHEET : ''}</style><style>${css}</style><div class="bg${cen ? ' c' : ''}"></div><div class="sh${footer ? ' ft' : ''}${tp ? ' tp' : ''}${cen ? ' c' : ''}" part="sheet">${sheet && !center ? '<div class="gz"><div class="grab"></div></div>' : ''}<div class="body">${html}</div></div>`;
     const stop = (e) => e.stopPropagation();
     ['pointerdown', 'touchstart', 'touchmove', 'wheel'].forEach((t) => sr.querySelector('.sh').addEventListener(t, stop, { passive: true }));
     // Bubble Card lukker popupen ved klikk utenfor (lytter på window) – overlegget er ikke «utenfor».
@@ -1309,7 +1360,15 @@
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('hashchange', onHash);
       if (glass == null && !tp) window.removeEventListener('ki-glass-change', onGlass);
-      setTimeout(() => host.remove(), 250);
+      if (cen) {
+        // Fiks 56 F: omvendt rekkefølge, samme varighet – verten fjernes på transitionend (kortets transform)
+        host.classList.add('out');
+        const shEl = sr.querySelector('.sh');
+        let gone = false;
+        const rm = () => { if (gone) return; gone = true; host.remove(); };
+        if (!api.started || (MSH.reducedMotion && MSH.reducedMotion())) rm();
+        else { shEl.addEventListener('transitionend', (e) => { if (e.target === shEl && e.propertyName === 'transform') rm(); }); setTimeout(rm, MSH.CENTER_FX.ms + 300); }
+      } else setTimeout(() => host.remove(), 250);
       off();
       MSH.sheetCount(-1);
       onClose && onClose();
@@ -1334,7 +1393,10 @@
     if (glass == null && !tp) window.addEventListener('ki-glass-change', onGlass);
     MSH.overlayRoot().appendChild(host);
     // følg dashbordflaten (vindu endres, HA-sidebaren åpnes/lukkes)
-    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); if (tp) tpPlace(D, x); };
+    const place = () => { const D = MSH.dashRect(), x = railX(); host.style.left = D.left + 'px'; host.style.width = D.width + 'px'; host.style.setProperty('--ki-rail-x', x + 'px'); if (tp) tpPlace(D, x); if (cen && api && api.started && !api.closed) holes(); };
+    // Fiks 56 F2 (a): hull i bakteppet over navbaren og mini-spilleren (MSH.scrimHoles), målt før start og ved endringer
+    const holes = () => { const H = host.getBoundingClientRect(), v = MSH.scrimHoles(H.left, H.width, H.height) || 'none'; if (bgEl.style.getPropertyValue('--ki-scrim-clip') !== v) bgEl.style.setProperty('--ki-scrim-clip', v); };
+    if (cen) window.addEventListener('ki-nav-rect', place);
     // Fiks 40: alle Tilpass-ark – maks 440 px (MSH.TILPASS_MAXW) sentrert i innholdsflaten (til høyre for evt. rail)
     function tpPlace(D, x) {
       const cw = Math.max(0, D.width - x);
@@ -1349,7 +1411,7 @@
     window.addEventListener('resize', place);
     const ro = window.ResizeObserver ? new ResizeObserver(place) : null;
     if (ro) { const ha = document.querySelector('home-assistant'); const main = ha && MSH.deep(ha.shadowRoot, 'ha-drawer'); ro.observe(main || document.body); }
-    const off = () => { window.removeEventListener('resize', place); ro && ro.disconnect(); };
+    const off = () => { window.removeEventListener('resize', place); if (cen) window.removeEventListener('ki-nav-rect', place); ro && ro.disconnect(); };
     // 28.11: dra ned på håndtaket lukker arket (fjær tilbake ved kort drag). Pointer capture på håndtaket.
     if (tp) {
       const gz = sr.querySelector('.sh.tp>.gz');
@@ -1367,9 +1429,24 @@
         ['touchstart', 'touchmove'].forEach((t) => gz.addEventListener(t, (e) => e.stopPropagation(), { passive: true }));
       }
     }
-    requestAnimationFrame(() => host.classList.add('on'));
+    let api = null;
+    if (cen) {
+      // Fiks 56 F: verten er usynlig (.pre) til bildene i kortet er dekodet (maks 80 ms); så starter kortets transform og
+      // bakteppets opasitet i SAMME rAF (.pre av + .on på i samme stilberegning, startverdien er allerede beregnet)
+      const start = () => requestAnimationFrame(() => {
+        if (!api || api.closed || api.started) return;
+        api.started = true;
+        holes();
+        host.classList.remove('pre');
+        void sr.querySelector('.sh').getBoundingClientRect();
+        host.classList.add('on');
+      });
+      const imgs = [...sr.querySelectorAll('.body img')].filter((i) => i.getAttribute('src'));
+      if (!imgs.length) start();
+      else Promise.race([Promise.all(imgs.map((i) => (i.decode ? i.decode().catch(() => null) : null))), new Promise((r) => setTimeout(r, MSH.CENTER_FX.decodeMs))]).then(start);
+    } else requestAnimationFrame(() => host.classList.add('on'));
     MSH.sheetCount(1);
-    const api = { host, root: sr, body: sr.querySelector('.body'), close };
+    api = { host, root: sr, body: sr.querySelector('.body'), close, started: !cen };
     return api;
   };
 

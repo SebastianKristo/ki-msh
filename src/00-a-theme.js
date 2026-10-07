@@ -54,6 +54,20 @@
     '--ki-ka-min': '0.12', '--ki-ka-k': '0.4', // regel 3
     '--ki-tone-k': '1.5', // pkt. 5: .12 → .18
     '--ki-accent-mix': '60%', // pkt. 6 for aksenter utenfor tabellen (blandes med svart)
+    // Fiks 56 · «lys-bryter» (space toggle): tom verdi i lys modus, udefinert i mørk. `--x: var(--ki-lt) <lys-verdi>` blir
+    // dermed <lys-verdi> i lys modus og ugyldig i mørk, så `var(--x, <mørk verdi>)` velger per modus – for farger som
+    // regnes ut per element (lampefarge) og ikke kan ligge som faste tokens på :root. Se MSH.theme.lightOnly().
+    '--ki-lt': ' ',
+    // Fiks 56 M · lys-raden (08-light-row.js) i lys modus. Mørk = Rom v4-fargene (fallback i bruken).
+    '--ki-track': '#ececec', // skinne / tom del (mørk: #6b5b50 / #695b51)
+    '--ki-track-sh': 'inset 0 0 0 1px rgba(0,0,0,0.05)',
+    '--ki-lr-fill-sh': '0 1px 3px rgba(0,0,0,0.12)', // fyll / på-tommel
+    '--ki-lr-k': 'var(--ki-text)', '--ki-lr-kw': '3px', '--ki-lr-ksh': '0 0 0 1.5px #ffffff', // dimmerens strek-tommel
+    '--ki-lr-off': '#ffffff', '--ki-lr-off-sh': '0 1px 4px rgba(0,0,0,0.15)', // av-tommel på av/på-bryteren
+    '--ki-lr-ic-off': 'var(--ki-text-2)', '--ki-lr-ic-on': 'var(--ki-on-accent)', // ikon på av-tommel / på fyllet
+    '--ki-lr-dot': 'rgba(0,0,0,0.25)', '--ki-lr-dot-op': '1', // prikken på av-siden
+    '--ki-lr-p': 'var(--ki-text-2)', // statustekst («På», «40%», «Av»)
+    '--ki-lr-bulb-off': 'var(--ki-text-3)', // pære-ikonet når lyset er av
   };
   // Pkt. 6: aksent brukt som TEKST/ikon → mørknes i lys modus. [navn, mørk rgb, lys rgb, temavariabel, temahex]
   const ACCENTS = [
@@ -64,9 +78,59 @@
   ];
   const ACC_ALIAS = { amber: 'orange', lilla: 'purple', rosa: 'pink', gul: 'yellow', 'rød': 'red', groenn: 'green', 'grønn': 'green', 'blå': 'blue' };
 
+  /* ------------------------------------------------------------ OKLCH (Fiks 56 D/M) */
+  // sRGB [0–255] ↔ OKLab/OKLCH. Brukes til å regne ut lys-modus-tintene én gang (konkrete farger → målbar kontrast og
+  // ingen avhengighet av color-mix/relative farger i eldre WebView) og til å mørkne lampefarger (lys-rad-ikonet).
+  const sl = (u) => { u /= 255; return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4); };
+  const sg = (u) => 255 * (u <= 0.0031308 ? 12.92 * u : 1.055 * Math.pow(u, 1 / 2.4) - 0.055);
+  function toOklch(rgb) {
+    const r = sl(rgb[0]), g = sl(rgb[1]), b = sl(rgb[2]);
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+    return [L, Math.hypot(A, B), Math.atan2(B, A)];
+  }
+  function fromOklchRaw(L, C, h) {
+    const A = C * Math.cos(h), B = C * Math.sin(h);
+    const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3, m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3, s = (L - 0.0894841775 * A - 1.291485548 * B) ** 3;
+    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
+  }
+  // OKLCH → sRGB (0–255) med kroma redusert til fargen er innenfor sRGB (samme L og hue)
+  function fromOklch(L, C, h) {
+    let c = C, v = fromOklchRaw(L, c, h);
+    for (let i = 0; i < 40 && v.some((x) => x < -1e-4 || x > 1.0001); i++) { c *= 0.94; v = fromOklchRaw(L, c, h); }
+    return v.map((x) => Math.round(Math.max(0, Math.min(255, sg(Math.max(0, Math.min(1, x)))))));
+  }
+  const hex2 = (p) => '#' + p.map((x) => Math.round(x).toString(16).padStart(2, '0')).join('');
+  const relL = (p) => 0.2126 * sl(p[0]) + 0.7152 * sl(p[1]) + 0.0722 * sl(p[2]);
+  const ratio = (a, b) => { const x = relL(a), y = relL(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  // Aksent p (0–1) blandet inn i hvitt i OKLCH (= color-mix(in oklch, aksent p, white): hvit har ingen hue)
+  const mixWhite = (rgb, p) => { const [L, C, h] = toOklch(rgb); return fromOklch(p * L + (1 - p), p * C, h); };
+  // Mørk variant av en farge: OKLCH L = l (samme hue), senkes til kontrasten mot alle bakgrunner er ≥ min
+  function darkTo(rgb, l, bgs, min) {
+    const [, C, h] = toOklch(rgb);
+    let L = l, out = fromOklch(L, C, h);
+    while (L > 0.2 && bgs.some((bg) => ratio(out, bg) < min)) { L -= 0.01; out = fromOklch(L, C, h); }
+    return out;
+  }
+  const WHITE = [255, 255, 255];
+  // Fiks 56 D · tonede piller/fliser: --ki-tint-<aksent>-bg/-fg/-ring/-circle/-sh (bare lys modus; mørk = fallback i bruken)
+  //   bg = aksent 9 % inn i hvitt (opak), circle = 22 %, ring = 25 %, fg = mørk aksent (OKLCH L ≈ 0,47) ≥ 4,5:1 mot
+  //   både sirkel og flate, sh = inset-ring + svak skygge 0 1px 2px rgba(0,0,0,.06).
+  const TINT = {};
+  ACCENTS.forEach(([n, d]) => {
+    const rgb = d.split(' ').map(Number), bg = mixWhite(rgb, 0.09), circle = mixWhite(rgb, 0.22), ring = mixWhite(rgb, 0.25);
+    TINT[n] = { bg: hex2(bg), circle: hex2(circle), ring: hex2(ring), fg: hex2(darkTo(rgb, 0.47, [circle, bg], 4.6)) };
+  });
+  const TINT_NAMES = [...Object.keys(TINT), 'amber'];
+  const tintDecl = (n, t) => `--ki-tint-${n}-bg:${t.bg};--ki-tint-${n}-fg:${t.fg};--ki-tint-${n}-ring:${t.ring};--ki-tint-${n}-circle:${t.circle};--ki-tint-${n}-sh:inset 0 0 0 1px ${t.ring},0 1px 2px rgba(0,0,0,0.06)`;
+  const TINT_LIGHT = [...Object.entries(TINT).map(([n, t]) => tintDecl(n, t)), tintDecl('amber', TINT.orange),
+    // undertekst på tonet flate · fylt varselpille («Avvik»): tekst/undertekst mørk, ikonsirkel rgba(0,0,0,.12)
+    '--ki-tint-sub:var(--ki-text-2)', '--ki-tint-solid-sub:var(--ki-on-accent)', '--ki-tint-solid-circle:rgba(0,0,0,0.12)'].join(';');
+  const TINT_ALL = [...TINT_NAMES.flatMap((n) => ['bg', 'fg', 'ring', 'circle', 'sh'].map((k) => `--ki-tint-${n}-${k}`)), '--ki-tint-sub', '--ki-tint-solid-sub', '--ki-tint-solid-circle'];
+
   const decl = (obj, pre = '--ki-') => Object.entries(obj).map(([k, v]) => `${pre}${k}:${v}`).join(';');
-  const ACC_LIGHT = ACCENTS.map(([n, , l]) => `--ki-${n}-text:rgb(${l})`).join(';') + ';--ki-amber-text:rgb(168 98 24)';
-  const ALL_NAMES = [...Object.keys(LIGHT).map((k) => '--ki-' + k), ...Object.keys(LIGHT_EXTRA), ...ACCENTS.map(([n]) => `--ki-${n}-text`), '--ki-amber-text'];
+  const ACC_LIGHT = ACCENTS.map(([n, , l]) => `--ki-${n}-text:rgb(${l})`).join(';') + ';--ki-amber-text:rgb(168 98 24);' + TINT_LIGHT;
+  const ALL_NAMES = [...Object.keys(LIGHT).map((k) => '--ki-' + k), ...Object.keys(LIGHT_EXTRA), ...ACCENTS.map(([n]) => `--ki-${n}-text`), '--ki-amber-text', ...TINT_ALL];
   // Nullstill alle tokens (mørk øy / eksplisitt [data-ki-island]): initial = ugyldig → fallback (mørk verdi)
   const RESET = ALL_NAMES.map((n) => `${n}:initial`).join(';');
 
@@ -237,6 +301,35 @@ ${ISLAND_CSS}
     }
     return { bg: `color-mix(in srgb, ${c} calc(${+(a * 100).toFixed(2)}% * var(--ki-tone-k, 1)), transparent)`, fg: T.accentText(c) };
   };
+
+  // Fiks 56 D · tonet pille/flis for en aksent (temanavn, var(--orange…), temahex). Returnerer CSS-uttrykk med mørk
+  //   fallback = dagens oppskrift (aksent med alpha som flate/sirkel/kant, aksent som ikon) og lys = --ki-tint-*:
+  //   { bg, fg, circle, ring, sh (hele box-shadow), sub (undertekst), name }. a = mørke alpha-er { bg, circle, ring }.
+  //   Ukjent aksent → name null og bare mørk oppskrift (lys: tone-faktoren som før).
+  T.TINT = TINT;
+  T.tint = function (c, a) {
+    a = { bg: 0.14, circle: 0.2, ring: 0.4, ...(a || {}) };
+    const acc = accentOf(c), n = acc ? acc[0] : null, col = String(c).trim();
+    const mix = (x) => `color-mix(in srgb, ${col} ${Math.round(x * 100)}%, transparent)`;
+    const tk = (k, fb) => (n ? `var(--ki-tint-${n}-${k}, ${fb})` : fb);
+    return {
+      name: n,
+      bg: tk('bg', mix(a.bg)), fg: tk('fg', col), circle: tk('circle', mix(a.circle)), ring: tk('ring', mix(a.ring)),
+      sh: tk('sh', `inset 0 0 0 1px ${mix(a.ring)}`),
+      sub: (fb) => (n ? `var(--ki-tint-sub, ${fb})` : fb),
+    };
+  };
+  // Fylt varselpille («Avvik»): tekst/ikon --ki-on-accent, undertekst og ikonsirkel (lys: on-accent / rgba(0,0,0,.12))
+  T.solid = { sub: (fb) => `var(--ki-tint-solid-sub, ${fb})`, circle: (fb) => `var(--ki-tint-solid-circle, ${fb})` };
+  // Fiks 56 · verdi som bare gjelder i lys modus (space toggle --ki-lt): `--x:${T.lightOnly(v)}` + `var(--x, <mørk>)`
+  T.lightOnly = (v) => `var(--ki-lt) ${v}`;
+  // Fiks 56 M · lampefarge → ikonfarge i lys modus: OKLCH L ≈ 0,55 (samme hue), ≥ 4,5:1 mot hvitt (og ev. bgs)
+  T.lampInk = function (c, bgs) {
+    const p = Array.isArray(c) ? c : parse(c);
+    if (!p) return null;
+    return hex2(darkTo(p.slice(0, 3), 0.55, (bgs || [WHITE]).map((b) => (Array.isArray(b) ? b : (parse(b) || WHITE).slice(0, 3))), 4.6));
+  };
+  T.oklch = { to: toOklch, from: fromOklch, mixWhite, darkTo, ratio, hex: hex2 };
 
   /* ------------------------------------------------------------ røtter */
   const roots = new Set(); // elementer som har fått data-ki-theme (bortsett fra <html>)

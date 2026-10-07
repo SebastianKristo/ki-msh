@@ -380,11 +380,26 @@
       const klar = !levert && /hentes|ready|klar|pickup|utleveringssted|hentested/.test(s);
       const stale = !levert && !klar && (!!a.stale || !!a.stuck || (idleH != null && idleH >= 48));
       const kind = levert ? 'levert' : klar ? 'klar' : stale ? 'stale' : 'transport';
-      return { id, name: (a.friendly_name || id.slice(7)).replace(/\s*status\s*$/i, '').trim() || 'Pakke', state: st.state, kind, events, idleH, number: a.tracking_number || '',
+      // Fiks 56 B2: tittel = navn/avsender, ellers de SISTE 6 tegnene av sporingsnummeret («…6179NO»)
+      const number = a.tracking_number || '', sender = str(a.sender || a.avsender);
+      const nm = (a.friendly_name || id.slice(7)).replace(/\s*status\s*$/i, '').trim();
+      const codeLike = !nm || (number && nm.toUpperCase().replace(/\s+/g, '').includes(String(number).toUpperCase())) || /^(pakke|parcel|sending)\b.*\d{4,}/i.test(nm) || /^[A-Z]{0,2}\d{6,}[A-Z]{0,2}$/i.test(nm.replace(/[\s_-]+/g, ''));
+      const name = codeLike ? sender || tail6(number) || nm || 'Pakke' : nm;
+      // Fiks 56 A: dagen pakken hører til (lokal tid) – levert = siste leveringshendelse, klar = da den ble klar, på vei = ETA
+      const dAt = firstAt(events, (e) => P_DEL.test(e.text) && !P_NDEL.test(e.text)) || pDate(a.delivered_at || a.levert) || (levert ? last : null);
+      const readyAt = klar ? sinceRun(events, (e) => P_RDY.test(e.text)) || last : null;
+      return { id, name, state: st.state, kind, events, idleH, number, carrier: str(a.carrier || a.transportor || a.provider) || (/NO$/i.test(String(number)) ? 'Posten' : ''), dAt, readyAt,
         facts: [['Hentested', a.pickup_point || a.hentested], ['Metode', a.delivery_method || a.metode], ['Avsender', a.sender || a.avsender], ['Vekt', a.weight != null ? a.weight + (typeof a.weight === 'number' ? ' kg' : '') : a.vekt]].filter((f) => f[1]),
         eta: pDate(a.estimated_delivery || a.forventet_levering), home: a.home_delivery_url || (a.home_delivery_available ? a.tracking_url || '' : '') || '' };
     }).sort((a, b) => ['klar', 'stale', 'transport', 'levert'].indexOf(a.kind) - ['klar', 'stale', 'transport', 'levert'].indexOf(b.kind));
   }
+  // Fiks 56 A · hendelser: levert / klar til henting (tekst), og tidspunktet en status startet (nyeste først)
+  const P_DEL = /levert|delivered|utlevert/i, P_NDEL = /ikke levert|not delivered/i, P_RDY = /hentes|ready|klar for henting|klar til henting|pickup|utleveringssted|hentested|pakkeboks/i;
+  const firstAt = (evs, test) => { const e = (evs || []).find((x) => x.t && test(x)); return e ? e.t : null; };
+  const sinceRun = (evs, test) => { let at = null; for (const e of evs || []) { if (!e.t) continue; if (test(e)) at = e.t; else if (at) break; } return at; };
+  const tail6 = (code) => { const c = String(code || '').replace(/\s+/g, '').toUpperCase(); return c ? (c.length > 6 ? '…' + c.slice(-6) : c) : ''; };
+  const CAR_AB = { PostNord: 'PN', Posten: 'P', Bring: 'B', Helthjem: 'HH' }; // 56 B2: kortnavn (chip/merke)
+  const CAR_COL = { PostNord: C.blue, Posten: C.red, Bring: C.green, Helthjem: C.green };
   const PK = { klar: ['Klar til henting', C.green, 'mdi:package-variant-closed-check'], transport: ['På vei', C.blue, 'mdi:truck-delivery'], stale: ['Ingen oppdatering', C.orange, 'mdi:clock-alert-outline'], levert: ['Levert', 'var(--ki-text-3, var(--gray600, #7f7f7f))', 'mdi:package-check'] };
 
   /* ------------------------------------------------------------ PostNord (Fiks 40) */
@@ -398,7 +413,7 @@
     delivered: ['levert', PN_GRAY, 'mdi:check', 'Levert'],
     returning: ['stale', C.orange, 'mdi:clock-outline', 'Returneres til avsender'],
     problem: ['stale', C.red, 'mdi:alert-circle', 'Avvik'],
-    unknown: ['transport', PN_GRAY, 'mdi:truck', 'Ikke skannet ennå'],
+    unknown: ['transport', PN_GRAY, 'mdi:truck', 'Ikke skannet'], // 56 B2: «Ikke skannet ennå» → «Ikke skannet»
   };
   const PN_EVENTS = ['postnord_parcel_status_changed', 'postnord_parcel_delivered', 'postnord_parcel_delivery_time_changed'];
   const PN_SETUP = 'Sett opp PostNord (sporingskoder) i Innstillinger';
@@ -488,15 +503,21 @@
     let events = hist.filter((x) => x && typeof x === 'object').map((x) => ({ t: pDate(x.timestamp || x.time || x.event_time || x.eventTime || x.date), text: str(x.raw_status || x.description || x.eventDescription || x.text || (PNS[x.status] || [])[3]), where: str(x.location || x.place || x.city) })).filter((x) => x.text).sort((x, y) => (y.t || 0) - (x.t || 0));
     if (!events.length && (raw || label)) events = [{ t: pDate(p.last_event_time || p.updated_at || p.last_update || p.status_time || p.timestamp) || dAt, text: raw || label, where: '' }];
     const out = e.dir === 'out';
-    // 42.3: navn = avsender fra attributtene, ellers «Pakke <kode>» (utgående: «Pakke <kode>», mottakeren står i meta)
-    const name = str(p.name || p.title || p.description) || (out ? '' : sender) || (code ? `Pakke ${code}` : 'PostNord-pakke');
+    // 42.3/56 B2: navn = pakkens navn/avsender, ellers de siste 6 tegnene av koden («…6179NO»); utgående: mottakeren står i meta
+    const name = str(p.name || p.title || p.description) || (out ? '' : sender) || tail6(code) || 'PostNord-pakke';
     const est = pnWin(from, to);
     let meta = kind === 'klar' && pickup ? `Hentes på ${pickup}` : kind === 'levert' ? raw || label : (kind === 'out' || kind === 'transport') && est ? `Estimert: ${est}` : raw || label;
     if (kind === 'levert' && dAt) meta = 'Levert ' + (dayDiff(new Date(), dAt) >= -1 ? dayWord(dAt).toLowerCase() : `${DAG_L[dAt.getDay()]} ${dShort(dAt)}`) + (hasT(dAt) ? ' ' + hm(dAt) : '');
     // 42.3: utgående – «Til <mottaker> · estimert <dato>»
     if (out) { const ed = from ? (dayDiff(new Date(), from) === 0 ? 'i dag' : dayDiff(new Date(), from) === 1 ? 'i morgen' : `${DAG_S[from.getDay()].toLowerCase()} ${dShort(from)}`) : ''; meta = `Til ${receiver || '–'} · ${kind !== 'levert' && ed ? 'estimert ' + ed : meta}`; }
+    // 56 A: dagen i kalenderen – levert: delivered_at / siste leveringshendelse; klar: da den ble klar (historikken); på vei: ETA
+    const evS = hist.filter((x) => x && typeof x === 'object').map((x) => ({ t: pDate(x.timestamp || x.time || x.event_time || x.eventTime || x.date), st: String(x.status || '').toLowerCase(), text: str(x.raw_status || x.description || x.eventDescription || x.text) })).sort((x, y) => (y.t || 0) - (x.t || 0));
+    const lastT = (events[0] && events[0].t) || pDate(p.status_time || p.last_event_time || p.updated_at) || null;
+    const dDay = kind === 'levert' ? dAt || firstAt(evS, (x) => x.st === 'delivered' || (P_DEL.test(x.text) && !P_NDEL.test(x.text))) || lastT : null;
+    const rDay = kind === 'klar' ? sinceRun(evS, (x) => x.st === 'at_pickup_point' || P_RDY.test(x.text)) || pDate(p.ready_at || p.pickup_since || p.status_time) || lastT : null;
     return { id: key, pn: true, code, status: s, kind, col, icon: out ? 'mdi:inbox-arrow-up' : icon, label, raw, meta, name, method, from, to, sender, url: str(p.url || p.tracking_url || p.link || p.deep_link), events, account: !!e.account, dir: e.dir, sensor: e.psensor || e.sensor, acct: e.acct || null,
-      chip: out ? 'PostNord · Utgående' : 'PostNord',
+      carrier: 'PostNord', dAt: dDay, readyAt: rDay, eta: from,
+      chip: out ? 'PN ↑' : 'PN', // 56 B2: chip-visning (valg) – kort, maks 72 px
       facts: [['Leveringsmåte', method], ['Avsender', sender], ...(out ? [['Mottaker', receiver]] : []), ['Vekt', pnWeight(p.weight != null ? p.weight : p.weight_kg)], ['Sporingsnummer', code]].filter((f) => f[1]) };
   }
   // Alle PostNord-pakker (kontoer slått sammen, duplikater per sporingskode). live = Map(nøkkel → { p, t }) fra hendelsene.
@@ -547,6 +568,47 @@
   const PN_TILES = [['in', 'Innkommende', 'incoming_parcels', 'Inn'], ['klar', 'Klar for henting', 'awaiting_pickup', 'Hentes'], ['lev', 'Leverte', 'delivered_parcels', 'Levert'], ['out', 'Utgående', 'outgoing_parcels', 'Ut']]; // 46: kort etikett i chipsen
   const PN_FK = { in: (x) => x.dir !== 'out' && x.kind !== 'levert', klar: (x) => x.dir !== 'out' && x.kind === 'klar', lev: (x) => x.dir !== 'out' && x.kind === 'levert', out: (x) => x.dir === 'out' && x.kind !== 'levert' };
   const PN_RLAB = { incoming_parcels: 'Innkommende', awaiting_pickup: 'Klar for henting', delivered_parcels: 'Leverte', next_delivery: 'Neste levering', last_update: 'Siste vellykkede oppdatering', outgoing_parcels: 'Utgående', outgoing_delivered_parcels: 'Utgående leverte', refresh: 'Oppdater-knapp', deliveries: 'Leveringskalender' };
+
+  /* ------------------------------------------------------------ Fiks 56 A/B1 · pakker i «Når kommer Posten» */
+  // Prikkfarger (temafarger med fallback): levert blå · klar gul · på vei grønn · utgående/retur grå
+  const PDOT = { levert: 'var(--blue, #73b9f2)', klar: 'var(--yellow, #f2d073)', vei: 'var(--green, #73f2a8)', ut: 'var(--ki-text-2, var(--gray800, #afafaf))' };
+  const PDOT_T = { levert: 'Levert', klar: 'Hentes', vei: 'På vei', ut: 'Utgående' };
+  const PDOT_RANK = { levert: 3, klar: 2, vei: 1, ut: 0 };
+  const normCode = (c) => String(c || '').replace(/\s+/g, '').toUpperCase();
+  // Hvilken dag (lokal tid) og kategori en pakke hører til; null = ingen prikk (på vei uten ETA)
+  function parcelDay(x) {
+    const out = x.dir === 'out' || x.status === 'returning';
+    let cat, t;
+    if (x.kind === 'levert') { cat = 'levert'; t = x.dAt; } else if (x.kind === 'klar') { cat = 'klar'; t = x.readyAt; } else { cat = 'vei'; t = x.eta; }
+    if (out) cat = 'ut';
+    t = pDate(t);
+    return t ? { t, cat } : null;
+  }
+  // Én felles komponent for Posten (Norwegian Parcel Tracker) og PostNord: dag → pakker, deduplisert på sporingsnummer.
+  // days = dagene i rutenettet (hverdager); lør/søn legges på nærmeste viste dag før.
+  function parcelDays(list, days, opts) {
+    opts = opts || {};
+    const by = new Map(), loose = [];
+    (list || []).forEach((x) => {
+      if (x.dir === 'out' && !opts.out) return;
+      const d = parcelDay(x), code = normCode(x.pn ? x.code : x.number), e = { x, d, code };
+      if (!code) { loose.push(e); return; }
+      const cur = by.get(code);
+      if (!cur || (!cur.d && d) || (d && cur.d && PDOT_RANK[d.cat] > PDOT_RANK[cur.d.cat])) by.set(code, e);
+    });
+    const shown = new Set(days.map(dk)), out = new Map();
+    [...by.values(), ...loose].forEach((e) => {
+      if (!e.d) return;
+      const real = d0(e.d.t); let s = real;
+      while (s.getDay() === 0 || s.getDay() === 6) s = addD(s, -1);
+      const k = dk(s);
+      if (!shown.has(k)) return;
+      if (!out.has(k)) out.set(k, []);
+      out.get(k).push({ x: e.x, cat: e.d.cat, t: e.d.t, day: real, shifted: dk(real) !== k });
+    });
+    out.forEach((L) => L.sort((a, b) => a.t - b.t));
+    return out;
+  }
 
   /* ------------------------------------------------------------ Bursdager */
   const BD_STRIP = /\s*(\(\d{4}\)|'s birthday|s bursdag|bursdag|birthday|fødselsdag)\s*/gi;
@@ -795,10 +857,18 @@
       { type: 'entity', name: 'plex_entity', label: 'Plex (plakater)', icon: 'mdi:plex', domain: ['sensor', 'media_player'], auto: arrAuto('plex'), help: 'Plex-sensor (nylig lagt til) eller Plex-spiller – bildet går via Home Assistant (proxy).' },
       { type: 'select', name: 'posters', label: 'Plakater', options: [['show', 'Vis'], ['hide', 'Skjul']], default: 'show', help: 'Bare sikre bilder (https eller via Home Assistant). Mangler bildet vises en stripet plassholder.' },
     ] };
+    // Fiks 56 A/B2 · «Når kommer Posten»: pakker i kalenderen + transportør-visning i Pakker (samme felt i Tilpass og GUI)
+    const posten = { type: 'section', id: 'posten', label: 'Posten', icon: 'mdi:email-outline', open: false, meta: (hh, cc) => (cc.post_parcels === false ? 'Pakker skjult i kalenderen' : 'Pakker i kalenderen'), fields: [
+      { type: 'boolean', name: 'post_parcels', label: 'Vis pakker i kalender', default: true, help: 'Prikker under datoene i «Når kommer Posten»: blå levert, gul hentes, grønn på vei, grå utgående.' },
+      { type: 'boolean', name: 'post_parcel_list', label: 'Vis liste under valgt dag', default: true, help: 'Pakkene for valgt dag (standard i dag) vises under kalenderen. Trykk åpner pakken i Pakker.' },
+      { type: 'boolean', name: 'post_parcel_out', label: 'Inkluder utgående', default: false, help: 'Ta med pakker du sender (PostNord-konto) i kalenderen.' },
+      { type: 'select', name: 'carrier_view', label: 'Transportør-visning', options: [['text', 'Tekst'], ['icon', 'Ikon'], ['chip', 'Chip']], default: 'text', help: 'Tekst: «PostNord · …» først i undertittelen. Ikon: lite merke på pakkeikonet. Chip: kort «PN» ved tittelen.' },
+    ] };
     const pnOut = { type: 'boolean', name: 'postnord_outgoing', label: 'Vis pakker jeg sender', default: false, help: 'PostNord-konto: vis også pakker du har sendt i Pakker.' };
     const spacing = { type: 'section', id: 'spacing', label: 'Mellomrom', icon: 'mdi:arrow-expand-vertical', meta: (hh, cc) => `${cc.gap != null ? cc.gap : 8} px mellom`, fields: [
       { type: 'range', name: 'gap', label: 'Mellom seksjonene', icon: 'mdi:arrow-split-horizontal', min: 0, max: 24, default: 8, presets: [[4, 'Tett 4'], [8, 'Standard 8'], [18, 'Luftig 18']] },
-      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: -20, max: 60, default: -10, presets: [[-20, 'Inntil −20'], [-10, 'Standard −10'], [6, 'Tett 6'], [44, 'Luftig 44']] },
+      // 56 B3: avstand fra Bubble-headeren (lukk-knappen/ikonet) – aldri negativ (innholdet dras ikke opp i headeren)
+      { type: 'range', name: 'pad_top', label: 'Fra popup-headeren til første kort', icon: 'mdi:format-vertical-align-top', min: 0, max: 60, default: 12, presets: [[0, 'Inntil 0'], [12, 'Standard 12'], [24, 'Luftig 24'], [44, 'Mye 44']] },
       { type: 'range', name: 'pad_bottom', label: 'Luft i bunnen', icon: 'mdi:format-vertical-align-bottom', min: 0, max: 300, default: 150, presets: [[0, 'Ingen 0'], [60, 'Litt 60'], [150, 'Standard 150'], [300, 'Maks 300']] },
     ] };
     const visning = [
@@ -818,6 +888,7 @@
       { type: 'select', name: 'pn_row', label: 'PostNord-levering i Posten', options: [['valgt', 'Ved valgt dag'], ['alltid', 'Alltid']], default: 'valgt', help: 'Ved valgt dag: raden vises når du trykker på en dag med levering. Alltid: uten valgt dag vises neste PostNord-levering.' },
       { type: 'boolean', name: 'showPlex', label: 'Vis «Nylig i Plex»', default: true },
       { type: 'boolean', name: 'birthdayToday', label: 'Konfetti når noen har bursdag i dag', default: true },
+      posten,
       spacing,
     ];
     return [
@@ -825,7 +896,7 @@
         { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['faner'], fields: [faner, ...(M.tabH ? [M.tabH.field({ items: (hh, cc) => visTabs(cc || {}).map((k) => ({ key: k, label: TABL[k][1], icon: TABL[k][2] })), mode: (cc) => (cc.tab_labels === 'name' ? 'tekst' : 'aktiv'), native: 40, gear: true })] : [])] }, // 33.4: fanehøyde
         { key: 'kalendere', label: 'Kalendere', icon: 'mdi:calendar-multiple', focus: ['kalendere'], fields: [kal] },
         { key: 'kilder', label: 'Kilder', icon: 'mdi:database-search-outline', focus: ['kilder', 'framover'], fields: [info, ...SRC.map(kilde), pnRoles, pnOut, framover] },
-        { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing', 'visning'], fields: visning },
+        { key: 'visning', label: 'Visning', icon: 'mdi:tune-variant', focus: ['spacing', 'visning', 'posten'], fields: visning },
       ] },
       { type: 'button', label: 'Nullstill', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); resetCfg(hh, cc, ed); } }, // også i headeren (36.7); knappen er dekkende #3a3a3a
     ];
@@ -838,7 +909,25 @@
     static getStubConfig() { return { card_id: M.uid() }; }
     static get schema() { return editorSchema; }
     static get uiPersist() { return ['tab']; }
-    static get spacingDefaults() { return { gap: 8, pad_top: -10, pad_bottom: 150 }; }
+    static get spacingDefaults() { return { gap: 8, pad_top: 12, pad_bottom: 150 }; } // 56 B3: 12 px under Bubble-headeren
+    // Fiks 56 B3 · innholdet starter UNDER Bubble-headeren i alle faner: pad_top (≥ 0, standard 12) måles fra den synlige
+    // bunnen av headeren (ikon-sirkel, navn, lukk-knapp) – ikke fra header-boksen med luft – og margin-top blir aldri negativ.
+    _applySpacing() {
+      super._applySpacing();
+      if (this._config.embedded) return;
+      const cont = M.popupContainer && M.popupContainer(this);
+      if (!cont) return;
+      const cards = [...cont.querySelectorAll('*')].filter((e) => /^msh-.*-card$/.test(e.localName));
+      if (cards[0] !== this) return;
+      const pop = cont.closest ? cont.closest('.bubble-pop-up') : null, hdr = pop && pop.querySelector('.bubble-header-container');
+      if (!hdr) { if (parseFloat(this.style.marginTop) < 0) this.style.marginTop = '0px'; return; }
+      const vis = [...hdr.querySelectorAll('.bubble-close-button, .bubble-icon-container, .bubble-name-container, .bubble-name, .bubble-sub-button-container')].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+      const hr = hdr.getBoundingClientRect(), vb = vis.length ? Math.max(...vis.map((r) => r.bottom)) : hr.bottom;
+      if (!hr.height) return;
+      const c = this._config, gap = Math.max(0, c.pad_top != null && !isNaN(Number(c.pad_top)) ? Number(c.pad_top) : 12);
+      const cur = parseFloat(this.style.marginTop) || 0, nat = this.getBoundingClientRect().top + (cont.scrollTop || 0) - cur; // uavhengig av scroll
+      this.style.marginTop = Math.max(0, Math.round(vb + gap - nat)) + 'px';
+    }
     get cardSize() { return 12; }
     setConfig(c) {
       // `spacing: { gap, top, bottom }` (designet) → felles nøkler gap/pad_top/pad_bottom (MSH.Card._applySpacing)
@@ -1506,12 +1595,58 @@
       if (sk) dEv = (pnEv.get(sk) || []).slice().sort((a, b) => a.start - b.start);
       else if (c.pn_row === 'alltid') { const k = [...pnEv.keys()].filter((x) => x >= dk(now)).sort()[0]; if (k) dEv = pnEv.get(k).slice().sort((a, b) => a.start - b.start).slice(0, 1); }
       const dRows = dEv.map((e) => this._pnDay(e, items)).join('');
-      const grid = P || pnEv.size ? `<div class="pg">${days.map((d) => { const k = dk(d), on = !!P && P.dates.has(k), sl = k === sk; return `<button class="pd ${on ? 'on' : ''} ${k === dk(now) ? 'today' : ''} ${sl ? 'sel' : ''}" data-act="psel" data-v="${k}" data-haptic="selection" aria-pressed="${sl}" aria-label="${esc(`${DAG_L[d.getDay()]} ${dShort(d)}${P ? ' · ' + (on ? 'posten kommer' : 'ingen utdeling') : ''}${has(k) ? ' · PostNord-levering' : ''}`)}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b>${has(k) ? '<i class="pnd" aria-hidden="true"></i>' : ''}</button>`; }).join('')}</div>` : '';
+      // 56 A/B1: pakkene (Posten + PostNord, deduplisert på sporingsnummer) som prikker per dag + liste for valgt dag
+      const PD = this._parcelDays(h, c, days, pnOn);
+      const dots = (k) => { const L = PD.get(k) || []; if (!L.length) return '<span class="pdt" aria-hidden="true"></span>'; return `<span class="pdt" aria-hidden="true">${L.slice(0, 3).map((e) => `<i data-cat="${e.cat}" style="background:${PDOT[e.cat]}"></i>`).join('')}${L.length > 3 ? `<em class="num">+${L.length - 3}</em>` : ''}</span>`; };
+      const nP = (k) => (PD.get(k) || []).length;
+      const grid = P || pnEv.size || PD.size ? `<div class="pg">${days.map((d) => { const k = dk(d), on = !!P && P.dates.has(k), sl = k === sk, n = nP(k); return `<button class="pd ${on ? 'on' : ''} ${k === dk(now) ? 'today' : ''} ${sl ? 'sel' : ''}" data-act="psel" data-v="${k}" data-haptic="selection" aria-pressed="${sl}" aria-label="${esc(`${DAG_L[d.getDay()]} ${dShort(d)}${P ? ' · ' + (on ? 'posten kommer' : 'ingen utdeling') : ''}${has(k) ? ' · PostNord-levering' : ''}${n ? ` · ${n} ${n === 1 ? 'pakke' : 'pakker'}` : ''}`)}"><span>${UKE[(d.getDay() + 6) % 7]}</span><b class="num">${d.getDate()}</b>${dots(k)}${has(k) ? '<i class="pnd" aria-hidden="true"></i>' : ''}</button>`; }).join('')}</div>` : '';
+      // Valgt dag (standard: i dag; helg → første viste dag) → pakkene den dagen rett under rutenettet, over tall-chipsene
+      const lk = sk || (days.some((d) => dk(d) === dk(now)) ? dk(now) : dk(days[0]));
+      const pList = c.post_parcel_list === false ? '' : this._parcelList(fromKey(lk), PD.get(lk) || []);
       const chips = pnOn ? this._pnChips(h, accts, F) : { html: '', ref: false };
       // Uten Posten-sensor: toppen viser «–» + «Velg entitet» (kortet, chipsene og leveringsraden vises likevel)
       const chip = P ? `<span class="pchip ${today ? 'on' : ''}">${today ? 'Posten kommer i dag' : 'Ikke i dag'}</span>` : '';
       const subH = P || sk ? `<span class="psub">${esc(sub)}</span>` : this._missing('Ingen Posten-sensor', 'kilder');
-      return { ref: chips.ref, html: `<div class="card post" data-ent="${esc(id || '')}"><div class="pt"><div class="grow"><span class="ptl">${M.icon('mdi:email', 16)}Når kommer Posten</span><b class="prel">${esc(rel)}</b>${subH}</div>${chip}</div>${grid}${dRows}${chips.html}</div>` };
+      return { ref: chips.ref, html: `<div class="card post" data-ent="${esc(id || '')}"><div class="pt"><div class="grow"><span class="ptl">${M.icon('mdi:email', 16)}Når kommer Posten</span><b class="prel">${esc(rel)}</b>${subH}</div>${chip}</div>${grid}${pList}${dRows}${chips.html}</div>` };
+    }
+    // 56 A/B1 · pakkene i rutenettet: samme pakkekilde som Pakker-lista (Norwegian Parcel Tracker + PostNord), samme
+    // komponent for begge kildene. Av med «Vis pakker i kalender» (post_parcels: false). PostNord-tall av → bare Posten.
+    _parcelDays(h, c, days, pnOn) {
+      if (c.post_parcels === false) return new Map();
+      const nw = parcelsOf(h, c); nw.forEach((x) => this.s(x.id));
+      const pn = pnOn ? pnParcels(h, c, this._pnLive, { out: !!c.post_parcel_out }) : [];
+      return parcelDays([...nw, ...pn], days, { out: !!c.post_parcel_out });
+    }
+    // 56 A · lista for valgt dag: overskrift «I dag · 1 pakke» / «fre 9. okt · 2 pakker» + kompakte rader (trykk → kortet i Pakker)
+    _parcelList(d, L) {
+      if (!L.length || !d) return '';
+      const n = dayDiff(new Date(), d), lab = n === 0 ? 'I dag' : `${DAG_S[d.getDay()].toLowerCase()} ${dShort(d)}`;
+      return `<div class="pkl" data-key="pkl-${dk(d)}"><span class="pklh">${esc(lab)} · ${L.length} ${L.length === 1 ? 'pakke' : 'pakker'}</span>${L.map((e) => this._parcelLi(e)).join('')}</div>`;
+    }
+    _parcelLi(e) {
+      const x = e.x, col = PDOT[e.cat], icon = x.pn ? x.icon : (PK[x.kind] || PK.transport)[2];
+      const last = x.pn ? (x.events[0] && x.events[0].text) || x.raw || x.label : x.kind === 'stale' && x.idleH != null ? `Ingen oppdatering på ${x.idleH} t` : (x.events[0] && x.events[0].text) || x.state;
+      const when = e.shifted ? `${DAG_S[e.day.getDay()].toLowerCase()} ${dShort(e.day)} · ` : '';
+      return `<button class="pkli press" data-act="pkgo" data-v="${esc(x.id)}" data-cat="${e.cat}" data-key="pkli-${esc(x.id)}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(icon, 20)}</span><span class="grow evc"><b class="ell">${esc(x.name)}</b><span class="ell">${esc(when + (last || ''))}</span></span><i class="pkd" style="background:${col}"></i><span class="pkls">${esc(PDOT_T[e.cat])}</span></button>`;
+    }
+    // Trykk på en rad i lista → samme kort i Pakker åpnes (utvidet) og scrolles fram
+    _parcelGo(id) {
+      if (!id) return;
+      const all = [...parcelsOf(this.hass, this.config), ...pnParcels(this.hass, this.config, this._pnLive, { out: true })];
+      const x = all.find((y) => y.id === id);
+      const patch = { pOpen: id };
+      if (x && x.kind === 'levert') patch.pDel = true;
+      const F = this.ui.pnF;
+      if (F && (!x || !x.pn || !PN_FK[F.k] || !PN_FK[F.k](x) || (F.a !== '*' && x.acct !== F.a))) patch.pnF = null;
+      if (x && x.dir === 'out' && !this.config.postnord_outgoing && x.kind !== 'levert') patch.pnF = { k: 'out', a: '*' }; // utgående vises bare i filteret «Ut»
+      this.setUI(patch);
+      let n = 0;
+      const go = () => {
+        const row = this.shadowRoot.querySelector(`.pkr[data-key="pk-${CSS.escape(id)}"]`);
+        if (row) { try { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { row.scrollIntoView(); } return; }
+        if (++n < 20) setTimeout(go, 50);
+      };
+      requestAnimationFrame(() => setTimeout(go, 0));
     }
     // 46 · leveringsraden: «PostNord · <avsender/pakke>» + «<vindu/estimat> · <status> · <leveringsmåte>» (pakke-attributtene)
     _pnDay(e, items) {
@@ -1530,10 +1665,19 @@
       const ref = btns.length ? `<button class="pnr press ${spin ? 'spin' : ''}" data-act="pnref" data-g="*" data-ids="${esc(btns.join(','))}" data-haptic="off" title="Oppdater PostNord" aria-label="Oppdater PostNord">${M.icon('mdi:refresh', 18)}</button>` : '';
       return { ref: !!ref, html: `<div class="pnchs" data-key="pnchs">${tiles}${ref}</div>` };
     }
+    // 56 B2 · transportøren: tekst først i undertittelen (standard) · ikon = 16 px merke på pakkeikonet · chip = maks 72 px («PN»)
+    _carrier(x) {
+      const cv = ['text', 'icon', 'chip'].includes(this.config.carrier_view) ? this.config.carrier_view : 'text';
+      const car = x.carrier || '', up = x.dir === 'out', ab = CAR_AB[car] || car.slice(0, 2).toUpperCase(), col = CAR_COL[car] || C.blue;
+      if (!car) return { sub: up ? '<span class="pcar">↑</span> · ' : '', badge: '', chip: '' };
+      if (cv === 'icon') return { sub: up ? '<span class="pcar">↑</span> · ' : '', badge: `<i class="pcb" style="background:${col}" title="${esc(car)}">${esc(ab)}</i>`, chip: '' };
+      if (cv === 'chip') return { sub: '', badge: '', chip: `<span class="ctag" style="color:${AT(col)}" title="${esc(car + (up ? ' · Utgående' : ''))}">${esc(ab + (up ? ' ↑' : ''))}</span>` };
+      return { sub: `<span class="pcar" style="color:${AT(col)}">${esc(car + (up ? ' ↑' : ''))}</span> · `, badge: '', chip: '' };
+    }
     _pRow(x) {
-      const [lab, col, icon] = PK[x.kind], open = this.ui.pOpen === x.id;
+      const [lab, col, icon] = PK[x.kind], open = this.ui.pOpen === x.id, cr = this._carrier(x);
       const sub = x.kind === 'stale' && x.idleH != null ? `Ingen oppdatering på ${x.idleH} t` : x.events[0] ? x.events[0].text : x.state;
-      return `<div class="pkr ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(icon, 22)}</span><span class="grow evc"><b class="ell">${esc(x.name)}</b><span class="ell">${esc(sub)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(lab)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
+      return `<div class="pkr ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(icon, 22)}${cr.badge}</span><span class="grow evc"><span class="pkn"><b class="ell">${esc(x.name)}</b>${cr.chip}</span><span class="ell pmeta">${cr.sub}${esc(sub)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(lab)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
         ${open ? `<div class="pkb">${x.kind === 'stale' && x.idleH != null ? `<div class="warn">${M.icon('mdi:clock-alert-outline', 18)}Ingen oppdatering på ${x.idleH} t</div>` : ''}
           ${x.facts.length || x.number || x.eta ? `<div class="facts">${x.number ? `<span><i>Sporingsnummer</i><b>${esc(x.number)}</b></span>` : ''}${x.eta ? `<span><i>Forventet</i><b>${esc(dShort(x.eta))}</b></span>` : ''}${x.facts.map(([k, v]) => `<span><i>${esc(k)}</i><b>${esc(v)}</b></span>`).join('')}</div>` : ''}
           ${x.events.length ? `<div class="log">${x.events.slice(0, 8).map((e, i) => `<div class="lg ${i === 0 ? 'on' : ''}"><i></i><span class="grow"><b>${esc(e.text)}</b><span>${esc([e.t ? `${dShort(e.t)} ${hm(e.t)}` : '', e.where].filter(Boolean).join(' · '))}</span></span></div>`).join('')}</div>` : '<div class="none">Ingen hendelser ennå</div>'}
@@ -1544,7 +1688,8 @@
     _pnRow(x) {
       const open = this.ui.pOpen === x.id, col = x.col, S = (this.hass && this.hass.services && this.hass.services.postnord) || {};
       const canUn = !x.account && x.dir !== 'out' && !!S.untrack_parcel;
-      return `<div class="pkr pn ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}" data-kind="${x.kind}" data-st="${esc(x.status)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(x.icon, 22)}</span><span class="grow evc"><span class="pkn"><b class="ell">${esc(x.name)}</b><span class="ctag">${esc(x.chip || 'PostNord')}</span></span><span class="ell pmeta">${esc(x.meta)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(x.label)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
+      const cr = this._carrier(x);
+      return `<div class="pkr pn ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}" data-kind="${x.kind}" data-st="${esc(x.status)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(x.icon, 22)}${cr.badge}</span><span class="grow evc"><span class="pkn"><b class="ell">${esc(x.name)}</b>${cr.chip}</span><span class="ell pmeta">${cr.sub}${esc(x.meta)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(x.label)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
         ${open ? `<div class="pkb">${x.kind === 'stale' ? `<div class="warn" style="background:${TONE(col, 0.16)};color:${AT(col)}">${M.icon(x.icon, 18)}${esc(x.raw || x.label)}</div>` : ''}
           ${x.events.length ? `<div class="log">${x.events.slice(0, 8).map((e, i) => `<div class="lg ${i === 0 ? 'on' : ''}"><i></i><span class="grow"><b>${esc(e.text)}</b><span>${esc([e.t ? `${dShort(e.t)} ${hm(e.t)}` : '', e.where].filter(Boolean).join(' · '))}</span></span></div>`).join('')}</div>` : ''}
           ${x.facts.length ? `<div class="facts">${x.facts.map(([k, v]) => `<span><i>${esc(k)}</i><b>${esc(v)}</b></span>`).join('')}</div>` : ''}
@@ -1627,6 +1772,7 @@
         case 'pdel': return this.setUI({ pDel: !this.ui.pDel });
         case 'psel': return this.setUI({ pSel: this.ui.pSel === d.v ? null : d.v }); // 36.6: trykk samme dag igjen → neste utdeling
         case 'popen': return this.setUI({ pOpen: this.ui.pOpen === d.v ? null : d.v });
+        case 'pkgo': return this._parcelGo(d.v); // 56 A: rad i dagslista → kortet i Pakker
         case 'phome': if (d.v) window.open(d.v, '_blank', 'noopener'); return;
         default: return super.onAction(name, el, ev);
       }
@@ -1832,8 +1978,11 @@
         .pkr.open{background:var(--ki-surface-2, var(--gray300,#404040))}
         .pkr+.pkr{box-shadow:inset 0 1px 0 ${WA(0.05)}}
         .pkh{display:flex;align-items:center;gap:10px;width:100%;min-height:60px;padding:6px 10px;text-align:left}
-        .pkic{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none}
-        .pkst{font-size:12px;font-weight:600;flex:none}
+        .pkic{position:relative;width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none}
+        .pcb{position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:8px;display:grid;place-items:center;font-style:normal;font-size:7px;font-weight:700;letter-spacing:-.02em;color:var(--ki-on-accent, #282828);box-shadow:0 0 0 2px var(--ki-surface, var(--gray200,#3a3a3a))} /* 56 B2: transportør-merke */
+        .pkr.open .pcb{box-shadow:0 0 0 2px var(--ki-surface-2, var(--gray300,#404040))}
+        .pcar{font-weight:600}
+        .pkst{font-size:12px;font-weight:600;flex:none;max-width:96px;text-align:right;line-height:1.25;white-space:normal;overflow-wrap:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden} /* 56 B2: maks 96 px, to linjer */
         .pkb{display:flex;flex-direction:column;gap:10px;padding:0 12px 12px}
         .warn{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;background:${TONE(C.orange, 0.16)};color:${AT(C.orange)};font-size:13px}
         .facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -1847,10 +1996,27 @@
         .pka{display:flex;gap:8px;flex-wrap:wrap}
         .pka a.lnk{height:44px;padding:0 16px;border-radius:22px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:inline-flex;align-items:center;gap:6px;font-size:13px;color:${AT(C.blue)};text-decoration:none}
         .evc>.pkn{display:flex;align-items:center;gap:8px;min-width:0;font-size:inherit;color:inherit}
-        .ctag{height:20px;padding:0 7px;border-radius:10px;flex:none;display:inline-flex;align-items:center;font-size:10px;font-weight:600;background:var(--ki-surface-2, var(--gray300,#404040));color:${AT(C.blue)}}
+        .pkn>b{min-width:0}
+        .ctag{height:20px;max-width:72px;padding:0 7px;border-radius:10px;flex:none;display:inline-flex;align-items:center;box-sizing:border-box;overflow:hidden;white-space:nowrap;font-size:10px;font-weight:600;background:var(--ki-surface-2, var(--gray300,#404040));color:${AT(C.blue)}}
         .pkr.open .ctag{background:var(--ki-surface, var(--gray200,#3a3a3a))}
         .pmsg{flex:1 1 100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;background:${TONE(C.orange, 0.16)};color:${AT(C.orange)};font-size:13px}
         .pd{position:relative}
+        /* 56 A · pakkeprikker: 6 px, 4 px mellomrom, sentrert 6 px under tallet; flisens høyde er uendret (prikkene ligger
+           absolutt, ukedag + tall løftes 3 px visuelt) */
+        .pd>span:not(.pdt),.pd>b{transform:translateY(-3px)}
+        .pdt{position:absolute;left:0;right:0;top:calc(100% - 9px);height:6px;display:flex;align-items:center;justify-content:center;gap:4px;pointer-events:none}
+        .pdt i{width:6px;height:6px;border-radius:3px;flex:none}
+        .pdt em{font-style:normal;font-size:10px;line-height:6px;font-weight:600;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
+        .pd.on .pdt em{color:${AT(C.red)}}
+        /* 56 A · lista for valgt dag (over tall-chipsene) */
+        .pkl{display:flex;flex-direction:column;gap:6px}
+        .pklh{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 2px}
+        .pkli{display:flex;align-items:center;gap:10px;width:100%;height:56px;padding:0 12px 0 10px;box-sizing:border-box;border-radius:16px;background:var(--ki-surface-2, var(--gray300,#404040));text-align:left;color:var(--ki-text, var(--white,#fafafa))}
+        .pkli .pkic{width:36px;height:36px;border-radius:18px}
+        .pkli .evc b{font-size:14px;font-weight:500}
+        .pkli .evc>span{font-size:12px;color:var(--ki-text-2, var(--gray800,#afafaf))}
+        .pkd{width:8px;height:8px;border-radius:4px;flex:none}
+        .pkls{font-size:12px;font-weight:600;flex:none;color:var(--ki-text-1, var(--gray900,#c7c7c7))}
         .pnd{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:${C.blue}}
         .pd.on .pnd{box-shadow:0 0 0 1.5px var(--ki-on-accent, #282828)}
         .pnday{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 12px;border-radius:20px;background:var(--ki-surface-2, var(--gray300,#404040))}

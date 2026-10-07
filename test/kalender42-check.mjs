@@ -96,7 +96,7 @@ async function page(pn, cfg) {
     document.getElementById('dash').appendChild(bc);
     location.hash = '#kalender';
     const c = document.createElement('msh-kalender-card');
-    c.setConfig({ type: 'custom:msh-kalender-card', card_id: 'pop-kal42', ...(cfg || {}) });
+    c.setConfig({ type: 'custom:msh-kalender-card', card_id: 'pop-kal42', post_parcels: false, ...(cfg || {}) }); // 56 A: pakkeprikker/-liste testes i kalender56
     c.hass = H;
     bc.querySelector('.inner').appendChild(c);
     window.__c = c;
@@ -105,7 +105,7 @@ async function page(pn, cfg) {
     await new Promise((q) => setTimeout(q, 600));
     window.sr = () => window.__c.shadowRoot;
     window.sleep = (ms) => new Promise((q) => setTimeout(q, ms));
-    window.rows = () => [...sr().querySelectorAll('.pkr')].map((r) => ({ key: r.dataset.key, pn: r.classList.contains('pn'), kind: r.dataset.kind || null, name: (r.querySelector('.pkh b') || {}).textContent || '', meta: (r.querySelector('.pmeta') || {}).textContent || '', chip: (r.querySelector('.ctag') || {}).textContent || null, icon: (r.querySelector('.pkic ha-icon') || { getAttribute: () => '' }).getAttribute('icon') }));
+    window.rows = () => [...sr().querySelectorAll('.pkr')].map((r) => ({ key: r.dataset.key, pn: r.classList.contains('pn'), kind: r.dataset.kind || null, name: (r.querySelector('.pkh b') || {}).textContent || '', meta: ((m) => { if (!m) return ''; const c = m.querySelector('.pcar'); return c ? m.textContent.slice(c.textContent.length + 3) : m.textContent; })(r.querySelector('.pmeta')), chip: (r.querySelector('.ctag') || r.querySelector('.pmeta .pcar') || {}).textContent || null, icon: (r.querySelector('.pkic ha-icon') || { getAttribute: () => '' }).getAttribute('icon') }));
     // 46: tall-chipsene i «Når kommer Posten»
     window.chips = () => { const x = sr().querySelector('.card.post .pnchs'); return x ? { tiles: [...x.querySelectorAll('.pnch')].map((t) => [t.dataset.v, t.querySelector('b').textContent, t.classList.contains('on')]), refresh: !!x.querySelector('.pnr'), ids: (x.querySelector('.pnr') || { dataset: {} }).dataset.ids || '' } : null; };
     window.setCfg = async (patch) => { const c2 = { ...window.__c.config, ...patch }; Object.keys(patch).forEach((k) => { if (patch[k] === undefined) delete c2[k]; }); window.__c.setConfig(c2); await sleep(300); };
@@ -173,7 +173,7 @@ ok('46 Ingen dobbel Oppdater-knapp i Pakker-headeren når chipsene vises', !U.pa
 const L0 = await p.evaluate(() => rows());
 const by = Object.fromEntries(L0.map((r) => [r.key, r]));
 ok('42.3 Én rad per pakke (sensorer + lister slått sammen, ingen duplikater), levert/utgående skjult', ['UA111111111SE', 'UB222222222SE', 'UC333333333SE', '70712345678DK'].every((c) => by['pk-pn:' + c]) && !by['pk-pn:UD444444444SE'] && !by['pk-pn:UE555555555SE'] && new Set(L0.map((r) => r.key)).size === L0.length, L0);
-ok('42.3 Navn = avsender, ellers «Pakke <kode>»', by['pk-pn:UA111111111SE'].name === 'Zalando' && by['pk-pn:UC333333333SE'].name === 'Pakke UC333333333SE', [by['pk-pn:UA111111111SE'], by['pk-pn:UC333333333SE']]);
+ok('42.3/56 B2 Navn = avsender, ellers de siste 6 tegnene «…3333SE»', by['pk-pn:UA111111111SE'].name === 'Zalando' && by['pk-pn:UC333333333SE'].name === '…3333SE', [by['pk-pn:UA111111111SE'], by['pk-pn:UC333333333SE']]);
 ok('42.3 Status/farge fra 40.2 (ute → klar → transport)', by['pk-pn:UA111111111SE'].kind === 'out' && by['pk-pn:UB222222222SE'].kind === 'klar' && by['pk-pn:UC333333333SE'].kind === 'transport', L0);
 const FA = await p.evaluate(async () => { sr().querySelector('.pkr[data-key="pk-pn:UC333333333SE"] .pkh').click(); await sleep(200); const r = sr().querySelector('.pkr[data-key="pk-pn:UC333333333SE"]'); const f = [...r.querySelectorAll('.facts span')].map((s) => [s.querySelector('i').textContent, s.querySelector('b').textContent]); const det = (r.querySelector('[data-act="more"]') || { dataset: {} }).dataset.id; sr().querySelector('.pkr[data-key="pk-pn:UC333333333SE"] .pkh').click(); await sleep(150); return { f, det }; });
 ok('42.3 Fakta har «Sporingsnummer»; «Detaljer» = pakke-sensoren', FA.f.some((x) => x[0] === 'Sporingsnummer' && x[1] === 'UC333333333SE') && FA.det === `sensor.${J}_pakke_uc333333333se`, FA);
@@ -189,7 +189,7 @@ ok('42.2 «Leverte» → levert-pakken vises og «Vis leverte» slås på', F3.r
 const F4 = await p.evaluate(async () => { sr().querySelector('.sh .pnfc').click(); await sleep(200); return { chip: !!sr().querySelector('.sh .pnfc'), on: sr().querySelectorAll('.pnch.on').length }; });
 ok('42.3 Trykk på chipen fjerner filteret', !F4.chip && !F4.on, F4);
 const F5 = await tap(0, 'out');
-ok('42.3 «Utgående» → «PostNord · Utgående», outbox-ikon, «Til Mormor · estimert …»', F5.rows.length === 1 && F5.rows[0].key === 'pk-pn:UE555555555SE' && F5.rows[0].chip === 'PostNord · Utgående' && /inbox-arrow-up/.test(F5.rows[0].icon) && /^Til Mormor · estimert \S+ \d+\. [a-z]+$/.test(F5.rows[0].meta), F5.rows);
+ok('42.3/56 B2 «Utgående» → «PostNord ↑ · …» i undertittelen, outbox-ikon, «Til Mormor · estimert …»', F5.rows.length === 1 && F5.rows[0].key === 'pk-pn:UE555555555SE' && F5.rows[0].chip === 'PostNord ↑' && /inbox-arrow-up/.test(F5.rows[0].icon) && /^Til Mormor · estimert \S+ \d+\. [a-z]+$/.test(F5.rows[0].meta), F5.rows);
 await tap(0, 'out');
 const F6 = await tap(0, 'in');
 ok('46 «Inn» gjelder alle kontoene → de fire innkommende pakkene', F6.rows.length === 4 && F6.rows.some((r) => r.key === 'pk-pn:70712345678DK') && F6.rows.some((r) => r.key === 'pk-pn:UA111111111SE'), F6.rows);
@@ -221,7 +221,7 @@ const span = pc.length ? (Date.parse(pc[0][2]) - Date.parse(pc[0][1])) / 8640000
 ok('42.1 Posten-kortet henter leveringskalenderen bare for de 14 dagene som vises (fra i dag)', pc.length === 1 && pc[0][0] === `calendars/calendar.${J}_leveringer` && span >= 12 && span <= 15, { cal: D.cal, span });
 if (D.red) {
   const SD = await p.evaluate(async () => { sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(200); const r = [...sr().querySelectorAll('.pnday')].map((x) => [...x.querySelectorAll('b,.evc>span')].map((y) => y.textContent.trim()).join(' | ')); sr().querySelector(`.pd[data-v="${window.REDDAY}"]`).click(); await sleep(150); return r; });
-  ok('42.1 Valgt dag med levering → raden for den dagen (vindu · status)', SD.length === 1 && /^PostNord · Pakke UC333333333SE \| (?:I dag|I morgen|\S+ \d+\. [a-z]+) 9–12 · Under transport$/.test(SD[0]), SD);
+  ok('42.1 Valgt dag med levering → raden for den dagen (vindu · status)', SD.length === 1 && /^PostNord · …3333SE \| (?:I dag|I morgen|\S+ \d+\. [a-z]+) 9–12 · Under transport$/.test(SD[0]), SD);
 }
 
 // ---------------------------------------------------------------- 42.3 entity_registry_updated

@@ -82,7 +82,7 @@ async function page(pn, cfg) {
     c.shadowRoot.querySelector('[data-act="tab"][data-v="posten"]').click();
     await new Promise((q) => setTimeout(q, 500));
     window.sr = () => window.__c.shadowRoot;
-    window.rows = () => [...sr().querySelectorAll('.pkr')].map((r) => ({ key: r.dataset.key, pn: r.classList.contains('pn'), kind: r.dataset.kind || null, text: r.querySelector('.pkh').textContent.replace(/\s+/g, ' ').trim(), st: r.querySelector('.pkst') && r.querySelector('.pkst').getAttribute('style'), meta: (r.querySelector('.pmeta') || {}).textContent || '', chip: r.querySelector('.ctag') ? [r.querySelector('.ctag').textContent, getComputedStyle(r.querySelector('.ctag')).color, getComputedStyle(r.querySelector('.ctag')).backgroundColor] : null }));
+    window.rows = () => [...sr().querySelectorAll('.pkr')].map((r) => ({ key: r.dataset.key, pn: r.classList.contains('pn'), kind: r.dataset.kind || null, text: r.querySelector('.pkh').textContent.replace(/\s+/g, ' ').trim(), st: r.querySelector('.pkst') && r.querySelector('.pkst').getAttribute('style'), meta: ((m) => { if (!m) return ''; const c = m.querySelector('.pcar'); return c ? m.textContent.slice(c.textContent.length + 3) : m.textContent; })(r.querySelector('.pmeta')), chip: ((c) => (c ? [c.textContent, getComputedStyle(c).color, getComputedStyle(c).backgroundColor] : null))(r.querySelector('.ctag') || r.querySelector('.pmeta .pcar')) })); // 56 B2: transportøren står først i undertittelen (.pcar)
     window.sleep = (ms) => new Promise((q) => setTimeout(q, ms));
     window.setCfg = async (patch) => { const cfg2 = { ...window.__c.config, ...patch }; window.__c.setConfig(cfg2); await sleep(300); };
   }, { pn, cfg });
@@ -134,10 +134,10 @@ const has = (r, lab, col) => r && r.text.includes(lab) && r.st.includes(col);
 ok('40.2 out_for_delivery → gul «Ute for levering»', has(by.UA123456789SE, 'Ute for levering', '--yellow'), by.UA123456789SE);
 ok('40.2 at_pickup_point → grønn «Klar til henting»', has(by.UB223456789SE, 'Klar til henting', '--green'), by.UB223456789SE);
 ok('40.2 problem → rød «Avvik»', has(by.UC323456789SE, 'Avvik', '--red'), by.UC323456789SE);
-ok('40.2 unknown → grå «Ikke skannet ennå»', has(by.UD423456789SE, 'Ikke skannet ennå', '--ki-text-3'), by.UD423456789SE);
+ok('40.2 unknown → grå «Ikke skannet» (56 B2: forkortet fra «Ikke skannet ennå»)', has(by.UD423456789SE, 'Ikke skannet', '--ki-text-3') && !by.UD423456789SE.text.includes('ennå'), by.UD423456789SE);
 ok('40.2 in_transit → blå «Under transport», registered → blå «Registrert»', has(by['70712345678DK'], 'Under transport', '--blue') && has(by['00370712345678'], 'Registrert', '--blue'), [by['70712345678DK'], by['00370712345678']]);
 // 40.3 chip + meta
-ok('40.3 Bærer-chip «PostNord» blå på surface-2 (#404040)', pn.every((r) => r.chip && r.chip[0] === 'PostNord' && r.chip[1] === 'rgb(115, 185, 242)' && r.chip[2] === 'rgb(64, 64, 64)'), pn.map((r) => r.chip));
+ok('40.3/56 B2 Transportør «PostNord» blå, først i undertittelen (ikke chip)', pn.every((r) => r.chip && r.chip[0] === 'PostNord' && r.chip[1] === 'rgb(115, 185, 242)'), pn.map((r) => r.chip));
 ok('40.3 Meta: «Estimert: I dag 14–18» og «Hentes på Coop Prix Grünerløkka»', by.UA123456789SE.meta === 'Estimert: I dag 14–18' && by.UB223456789SE.meta === 'Hentes på Coop Prix Grünerløkka', [by.UA123456789SE.meta, by.UB223456789SE.meta]);
 // detaljer
 const D1 = await p.evaluate(async () => {

@@ -64,7 +64,11 @@
   const acc = (n, hex) => `color-mix(in srgb, var(--ki-${n}-text, var(--${n}, ${hex})) calc(100% - (var(--ki-tone-k, 1) - 1) * 50%), black)`;
   const TX = { green: acc('green', '#66d19e'), blue: acc('blue', '#73b9f2'), orange: acc('orange', '#f2b573'), red: acc('red', '#f28073'), purple: acc('purple', '#ad99e6'), pink: acc('pink', '#f285c9') };
   // Tone-bakgrunn (Del A pkt. 5): .16 i mørk, × --ki-tone-k (1,5) i lys
-  const tone = (c, a = 0.16) => `color-mix(in srgb, ${c} calc(${Math.round(a * 100)}% * var(--ki-tone-k, 1)), transparent)`;
+  // Fiks 56 D: kjent aksent → opak lys tint (--ki-tint-<aksent>-circle, aksent 22 % inn i hvitt) i lys modus; mørk = fallback
+  const tone = (c, a = 0.16) => {
+    const old = `color-mix(in srgb, ${c} calc(${Math.round(a * 100)}% * var(--ki-tone-k, 1)), transparent)`, n = M.theme && M.theme.tint ? M.theme.tint(c).name : null;
+    return n ? `var(--ki-tint-${n}-circle, ${old})` : old;
+  };
   // Toppkortets målinger per vert: [nøkkel, etikett, enhet, farge] (designet: H.M)
   const HM = {
     net: [['down', 'Ned', 'Mbit', BL], ['up', 'Opp', 'Mbit', GR], ['cl', 'Klienter', '', PU]],

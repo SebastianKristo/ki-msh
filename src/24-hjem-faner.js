@@ -97,11 +97,11 @@
    * variant (aldri undertekst fra «solid» på nøytral bakgrunn). busy = nøytral + ikonet pulserer svakt (opasitet 1 → 0,5). */
   const TV_N = { bg: 'var(--ki-surface, var(--gray100, #2f2f2f))', fg: 'var(--ki-text, var(--white, #fafafa))', icon: null, circle: null, sub: 'var(--ki-text-2, var(--gray600, #7f7f7f))', flat: false };
   const TILE_VAR = {
-    solid: { bg: 'var(--green, #66d19e)', fg: 'var(--ki-on-accent, #2f2f2f)', icon: 'var(--ki-on-accent, #2f2f2f)', circle: 'rgb(0 0 0/0.1)', sub: 'rgba(31,42,36,0.75)', flat: true },
+    solid: { bg: 'var(--green, #66d19e)', fg: 'var(--ki-on-accent, #2f2f2f)', icon: 'var(--ki-on-accent, #2f2f2f)', circle: 'var(--ki-tint-solid-circle, rgb(0 0 0/0.1))', sub: 'var(--ki-tint-solid-sub, rgba(31,42,36,0.75))', flat: true }, // Fiks 56 D: fylt pille
     neutral: TV_N,
     busy: { ...TV_N, blink: true },
     error: { ...TV_N, icon: 'var(--ki-red-text, var(--red, #f28073))' },
-    alert: { bg: 'var(--red, #f28073)', fg: 'var(--ki-on-accent, #2f2f2f)', icon: 'var(--ki-on-accent, #2f2f2f)', circle: 'rgb(0 0 0/0.1)', sub: 'rgba(42,23,23,0.75)', flat: true }, // alarm utløst
+    alert: { bg: 'var(--red, #f28073)', fg: 'var(--ki-on-accent, #2f2f2f)', icon: 'var(--ki-on-accent, #2f2f2f)', circle: 'var(--ki-tint-solid-circle, rgb(0 0 0/0.1))', sub: 'var(--ki-tint-solid-sub, rgba(42,23,23,0.75))', flat: true }, // alarm utløst
     pink: { bg: C.accent, fg: 'var(--ki-on-accent, #2f2f2f)', icon: 'var(--ki-on-accent, #2f2f2f)', circle: 'rgba(42,23,32,0.1)', sub: 'rgba(42,23,32,0.7)', flat: true }, // alarm armert
   };
   const tileVariant = (kind, v) => {
@@ -1518,11 +1518,17 @@
     // på samme element som bakgrunnen, ikon-sirkel 56/28, ikon 24. Ikon-sirkelen er egen knapp (data-w="ic").
     _tileHTML(t, key) {
       const o = { background_color: null, text_color: 'var(--ki-text, var(--white, #fafafa))', icon_color: null, circle_color: null, style: '' };
-      if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--ki-on-accent, var(--gray100, #2f2f2f))', circle_color: 'rgb(0 0 0/0.1)', style: 'box-shadow:none;--ht-sub:rgba(31,42,36,0.75)' });
+      // Fiks 56 D · tonede/fylte piller via MSH.theme.tint/solid (--ki-tint-*): lys modus = opak nesten-hvit flate, mørk aksent-
+      // ikon i lys sirkel, ring + svak skygge, undertekst --ki-text-2; fylt («Avvik») = mørk tekst + sirkel rgba(0,0,0,.12).
+      // Mørk modus = fallback = samme oppskrift som før (aksent med alpha).
+      const TH = M.theme, SOL = TH && TH.solid;
+      if (t.solid && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--ki-on-accent, var(--gray100, #2f2f2f))', circle_color: SOL ? SOL.circle('rgb(0 0 0/0.1)') : 'rgb(0 0 0/0.1)', style: `box-shadow:none;--ht-sub:${SOL ? SOL.sub('rgba(31,42,36,0.75)') : 'rgba(31,42,36,0.75)'}` });
       else if (t.tone === 'pink') Object.assign(o, { background_color: C.accent, text_color: 'var(--ki-on-accent, var(--gray100, #2f2f2f))', circle_color: 'rgba(42,23,32,0.1)', style: 'box-shadow:none;--ht-sub:rgba(42,23,32,0.7)' });
       else if (t.camStyle === 'icon' && t.tone) Object.assign(o, { icon_color: t.tone });
+      else if (t.camStyle === 'tint' && t.tone && TH && TH.tint) { const k = TH.tint(t.tone, { bg: 0.16, circle: 0.2, ring: 0.35 }); Object.assign(o, { background_color: k.bg, icon_color: k.fg, circle_color: k.circle, style: `box-shadow:${k.sh};--ht-sub:${k.sub('var(--ki-text-3, #7f7f7f)')}` }); }
       else if (t.camStyle === 'tint' && t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.16), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.35)}` });
-      else if (t.camStyle === 'solid' && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--ki-on-accent, var(--gray100, #2f2f2f))', circle_color: 'rgb(0 0 0/0.1)', style: 'box-shadow:none;--ht-sub:rgba(35,35,35,0.75)' });
+      else if (t.camStyle === 'solid' && t.tone) Object.assign(o, { background_color: t.tone, text_color: 'var(--ki-on-accent, var(--gray100, #2f2f2f))', circle_color: SOL ? SOL.circle('rgb(0 0 0/0.1)') : 'rgb(0 0 0/0.1)', style: `box-shadow:none;--ht-sub:${SOL ? SOL.sub('rgba(35,35,35,0.75)') : 'rgba(35,35,35,0.75)'}` });
+      else if (t.tone && TH && TH.tint) { const k = TH.tint(t.tone, { bg: 0.14, circle: 0.2, ring: 0.4 }); Object.assign(o, { background_color: k.bg, icon_color: k.fg, circle_color: k.circle, style: `box-shadow:${k.sh};--ht-sub:${k.sub('var(--ki-text-3, #7f7f7f)')}` }); }
       else if (t.tone) Object.assign(o, { background_color: M.alpha(t.tone, 0.14), icon_color: t.tone, circle_color: M.alpha(t.tone, 0.2), style: `box-shadow:inset 0 0 0 1px ${M.alpha(t.tone, 0.4)}` });
       // Fiks 21.2: lås/garasje/alarm – hele flisen fra én variant (TILE_VAR), ingen universal-tilstandsregler som kan
       // treffe en annen tilstand enn den flisen viser (f.eks. «Låser opp …» mens HA fortsatt sier locked).

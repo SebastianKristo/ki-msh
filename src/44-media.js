@@ -813,6 +813,117 @@
           <select data-name="${esc(name)}" aria-label="Mediaspiller for ${esc(p.name)}" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px">${o}</select></div></div>`;
     },
   });
+  /* Fiks 56 C2 · «Spoling» i Tilpass (under fjernkontrollen) og GUI-editoren: valgene (standard 1/2/5/10 min, maks 6) med
+   * etikett, minutter og handling (Automatisk · Script · Tjeneste), felles script for alle valg og «Test» per valg.
+   * p = spiller (players.<obj>.seek) eller null (felles standard på kortnivå: seek). Endring av et valg skriver hele listen
+   * (spillerens egen liste opprettes fra den arvede ved første endring). */
+  const skGet = (o, path) => String(path).split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  const skDataTxt = (d) => {
+    if (d == null || d === '') return '';
+    if (typeof d === 'string') return d;
+    const flat = Object.values(d).every((v) => v == null || typeof v !== 'object');
+    return flat ? Object.entries(d).map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n') : JSON.stringify(d);
+  };
+  const skClean = (o) => {
+    const x = { minutes: Number(o.minutes) || 0, action: SEEK_ACTS.some((a) => a[0] === o.action) ? o.action : 'auto' };
+    if (o.label) x.label = String(o.label);
+    if (o.script) x.script = o.script;
+    if (o.service) x.service = o.service;
+    if (o.data != null && o.data !== '' && !(typeof o.data === 'object' && !Object.keys(o.data).length)) x.data = o.data;
+    return { label: x.label, minutes: x.minutes, action: x.action, script: x.script, service: x.service, data: x.data };
+  };
+  const skStrip = (o) => { const x = {}; Object.keys(o).forEach((k) => { if (o[k] !== undefined) x[k] = o[k]; }); return x; };
+  // Endre valgene (fn(liste)) eller felles script for spilleren/kortet og skriv seek-objektet
+  const skWrite = (ed, base, pobj, fn, opts) => {
+    const c = ed._config || {}, own = skObj(skGet(c, base));
+    const next = { ...own };
+    if (!opts || !opts.scriptOnly) {
+      const L = seekRawOpts(c, pobj).map(skClean);
+      fn(L, next);
+      next.options = L.slice(0, SEEK_MAX).map((o) => skStrip(skClean(o)));
+    } else fn(null, next);
+    if (!next.script) delete next.script;
+    ed._set(base, Object.keys(next).length ? next : undefined);
+  };
+  const skBind = (ed) => {
+    if (!ed || ed.__skB || !ed.shadowRoot) return;
+    ed.__skB = true;
+    const R = ed.shadowRoot;
+    const apply = (t, v) => {
+      const d = t.dataset, base = d.skb, pobj = d.skp || '', i = Number(d.ski);
+      if (d.skf === 'shared') return skWrite(ed, base, pobj, (L, n) => { n.script = v || ''; }, { scriptOnly: true });
+      skWrite(ed, base, pobj, (L) => {
+        const o = L[i];
+        if (!o) return;
+        if (d.skf === 'minutes') { const n = Number(String(v).replace(',', '.')); o.minutes = n > 0 ? Math.min(600, n) : o.minutes; }
+        else if (d.skf === 'data') { const t2 = String(v || '').trim(); const pd = t2 ? seekData(t2) : null; o.data = t2 ? (pd || t2) : undefined; }
+        else o[d.skf] = v || undefined;
+      });
+    };
+    // Tekstfelt: lagres ved change (blur/Enter). Velgere: value-changed fanges før editorens egen data-name-lytter.
+    R.addEventListener('change', (e) => { const t = e.target; if (t && t.dataset && t.dataset.skf) { e.stopPropagation(); apply(t, t.value); } }, true);
+    R.addEventListener('value-changed', (e) => { const t = e.target; if (t && t.dataset && t.dataset.skf) { e.stopPropagation(); apply(t, e.detail && e.detail.value); } }, true);
+  };
+  const seekField = (p) => ({
+    type: 'html',
+    click: (d, ed) => {
+      const base = d.skb, pobj = d.skp || '', i = Number(d.ski);
+      if (!base || !d.ska) return;
+      if (d.ska === 'test') {
+        const h = ed._hass, c = ed._config || {};
+        const pl = pobj ? edPlayer(ed, pobj) : null;
+        if (!pl) return M.toast('Velg en spiller for å teste');
+        const o = seekCfg(c, pl).options[i] || null;
+        if (!o) return;
+        const r = seekRun(h, c, pl, o, 1);
+        if (r.kind !== 'none') { M.haptic('light'); M.toast(`Test: ${seekLabel(o, 1)} · ${({ script: 'script', shared: 'felles script', service: 'tjeneste', seek: 'media_seek', remote: 'fjernkontroll' })[r.kind] || r.kind}`); }
+        return;
+      }
+      M.haptic(d.ska === 'rm' ? 'medium' : 'selection');
+      if (d.ska === 'reset') return ed._set(base, undefined);
+      skWrite(ed, base, pobj, (L) => {
+        if (d.ska === 'add' && L.length < SEEK_MAX) { const last = L.length ? Number(L[L.length - 1].minutes) || 0 : 0; L.push({ minutes: last ? Math.min(600, last * 2) : 1, action: 'auto' }); }
+        if (d.ska === 'rm' && L.length > 1) L.splice(i, 1);
+        if (d.ska === 'act' && L[i]) L[i].action = d.v;
+      });
+    },
+    html: (h, c, key, ed) => {
+      c = c || {};
+      skBind(ed);
+      const pobj = p ? p.obj : '', base = p ? `players.${p.obj}.seek` : 'seek', own = skObj(skGet(c, base));
+      const L = seekRawOpts(c, pobj), gui = !!(ed && !ed._inline && customElements.get('ha-selector'));
+      const at = (i, f, x) => `data-skb="${esc(base)}" data-skp="${esc(pobj)}" data-ski="${i}" ${f ? `data-skf="${f}"` : ''} ${x || ''}`;
+      const btn = (i, a, x, inner, st) => `<button type="button" class="${x || 'ib'}" data-a="fn" data-k="${key}" ${at(i)} data-ska="${a}" ${st || ''}>${inner}</button>`;
+      const scriptPick = (i, f, val, name, lab) => (gui
+        ? `<ha-selector data-nomorph data-key="sks-${esc(base)}-${f}-${i}" data-name="${esc(name)}" ${at(i, f)} data-selector="${esc(JSON.stringify({ entity: { domain: 'script' } }))}" data-label="${esc(lab)}"></ha-selector>`
+        : M.entityPicker.html({ key: `sks-${base}-${f}-${i}`, value: val || '', domains: 'script', placeholder: lab, attrs: at(i, f) }));
+      const rows = L.map((o, i) => {
+        const act = SEEK_ACTS.some((x) => x[0] === o.action) ? o.action : 'auto';
+        const ph = `+${Number(o.minutes) || 0} min`;
+        const seg = `<div class="chips sg" role="radiogroup" aria-label="Handling" data-key="ska-${i}">${SEEK_ACTS.map(([v, l]) => `<button type="button" class="chip ${v === act ? 'on' : ''}" role="radio" aria-checked="${v === act}" data-a="fn" data-k="${key}" ${at(i)} data-ska="act" data-v="${v}">${l}</button>`).join('')}</div>`;
+        let extra = '';
+        if (act === 'script') extra = scriptPick(i, 'script', o.script, `${base}.options.${i}.script`, 'Script for dette valget');
+        if (act === 'service') extra = `<input class="inp" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" placeholder="domene.tjeneste, f.eks. remote.send_command" value="${esc(o.service || '')}" aria-label="Tjeneste" ${at(i, 'service')}>
+          <textarea class="inp" rows="3" spellcheck="false" placeholder="Data (YAML/JSON), f.eks.&#10;command: right&#10;num_repeats: {{ seconds }}" aria-label="Tjenestedata" style="height:auto;min-height:72px;padding:10px 12px;font-family:ui-monospace,Menlo,monospace;font-size:13px;resize:vertical" ${at(i, 'data')}>${esc(skDataTxt(o.data))}</textarea>`;
+        return `<div class="skr" data-key="skr-${i}" style="display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:16px;background:var(--ki-surface-3, #2f2f2f)">
+          <div class="line">
+            <input class="inp" style="flex:1;min-width:0;background:var(--ki-surface, #3a3a3a)" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" placeholder="${esc(ph)}" value="${esc(o.label || '')}" aria-label="Etikett" ${at(i, 'label')}>
+            <input class="inp" style="width:76px;flex:none;background:var(--ki-surface, #3a3a3a)" type="number" inputmode="decimal" min="0.1" max="600" step="any" value="${esc(o.minutes != null ? o.minutes : '')}" aria-label="Minutter" ${at(i, 'minutes')}><span class="small" style="flex:none">min</span>
+            ${btn(i, 'test', 'chip', `${M.icon('mdi:play', 16)}Test`, `title="Test valget på spilleren" ${p ? '' : 'disabled style="opacity:.35"'}`)}
+            ${btn(i, 'rm', 'ib', M.icon('mdi:close', 18), `title="Fjern" aria-label="Fjern valget" ${L.length > 1 ? '' : 'disabled style="opacity:.3"'}`)}
+          </div>${seg}${extra}</div>`;
+      }).join('');
+      const add = L.length < SEEK_MAX ? btn(0, 'add', 'chip', `${M.icon('mdi:plus', 16)}Legg til valg`, 'style="align-self:flex-start"') : `<span class="small">Maks ${SEEK_MAX} valg</span>`;
+      const inherited = p && !own.options && !own.script;
+      return `<div class="sec skf" data-key="skf-${esc(base)}" style="display:flex;flex-direction:column;gap:8px;padding:12px">
+        <div class="line" style="padding:2px 4px">${M.icon('mdi:fast-forward', 20)}<span style="flex:1;font-size:14px;font-weight:500">Spoling</span>${p && !inherited ? btn(0, 'reset', 'chip', 'Bruk standard') : ''}</div>
+        <span class="small" style="padding:0 4px">Hold ◀◀ / ▶▶ (eller ◀ / ▶ på styrekorset) for å velge. ${p ? (inherited ? 'Bruker felles standard for kortet.' : 'Eget oppsett for denne spilleren.') : 'Standard for alle spillere uten eget oppsett.'} Rekkefølge: script på knappen → felles script → automatisk.</span>
+        ${rows}${add}
+        <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px"><span class="small" style="padding:0 4px">Felles script for alle valg (valgfritt) – får variablene entity_id, direction (forward | back), minutes og seconds</span>
+          ${scriptPick(0, 'shared', own.script || '', `${base}.script`, 'Felles script')}</div>
+      </div>`;
+    },
+  });
   // Seksjon per spiller tegnes bare når den er åpen (lazy) – lister, source_list, favoritter og velgere for lukkede
   // spillere bygges ikke. Feil i én spiller gir «Kunne ikke laste denne delen» i stedet for et halvt tegnet ark.
   const failSec = (p, e) => { try { console.error('[msh-media] editor', p && p.id, e); } catch (x) { /* */ } return { type: 'section', id: 'p_' + (p && p.obj), lazy: true, icon: 'mdi:alert-circle-outline', label: ((p && p.name) || '–') + ' · Kunne ikke laste denne delen', fields: [{ type: 'info', label: 'Kunne ikke laste denne delen' }] }; };
@@ -873,6 +984,7 @@
                 cmdPlaceholder: platOf(h, p) === 'apple' ? 'f.eks. top_menu, skip_forward' : 'f.eks. KEYCODE_SETTINGS, MENU',
                 help: hp ? `Hold ${KEYL[k].toLowerCase()} (≥ ${HOLD_MS} ms): ${hp.label}` : `Hold ${KEYL[k].toLowerCase()}: ingen handling – vanlig trykk` };
             }),
+            seekField(p), // 56 C2 · Spoling (under fjernkontrollen)
             { type: 'select', name: b + '.volume', label: 'Volum styres av', options: [['media', 'Mediaspiller'], ['buttons', 'Knapper']], default: 'media' },
             { type: 'entity', name: b + '.volume_up', label: 'Volum opp', domains: ['button', 'script', 'switch', 'input_button'], help: 'Tom = media_player.volume_up' },
             { type: 'entity', name: b + '.volume_down', label: 'Volum ned', domains: ['button', 'script', 'switch', 'input_button'], help: 'Tom = media_player.volume_down' },
@@ -886,6 +998,7 @@
           // 35.8 · Musikk 1:1 med Media v4 cfgMus: Mediaspiller → Snarveier/stasjoner først, så resten
           fields.unshift(srcField(p));
           fields.push({ type: 'text', name: b + '.hide_sources', label: 'Skjul kilder (kommaseparert)', placeholder: 'f.eks. Bluetooth, USB' });
+          fields.push(seekField(p)); // 56 C2 · Spoling (hold ⏮/⏭)
         }
         // Fiks 20.21: seertid-chip i Album-kortet (watch_time.<spiller>.i_dag / .maned)
         const wy = ((c.watch_time || {})[p.id]) || {};
@@ -951,6 +1064,7 @@
       { type: 'select', name: 'vol_style', label: 'Volum-stil · Musikk', options: [['pille', 'Pille'], ['trinn', 'Trinn'], ['user', 'La brukeren bytte']], default: 'user' },
       { type: 'select', name: 'vol_style_tv', label: 'Volum-stil · TV', options: [['trinn', 'Trinn'], ['knapper', 'Knapper'], ['user', 'La brukeren bytte']], default: 'user' },
       { type: 'boolean', name: 'remote_swipe', label: 'Sveip på styreflaten', default: true, help: 'Dra på fjernkontrollens runde flate for Opp/Ned/Venstre/Høyre (én kommando per 34 px)' },
+      seekField(null), // 56 C2 · felles standard for spoling (seek)
       { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
     ];
 
@@ -1092,16 +1206,38 @@
   };
   const relLum = (rgb) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]); };
   // Bakgrunnsfarge for Album-kortet: fargen blandet med #111 (68 % → ned) til kontrasten mot hvit tekst er ≥ 4.5:1
-  const albumBg = (col) => {
-    const rgb = rgbOf(col);
+  const albumBg = (col, target) => {
+    const rgb = rgbOf(col), tg = target || 4.5;
     if (!rgb) return `color-mix(in oklch, ${col} 55%, #111)`;
     for (let k = 0.68; k > 0.15; k -= 0.02) {
       const m = rgb.map((v) => v * k + 17 * (1 - k));
-      if (1.05 / (relLum(m) + 0.05) >= 4.5) return `rgb(${m.map(Math.round).join(', ')})`;
+      if (1.05 / (relLum(m) + 0.05) >= tg) return `rgb(${m.map(Math.round).join(', ')})`;
     }
     return 'rgb(34, 34, 34)';
   };
   M.mediaAlbumBg = albumBg; // (test)
+  /* Fiks 56 E · spillerkortet i lys modus. Mørk modus er uendret (data-ki-island, albumBg + hvit tekst).
+   *   plain: av / ingen art → var(--ki-surface) (hvit) + tynn kant + svak skygge, tekst --ki-text/--ki-text-2, kilde-chip og
+   *          runde knapper --ki-surface-2 med --ki-text, art-plassholder --ki-surface-2 med ikon --ki-text-3 (40 px). Av:
+   *          innholdet (ikke kortet) dempes til .85.
+   *   lta:   art med lys snittfarge → flaten = fargen (lysnet til mørk tekst #333/#1c1c1c ≥ 4,5:1), tekst --ki-text.
+   *   lti:   art med mørk snittfarge → mørk øy som i mørk modus, men mørknet til ≥ 7:1 mot hvit (undertekst ≥ 4,5:1).
+   *   På art (lta/lti): kilde-chip rgba(255,255,255,.7) og runde knapper rgba(255,255,255,.75) med mørk tekst/ikon. */
+  const heroLight = () => !!(M.theme && M.theme.isLight && M.theme.isLight());
+  const LT_INK = (M.theme && M.theme.LIGHT && M.theme.LIGHT.text) || 'rgb(28, 28, 28)'; // mørk tekst på hvite chips/knapper
+  const LT_SUB = (M.theme && M.theme.LIGHT && M.theme.LIGHT['text-1']) || 'rgb(51, 51, 51)';
+  const crOf = (a, b) => { const x = relLum(a), y = relLum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const heroTone = (col) => {
+    const rgb = rgbOf(col), sub = rgbOf(LT_SUB) || [51, 51, 51];
+    if (!rgb) return { mode: 'lti', bg: albumBg(col, 7) };
+    if (relLum(rgb) < 0.18) return { mode: 'lti', bg: albumBg(col, 7) };
+    for (let k = 0; k <= 1.0001; k += 0.04) {
+      const m = rgb.map((v) => v * (1 - k) + 255 * k);
+      if (crOf(m, sub) >= 4.5) return { mode: 'lta', bg: `rgb(${m.map(Math.round).join(', ')})` };
+    }
+    return { mode: 'lta', bg: 'rgb(255, 255, 255)' };
+  };
+  M.mediaHeroTone = heroTone; // (test)
   const SEG_H = [8, 12, 16, 10, 14, 7, 12, 16, 9, 13, 6, 11, 15, 10]; // 14 segmenter, 6–16 px
 
   class MediaHero extends MediaBase {
@@ -1135,7 +1271,8 @@
       const hgt = M.clamp(Number(cfg.card_height) || CARD_H, 200, 320);
       if (!R.L.length) {
         const txt = R.P.all.length ? `Ingen ${R.tab === 'tv' ? 'TV-er' : 'musikkspillere'}` : 'Fant ingen mediaspillere';
-        return `<div class="wrap"><div class="sw noscroll" style="--mh:${hgt}px"><section data-ki-island class="pc off" data-key="_none" style="background:linear-gradient(150deg, #343434, var(--ki-surface-3, #2f2f2f))">
+        const pl0 = heroLight(); // 56 E: lys modus → hvit flate
+        return `<div class="wrap"><div class="sw noscroll" style="--mh:${hgt}px"><section ${pl0 ? 'data-ki-noisland' : 'data-ki-island'} class="pc off${pl0 ? ' lt' : ''}" data-key="_none" style="${pl0 ? '' : 'background:linear-gradient(150deg, #343434, var(--ki-surface-3, #2f2f2f))'}">
           <button class="pw press" data-act="customize" data-section="entities" title="Velg entitet">${M.icon('add', 20)}</button>
           <div class="mid"><div class="art" style="background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-mid, var(--gray600,#7f7f7f))">${M.icon('music_note', 36)}</div>
             <div class="tt"><div class="dl">${M.icon('speaker', 15)}<b class="ell">–</b></div><div class="ti">–</div><span class="ar ell">${esc(txt)}</span></div></div>
@@ -1155,7 +1292,9 @@
       const aIc = a.app_icon ? (a.app_icon[0] === '/' && h.hassUrl ? h.hassUrl(a.app_icon) : a.app_icon) : '';
       const pic = off ? '' : tv ? (I.pic || aIc) : I.pic;
       const col = off ? null : (artCol(I, pic, () => this.update()) || (tv ? I.col : appStyle(I.app).col) || C.pink);
-      const bg = off ? '' : `background-color:${albumBg(col)}`;
+      // 56 E: lys modus → plain (av / ingen art) | lta / lti (art); mørk modus uendret
+      const LM = heroLight() ? (off || !pic ? { mode: 'lt' } : heroTone(col)) : null;
+      const bg = LM ? (LM.bg ? `background-color:${LM.bg}` : '') : off ? '' : `background-color:${albumBg(col)}`;
       let title, sub;
       if (off) { title = I.title; sub = p.name; }
       else {
@@ -1170,10 +1309,10 @@
       const segs = off ? '<span class="al-seg"></span>' : `<span class="al-seg" ${P ? `title="${fmtT(P.pos)} / ${fmtT(P.dur)}"` : ''}>${SEG_H.map((sh, i) => `<i class="${i < n ? 'on' : ''}" style="height:${sh}px"></i>`).join('')}</span>`;
       const id = esc(p.id);
       const b2 = tv
-        ? `<button class="al-b press" data-act="pp" data-id="${id}" title="Spill/pause" aria-label="Spill/pause">${M.icon(I.run ? 'pause' : 'play_arrow', 24)}</button>`
+        ? `<button class="al-b press ${I.run && !off ? 'pri' : ''}" data-act="pp" data-id="${id}" title="Spill/pause" aria-label="Spill/pause">${M.icon(I.run ? 'pause' : 'play_arrow', 24)}</button>`
         : `<button class="al-b press" data-act="next" data-id="${id}" title="Neste" aria-label="Neste">${M.icon('skip_next', 24)}</button>`;
       const btns = `<button class="al-b press" data-act="power" data-id="${id}" title="Av/på" aria-label="Av/på">${M.icon('power_settings_new', 20)}</button>${b2}`;
-      const art = `<div class="al-art ${pic && tv ? 'logo' : ''}" data-sa-kind="${pic && I.art && I.art.url === pic ? I.art.kind : pic ? 'app' : 'none'}">${pic ? artImg(I, pic) : M.icon(off ? (tv ? 'tv' : 'speaker') : tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 40)}</div>`;
+      const art = `<div class="al-art ${pic && tv ? 'logo' : ''}" data-sa-kind="${pic && I.art && I.art.url === pic ? I.art.kind : pic ? 'app' : 'none'}">${pic ? artImg(I, pic) : M.icon(off ? (tv ? 'tv' : LM && I.artIcon === 'mdi:radio' ? 'mdi:radio' : 'speaker') : tv ? (appStyle(I.app).icon || 'tv') : I.artIcon, 40)}</div>`;
       // Seertid-chip (alltid synlig når spilleren har watch_time): i dag (fet) · denne måneden, t:mm
       const W = wtOf(cfg, p);
       let wt = '';
@@ -1181,7 +1320,8 @@
         const v = (eid) => { const m = eid ? wtMin(this.s(eid)) : null; return m == null ? '–' : fmtHM(m); };
         wt = `<span class="al-wt" title="Seertid i dag · denne måneden">${M.icon('mdi:timer-outline', 13)}<b>${v(W.i_dag)}</b><span>·</span><span>${v(W.maned)}</span></span>`;
       }
-      return `<section data-ki-island class="pc al ${off ? 'off' : 'on'} ${run ? 'run' : ''} ${tv ? 'tv' : 'mus'}" data-key="${id}" data-ent="${id}" style="${bg}">
+      const isl = !LM || LM.mode === 'lti';
+      return `<section ${isl ? 'data-ki-island' : 'data-ki-noisland'} class="pc al ${off ? 'off' : 'on'} ${run ? 'run' : ''} ${tv ? 'tv' : 'mus'}${LM ? ' ' + LM.mode : ''}" data-key="${id}" data-ent="${id}" style="${bg}">
         <div class="al-l"><div class="al-top">${chip}${eq}</div><div class="al-ti ell">${esc(title)}</div>${sub ? `<div class="al-ar ell">${esc(sub)}</div>` : ''}
           <div class="al-bot">${segs}${btns}</div></div>
         <div class="al-r">${art}${wt}</div></section>`;
@@ -1193,6 +1333,8 @@
       const h = this.hass, I = info(this, p), a = I.a, s = I.s, tv = I.tv, V = volInfo(this, p);
       const col = tv ? (I.col || fallbackCol(p.id)) : (artCol(I, I.pic, () => this.update()) || fallbackCol(p.id));
       const bg = I.off ? 'linear-gradient(150deg, #343434, var(--ki-surface-3, #2f2f2f))' : `linear-gradient(150deg, color-mix(in srgb, ${col} ${tv ? 20 : 22}%, #343434), #343434 55%, var(--ki-surface-3, #2f2f2f))`;
+      const pic0 = tv ? (I.pic || (a.app_icon ? (a.app_icon[0] === '/' && h.hassUrl ? h.hassUrl(a.app_icon) : a.app_icon) : '')) : I.pic;
+      const plain = heroLight() && (I.off || !pic0); // 56 E: lys modus, av / ingen art → hvit flate (ellers mørk øy som før)
       const eq = [0, 1, 2, 3].map((k) => `<span style="animation-duration:${(0.7 + (k % 3) * 0.18).toFixed(2)}s;animation-delay:${(k * 0.12).toFixed(2)}s"></span>`).join('');
       const has0 = (v) => v != null && v !== '';
       const ct = String(a.media_content_type || '').toLowerCase();
@@ -1222,7 +1364,7 @@
       const pic = tv ? (I.pic || (a.app_icon ? (a.app_icon[0] === '/' && h.hassUrl ? h.hassUrl(a.app_icon) : a.app_icon) : '')) : I.pic;
       const sc = I.off ? null : tv ? (artCol(I, pic, () => this.update()) || col) : col;
       const shadow = sc ? `box-shadow:0 10px 26px color-mix(in srgb, ${sc} 38%, transparent);` : '';
-      const tile = I.off ? 'background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-mid, var(--gray600,#7f7f7f))' : tv ? `background:${col};color:#fff` : `background:linear-gradient(145deg, ${col}, color-mix(in srgb, ${col} 45%, var(--ki-surface-3, #2f2f2f)));color:#fff`;
+      const tile = plain ? 'background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-3, var(--gray600,#7f7f7f))' : I.off ? 'background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-mid, var(--gray600,#7f7f7f))' : tv ? `background:${col};color:#fff` : `background:linear-gradient(145deg, ${col}, color-mix(in srgb, ${col} 45%, var(--ki-surface-3, #2f2f2f)));color:#fff`;
       let badge = '';
       if (tv && !I.off) {
         const rs = [a.media_resolution, a.video_resolution, a.resolution, a.media_video_format, a.video_format, ct].filter(Boolean).join(' ');
@@ -1284,7 +1426,7 @@
         ctl = `<div class="ctl">${sk ? b('seek', 'mdi:rewind-10', 'Tilbake 10 s', 'data-d="-10"') : ''}${pp ? `<button class="cb pp press" data-act="pp" data-id="${id}" title="Spill/pause" aria-label="Spill/pause">${M.icon(I.run ? 'pause' : 'play_arrow', 26)}</button>` : ''}${sk ? b('seek', 'mdi:fast-forward-30', 'Frem 30 s', 'data-d="30"') : ''}${has(32) ? b('next', 'skip_next', 'Neste') : ''}</div>`;
         if (ctl === '<div class="ctl"></div>') ctl = '';
       }
-      return `<section data-ki-island class="pc ${I.off ? 'off' : ''} ${I.run ? 'run' : ''} ${tv ? 'tv' : 'mus'}" data-key="${esc(p.id)}" data-ent="${esc(p.id)}" style="background:${bg}">
+      return `<section ${plain ? 'data-ki-noisland' : 'data-ki-island'} class="pc ${I.off ? 'off' : ''} ${I.run ? 'run' : ''} ${tv ? 'tv' : 'mus'}${plain ? ' lt' : ''}" data-key="${esc(p.id)}" data-ent="${esc(p.id)}" style="${plain ? '' : `background:${bg}`}">
         ${pw}${mid}<div class="bot">${bot}</div>${ctl}</section>`;
     }
     onAction(name, el, ev) {
@@ -1310,7 +1452,12 @@
       return super.onAction(name, el, ev);
     }
     onClose() { this._tickStop(); }
-    disconnectedCallback() { super.disconnectedCallback(); this._tickStop(); }
+    // 56 E: lys/mørk avgjør kortflaten (plain / art-tone) → tegn på nytt ved modusbytte
+    connectedCallback() {
+      super.connectedCallback();
+      if (!this._thOff) { const f = () => this.update(); window.addEventListener('ki-theme-change', f); this._thOff = () => window.removeEventListener('ki-theme-change', f); }
+    }
+    disconnectedCallback() { super.disconnectedCallback(); this._tickStop(); if (this._thOff) { this._thOff(); this._thOff = null; } }
     _tickStop() { if (this._tk) { clearInterval(this._tk); this._tk = null; } }
     afterRender() {
       const sw = this.shadowRoot.querySelector('.sw');
@@ -1449,6 +1596,30 @@
         .dots{display:flex;justify-content:center;gap:6px;height:10px;align-items:center}
         .dot{width:6px;height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454));transition:all .25s;flex:none}
         .dot.on{width:18px;background:var(--ki-text, var(--white,#fafafa))}
+        /* 56 E · lys modus (klassene settes bare i lys modus – mørk er uendret) */
+        .pc.lt{background:var(--ki-surface, #3a3a3a);background-image:none;box-shadow:inset 0 0 0 1px rgb(0 0 0/0.06),0 2px 10px rgb(0 0 0/0.06);color:var(--ki-text, #fafafa)}
+        .pc.al.lt{background-color:var(--ki-surface, #3a3a3a);background-image:none}
+        .pc.al.lt .al-ti{color:var(--ki-text, #fafafa)}
+        .pc.al.lt .al-ar{color:var(--ki-text-2, #afafaf)}
+        .pc.al.lt .al-chip,.pc.al.lt .al-wt{background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}
+        .pc.al.lt .al-b{background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}
+        .pc.al.lt .al-eq span,.pc.al.lta .al-eq span{background:var(--ki-text, #fafafa)}
+        .pc.al.lt .al-art{background:var(--ki-surface-2, #404040);color:var(--ki-text-3, #7f7f7f);box-shadow:none}
+        .pc.al.lt .al-art::after{background:none;box-shadow:none}
+        .pc.al.lt.off .al-l{opacity:.85}
+        .pc.al.lta{background-image:radial-gradient(120% 90% at 100% 0%, rgb(255 255 255/0.28), transparent 55%);color:var(--ki-text, #fafafa)}
+        .pc.al.lta .al-ti{color:var(--ki-text, #fafafa)}
+        .pc.al.lta .al-ar{color:var(--ki-text-1, #e1e1e1)}
+        .pc.al.lta .al-chip,.pc.al.lti .al-chip,.pc.al.lta .al-wt,.pc.al.lti .al-wt{background:rgb(255 255 255/0.7);color:${LT_INK}}
+        .pc.al.lta .al-b,.pc.al.lti .al-b{background:rgb(255 255 255/0.75);color:${LT_INK}}
+        .pc.al.lt .al-b.pri,.pc.al.lta .al-b.pri,.pc.al.lti .al-b.pri{background:${PINK};color:var(--ki-on-accent, #3a3a3a)}
+        .pc.lt .pw,.pc.lt .cb,.pc.lt .ch{background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}
+        .pc.lt .cb.pp{background:${PINK};color:var(--ki-on-accent, #3a3a3a)}
+        .pc.lt .dl{color:var(--ki-text, #fafafa)}
+        .pc.lt .ar{color:var(--ki-text-2, #afafaf)}
+        .pc.lt .live{color:var(--ki-red-text, #f28073)}
+        .pc.lt.off .mid{opacity:1}
+        .pc.lt.off .tt{opacity:.85}
       `;
     }
   }
@@ -1457,19 +1628,154 @@
   const KEYS = [['back', 'arrow_back', 'Tilbake'], ['home', 'home', 'Hjem'], ['menu', 'menu', 'Meny'], ['play', 'play_pause', 'Spill/pause']];
   const KEYL = { up: 'Opp', down: 'Ned', left: 'Venstre', right: 'Høyre', ok: 'OK', back: 'Tilbake', home: 'Hjem', menu: 'Meny', play: 'Spill/pause', mic: 'Mikrofon' };
   const HOME_HOLD_MS = 550; // Fiks 19.4: Sirkel – hold Hjem fyller knappen rosa over 550 ms
-  // 35.8 · spole-presets (hold venstre/høyre pil). Apple TV: remote.send_command skip_backward/skip_forward – ett hopp
-  // er appens eget intervall (tvOS-standard 10 s), så antall hopp = sekunder / APPLE_SKIP_S.
-  const SEEK_HOLD_MS = 500, SEEK_MIN = [1, 2, 5, 10], APPLE_SKIP_S = 10;
-  const SEEK_CSS = `:host{all:initial;position:fixed;inset:0;z-index:2;display:block;font-family:${M.FONT};-webkit-tap-highlight-color:transparent}
-    .bg{position:absolute;inset:0;background:transparent}
-    .m{position:absolute;display:flex;gap:4px;padding:5px;border-radius:24px;background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa);
-      box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1))),0 12px 32px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))));
-      transform-origin:50% 100%;animation:skIn .18s cubic-bezier(.34,1.4,.64,1);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-    .m.below{transform-origin:50% 0}
-    button{all:unset;box-sizing:border-box;height:40px;min-width:58px;padding:0 12px;border-radius:20px;display:grid;place-items:center;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:pointer;color:inherit;-webkit-touch-callout:none}
-    button:hover,button:focus-visible{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
-    button:active{background:${PINK};color:var(--ki-on-accent, #3a3a3a);transform:scale(.96)}
-    @keyframes skIn{from{opacity:0;transform:scale(.86)}}
+  /* ------------------------------------------------------------ Fiks 56 C · spoling (hold ◀◀/▶▶ eller ◀/▶ på styrekorset)
+   * Config: seek: { options: [{ label, minutes, action: 'auto'|'script'|'service', script, service, data }], script }
+   *   per spiller under players.<obj>.seek, felles standard på kortnivå (config.seek). Standard: [1, 2, 5, 10] min, maks 6.
+   * Rekkefølge per valg: script/tjeneste på knappen → felles seek_script (seek.script) → automatisk:
+   *   1. media_player.media_seek (SEEK, bit 2) med posisjon = media_position + tid siden media_position_updated_at (spiller)
+   *   2. remote.send_command på fjernkontrollen på samme enhet, gjentatt per enhetstype (≈ 10 s per hopp):
+   *      Apple TV skip_forward/skip_backward · Android/Google TV DPAD_RIGHT/DPAD_LEFT · LG webOS FASTFORWARD/REWIND
+   *      (webOS uten remote.*: webostv.button { button: FASTFORWARD|REWIND } gjentatt)
+   *   3. ellers: toast «Spoling støttes ikke av <enhet> – sett eget script i Tilpass» + haptic failure.
+   * Bakover = negativt fortegn, klemt til ≥ 0. Script kalles med variablene { entity_id, direction, minutes, seconds }. */
+  const SEEK_HOLD_MS = 400, SEEK_DEF = [1, 2, 5, 10], SEEK_MAX = 6, SEEK_STEP_S = 10;
+  const SEEK_ACTS = [['auto', 'Automatisk'], ['script', 'Script'], ['service', 'Tjeneste']];
+  const skObj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+  // Rå liste (editoren): spillerens egne → kortets → standard. own = spillerens/kortets eget seek-objekt.
+  const seekRawOpts = (cfg, pobj) => {
+    const card = skObj(cfg && cfg.seek), own = pobj ? skObj(((cfg && cfg.players) || {})[pobj] && cfg.players[pobj].seek) : card;
+    const L = Array.isArray(own.options) ? own.options : Array.isArray(card.options) ? card.options : SEEK_DEF.map((m) => ({ minutes: m }));
+    return L.filter((o) => o && typeof o === 'object').slice(0, SEEK_MAX).map((o) => ({ ...o }));
+  };
+  // Effektiv spole-config for en spiller (kortet): gyldige valg + felles script (spillerens går foran kortets)
+  const seekCfg = (cfg, p) => {
+    const card = skObj(cfg && cfg.seek), own = skObj(p && p.pc && p.pc.seek);
+    const options = seekRawOpts(cfg, p && p.obj).filter((o) => Number(o.minutes) > 0).map((o) => ({
+      label: o.label ? String(o.label) : '', minutes: Number(o.minutes), action: SEEK_ACTS.some((x) => x[0] === o.action) ? o.action : 'auto',
+      script: o.script || '', service: o.service || '', data: o.data,
+    }));
+    return { options: options.length ? options : SEEK_DEF.map((m) => ({ label: '', minutes: m, action: 'auto', script: '', service: '', data: null })), script: own.script || card.script || '' };
+  };
+  const seekLabel = (o, dir) => {
+    const l = String((o && o.label) || '').trim();
+    if (!l) return `${dir < 0 ? '−' : '+'}${Number(o && o.minutes) || 0} min`;
+    return dir < 0 ? l.replace(/^\+\s*/, '−') : l;
+  };
+  // Enhetstype for fjernkontroll-spoling (bare kjente plattformer – ukjent = ingen gjetting)
+  const seekType = (h, p) => {
+    const rem = remoteOf(h, p), pf = [(M.regEntry(h, rem) || {}).platform, (M.regEntry(h, p.id) || {}).platform].join(' ');
+    if (/apple_tv/.test(pf)) return 'apple';
+    if (/webostv/.test(pf)) return 'webos';
+    if (/android|google|cast/.test(pf)) return 'android';
+    if (p.pc && p.pc.platform === 'apple') return 'apple';
+    if (p.pc && p.pc.platform === 'google') return 'android';
+    return null;
+  };
+  // Aktuell posisjon (s) – også uten varighet (direkte-TV): media_position + (nå − updated_at) når den spiller
+  const seekPos = (s) => {
+    const a = (s && s.attributes) || {};
+    if (a.media_position == null || a.media_position === '' || !isFinite(Number(a.media_position))) return null;
+    let pos = Number(a.media_position);
+    if (s.state === 'playing' && a.media_position_updated_at) { const t = Date.parse(a.media_position_updated_at); if (t) pos += Math.max(0, (Date.now() - t) / 1000); }
+    const dur = Number(a.media_duration);
+    return { pos, dur: dur > 0 ? dur : null };
+  };
+  // Automatisk plan → { kind, calls: [[domene, tjeneste, data]], gap } eller null (ikke støttet)
+  const seekPlan = (h, p, sec) => {
+    const s = h && h.states[p.id], a = (s && s.attributes) || {}, sf = Number(a.supported_features) || 0;
+    const P = (sf & 2) === 2 ? seekPos(s) : null;
+    if (P) {
+      let to = Math.max(0, P.pos + sec);
+      if (P.dur) to = Math.min(to, P.dur);
+      return { kind: 'seek', calls: [['media_player', 'media_seek', { entity_id: p.id, seek_position: Math.round(to) }]] };
+    }
+    const type = seekType(h, p), rem = remoteOf(h, p), n = Math.max(1, Math.round(Math.abs(sec) / SEEK_STEP_S)), back = sec < 0;
+    const rc = (command, delay) => ({ kind: 'remote', type, calls: [['remote', 'send_command', { entity_id: rem, command, num_repeats: n, delay_secs: delay }]] });
+    if (type === 'apple' && rem) return rc(back ? 'skip_backward' : 'skip_forward', 0.1);
+    if (type === 'android' && rem) return rc(back ? 'DPAD_LEFT' : 'DPAD_RIGHT', 0.3);
+    if (type === 'webos') {
+      if (rem) return rc(back ? 'REWIND' : 'FASTFORWARD', 0.3);
+      return { kind: 'remote', type, gap: 300, calls: Array.from({ length: n }, () => ['webostv', 'button', { entity_id: p.id, button: back ? 'REWIND' : 'FASTFORWARD' }]) };
+    }
+    return null;
+  };
+  // Tjenestedata: objekt, JSON eller enkel YAML («nøkkel: verdi» per linje). {{ minutes }} / {{ seconds }} / {{ direction }} /
+  // {{ entity_id }} i strengverdier byttes ut (hele verdien = plassholder → tallet selv).
+  const seekData = (raw) => {
+    if (raw && typeof raw === 'object') return { ...raw };
+    const t = String(raw == null ? '' : raw).trim();
+    if (!t) return {};
+    try { const j = JSON.parse(t); if (j && typeof j === 'object' && !Array.isArray(j)) return j; } catch (e) { /* YAML */ }
+    const o = {};
+    let ok = false;
+    t.split(/\r?\n/).forEach((ln) => {
+      const m = /^\s*([A-Za-z0-9_]+)\s*:\s*(.*?)\s*$/.exec(ln);
+      if (!m) return;
+      ok = true;
+      let v = m[2].replace(/^(['"])(.*)\1$/, '$2');
+      if (/^-?\d+(\.\d+)?$/.test(v)) v = Number(v); else if (v === 'true' || v === 'false') v = v === 'true';
+      o[m[1]] = v;
+    });
+    return ok ? o : null;
+  };
+  const seekFill = (v, vars) => {
+    if (typeof v === 'string') {
+      const whole = /^\s*\{\{\s*(\w+)\s*\}\}\s*$/.exec(v);
+      if (whole && vars[whole[1]] !== undefined) return vars[whole[1]];
+      return v.replace(/\{\{\s*(\w+)\s*\}\}/g, (x, k) => (vars[k] !== undefined ? String(vars[k]) : x));
+    }
+    if (Array.isArray(v)) return v.map((x) => seekFill(x, vars));
+    if (v && typeof v === 'object') { const o = {}; Object.keys(v).forEach((k) => { o[k] = seekFill(v[k], vars); }); return o; }
+    return v;
+  };
+  const seekFail = (msg) => { M.haptic('failure'); if (M.toast) M.toast(msg, { icon: 'mdi:alert-circle-outline' }); };
+  // Send kallene (feil fra hass.callService – også synkrone – fanges og vises som toast)
+  const seekSend = (h, calls, gap) => {
+    const err = (e) => seekFail('Spoling feilet: ' + ((e && (e.message || e.code)) || e || 'ukjent feil'));
+    calls.forEach((c, i) => {
+      const go = () => { try { const r = h.callService(c[0], c[1], c[2]); if (r && r.catch) r.catch(err); } catch (e) { err(e); } };
+      if (i && gap) setTimeout(go, i * gap); else go();
+    });
+  };
+  // Utfør ett valg (o) i retning dir (±1) → { kind: 'script'|'service'|'shared'|'seek'|'remote'|'none', calls }
+  const seekRun = (h, cfg, p, o, dir) => {
+    if (!h || !p || !o) return { kind: 'none', calls: [] };
+    const S = seekCfg(cfg, p), min = Math.abs(Number(o.minutes) || 0), back = dir < 0;
+    const vars = { entity_id: p.id, direction: back ? 'back' : 'forward', minutes: min, seconds: Math.round(min * 60) };
+    let kind, calls, gap = 0;
+    if (o.action === 'script' && o.script) { kind = 'script'; calls = [['script', 'turn_on', { entity_id: o.script, variables: vars }]]; }
+    else if (o.action === 'service' && o.service) {
+      const [dm, sv] = String(o.service).trim().split('.');
+      const data = seekData(o.data);
+      if (!dm || !sv) { seekFail(`Ugyldig tjeneste «${o.service}» – bruk domene.tjeneste`); return { kind: 'none', calls: [] }; }
+      if (data == null) { seekFail('Kunne ikke lese tjenestedataene (YAML/JSON)'); return { kind: 'none', calls: [] }; }
+      const d2 = seekFill(data, vars);
+      if (d2.entity_id == null && d2.target == null && d2.device_id == null && d2.area_id == null) d2.entity_id = p.id;
+      kind = 'service'; calls = [[dm, sv, d2]];
+    } else if (S.script) { kind = 'shared'; calls = [['script', 'turn_on', { entity_id: S.script, variables: vars }]]; }
+    else {
+      const P = seekPlan(h, p, (back ? -1 : 1) * vars.seconds);
+      if (!P) { seekFail(`Spoling støttes ikke av ${p.name || M.name(h, p.id)} – sett eget script i Tilpass`); return { kind: 'none', calls: [] }; }
+      kind = P.kind; calls = P.calls; gap = P.gap || 0;
+    }
+    seekSend(h, calls, gap);
+    dbg(`spoling ${back ? '−' : '+'}${min} min · ${kind} · ${calls.map((c) => c[0] + '.' + c[1]).join(', ')}`);
+    return { kind, calls };
+  };
+  M.mediaSeek = { cfg: seekCfg, plan: seekPlan, run: seekRun, label: seekLabel, data: seekData, raw: seekRawOpts, HOLD_MS: SEEK_HOLD_MS, DEF: SEEK_DEF, MAX: SEEK_MAX }; // (test)
+  // C3 · vannrett pille over midten av styrekorset (Musikk: over transportraden), portalt til ki-overlay-root (fallgruve 1)
+  const SEEK_CSS = `:host{all:initial;position:fixed;inset:0;z-index:2;display:block;font-family:${M.FONT};-webkit-tap-highlight-color:transparent;touch-action:none}
+    .bg{position:absolute;inset:0;background:transparent;touch-action:none}
+    .m{position:absolute;height:56px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-around;padding:0 6px;border-radius:999px;background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa);
+      box-shadow:0 8px 24px rgb(0 0 0/0.18),inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));
+      transform-origin:50% 50%;animation:skIn .14s ease-out;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    button{all:unset;box-sizing:border-box;position:relative;z-index:1;flex:1 1 0;min-width:44px;height:44px;padding:0 4px;border-radius:22px;display:grid;place-items:center;font-size:17px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:pointer;color:inherit;-webkit-touch-callout:none;transition:transform .12s ease}
+    button:focus-visible{box-shadow:0 0 0 2px var(--ki-text, #fafafa)}
+    button:active,button.pr{transform:scale(.94)}
+    .mk{position:absolute;bottom:-3px;width:12px;height:12px;background:var(--ki-accent, var(--accent-color, #f285c9));border-radius:50% 0 50% 50%;transform:rotate(45deg);pointer-events:none}
+    .mk.l{left:16px}.mk.r{right:16px}
+    .m.back .mk{transform:scaleX(-1) rotate(45deg)}
+    @keyframes skIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
     @media (prefers-reduced-motion: reduce){.m{animation:none}}`;
   class MediaCard extends MediaBase {
     static get cardName() { return 'Media'; }
@@ -1670,36 +1976,49 @@
       }
       return super.onAction(name, el, ev);
     }
-    // 35.8 · spole-meny ved knappen (portalt til ki-overlay-root – Bubble-popupen har transform, fallgruve 1).
+    // 56 C3 · spole-pillen: vannrett pille (56 px, radius 999) over midten av styrekorset (Musikk: transportraden), fire
+    // (opptil seks) valg på én linje, to aksentmerker nederst som peker i spoleretningen. Portalt til ki-overlay-root
+    // (Bubble-popupen har transform, fallgruve 1). Lukkes ved trykk utenfor, valg, sveip ned og Esc – ingen × og ingen tittel.
     _seekMenu(btn, dir) {
       this._seekClose();
       const p = this._R && this._R.p;
       if (!p || !btn) return;
       M.haptic('light');
+      const S = seekCfg(this.config, p), back = dir < 0;
       const host = document.createElement('div');
       host.className = 'msh-seek';
-      host.setAttribute('data-ki-seek', dir < 0 ? 'back' : 'fwd');
+      host.setAttribute('data-ki-seek', back ? 'back' : 'fwd');
       const sr = host.attachShadow({ mode: 'open' });
-      sr.innerHTML = `<style>${SEEK_CSS}</style><div class="bg"></div><div class="m" role="menu" aria-label="${dir < 0 ? 'Spol tilbake' : 'Spol frem'}">${SEEK_MIN.map((m) => `<button role="menuitem" data-min="${m * dir}" aria-label="${dir < 0 ? 'Spol tilbake' : 'Spol frem'} ${m} min">${dir < 0 ? '−' : '+'}${m} min</button>`).join('')}</div>`;
+      sr.innerHTML = `<style>${SEEK_CSS}</style><div class="bg"></div><div class="m ${back ? 'back' : 'fwd'}" role="menu" aria-label="${back ? 'Spol tilbake' : 'Spol frem'}">${S.options.map((o, i) => `<button role="menuitem" data-i="${i}" data-min="${o.minutes * dir}" aria-label="${back ? 'Spol tilbake' : 'Spol frem'} ${o.minutes} min">${esc(seekLabel(o, dir))}</button>`).join('')}<span class="mk l" aria-hidden="true"></span><span class="mk r" aria-hidden="true"></span></div>`;
       M.overlayRoot().appendChild(host);
-      const menu = sr.querySelector('.m'), r = btn.getBoundingClientRect(), W = window.innerWidth;
-      const mw = menu.offsetWidth || 280, mh = menu.offsetHeight || 50;
+      // Plassering: over midten av styrekorset (.dp / .sp), ellers raden knappen står i, i full bredde på tvers
+      const root = this.shadowRoot, anc = (btn.closest && (btn.closest('.dp,.sp,.tr'))) || root.querySelector('.dp,.sp') || btn;
+      const menu = sr.querySelector('.m'), r = anc.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight;
+      const mw = Math.min(W - 16, Math.max(r.width, 64 * S.options.length + 12)), mh = 56;
       const left = Math.max(8, Math.min(W - mw - 8, r.left + r.width / 2 - mw / 2));
-      let top = r.top - mh - 10;
-      if (top < 8) { top = r.bottom + 10; menu.classList.add('below'); }
-      menu.style.left = left + 'px'; menu.style.top = top + 'px';
+      const top = Math.max(8, Math.min(H - mh - 8, r.top + r.height / 2 - mh / 2));
+      Object.assign(menu.style, { left: left + 'px', top: top + 'px', width: mw + 'px' });
       const stop = (e) => e.stopPropagation();
-      ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove'].forEach((t) => host.addEventListener(t, stop, { passive: true }));
+      ['pointerdown', 'pointerup', 'pointermove', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove', 'wheel'].forEach((t) => host.addEventListener(t, stop, { passive: true }));
       host.addEventListener('contextmenu', (e) => e.preventDefault());
-      // Slippet etter holdet gir et klikk på bakteppet under fingeren – menyen «armeres» først 200 ms etter slipp
-      const st = { armed: false };
+      // Slippet etter holdet gir et klikk på bakteppet under fingeren – trykk utenfor «armeres» først 200 ms etter slipp
+      const st = { armed: false, y0: null, x0: 0, swiped: false };
       const arm = () => { window.removeEventListener('pointerup', arm, true); window.removeEventListener('touchend', arm, true); setTimeout(() => { st.armed = true; }, 200); };
       window.addEventListener('pointerup', arm, true); window.addEventListener('touchend', arm, true);
+      // Sveip ned (> 24 px, mest loddrett) lukker pillen
+      host.addEventListener('pointerdown', (e) => { st.y0 = e.clientY; st.x0 = e.clientX; st.swiped = false; });
+      host.addEventListener('pointermove', (e) => {
+        if (st.y0 == null) return;
+        const dy = e.clientY - st.y0, dx = e.clientX - st.x0;
+        if (dy > 24 && dy > Math.abs(dx)) { st.y0 = null; st.swiped = true; M.haptic('light'); this._seekClose(); }
+      });
       host.addEventListener('click', (e) => {
         e.stopPropagation();
-        const b = e.composedPath().find((n) => n.dataset && n.dataset.min != null);
-        if (!b && !st.armed) return;
-        if (b) this._seekBy(p, Number(b.dataset.min));
+        if (st.swiped) return;
+        // Pillen ligger over knappen som ble holdt: klikket fra slippet treffer pillen – ingenting skjer før den er armert
+        if (!st.armed) return;
+        const b = e.composedPath().find((n) => n.dataset && n.dataset.i != null && n.localName === 'button');
+        if (b) this._seekGo(p, Number(b.dataset.i), dir);
         this._seekClose();
       });
       const key = (e) => { if (e.key === 'Escape') this._seekClose(); };
@@ -1714,23 +2033,14 @@
       window.removeEventListener('pointerup', m.arm, true); window.removeEventListener('touchend', m.arm, true);
       m.host.remove();
     }
-    // Relativ spoling: media_player.media_seek (posisjon ± min); Apple TV (plattform apple + remote.*): remote.send_command skip.
-    _seekBy(p, min) {
-      const h = this.hass, sec = Number(min) * 60;
-      if (!h || !p || !sec) return;
-      M.haptic('light');
-      const lbl = `${sec < 0 ? '−' : '+'}${Math.abs(min)} min`;
-      const rem = p.kind === 'tv' && platOf(h, p) === 'apple' ? remoteOf(h, p) : null;
-      if (rem) {
-        M.call(h, 'remote', 'send_command', { entity_id: rem, command: sec < 0 ? 'skip_backward' : 'skip_forward', num_repeats: Math.max(1, Math.round(Math.abs(sec) / APPLE_SKIP_S)), delay_secs: 0.1 });
-        dbg(`Apple TV · ${lbl} · remote.send_command ${sec < 0 ? 'skip_backward' : 'skip_forward'}`);
-      } else {
-        const P = posOf(h.states[p.id]);
-        if (!P) { M.haptic('failure'); if (this.toasts) M.toast('Spilleren oppgir ikke posisjon – kan ikke spole'); return; }
-        M.call(h, 'media_player', 'media_seek', { entity_id: p.id, seek_position: Math.round(M.clamp(P.pos + sec, 0, P.dur)) });
-        dbg(`media_player.media_seek → ${p.id} · ${lbl}`);
-      }
-      if (this.toasts) M.toast(`Spoler ${lbl}`);
+    // 56 C1/C2: valg i i pillen → script/tjeneste på knappen → felles seek_script → media_seek / fjernkontroll / toast.
+    // Haptic light når kallet er sendt (failure + toast når spoling ikke støttes); pillen lukkes etterpå (_seekMenu).
+    _seekGo(p, i, dir) {
+      const S = seekCfg(this.config, p), o = S.options[i];
+      if (!o) return null;
+      const r = seekRun(this.hass, this.config, p, o, dir);
+      if (r.kind !== 'none') { M.haptic('light'); if (this.toasts) M.toast(`Spoler ${seekLabel(o, dir)}`); }
+      return r;
     }
     // hold: plattform-standard for langt trykk (Hjem). swipe: kommandoen kom fra sveip på styreflaten.
     _remote(p, c, hold, swipe) {
@@ -1811,7 +2121,7 @@
           if (this._held || Date.now() - (this._swEnd || 0) < 60) { this._held = false; e.stopPropagation(); e.preventDefault(); }
         }, true);
         root.addEventListener('contextmenu', (e) => { if (this._el(e, '.key,.tab,.dp,.rs,[data-seek]')) e.preventDefault(); });
-        // 35.8 · Spole-presets: hold venstre/høyre pil (500 ms) → meny −1/−2/−5/−10 min eller +1/+2/+5/+10 min (_seekMenu).
+        // 35.8/56 C · Spole-pillen: hold venstre/høyre pil (400 ms) → pille −1/−2/−5/−10 min eller +1/+2/+5/+10 min (_seekMenu).
         // Flytter fingeren seg > 10 px før det, er det et sveip/trykk som før. Klikket ved slipp svelges (this._held).
         const skClear = () => { clearTimeout(this._skT); this._skT = null; };
         root.addEventListener('pointerdown', (e) => {
