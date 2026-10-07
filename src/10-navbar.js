@@ -524,6 +524,12 @@
     :host([data-hfade]) nav.nb,:host([data-hfade]) .mini{transition:translate .18s ease,opacity .18s ease !important}
     @media (prefers-reduced-motion: reduce){:host([data-hidden]) nav.nb,:host([data-hidden]) .mini{translate:none !important}:host([data-hfade]) nav.nb,:host([data-hfade]) .mini{transition:opacity .18s ease !important}}
   `;
+  // Android (52 A: et blur-lag animeres aldri): mens navbaren/mini-spilleren glir (data-hfade) og mens de er skjult står
+  // blur av på de glidende lagene; glass får den faste reserveflaten (som Ytelsesmodus). Hvit navbar har dekkende flate.
+  const HIDE_AND_CSS = `
+    :host([data-hfade]) nav.nb,:host([data-hidden]) nav.nb,:host([data-hfade]) .mini.glass::before,:host([data-hidden]) .mini.glass::before{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+    :host([data-hfade]) nav.nb.glass,:host([data-hidden]) nav.nb.glass,:host([data-hfade]) .mini.glass::before,:host([data-hidden]) .mini.glass::before{background:var(--ki-surface-3, #2f2f2f)!important}
+  `;
   const HIDE_DEF = ['#vaer'];
   const hideHash = (h) => { let x = String(h == null ? '' : h).trim(); if (!x) return ''; if (x[0] !== '#') x = '#' + x; return M.canonHash ? M.canonHash(x) : x; };
   // Listen i config (hide_in_popups). Mangler den: standard ['#vaer'] – unntak (migrering, Fiks 56 I): Vær-kortets gamle
@@ -987,7 +993,7 @@
       // navbaren – opptaket viste navbaren borte i enkeltrammer, også utenom sveip). innerHTML brukes bare ved første
       // tegning av portalen, aldri på navbaren etterpå.
       const sr0 = this._portal.shadowRoot;
-      const css = `${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}${M.perf && M.perf.android ? ANDROID_CSS : ''}${HIDE_CSS}`;
+      const css = `${PORTAL_CSS}${(M.perf && M.perf.CSS) || ''}${M.perf && M.perf.android ? ANDROID_CSS : ''}${HIDE_CSS}${M.perf && M.perf.android ? HIDE_AND_CSS : ''}`;
       const navH = this._navHtml(N, geo, false), menuH = this.ui.menu ? this._menuHtml(N, geo) : '';
       if (this._pFirst) {
         sr0.innerHTML = `<style>${css}</style><div class="pnav" data-sec="nav" style="display:contents">${navH}</div><div class="pmini" data-sec="mini" style="display:contents">${mini}</div><div class="pmenu" data-sec="menu" style="display:contents">${menuH}</div>`;
