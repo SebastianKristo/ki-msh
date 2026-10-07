@@ -261,12 +261,23 @@ ok('Lys modus: samme oppsett (titler hele, transportør i undertittelen)', TL.al
 /* =============================================================== lys / mørk: kalenderen + lista */
 const LM = async (light) => {
   const q = await page(null, { light });
-  const r = await q.evaluate(() => { const cs = (e) => getComputedStyle(e); const row = sr().querySelector('.pkli'), h = sr().querySelector('.pklh'); return { theme: document.documentElement.dataset.kiTheme || '', row: cs(row).backgroundColor, t: cs(row.querySelector('b')).color, s: cs(row.querySelector('.evc>span')).color, h: cs(h).color, dot: cs(sr().querySelector('.pdt i[data-cat="levert"]')).backgroundColor, em: cs(sr().querySelector('.pdt em')).color }; });
+  const r = await q.evaluate(() => { const cs = (e) => getComputedStyle(e); const row = sr().querySelector('.pkli'), h = sr().querySelector('.pklh'); return { theme: document.documentElement.dataset.kiTheme || '', row: cs(row).backgroundColor, t: cs(row.querySelector('b')).color, s: cs(row.querySelector('.evc>span')).color, h: cs(h).color, dot: cs(sr().querySelector('.pdt i[data-cat="levert"]')).backgroundColor, em: cs(sr().querySelector('.pdt em')).color,
+    // 56 D: tonede ikon-sirkler (lista + Pakker) og statustekst – farge mot flaten bak
+    ic: [...sr().querySelectorAll('.pkli .pkic, .pkr .pkic')].map((e) => { const row = e.closest('.pkli') || e.closest('.card'); return { bg: cs(e).backgroundColor, fg: cs(e).color, row: cs(row).backgroundColor, cat: (e.closest('.pkli') || {}).dataset ? e.closest('.pkli') && e.closest('.pkli').dataset.cat : null }; }),
+    st: [...sr().querySelectorAll('.pkr .pkst')].map((e) => ({ fg: cs(e).color, row: cs(e.closest('.card')).backgroundColor, t: e.textContent })) }; });
   if (SHOT) await q.screenshot({ path: `${SHOT}/k56-kalender-${light ? 'lys' : 'mork'}.png` });
   await q.close();
   return r;
 };
 const DK = await LM(false), LT = await LM(true);
+const rgbOf = (c) => { const k = /color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/.exec(c || ''); if (k) return [k[1] * 255, k[2] * 255, k[3] * 255, k[4] != null ? +k[4] : 1]; const m = /rgba?\(([\d.]+),? ([\d.]+),? ([\d.]+)(?:,? \/? ?([\d.]+))?/.exec(c || ''); return m ? [+m[1], +m[2], +m[3], m[4] != null ? +m[4] : 1] : null; };
+const over = (fg, bg) => { const f = rgbOf(fg), g = rgbOf(bg); if (!f || !g) return null; return [0, 1, 2].map((i) => f[i] * f[3] + g[i] * (1 - f[3])); };
+const L_ = (c) => { const v = c.map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+const CR = (a, b2) => { const x = L_(a), y = L_(b2); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const icCR = (r) => r.ic.map((x) => { const bg = over(x.bg, x.row); return bg ? Math.round(CR(rgbOf(x.fg), bg) * 10) / 10 : 0; });
+const stCR = (r) => r.st.map((x) => Math.round(CR(rgbOf(x.fg), rgbOf(x.row)) * 10) / 10);
+ok('Lys (56 D): ikon i tonet sirkel ≥ 3:1 mot sirkelen, statustekst i Pakker ≥ 4,5:1', icCR(LT).length > 3 && icCR(LT).every((x) => x >= 3) && stCR(LT).every((x) => x >= 4.5), { ic: icCR(LT), st: stCR(LT), raw: LT.ic.filter((x, i) => icCR(LT)[i] < 3) });
+ok('Mørk: tonede ikon-sirkler som før (aksent 20 % + aksent-ikon)', DK.ic.filter((x) => x.cat === 'levert').every((x) => /115, 185, 242/.test(x.fg) && /0\.2\)|0\.2$/.test(x.bg.replace(/\s/g, '')) || /color/.test(x.bg)), DK.ic.slice(0, 2));
 ok('Mørk: rad #404040, tittel lys, status #afafaf', DK.row === 'rgb(64, 64, 64)' && DK.s === 'rgb(175, 175, 175)' && /250|225/.test(DK.t), DK);
 const lum = (c) => { const m = /(\d+), (\d+), (\d+)/.exec(c); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 : 1; };
 ok('Lys: rad lys flate (--ki-surface-2), mørk tekst, prikkene beholder aksenten', LT.theme === 'light' && lum(LT.row) > 0.85 && lum(LT.t) < 0.3 && lum(LT.s) < 0.45 && lum(LT.h) < 0.45 && LT.dot === 'rgb(115, 185, 242)' && lum(LT.em) < 0.45, LT);

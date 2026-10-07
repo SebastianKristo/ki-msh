@@ -183,7 +183,7 @@
         const dx = t.clientX - s.x, dy = t.clientY - s.y;
         if (Math.abs(dx) <= LOCK && Math.abs(dy) <= LOCK) return;
         s.d = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
-        el.dataset.lock = s.d; // (test/diagnose)
+        el._lock = s.d; // (test/diagnose)
       }
       if (s.d === 'h') e.stopPropagation();
     }, { passive: true });
@@ -1223,8 +1223,8 @@
           if (down && !down.on) { // berøring: retningslås ved 8 px
             const dx = e.clientX - down.x, dy = e.clientY - down.y;
             if (Math.abs(dx) <= LOCK && Math.abs(dy) <= LOCK) return;
-            if (Math.abs(dy) > Math.abs(dx)) { el.dataset.lock = 'v'; down = null; return; } // vertikal: slipp
-            el.dataset.lock = 'h';
+            if (Math.abs(dy) > Math.abs(dx)) { el._lock = 'v'; down = null; return; } // vertikal: slipp
+            el._lock = 'h';
             take(e);
           }
           if (down) { e.stopPropagation(); if (Math.abs(e.clientX - down.x) > 4) down.moved = true; }

@@ -79,6 +79,8 @@
   // Fiks 34/35 · tema: gjennomsiktig hvit/svart (regel 3/4), aksent som tekst/ikon (pkt. 6) og tone-bakgrunn (pkt. 5); mørk = uendret
   const WA = (a) => (M.theme ? M.theme.whiteA(a) : `rgba(255,255,255,${a})`), BA = (a) => (M.theme ? M.theme.blackA(a) : `rgba(0,0,0,${a})`); // ki-hex-ok: reserve uten MSH.theme
   const AT = (c) => { const r = M.theme && M.theme.accentText ? M.theme.accentText(c) : c; return /^color-mix/.test(r) ? c : r; }; // ukjente farger beholdes
+  // Fiks 56 D: tonet sirkel/ikon i lys modus via --ki-tint-<aksent>-* (MSH.theme.tint); mørk = som før (aksent 20 % + aksent)
+  const TINT = (c) => { const t = M.theme && M.theme.tint ? M.theme.tint(c, { circle: 0.2 }) : null; return t ? { circle: t.circle, fg: t.name ? t.fg : AT(c) } : { circle: TONE(c, 0.2), fg: AT(c) }; };
   const TONE = (c, a) => (M.theme && M.theme.tone ? M.theme.tone(c, undefined, a).bg : M.alpha(c, a));
   const PAL = [C.blue, C.green, C.orange, C.purple, C.yellow, C.pink, C.red, C.lime, C.lightBlue];
   const MND = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
@@ -1627,7 +1629,7 @@
       const x = e.x, col = PDOT[e.cat], icon = x.pn ? x.icon : (PK[x.kind] || PK.transport)[2];
       const last = x.pn ? (x.events[0] && x.events[0].text) || x.raw || x.label : x.kind === 'stale' && x.idleH != null ? `Ingen oppdatering på ${x.idleH} t` : (x.events[0] && x.events[0].text) || x.state;
       const when = e.shifted ? `${DAG_S[e.day.getDay()].toLowerCase()} ${dShort(e.day)} · ` : '';
-      return `<button class="pkli press" data-act="pkgo" data-v="${esc(x.id)}" data-cat="${e.cat}" data-key="pkli-${esc(x.id)}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(icon, 20)}</span><span class="grow evc"><b class="ell">${esc(x.name)}</b><span class="ell">${esc(when + (last || ''))}</span></span><i class="pkd" style="background:${col}"></i><span class="pkls">${esc(PDOT_T[e.cat])}</span></button>`;
+      return `<button class="pkli press" data-act="pkgo" data-v="${esc(x.id)}" data-cat="${e.cat}" data-key="pkli-${esc(x.id)}"><span class="pkic" style="background:${TINT(col).circle};color:${TINT(col).fg}">${M.icon(icon, 20)}</span><span class="grow evc"><b class="ell">${esc(x.name)}</b><span class="ell">${esc(when + (last || ''))}</span></span><i class="pkd" style="background:${col}"></i><span class="pkls">${esc(PDOT_T[e.cat])}</span></button>`;
     }
     // Trykk på en rad i lista → samme kort i Pakker åpnes (utvidet) og scrolles fram
     _parcelGo(id) {
@@ -1677,7 +1679,7 @@
     _pRow(x) {
       const [lab, col, icon] = PK[x.kind], open = this.ui.pOpen === x.id, cr = this._carrier(x);
       const sub = x.kind === 'stale' && x.idleH != null ? `Ingen oppdatering på ${x.idleH} t` : x.events[0] ? x.events[0].text : x.state;
-      return `<div class="pkr ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(icon, 22)}${cr.badge}</span><span class="grow evc"><span class="pkn"><b class="ell">${esc(x.name)}</b>${cr.chip}</span><span class="ell pmeta">${cr.sub}${esc(sub)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(lab)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
+      return `<div class="pkr ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TINT(col).circle};color:${TINT(col).fg}">${M.icon(icon, 22)}${cr.badge}</span><span class="grow evc"><span class="pkn"><b class="ell">${esc(x.name)}</b>${cr.chip}</span><span class="ell pmeta">${cr.sub}${esc(sub)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(lab)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
         ${open ? `<div class="pkb">${x.kind === 'stale' && x.idleH != null ? `<div class="warn">${M.icon('mdi:clock-alert-outline', 18)}Ingen oppdatering på ${x.idleH} t</div>` : ''}
           ${x.facts.length || x.number || x.eta ? `<div class="facts">${x.number ? `<span><i>Sporingsnummer</i><b>${esc(x.number)}</b></span>` : ''}${x.eta ? `<span><i>Forventet</i><b>${esc(dShort(x.eta))}</b></span>` : ''}${x.facts.map(([k, v]) => `<span><i>${esc(k)}</i><b>${esc(v)}</b></span>`).join('')}</div>` : ''}
           ${x.events.length ? `<div class="log">${x.events.slice(0, 8).map((e, i) => `<div class="lg ${i === 0 ? 'on' : ''}"><i></i><span class="grow"><b>${esc(e.text)}</b><span>${esc([e.t ? `${dShort(e.t)} ${hm(e.t)}` : '', e.where].filter(Boolean).join(' · '))}</span></span></div>`).join('')}</div>` : '<div class="none">Ingen hendelser ennå</div>'}
@@ -1689,7 +1691,7 @@
       const open = this.ui.pOpen === x.id, col = x.col, S = (this.hass && this.hass.services && this.hass.services.postnord) || {};
       const canUn = !x.account && x.dir !== 'out' && !!S.untrack_parcel;
       const cr = this._carrier(x);
-      return `<div class="pkr pn ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}" data-kind="${x.kind}" data-st="${esc(x.status)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TONE(col, 0.2)};color:${AT(col)}">${M.icon(x.icon, 22)}${cr.badge}</span><span class="grow evc"><span class="pkn"><b class="ell">${esc(x.name)}</b>${cr.chip}</span><span class="ell pmeta">${cr.sub}${esc(x.meta)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(x.label)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
+      return `<div class="pkr pn ${open ? 'open' : ''}" data-key="pk-${esc(x.id)}" data-kind="${x.kind}" data-st="${esc(x.status)}"><button class="pkh press" data-act="popen" data-v="${esc(x.id)}" aria-expanded="${open}"><span class="pkic" style="background:${TINT(col).circle};color:${TINT(col).fg}">${M.icon(x.icon, 22)}${cr.badge}</span><span class="grow evc"><span class="pkn"><b class="ell">${esc(x.name)}</b>${cr.chip}</span><span class="ell pmeta">${cr.sub}${esc(x.meta)}</span></span><span class="pkst" style="color:${AT(col)}">${esc(x.label)}</span>${M.icon(open ? 'mdi:chevron-up' : 'mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
         ${open ? `<div class="pkb">${x.kind === 'stale' ? `<div class="warn" style="background:${TONE(col, 0.16)};color:${AT(col)}">${M.icon(x.icon, 18)}${esc(x.raw || x.label)}</div>` : ''}
           ${x.events.length ? `<div class="log">${x.events.slice(0, 8).map((e, i) => `<div class="lg ${i === 0 ? 'on' : ''}"><i></i><span class="grow"><b>${esc(e.text)}</b><span>${esc([e.t ? `${dShort(e.t)} ${hm(e.t)}` : '', e.where].filter(Boolean).join(' · '))}</span></span></div>`).join('')}</div>` : ''}
           ${x.facts.length ? `<div class="facts">${x.facts.map(([k, v]) => `<span><i>${esc(k)}</i><b>${esc(v)}</b></span>`).join('')}</div>` : ''}

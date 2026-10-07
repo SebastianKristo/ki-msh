@@ -146,10 +146,10 @@ async function simple({ w = 390, h = 900, ua, light = false } = {}) {
   ok('56 G vertikalt sveip fra flisene scroller popupen', vOk(G.tilesDown), G.tilesDown);
   // horisontalt dra på vindgrafen = scrub (retningslås), ikke scroll av popupen
   await p.evaluate(async () => { window.__card.shadowRoot.querySelector('.mb[data-k="wind"]').click(); await new Promise((q) => setTimeout(q, 250)); window.__card.shadowRoot.querySelector('.wsc').scrollIntoView({ block: 'center' }); await new Promise((q) => setTimeout(q, 200)); });
-  const sc = await p.evaluate(() => { const r = window.__card.shadowRoot.querySelector('.wsc').getBoundingClientRect(); return { x: Math.round(r.left + 40), y: Math.round(r.top + 30), st: window.__C.scrollTop }; });
+  const sc = await p.evaluate(() => { const r = window.__card.shadowRoot.querySelector('.wsc').getBoundingClientRect(); return { x: Math.round(Math.max(r.left, 0) + 40), y: Math.round(r.top + 30), st: window.__C.scrollTop }; });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sc.x, y: sc.y }] });
   for (let i = 1; i <= 6; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sc.x + i * 8, y: sc.y }] }); await p.waitForTimeout(16); }
-  const S1 = await p.evaluate(({ x, y }) => { const sr = window.__card.shadowRoot, hit = sr.elementFromPoint(x, y); return { tip: !!sr.querySelector('.wtip'), lock: sr.querySelector('.wsc').dataset.lock, st: window.__C.scrollTop, hit: hit && hit.className && String(hit.className.baseVal != null ? hit.className.baseVal : hit.className) }; }, sc);
+  const S1 = await p.evaluate(({ x, y }) => { const sr = window.__card.shadowRoot, hit = sr.elementFromPoint(x, y); return { tip: !!sr.querySelector('.wtip'), lock: sr.querySelector('.wsc')._lock, st: window.__C.scrollTop, hit: hit && hit.className && String(hit.className.baseVal != null ? hit.className.baseVal : hit.className) }; }, sc);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await p.waitForTimeout(200);
   const S2 = await p.evaluate(() => ({ tip: !!window.__card.shadowRoot.querySelector('.wtip') }));
