@@ -2,7 +2,8 @@
 //   node test/navbar57-check.mjs   (SHOTS=<mappe> gir skjermbilder)
 //  · bunnlinje (telefon 390) og rail (Fold åpen 1080 × 1200 touch, PC 1280 × 900), standard-UA og Android-UA (CPU × 6)
 //  · åpne #vaer (ekte Bubble Card): data-hidden + aria-hidden på portalen i SAMME bilde som popupen begynner å åpne,
-//    navbar translate 0 100% (bunn) / −100% 0 (rail) + opasitet 0, mini-spilleren ned + 0, overgang 180 ms bare på
+//    navbar translate 0 100% (bunn) / −20 px 0 (rail: bare M.RAIL.gap, aldri over HA-sidebaren; PC 1400 med 256 px sidebar
+//    samples hvert bilde) + opasitet 0, mini-spilleren ned + 0, overgang 180 ms bare på
 //    translate/opacity (ingen blur-overgang), samme noder (aldri display:none/ny node), pointer-events none, trykk treffer ikke
 //  · Vær-innholdets bunnluft = 16 px + safe-area (ikke navbar/mini) når skjult; med listen [] som før (navbar + mini)
 //  · lukk (Bubbles lukkeknapp): begge glir inn igjen fra samme bilde som popupen begynner å lukke, uten blink (opasiteten
@@ -29,7 +30,7 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✔' : '✘'} ${name}$
 const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36 Home Assistant/2024.10';
 
 // Ekte Bubble Card: Vær-popupen (mal A + M.POPUP_FORCE['#vaer'] som strategien) + navbar med mini-spiller (alltid synlig)
-async function setup({ w, h, touch, ua, throttle, nav = {}, card = {} }) {
+async function setup({ w, h, touch, ua, throttle, sb = 0, nav = {}, card = {} }) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, hasTouch: !!touch, isMobile: !!touch && w < 900, ...(ua ? { userAgent: ua } : {}) });
   const p = await ctx.newPage();
   p.on('pageerror', (e) => errs.push(e.message));
@@ -38,6 +39,7 @@ async function setup({ w, h, touch, ua, throttle, nav = {}, card = {} }) {
   await p.addScriptTag({ path: bundle });
   await p.addScriptTag({ path: BC, type: 'module' });
   await p.waitForFunction(() => customElements.get('bubble-card'), null, { timeout: 15000 });
+  if (sb) await p.evaluate((x) => { document.documentElement.style.setProperty('--sb', x + 'px'); window.__edge = true; }, sb); // HA-sidebar (harness #sidebar)
   await p.evaluate(async ({ nav, card }) => {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     const H = window.mockHass(); H.themes = { ...(H.themes || {}), darkMode: true };
@@ -58,11 +60,16 @@ async function setup({ w, h, touch, ua, throttle, nav = {}, card = {} }) {
     // rAF-sampling: popupens transform/klasser + navbar/mini (opasitet, translate, samme node, tilkoblet, display)
     window.__rec = (ms) => new Promise((done) => {
       const out = [], nav0 = window.__nav(), mini0 = window.__mini(), t0 = performance.now();
+      // railens synlige venstrekant uten layout per bilde (ville forskjøvet tidsmålingene under CPU × 6): kanten uten
+      // translate målt én gang + beregnet translate-x (railen flyttes bare med translate, inline transform er bare Y)
+      // Bare i sidebar-varianten (window.__edge) – de andre variantene måles nøyaktig som før (tidskravene under CPU × 6)
+      const edge = !!window.__edge, tx0 = edge && nav0 ? parseFloat(getComputedStyle(nav0).translate) || 0 : 0;
+      const L0 = edge && nav0 ? nav0.getBoundingClientRect().left - tx0 : 0, D0 = edge ? Math.round(MSH.rectOf(MSH.dashEl(window.__nb)).left * 10) / 10 : null;
       const f = () => {
         const n = window.__nav(), m = window.__mini(), pop = window.__popEl(), pt = window.__pt();
         const cs = n && getComputedStyle(n), ms_ = m && getComputedStyle(m), ps = pop && getComputedStyle(pop);
         out.push({ t: Math.round(performance.now() - t0), hash: location.hash, pop: pop ? (pop.classList.contains('is-closing') ? 'closing' : pop.classList.contains('is-opening') ? 'opening' : pop.classList.contains('is-popup-opened') ? 'o' : pop.classList.contains('is-popup-closed') ? 'c' : '-') : null, ptf: ps ? ps.transform : null, pop_op: ps ? ps.opacity : null,
-          hid: pt.hasAttribute('data-hidden'), aria: pt.getAttribute('aria-hidden'), nop: cs ? Number(cs.opacity) : null, ntr: cs ? cs.translate : null, ndisp: cs ? cs.display : null, nvis: cs ? cs.visibility : null,
+          hid: pt.hasAttribute('data-hidden'), aria: pt.getAttribute('aria-hidden'), nop: cs ? Number(cs.opacity) : null, nl: edge && cs ? Math.round((L0 + (parseFloat(cs.translate) || 0)) * 10) / 10 : null, dl: D0, ntr: cs ? cs.translate : null, ndisp: cs ? cs.display : null, nvis: cs ? cs.visibility : null,
           mop: ms_ ? Number(ms_.opacity) : null, mtr: ms_ ? ms_.translate : null, same: n === nav0 && m === mini0, conn: !!(n && n.isConnected && (!mini0 || (m && m.isConnected))) });
         if (performance.now() - t0 < ms) requestAnimationFrame(f); else done(out);
       };
@@ -79,11 +86,12 @@ const VARIANTS = [
   { tag: 'telefon (bunn)', w: 390, h: 844, touch: true, rail: false },
   { tag: 'Fold åpen (rail)', w: 1080, h: 1200, touch: true, rail: true },
   { tag: 'PC (rail)', w: 1280, h: 900, touch: false, rail: true },
+  { tag: 'PC (rail, 256 px HA-sidebar)', w: 1400, h: 900, touch: false, rail: true, sb: 256 },
 ];
 for (const V of VARIANTS) {
   for (const and of [false, true]) {
     const T = `${V.tag} · ${and ? 'Android (CPU × 6)' : 'standard-UA'}`;
-    const { p, ctx } = await setup({ w: V.w, h: V.h, touch: V.touch, ua: and ? ANDROID_UA : undefined, throttle: and ? 6 : 0 });
+    const { p, ctx } = await setup({ w: V.w, h: V.h, touch: V.touch, sb: V.sb || 0, ua: and ? ANDROID_UA : undefined, throttle: and ? 6 : 0 });
     const pre = await p.evaluate(() => { const n = window.__nav(), m = window.__mini(), r = n.getBoundingClientRect(); return { android: !!(MSH.perf && MSH.perf.android), rail: r.height > r.width, mini: !!m && getComputedStyle(m).opacity === '1', list: MSH.navHideList(), occ: MSH.navOcc() }; });
     ok(`${T}: oppsett (rail=${V.rail}, mini-spiller synlig, standardliste ['#vaer'], Android=${and})`, pre.rail === V.rail && pre.mini && JSON.stringify(pre.list) === '["#vaer"]' && pre.android === and, pre);
     // ---- åpne #vaer
@@ -124,9 +132,14 @@ for (const V of VARIANTS) {
     ok(`${T}: overgang 180 ms bare på translate + opacity (navbar og mini-spiller), ingen blur-overgang`, ['translate', 'opacity'].every((k) => A.nav.some((a) => a[0] === k && a[1] === 180)) && ['translate', 'opacity'].every((k) => A.mini.some((a) => a[0] === k && a[1] === 180)) && !A.nav.concat(A.mini).some((a) => /filter|blur/.test(a[0])), A);
     ok(`${T}: skjult innen ~180 ms (navbar + mini opasitet ≤ 0,1 fra første synlige bilde, 0 til slutt)`, dt != null && dt <= (and ? 180 + 60 : 180 + 40) && S[S.length - 1].nop === 0, { dt, zero, navStart, t: S.map((x) => [x.t, x.nop, x.mop]).slice(0, 16) });
     ok(`${T}: utgliding uten blink (opasiteten synker monotont, samme noder og tilkoblet i hvert bilde, aldri display:none)`, S.every((x, i) => i === 0 || x.nop <= S[i - 1].nop + 1e-3) && S.every((x) => x.same && x.conn && x.ndisp !== 'none' && x.nvis === 'visible'), S.filter((x, i) => !(x.same && x.conn) || (i && x.nop > S[i - 1].nop + 1e-3)).slice(0, 4));
-    const trOk = V.rail ? O.end.ntr === '-100%' : O.end.ntr === '0px 100%';
-    ok(`${T}: skjult = ${V.rail ? 'translate(−100%, 0)' : 'translate(0, 100%)'} + opasitet 0, mini-spilleren ned + 0, pointer-events none, aria-hidden, aldri display:none`, O.end.hid && O.end.aria === 'true' && O.end.nop === '0' && trOk && O.end.npe === 'none' && O.end.ndisp !== 'none' && O.end.mop === '0' && O.end.mtr === '0px 100%' && O.end.mpe === 'none' && O.end.mdisp !== 'none' && O.end.conn, O.end);
+    // rail: glir bare M.RAIL.gap (20 px) til venstre – til dashbordkanten, aldri over HA-sidebaren (CLAUDE.md)
+    const trOk = V.rail ? O.end.ntr === '-20px' : O.end.ntr === '0px 100%';
+    ok(`${T}: skjult = ${V.rail ? 'translate(−20 px, 0)' : 'translate(0, 100%)'} + opasitet 0, mini-spilleren ned + 0, pointer-events none, aria-hidden, aldri display:none`, O.end.hid && O.end.aria === 'true' && O.end.nop === '0' && trOk && O.end.npe === 'none' && O.end.ndisp !== 'none' && O.end.mop === '0' && O.end.mtr === '0px 100%' && O.end.mpe === 'none' && O.end.mdisp !== 'none' && O.end.conn, O.end);
     ok(`${T}: trykk der navbaren sto treffer ikke navbaren`, !O.hitNav, O.nrect);
+    if (V.sb) {
+      const out = S.filter((x) => x.nop > 0 && x.nl < x.dl - 0.5);
+      ok(`${T}: utgliding – railens synlige boks går aldri til venstre for dashbordkanten (x ≥ ${S[0].dl}, ingen HA-sidebar dekket)`, S.length > 5 && !out.length && O.nrect.l >= S[0].dl - 1, { out: out.slice(0, 4), nl: S.map((x) => x.nl).slice(0, 14), end: O.nrect });
+    }
     ok(`${T}: Vær-innholdets bunnluft = 16 px + safe-area (ikke navbar / Now Playing)`, /^calc\(16px/.test(O.pad || '') && !/ki-nav-h|ki-mini-h/.test(O.pad), O.pad);
     // navbarens del av plassmålingen står fast (translate regnes bort); mini-spilleren telles ikke mens den er skjult (som før, 28.4)
     ok(`${T}: plassmålingen (--ki-nav-occ) flytter seg ikke med navbaren når den glir ut`, V.rail ? JSON.stringify(O.occ) === JSON.stringify(pre.occ) : O.occ.bottom > 0 && O.occ.bottom <= pre.occ.bottom && O.occ.bottom === O.navOcc, { før: pre.occ, nå: O.occ, nav: O.navOcc });
@@ -146,6 +159,10 @@ for (const V of VARIANTS) {
     const cStart = firstIdx(SC, (x, i) => i > 0 && (x.ptf !== SC[0].ptf || x.pop_op !== SC[0].pop_op)), nBack = firstIdx(SC, (x) => x.nop > 0);
     ok(`${T}: lukk (Bubbles lukkeknapp) → data-hidden/aria-hidden fjernet straks`, C.btn && !C.sync.hid && C.sync.aria == null && !C.sync.hash, { btn: C.btn, sync: C.sync });
     ok(`${T}: navbaren begynner å gli inn i samme bilde som popupen begynner å lukke`, cStart >= 0 && nBack >= 0 && Math.abs(nBack - cStart) <= 1, { cStart, nBack, s: SC.slice(0, 5) });
+    if (V.sb) {
+      const out = SC.filter((x) => x.nop > 0 && x.nl < x.dl - 0.5);
+      ok(`${T}: inngliding – railens synlige boks går aldri til venstre for dashbordkanten`, SC.length > 5 && !out.length, { out: out.slice(0, 4), nl: SC.map((x) => x.nl).slice(0, 14) });
+    }
     ok(`${T}: inngliding uten blink (opasiteten stiger monotont, samme noder, tilkoblet i hvert bilde)`, SC.every((x, i) => i === 0 || x.nop >= SC[i - 1].nop - 1e-3) && SC.every((x) => x.same && x.conn && x.ndisp !== 'none'), SC.map((x) => [x.t, x.nop, x.mop]).slice(0, 14));
     ok(`${T}: tilbake: opasitet 1, translate none, trykkbar, mini-spilleren tilbake`, C.end.nop === '1' && C.end.ntr === 'none' && C.end.npe !== 'none' && C.end.mop === '1' && C.end.mtr === 'none' && C.end.aria == null, C.end);
     ok(`${T}: plassmålingen uendret etter lukking`, JSON.stringify(C.occ) === JSON.stringify(pre.occ), { før: pre.occ, nå: C.occ });

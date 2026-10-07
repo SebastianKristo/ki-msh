@@ -1413,7 +1413,7 @@ try{(function(){const M=window.MSH,esc=M.esc,C=M.C,NOCFG=Object.freeze({}),PINK=
   `,HIDE_CSS=`
     :host([data-hidden]) nav.nb,:host([data-hidden]) .mini,:host([data-hidden]) .mrmf{opacity:0 !important;pointer-events:none !important}
     :host([data-hidden]) nav.nb.row,:host([data-hidden]) .mini{translate:0 100% !important}
-    :host([data-hidden]) nav.nb.rail{translate:-100% 0 !important}
+    :host([data-hidden]) nav.nb.rail{translate:-${M.RAIL&&M.RAIL.gap||20}px 0 !important}
     :host([data-hfade]) nav.nb,:host([data-hfade]) .mini{transition:translate .18s ease,opacity .18s ease !important}
     @media (prefers-reduced-motion: reduce){:host([data-hidden]) nav.nb,:host([data-hidden]) .mini{translate:none !important}:host([data-hfade]) nav.nb,:host([data-hfade]) .mini{transition:opacity .18s ease !important}}
   `,HIDE_AND_CSS=`

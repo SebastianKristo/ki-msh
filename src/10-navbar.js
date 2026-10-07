@@ -513,14 +513,17 @@
   `;
 
   // Fiks 57 C · hide_in_popups: popupen i listen er åpen → data-hidden på portalen (navbarens rot): navbaren glir ned
-  // (bunn, translate 0 100%) / til venstre (rail, −100% 0) og mini-spilleren ned, opasitet → 0, 180 ms – samme bilde som
+  // (bunn, translate 0 100%) / til venstre (rail, −M.RAIL.gap 0) og mini-spilleren ned, opasitet → 0, 180 ms – samme bilde som
   // popupen begynner å åpne (hashchange) og tilbake i samme bilde som den begynner å lukke. Bare translate (egen egenskap,
   // komponeres med den inline transformen) og opasitet – aldri display/visibility (54 A2: nodene blir liggende), ingen
   // blur-overgang (52 A). data-hfade gir overgangen bare mens byttet pågår. Står sist i stilen (vinner over ANDROID_CSS).
+  // Railen (left = dashbordkanten + M.RAIL.gap) glir bare gap-avstanden til venstre mens den tones til 0 – den synlige boksen
+  // krysser aldri dashbordets venstre kant og ligger aldri over HA-sidebaren, heller ikke midt i overgangen (CLAUDE.md).
+  // Ingen klipping/animert clip-path: fortsatt bare translate/opasitet (52 A).
   const HIDE_CSS = `
     :host([data-hidden]) nav.nb,:host([data-hidden]) .mini,:host([data-hidden]) .mrmf{opacity:0 !important;pointer-events:none !important}
     :host([data-hidden]) nav.nb.row,:host([data-hidden]) .mini{translate:0 100% !important}
-    :host([data-hidden]) nav.nb.rail{translate:-100% 0 !important}
+    :host([data-hidden]) nav.nb.rail{translate:-${(M.RAIL && M.RAIL.gap) || 20}px 0 !important}
     :host([data-hfade]) nav.nb,:host([data-hfade]) .mini{transition:translate .18s ease,opacity .18s ease !important}
     @media (prefers-reduced-motion: reduce){:host([data-hidden]) nav.nb,:host([data-hidden]) .mini{translate:none !important}:host([data-hfade]) nav.nb,:host([data-hfade]) .mini{transition:opacity .18s ease !important}}
   `;
