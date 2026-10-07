@@ -830,10 +830,13 @@
   const SW = HIDE.map((x) => x[0]);
   const secMap = (c) => (c && c.sections && typeof c.sections === 'object' && !Array.isArray(c.sections) ? c.sections : {});
   const stilOf = (c) => { const v = c ? (c.style !== undefined ? c.style : c.stil) : null; return v === 'klassisk' ? 'klassisk' : 'scene'; }; // standard scene (26.24)
-  // Fiks 56 I · view: 'fullscreen' (standard) | 'sheet' (Ark = oppsettet før 56). hide_navbar (standard av) gjelder Fullskjerm;
-  // Ark skjuler navbaren som før (Fiks 28.4 / 55 A1).
+  // Fiks 56 I · view: 'fullscreen' (standard) | 'sheet' (Ark = oppsettet før 56).
+  // Fiks 57 C: om navbaren og Now Playing skjules mens #vaer er åpen styres av navbarens hide_in_popups (standard ['#vaer'],
+  // MSH.navHidesIn, 10-navbar.js) – i begge visningene. Vær-kortets gamle hide_navbar leses bare som migrering
+  // (MSH.vaerNavLegacy: eksplisitt false i Fullskjerm → navbarens liste blir [] til den lagres) og fjernes når valget lagres.
   const viewOf = (c) => (c && (c.view === 'sheet' || c.view === 'ark') ? 'sheet' : 'fullscreen');
-  const hideNavOf = (c) => viewOf(c) === 'sheet' || !!(c && c.hide_navbar === true);
+  const navHidden = () => (M.navHidesIn ? M.navHidesIn('#vaer') : true);
+  const hideNavOf = () => navHidden();
   M.vaerViewOf = viewOf;
   M.vaerHideNavOf = hideNavOf;
   const hiddenOf = (c) => {
@@ -965,7 +968,8 @@
         // 56 I · Visning (samme nøkler som Tilpass Hjem → Popups → Vær)
         { type: 'section', label: 'Visning', icon: 'mdi:fullscreen', id: 'display', fields: [
           { type: 'select', name: 'view', label: 'Visning', default: 'fullscreen', options: [['fullscreen', 'Fullskjerm'], ['sheet', 'Ark']], help: 'Fullskjerm = værbakgrunnen dekker hele dashbordflaten · Ark = popup med margin og runde hjørner' },
-          { type: 'boolean', name: 'hide_navbar', label: 'Skjul navbar i fullskjerm', default: false, help: 'Av = navbar og Now Playing vises over været (Ark skjuler alltid navbaren)' },
+          // 57 C: snarvei til navbarens «Skjul navbar og Now Playing i popups» (hide_in_popups, '#vaer') – lagres i navbarens config
+          { type: 'boolean', label: 'Skjul navbar og Now Playing', help: 'Samme valg som «Skjul navbar og Now Playing i popups» i Tilpass navbar (standard på)', get: () => navHidden(), set: (v, hh, cc, ed) => { if (M.setNavHide) M.setNavHide('#vaer', !!v); if (ed && ed._set && cc && cc.hide_navbar !== undefined) ed._set('hide_navbar', undefined); } },
         ] },
         // 56 H · «Føles som» og «Sikt»: egne sensorer (ellers apparent_temperature/visibility → autofunnet sensor → utregning)
         { type: 'section', label: 'Føles som og sikt', icon: 'mdi:thermometer', id: 'sensors', fields: [
@@ -1053,12 +1057,12 @@
       // Kortet er tatt ut (popup lukket / ombygd): ta lagene ut av popupen hvis ingen ny instans bruker dem
       setTimeout(() => { if (this.isConnected) return; [this._layer, this._ctl].forEach((el) => { if (el && el.parentNode) el.remove(); }); if (this._popRef && this._popRef.getAttribute('data-ki-vaer-owner') === this._uid) this._popRef.removeAttribute('data-ki-vaer'); }, 0);
     }
-    // Bunnluft. Fiks 56 I: Fullskjerm med navbar (standard) → navbar + Now Playing + safe-area + 16 px (MSH.popupBottomPad(16)),
-    // og stedsvelgeren/«Tilpass Vær» (sticky nederst, 28.1) står over navbaren. Ark (28.4) / «Skjul navbar i fullskjerm» → 16 px.
+    // Bunnluft. Fiks 57 C: navbaren skjult i #vaer (navbarens hide_in_popups, standard) → bare safe-area + 16 px; ellers
+    // (fjernet fra listen) navbar + Now Playing + safe-area + 16 px (MSH.popupBottomPad(16)) og stedsvelgeren over navbaren.
     _applySpacing() {
       super._applySpacing();
       if (this._config.embedded || !M.popupContainer(this)) return;
-      const nav = !hideNavOf(this._rawConfig || {}), base = nav && M.popupBottomPad ? M.popupBottomPad(16) : 'calc(16px + env(safe-area-inset-bottom, 0px))';
+      const nav = !navHidden(), base = nav && M.popupBottomPad ? M.popupBottomPad(16) : 'calc(16px + env(safe-area-inset-bottom, 0px))';
       this.style.paddingBottom = base;
       // sticky regnes fra innsiden av Bubble-containerens padding → trekk den fra, så knappene står 16 px over bunnen/navbaren
       const C = M.popupContainer(this), pb = C ? parseFloat(getComputedStyle(C).paddingBottom) || 0 : 0;
@@ -1093,7 +1097,7 @@
         // 56 I: Fullskjerm (standard) / Ark – live via attributtet, uten ny generering av popupen
         const full = viewOf(this._rawConfig) === 'fullscreen' && !this._config.embedded;
         pop.toggleAttribute('data-ki-vaer-full', full);
-        const hn = hideNavOf(this._rawConfig || {});
+        const hn = navHidden(); // 57 C: navbarens hide_in_popups
         pop.toggleAttribute('data-ki-vaer-nonav', hn);
         if (this._navHide !== hn && location.hash === '#vaer') setTimeout(syncNav, 0); // første montering / valget endret mens popupen er åpen
         this._navHide = hn;
@@ -1132,6 +1136,9 @@
         this.style.setProperty('--vaer-card', andr ? (M.vaerCardOver(sc.key) || sc.card) : sc.card);
         if (pop) { const top = rgbOf((SC[sc.key] || SC.cloudy)[2][0]); pop.setAttribute('data-ki-vaer-lum', top && relLum(top) > 0.179 ? 'light' : 'dark'); }
       } else if (this._layer) { this._layer.remove(); this._layer = null; this.style.removeProperty('--vaer-card'); }
+      // Fiks 57 B/D: statuslinjen (theme-color) = værbakgrunnens øverste farge C.bg[0] mens popupen er åpen (ny værtype/sted → følger med)
+      //   Funksjon (ikke fast farge): regnes fra fersk hass i samme hashchange som åpner popupen, også når kortet var tatt ut av DOM-en
+      if (M.popupThemeColor && !this._config.embedded) M.popupThemeColor(M.popupHash(this) || '#vaer', scene ? (this._tcFn = this._tcFn || (() => { try { const h = M.lastHass || this.hass, a = M.vaerAuto(h, this.config), st = h && a.weather && h.states[a.weather], ss = h && a.sun && h.states[a.sun]; return (SC[sceneOf(st ? st.state : null, ss ? ss.state === 'below_horizon' : isNight(Date.now(), null)).key] || SC.cloudy)[2][0]; } catch (e) { return null; } })) : null);
     }
     _drawCtl() {
       const el = this._ctl;
@@ -1200,6 +1207,9 @@
       const box = this.shadowRoot.querySelector('[data-tiles]');
       if (!box || box.__td) return;
       box.__td = true;
+      // 56 G: flisene (touch-action pan-y) slipper bevisst touchstart/-move til popupen (vertikal scroll) – pointerdown og
+      // touchmove under et løft stoppes. Merket for drag-sjekken i test/checklist.mjs (som __mshDL/__mshHS).
+      box.__mshVPass = true;
       let st = null;
       const kids = () => [...box.querySelectorAll(':scope > .tw')];
       const cancel = () => { if (st && st.timer) clearTimeout(st.timer); };
@@ -1964,22 +1974,32 @@ ${VE}`;
   const vaerCfg = () => { const el = liveVaer().find((x) => x.isConnected) || liveVaer()[0]; if (el && el._rawConfig) return el._rawConfig; const s0 = M.store && M.store.eff ? M.store.eff('cards.pop-vaer') : null; return s0 || {}; };
   M.vaerStil = () => stilOf(vaerCfg());
   M.vaerView = () => viewOf(vaerCfg());
-  // 56 I: skal navbaren skjules mens #vaer er åpen? Ark → ja (28.4); Fullskjerm → bare med «Skjul navbar i fullskjerm»
-  // (10-navbar.js _syncVaer spør her)
-  M.vaerHidesNav = () => hideNavOf(vaerCfg());
-  const syncNav = () => (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && el.localName === 'msh-navbar-card' && typeof el._syncVaer === 'function') { try { el._syncVaer(); } catch (e) { /* */ } } }));
-  // v: 'klassisk' | 'scene' (stil) · 'view:fullscreen' | 'view:sheet' · 'nav:on' | 'nav:off' (Skjul navbar i fullskjerm)
+  // 57 C: skjules navbaren mens #vaer er åpen? = navbarens hide_in_popups. Migrering: Vær-kortets gamle hide_navbar: false
+  // (eksplisitt valgt i Fullskjerm, Fiks 56 I) → false (navbarens liste uten #vaer) til listen lagres; ellers null.
+  M.vaerHidesNav = () => navHidden();
+  M.vaerNavLegacy = () => { const c = vaerCfg(); return c && c.hide_navbar === false && viewOf(c) === 'fullscreen' ? false : null; };
+  const syncNav = () => (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && el.localName === 'msh-navbar-card' && typeof el._syncHide === 'function') { try { el._syncHide(); } catch (e) { /* */ } } }));
+  // Listen endret (Tilpass navbar / GUI-editoren / snarveien) → Vær-popupens bunnluft legges om (bare padding, ingen ny tegning)
+  window.addEventListener('ki-nav-hide', () => { const hn = navHidden(); liveVaer().forEach((x) => { if (!x.isConnected || !x._applySpacing) return; try { x._navHide = hn; if (x._popRef) x._popRef.toggleAttribute('data-ki-vaer-nonav', hn); x._applySpacing(); } catch (e) { /* */ } }); });
+  // v: 'klassisk' | 'scene' (stil) · 'view:fullscreen' | 'view:sheet' · 'nav:on' | 'nav:off' (Skjul navbar og Now Playing → navbarens hide_in_popups)
   M.setVaerStil = async (v) => {
     let patch;
     if (/^view:/.test(String(v))) patch = { view: String(v).slice(5) === 'sheet' ? 'sheet' : 'fullscreen' };
-    else if (/^nav:/.test(String(v))) patch = { hide_navbar: String(v).slice(4) === 'on' };
+    else if (/^nav:/.test(String(v))) { // 57 C: navbarens liste; Vær-kortets gamle hide_navbar fjernes
+      M.haptic('selection');
+      const r0 = M.setNavHide ? await M.setNavHide('#vaer', String(v).slice(4) === 'on') : null;
+      const c0 = vaerCfg(), el0 = liveVaer().find((x) => x.isConnected);
+      if (c0 && c0.hide_navbar !== undefined) { if (el0 && el0._rawConfig) await el0._saveCfg({ hide_navbar: undefined }); else if (M.store) { const { hide_navbar, ...o } = M.store.get('cards.pop-vaer') || {}; await M.store.set('cards.pop-vaer', o, { immediate: true }); } }
+      liveVaer().forEach((x) => { if (x.isConnected && x._applySpacing) x._applySpacing(); }); syncNav();
+      return r0;
+    }
     else patch = { style: v === 'klassisk' ? 'klassisk' : 'scene', stil: undefined };
     const els = liveVaer(), el = els.find((x) => x.isConnected) || els[0];
     M.haptic('selection');
     let r;
     if (el && el._rawConfig) r = await el._saveCfg(patch);
     else if (M.store) { const { stil, ...o } = M.store.get('cards.pop-vaer') || {}; const n = { ...o, ...patch }; Object.keys(n).forEach((k) => { if (n[k] === undefined) delete n[k]; }); r = await M.store.set('cards.pop-vaer', n, { immediate: true }); }
-    if ('view' in patch || 'hide_navbar' in patch) { liveVaer().forEach((x) => { if (x.isConnected && x._mountLayers) { x._mountLayers(); x._applySpacing(); x.update(); } }); syncNav(); }
+    if ('view' in patch) { liveVaer().forEach((x) => { if (x.isConnected && x._mountLayers) { x._mountLayers(); x._applySpacing(); x.update(); } }); syncNav(); }
     return r;
   };
 
@@ -1995,14 +2015,14 @@ ${VE}`;
       <div style="font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:0 4px">${cur === 'scene' ? 'Værscene bak hele popupen (regn, snø, lyn, stjerner, sol og tåke)' : 'Vær v4 med toppkort og vanlige kort'} · samme valg som i «Tilpass Vær»</div>
       ${vaerViewHTML(act, PINK)}</div>`;
   };
-  // 56 I · «Visning: Fullskjerm / Ark» (standard Fullskjerm) + «Skjul navbar i fullskjerm» (standard av) – samme config-nøkler
-  // (view, hide_navbar) som GUI-editoren og kortets Tilpass
+  // 56 I · «Visning: Fullskjerm / Ark» (standard Fullskjerm) – samme config-nøkkel (view) som GUI-editoren og kortets Tilpass.
+  // 57 C · «Skjul navbar og Now Playing» (standard på) = snarvei til navbarens hide_in_popups ('#vaer')
   const vaerViewHTML = (act, PINK) => {
-    const c = vaerCfg(), v = viewOf(c), hn = c.hide_navbar === true;
+    const c = vaerCfg(), v = viewOf(c), hn = navHidden();
     const seg = [['fullscreen', 'Fullskjerm', 'mdi:fullscreen'], ['sheet', 'Ark', 'mdi:card-outline']].map(([k, l, ic]) => { const on = k === v; return `<button role="radio" aria-checked="${on}" ${on ? 'data-active="1"' : ''} data-a="${act}" data-v="view:${k}" style="flex:1;min-width:0;height:40px;display:flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:20px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:${on ? PINK : 'transparent'};color:${on ? 'var(--ki-on-accent, #2f2f2f)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${M.icon(ic, 18)}${l}</button>`; }).join('');
     return `<div style="font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));padding:6px 4px 0">Vær · visning</div>
       <div role="radiogroup" data-vaer-view data-glass-drag="x" style="display:flex;gap:4px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${seg}</div>
-      <button data-a="${act}" data-v="nav:${hn ? 'off' : 'on'}" data-vaer-nav role="switch" aria-checked="${hn}" ${v === 'sheet' ? 'disabled aria-disabled="true"' : ''} style="display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border:0;border-radius:20px;font:inherit;font-size:14px;cursor:pointer;text-align:left;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, #fafafa);opacity:${v === 'sheet' ? 0.5 : 1}"><span style="flex:1;min-width:0">Skjul navbar i fullskjerm<span style="display:block;font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))">${v === 'sheet' ? 'Ark skjuler navbaren som før' : 'Av = navbar og Now Playing vises over været'}</span></span><span style="position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:${hn ? PINK : 'var(--ki-ctrl, #545454)'}"><i style="position:absolute;top:3px;left:${hn ? 23 : 3}px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa)"></i></span></button>`;
+      <button data-a="${act}" data-v="nav:${hn ? 'off' : 'on'}" data-vaer-nav role="switch" aria-checked="${hn}" style="display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border:0;border-radius:20px;font:inherit;font-size:14px;cursor:pointer;text-align:left;background:var(--ki-surface, var(--gray200,#3a3a3a));color:var(--ki-text, #fafafa)"><span style="flex:1;min-width:0">Skjul navbar og Now Playing<span style="display:block;font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))">Samme valg som «Skjul navbar og Now Playing i popups» i Tilpass navbar</span></span><span style="position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:${hn ? PINK : 'var(--ki-ctrl, #545454)'}"><i style="position:absolute;top:3px;left:${hn ? 23 : 3}px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa)"></i></span></button>`;
   };
 
   /* ================================================================ «Tilpass Vær» (26.25 · ark portalet ut av popupen, MSH.overlay) */

@@ -3,8 +3,9 @@
 // 390×844 touch, CPU-struping ×6 (A55_THROTTLE), Ytelsesmodus Auto (A55_PERF=full|lite|auto). Hver popup åpnes og lukkes
 // to ganger (første = kald bygging, andre = gjenåpning); rAF-sampler i hver ramme:
 //  A1 · navbar og mini-spiller: samme noder hele tiden (aldri flyttet/byttet), tilkoblet, display/visibility/opasitet 1 og
-//       øverst i sitt punkt (over Bubbles bakteppe) i HVER ramme – unntak: #vaer (Fiks 28.4) får tone ut først når
-//       popupen har satt seg, og er synlig igjen fra første ramme ved lukking
+//       øverst i sitt punkt (over Bubbles bakteppe) i HVER ramme – unntak: #vaer (Fiks 57 C, navbarens hide_in_popups) glir
+//       ut (translate + opasitet, 180 ms) i samme ramme som popupen begynner å åpne og inn igjen når den lukkes – samme
+//       noder hele tiden; tidsforløp og blink-fritt måles i test/navbar57-check.mjs
 //  A2 · 0 tegninger av msh-hjem-card / hjem-faner / prosa / header ved åpning og lukking; prosa-pillene har samme tekst,
 //       bakgrunn og farge i hver ramme etter lukking; ingen (ikke-uendelige) opasitet-animasjoner i Hjem-kortene
 //  A3 · Strøm → Strømregning → tilbake: hovedvisningen er samme node (ingen ny bygging), flisene har opasitet 1 i hver
@@ -13,7 +14,7 @@
 //       før popupen har is-opening (dim og gliding starter i samme ramme); popupens kort tegnes ikke under glidingen ved
 //       gjenåpning (MSH.whenPopupSettled) – lange oppgaver i glidevinduet rapporteres; «Blur i popups på Android»
 //       (ki-store popup_android_blur): av (standard) → ingen blur, på → blur når popupen står stille, 0 mens den glir
-//  Standard-UA: ingen Android-regler (ingen ki-hold, ingen Strøm-Android-CSS), Vær-navbaren som før.
+//  Standard-UA: ingen Android-regler (ingen ki-hold, ingen Strøm-Android-CSS), Vær-navbaren skjules straks (57 C).
 // Kjør: node test/android55a-check.mjs   (A55_BUNDLE=<fil> måler en ferdig bundel uten krav · A55_OUT=<json> · A55_DEBUG=1)
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -167,7 +168,7 @@ function analyse(r, card, reopen) {
   // A1: navbar/mini
   F.forEach((f, i) => {
     if (!f.same) bad.push(['A1 node byttet/frakoblet', f.t]);
-    const okHide = isV && r.act === 'open' && f.settled && f.opened; // Vær: tone ut når popupen dekker
+    const okHide = isV; // 57 C: Vær skjuler navbar + mini-spiller (glir ut ved åpning, inn ved lukking) – nodene sjekkes over
     for (const [k, v] of [['navbar', f.nav], ['mini', f.mini], ['portal', f.host]]) if (v && !(okHide && /^opacity/.test(v))) bad.push([`A1 ${k} ${v}`, f.t]);
     if (f.navTop && !(okHide)) bad.push([`A1 navbar ${f.navTop}`, f.t]);
   });
@@ -264,10 +265,9 @@ const def = await D.page.evaluate(async () => {
   const pop = window.__pop('#strom');
   const r = { android: !!(M.perf && M.perf.android), holdCss: !!(window.__bd() && window.__bd().getRootNode().getElementById('ki-and-bd')), stromAndCss: /@keyframes ss-fade\{from\{transform/.test(css), before: getComputedStyle(pop, '::before').backdropFilter, holds: (M.perf && M.perf.backdropHolds) || 0 };
   M.closePopup(); await new Promise((r2) => setTimeout(r2, 900));
-  // Vær: navbaren tones ut straks (som før) på iOS/PC
-  if (M.store) M.store.set('cards.pop-vaer', { ...(M.store.get('cards.pop-vaer') || {}), view: 'sheet' }); // Fiks 56 I: «Ark» skjuler navbaren som før (Fullskjerm viser den – vaer56-check)
+  // Vær: navbaren skjules straks (57 C: navbarens hide_in_popups, standard ['#vaer'], begge visninger)
   M.openPopup('#vaer'); await new Promise((r2) => requestAnimationFrame(() => requestAnimationFrame(r2)));
-  r.vaerNow = window.__portal().hasAttribute('data-vaer');
+  r.vaerNow = window.__portal().hasAttribute('data-hidden');
   M.closePopup(); await new Promise((r2) => setTimeout(r2, 900));
   return r;
 });
@@ -294,7 +294,7 @@ if (own) {
   const out = [];
   const ok = (n, c, i) => out.push(`${c ? '✔' : '✘'} ${n}${i != null && !c ? ' · ' + JSON.stringify(i).slice(0, 500) : ''}`);
   const by = (re) => runs.filter((r) => r.bad.some((b) => re.test(b[0]))).map((r) => [`${r.round}:${r.act}${r.hash}`, r.bad.filter((b) => re.test(b[0])).slice(0, 2)]);
-  ok('A1 navbar og mini-spiller: samme noder, synlige og øverst i hver ramme (Vær: tones ut først når popupen har satt seg)', !by(/^A1/).length, by(/^A1/).slice(0, 3));
+  ok('A1 navbar og mini-spiller: samme noder, synlige og øverst i hver ramme (Vær: glir ut/inn, 57 C)', !by(/^A1/).length, by(/^A1/).slice(0, 3));
   ok('A2 ingen tegning av Hjem/faner/prosa/header ved åpning og lukking', !by(/^A2 Hjem/).length, by(/^A2 Hjem/).slice(0, 3));
   ok('A2 pillene beholder tekst/farge i hver ramme etter lukking, ingen inn-toning i Hjem', !by(/^A2 (pille|inn)/).length, by(/^A2 (pille|inn)/).slice(0, 3));
   ok('A3 Strøm tilbake: samme hovedvisning, fliser med opasitet 1, ingen opasitet-animasjon', runs.some((r) => r.act === 'back') && !by(/^A3/).length, by(/^A3/).slice(0, 3));
