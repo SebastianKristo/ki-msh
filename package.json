@@ -17,7 +17,8 @@
     "icons": "node test/icon-tap-check.mjs",
     "glass": "node test/glass-check.mjs",
     "templates": "node test/templates-check.mjs",
-    "perf": "node test/perf-check.mjs"
+    "perf": "node test/perf-check.mjs",
+    "shots": "node test/docs-shots.mjs"
   },
   "license": "Apache-2.0",
   "devDependencies": {

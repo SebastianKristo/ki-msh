@@ -63,18 +63,26 @@ ok('17.14 editor-felt (begge editorene bruker skjemaet)', ['sensor', 'rosa', 'ro
 
 /* ---------------- 17.9 · prosa-seksjoner */
 const stub = await page.evaluate(() => customElements.get('msh-prosa-card').getStubConfig());
-ok('17.9 getStubConfig har standard-configen', stub.vaer && stub.vaer.entity === 'sensor.dashboard_index' && stub.planter && stub.planter.auto === true && Array.isArray(stub.apparater) && stub.hjemkomst[0].navn === 'Mamma' && stub.pris.entity && stub.bursdag.vis && stub.ringeklokke.entity, Object.keys(stub));
+ok('17.9 getStubConfig har standard-configen (58: hjemkomst tom)', stub.vaer && stub.vaer.entity === 'sensor.dashboard_index' && stub.planter && stub.planter.auto === true && Array.isArray(stub.apparater) && Array.isArray(stub.hjemkomst) && !stub.hjemkomst.length && stub.pris.entity && stub.bursdag.vis && stub.ringeklokke.entity, Object.keys(stub));
 await setState('sensor.neste_tomming', '0,Restavfall,Plastavfall');
 await mk('msh-prosa-card', { type: 'custom:msh-prosa-card', card_id: 'prosa1' });
 const txt = () => page.evaluate(() => __last.shadowRoot.querySelector('.pz').textContent.replace(/\s+/g, ' ').trim());
 let p = await txt();
 ok('17.9 vær fra sensor.dashboard_index (attributt weather, små bokstaver)', /Ute er det delvis skyet og 12°?\s*\./.test(p), p);
-ok('17.9 hjemkomst: «Mamma kommer hjem ca. kl HH:MM.»', /Mamma kommer hjem ca\. kl \S*\d\d:\d\d\./.test(p), p);
+ok('58 ingen standard-hjemkomst («Mamma kommer hjem» vises ikke)', !/kommer hjem/.test(p), p);
 ok('17.9 apparat: «Vaskemaskinen vasker 1180W nå.»', /Vaskemaskinen vasker 1180W nå\./.test(p), p);
 ok('17.9 planter fra KI Planter (registry platform)', /Arekapalme og Palmelilje trenger vann\./.test(p), p);
 ok('17.9 pris fra norgespris', /Strømmen koster 1,16 kr( og vi bruker|\.)/.test(p), p);
-ok('17.9 rekkefølge vær → hjemkomst → apparater → planter → pris', ['Ute er det', 'Mamma kommer', 'Vaskemaskinen', 'Arekapalme', 'Strømmen koster'].map((s) => p.indexOf(s)).every((v, i, a) => v >= 0 && (!i || v > a[i - 1])), p);
+ok('17.9 rekkefølge vær → apparater → planter → pris', ['Ute er det', 'Vaskemaskinen', 'Arekapalme', 'Strømmen koster'].map((s) => p.indexOf(s)).every((v, i, a) => v >= 0 && (!i || v > a[i - 1])), p);
 ok('17.9 ingen dobbel vær/pris fra standardprosaen', (p.match(/Ute er det/g) || []).length === 1 && (p.match(/Strømmen koster/g) || []).length === 1, p);
+// Fiks 58: egen hjemkomst-rad vises fortsatt; rad identisk med gammel standard filtreres bort
+const OLDHK = { navn: 'Mamma', aktiv: 'input_boolean.ki_cybele_pa_vei_hjem_fra_jobb', reisetid: 'sensor.cybele_reisetid_fra_job', ikon: '🚗', animasjon: 'hopp', tekst: '{navn} kommer hjem ca. kl {pille}.', path: '#personer' };
+await mk('msh-prosa-card', { type: 'custom:msh-prosa-card', card_id: 'prosa-hk1', hjemkomst: [OLDHK] });
+p = await txt();
+ok('58 lagret gammel standard-hjemkomst vises ikke', !/kommer hjem/.test(p), p);
+await mk('msh-prosa-card', { type: 'custom:msh-prosa-card', card_id: 'prosa-hk2', hjemkomst: [OLDHK, { ...OLDHK, navn: 'Pappa' }] });
+p = await txt();
+ok('58 egen hjemkomst-rad vises fortsatt («Pappa kommer hjem ca. kl HH:MM.»)', /Pappa kommer hjem ca\. kl \S*\d\d:\d\d\./.test(p) && !/Mamma kommer/.test(p), p);
 const hasAppl = await page.evaluate(() => !!__last.shadowRoot.querySelector('.chip svg.ma-washer'));
 ok('17.9 ki:vaskemaskin rendres som animert hvitevare-ikon', hasAppl, hasAppl);
 if (SHOTS) await page.locator('msh-prosa-card').first().screenshot({ path: SHOTS + '/prosa.png' });

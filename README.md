@@ -34,18 +34,57 @@ Det som blir feil, overstyres i kortets egen «Tilpass»-ark eller i HAs GUI-edi
 
 ## Skjermbilder
 
-Mobil (390 px, mørkt tema) og PC med rail-navbar. Bildene er tatt i testharnessen med testdata (ingen ekte personer,
-adresser eller kameraer).
+Hjem og alle popups – iPhone (390×844, mørkt tema) i iPhone-ramme og PC (1440×900) i nettleservindu. Bildene er tatt
+med `npm run shots` mot ekte Bubble Card og testdataene i `test/mock` (ingen ekte personer, adresser eller kameraer).
 
-| Hjem | Rom | Basseng | Vanning |
+<!-- shots:start · generert av npm run shots -->
+
+| Hjem | Hage | Gang | Kjøkken |
 |:---:|:---:|:---:|:---:|
-| <img src="docs/images/hjem.png" alt="Hjem" width="200"> | <img src="docs/images/rom.png" alt="Rom" width="200"> | <img src="docs/images/basseng.png" alt="Basseng" width="200"> | <img src="docs/images/vanning.png" alt="Vanning" width="200"> |
+| <img src="docs/images/iphone/hjem.webp" alt="Hjem" width="190"> | <img src="docs/images/iphone/hage.webp" alt="Hage" width="190"> | <img src="docs/images/iphone/gang.webp" alt="Gang" width="190"> | <img src="docs/images/iphone/kjokken.webp" alt="Kjøkken" width="190"> |
 
-| Varmepumpe | Innstillinger | Server |
-|:---:|:---:|:---:|
-| <img src="docs/images/varmepumpe.png" alt="Varmepumpe" width="200"> | <img src="docs/images/innstillinger.png" alt="Innstillinger" width="200"> | <img src="docs/images/server.png" alt="Server" width="200"> |
+| Stue | Bad | Kontor | Soverom |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/stue.webp" alt="Stue" width="190"> | <img src="docs/images/iphone/bad.webp" alt="Bad" width="190"> | <img src="docs/images/iphone/kontor.webp" alt="Kontor" width="190"> | <img src="docs/images/iphone/soverom.webp" alt="Soverom" width="190"> |
 
-<img src="docs/images/hjem-desktop.png" alt="Hjem på PC med rail-navbar" width="100%">
+| Vaskerom | Kamera | Media | Klima |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/vaskerom.webp" alt="Vaskerom" width="190"> | <img src="docs/images/iphone/kamera.webp" alt="Kamera" width="190"> | <img src="docs/images/iphone/media.webp" alt="Media" width="190"> | <img src="docs/images/iphone/klima.webp" alt="Klima" width="190"> |
+
+| Ruter | Vanning | Basseng | Sikkerhet |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/ruter.webp" alt="Ruter" width="190"> | <img src="docs/images/iphone/vanning.webp" alt="Vanning" width="190"> | <img src="docs/images/iphone/basseng.webp" alt="Basseng" width="190"> | <img src="docs/images/iphone/sikkerhet.webp" alt="Sikkerhet" width="190"> |
+
+| Vær | Lys | Gjøremål | Dørlås |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/vaer.webp" alt="Vær" width="190"> | <img src="docs/images/iphone/lys.webp" alt="Lys" width="190"> | <img src="docs/images/iphone/gjoremal.webp" alt="Gjøremål" width="190"> | <img src="docs/images/iphone/dorlas.webp" alt="Dørlås" width="190"> |
+
+| Garasje | Ringeklokke | Kart | Strøm |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/garasje.webp" alt="Garasje" width="190"> | <img src="docs/images/iphone/ringeklokke.webp" alt="Ringeklokke" width="190"> | <img src="docs/images/iphone/kart.webp" alt="Kart" width="190"> | <img src="docs/images/iphone/strom.webp" alt="Strøm" width="190"> |
+
+| Energi | Kalender | Server | Tesla Model Y |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/energi.webp" alt="Energi" width="190"> | <img src="docs/images/iphone/kalender.webp" alt="Kalender" width="190"> | <img src="docs/images/iphone/server.webp" alt="Server" width="190"> | <img src="docs/images/iphone/tesla.webp" alt="Tesla Model Y" width="190"> |
+
+| Sir Sweeps | Søppel | Varmepumpe | Cybele |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/rolf.webp" alt="Sir Sweeps" width="190"> | <img src="docs/images/iphone/soppel.webp" alt="Søppel" width="190"> | <img src="docs/images/iphone/varmepumpe.webp" alt="Varmepumpe" width="190"> | <img src="docs/images/iphone/person-cybele.webp" alt="Cybele" width="190"> |
+
+| Emma | Rune | Sebastian | Innstillinger |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/person-emma.webp" alt="Emma" width="190"> | <img src="docs/images/iphone/person-rune.webp" alt="Rune" width="190"> | <img src="docs/images/iphone/person-sebastian.webp" alt="Sebastian" width="190"> | <img src="docs/images/iphone/settings.webp" alt="Innstillinger" width="190"> |
+
+### PC
+
+<img src="docs/images/pc/hjem.webp" alt="Hjem på PC" width="100%">
+
+| Stue | Strøm | Vær | Media | Server |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="docs/images/pc/stue.webp" alt="Stue på PC" width="300"> | <img src="docs/images/pc/strom.webp" alt="Strøm på PC" width="300"> | <img src="docs/images/pc/vaer.webp" alt="Vær på PC" width="300"> | <img src="docs/images/pc/media.webp" alt="Media på PC" width="300"> | <img src="docs/images/pc/server.webp" alt="Server på PC" width="300"> |
+
+Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md](docs/galleri.md).
+<!-- shots:end -->
 
 ## Funksjoner
 
