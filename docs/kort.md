@@ -667,6 +667,19 @@ Hele Hjem-visningen i ett kort: header, prosa, faner/romkort, søppel, strømpri
 | `layout_mode` | Layout (auto \| mobil \| stor) | Layout |
 | `breakout` | Mål margene mot dashbordflaten (bryt ut av seksjonens padding) · boolean | Layout |
 | `show_todo` | Vis gjøremål · boolean | Kort |
+| `hurtigpanel.enabled` | Hurtigpanel · boolean | Hurtigpanel (dra ned) |
+| `hurtigpanel.show_hint` | Vis hint-streken øverst · boolean | Hurtigpanel (dra ned) |
+| `hurtigpanel.tiles · hurtigpanel.hidden_tiles` | rekkefølge/synlighet: alarm, lock, garage, dnd, heat, vac, guest, night | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.alarm` | Alarm · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.lock` | Dørlås · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.garage` | Garasjeport · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.dnd` | Ikke forstyrr · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.heat` | Varmepumpe · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.vac` | Støvsuger · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.guest` | Gjeste-Wi-Fi · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.night` | Natta · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.players` | Minispiller (tom = alle mediespillere) · entities | Hurtigpanel (dra ned) |
+| `hurtigpanel.notif_order · hurtigpanel.hidden_notifs` | rekkefølge/synlighet: ring, appliance, power, tesla, vacuum, avfall, ha | Hurtigpanel (dra ned) |
 | `order · hidden` | rekkefølge/synlighet: header, prosa, faner, soppel, strom, gjoremal |  |
 
 ## `msh-strompris-card`
@@ -1580,3 +1593,32 @@ Garasje-popup (#garasje): portvelger, toppkort med portillustrasjon og Åpne/Sto
 | `gap` | Mellom seksjonene · range | Mellomrom |
 | `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+
+## `msh-stue-card`
+
+Stue-dashbord v2 for nettbrett: header med prosa, faner, nattmodus, scener, media, klima, enheter, lys, dock og nedtrekkspanel.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `area` | Område · area |  |
+| `overrides.{night, plex, weather, power}` | bytt entitet |  |
+| `exclude · include.{scener, lys, gardiner, termostater, spillere}` | skjul / legg til |  |
+| `tab_order · undefined` | rekkefølge/synlighet: hjem, media, enheter, lys | Faner |
+| `dock_order · dock_hidden` | rekkefølge/synlighet: rolf, strom, media, tesla, server, klima, settings | Dock |
+| `hurtigpanel.enabled` | Hurtigpanel · boolean | Hurtigpanel (dra ned) |
+| `hurtigpanel.show_hint` | Vis hint-streken øverst · boolean | Hurtigpanel (dra ned) |
+| `hurtigpanel.shade_layout` | Oppsett (delt \| sentrert) | Hurtigpanel (dra ned) |
+| `hurtigpanel.panel_name` | Navn i toppfeltet | Hurtigpanel (dra ned) |
+| `hurtigpanel.tiles · hurtigpanel.hidden_tiles` | rekkefølge/synlighet: alarm, lock, garage, dnd, heat, vac, guest, night | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.alarm` | Alarm · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.lock` | Dørlås · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.garage` | Garasjeport · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.dnd` | Ikke forstyrr · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.heat` | Varmepumpe · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.vac` | Støvsuger · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.guest` | Gjeste-Wi-Fi · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.night` | Nattmodus · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.screen` | Skjermens lysstyrke · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.entities.screen_switch` | Skjerm av (bryter) · entity | Hurtigpanel (dra ned) |
+| `hurtigpanel.players` | Minispiller (tom = alle mediespillere) · entities | Hurtigpanel (dra ned) |
+| `hurtigpanel.notif_order · hurtigpanel.hidden_notifs` | rekkefølge/synlighet: ring, appliance, power, tesla, vacuum, avfall, ha | Hurtigpanel (dra ned) |

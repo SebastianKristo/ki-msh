@@ -92,6 +92,12 @@ Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md
   legger seg over navbaren og holder seg innenfor dashbordflaten.
 - **Haptic** på trykk (én per trykk), `touch-action` og `stopPropagation` på alt som dras, så Bubble Card ikke lukker
   popupen mens du justerer en slider.
+- **Hurtigpanel:** dra ned fra toppen av Hjem (siden må stå i ro øverst) for et nedtrekkspanel i Android-stil med
+  hurtigfliser (alarm, dørlås, garasjeport, ikke forstyrr, varmepumpe, støvsuger, gjeste-Wi-Fi, natta), «Alle lys»,
+  minispiller og varsler som kan sveipes bort. Sveip-innstillingene (sone, avstand, dødsone, ro i toppen, musehjul)
+  ligger i panelet og gjelder per enhet.
+- **Stue-dashbord for nettbrett** (`msh-stue-card`, valgfritt): klokke, vær, prosa, faner (Hjem/Media/Enheter/Lys),
+  nattmodus, scener, Plex, termostat, mediespiller, gardiner, lys og en hvit dock – med eget nedtrekkspanel.
 
 ## Installasjon
 
@@ -237,6 +243,7 @@ strategy:
   popups: { kamera: false }         # slå av funksjons-popups
   home: { layout_mode: auto }       # auto | mobil | stor
   navbar: { style: glass }          # white | glass
+  stue: true                        # egen nettbrettvisning /stue (eller { area: stue, path: stue, title: Stue })
   popup_header_gap: -10             # px fra Bubble-headeren til første kort (Tilpass Hjem vinner)
   popup_overrides:
     '#vaer': { name: Været, width_desktop: 600px }

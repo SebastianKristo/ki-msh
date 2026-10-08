@@ -1,0 +1,4 @@
+[
+  { "name": "Stue (nettbrett)", "cards": [ { "type": "custom:msh-stue-card" } ] },
+  { "name": "Stue · Lys-fanen først", "cards": [ { "type": "custom:msh-stue-card", "tab_order": ["lys", "hjem", "media", "enheter"], "start_tab": "lys" } ] }
+]

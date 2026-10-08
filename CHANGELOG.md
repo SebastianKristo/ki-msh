@@ -2,6 +2,32 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 58 · Hurtigpanel (nedtrekk) og Stue-dashbord v2
+Designfilene (`Hurtigpanel.dc.html`, `Stue dashboard v2.dc.html`) finnes ikke i repoet – bygget etter prompt-teksten.
+- **A · Hurtigpanel** (`src/11-hurtigpanel.js`, `M.hurtig`): nedtrekkspanel på Hjem (`msh-hjem-card`), portalt til
+  `ki-overlay-root` og plassert mot dashbordflaten. Bare aktivt i Hjem uten åpen popup, Tilpass-ark eller tastatur; lukkes
+  hvis det slutter å være aktivt. Hint-strek øverst (`show_hint`).
+  - Åpne-gest: siden helt øverst og i ro i `rest` ms (scroll opp og fortsett samme bevegelse åpner ikke), startsone
+    kant/øvre/overalt, ikke fra vannrette karuseller/inputfelt, dy > 10 og loddrett, dødsone, åpner over
+    `min(open, panelhøyde − 40)`, forbi panelhøyde + 90 → rett i nivå 2. Touch via touch-events, mus via pointer-events,
+    musehjul med terskel og sperre mot etterskli (+160 ms per hjul-event).
+  - To nivåer: runde fliser → «Alle lys»-slider, 8 fliser i rutenett og minispiller (dra ned/opp, terskel 0,3 / 0,7; dra
+    videre opp > 90 px lukker). Lukk også med scrim, Esc og musehjul.
+  - Fliser autokonfigureres (ingen hardkodede ID-er) og kan byttes/ordnes/skjules; skript/scener vises aldri som aktive.
+    Gjeste-Wi-Fi på → QR fra UniFi (`image.*qr*`) + «Slå av».
+  - Varsler: ringeklokke, hvitevarer, dyr strømtime (+ utsett/lad Tesla), Tesla lader, støvsuger utilgjengelig, søppel i
+    morgen og `persistent_notification` (abonnement bare mens panelet er åpent). Sveip > 110 px fjerner (huskes),
+    «Fjern alle». Listen får plassen som er igjen på skjermen.
+  - Sveip-innstillinger (tune-knappen) i `localStorage['hurtigpanel-cfg']` per enhet, «Tilbakestill».
+    Panelconfig (`hurtigpanel:` i Hjem-kortet) i GUI-editoren og via «rediger fliser».
+- **B · Stue-dashbord v2** (`src/64-stue.js`, `msh-stue-card`): header (klokke 80 px, vær → #vaer, statuspiller, avatarer,
+  prosa med chip-lenker), felles fanelinje (glass + hold og dra, `tab_order` i config, `start_tab`), nattmodus-kort
+  (følger `input_boolean`, «Slå av»), scener, Plex nylig lagt til, termostat (bytt, Varme/Auto/Av, 15–28 °C), spiller nå
+  med prikker, gardiner/markise som slidere, lys (trykk = av/på, sideveis dra = lysstyrke), hvit dock. Nedtrekkspanelet
+  er samme komponent (`variant: 'nettbrett'`, delt/sentrert, skjermens lysstyrke, skjerm av) – gestlogikken finnes ett sted.
+  Strategien: `stue: true` gir visningen `/stue` med kortet + de samme popupene.
+- Test: `node test/hurtig58-check.mjs` (ekte touch via CDP: alle akseptansekriteriene).
+
 ## Ytelse på Android («tregt og tungt»)
 - **Bygg:** `build.mjs` minifiserer hver fil i `src/` for seg med esbuild (mellomrom, kommentarer, syntaks – navnene beholdes,
   target es2022 = ingen senking av syntaks). Hver fil står fortsatt i egen try/catch; banner/versjonssjekk/`KI_MSH_VERSION`
