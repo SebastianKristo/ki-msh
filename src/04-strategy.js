@@ -588,6 +588,19 @@
     return { store: M.globalsInfo().counts, lovelace: c ? { generated: !c.strategy && Array.isArray(c.views), bct: n(c.button_card_templates), dct: n(c.decluttering_templates), pbr: n(c.paper_buttons_row && c.paper_buttons_row.presets) } : null };
   };
 
+  // Fiks 58 B · Stue-dashbord (nettbrett): strategi-YAML `stue: true | { area, path, title }` eller ki-store stue.enabled
+  // (Tilpass Hjem / GUI-editoren) → egen panel-visning med msh-stue-card + de samme Bubble-popupene (dock-lenkene virker).
+  M.stueView = function (config, view) {
+    const S = (M.store && M.store.get && M.store.get('stue')) || {}, y = config && config.stue;
+    const on = y === true || (y && typeof y === 'object' && y.enabled !== false) || (y == null && S.enabled === true);
+    if (!on) return null;
+    const o = { ...(typeof y === 'object' && y ? y : {}), ...S };
+    const stack = view && view.cards && view.cards[0] && Array.isArray(view.cards[0].cards) ? view.cards[0].cards : [];
+    const pops = stack.filter((c) => c && c.type === 'custom:bubble-card');
+    const card = { type: 'custom:msh-stue-card', card_id: 'ki-stue', ...(o.area ? { area: o.area } : {}) };
+    return { title: o.title || 'Stue', path: o.path || 'stue', icon: 'mdi:sofa', panel: true, cards: [{ type: 'vertical-stack', cards: [card, ...pops] }] };
+  };
+
   class KiDashboardStrategy extends HTMLElement {
     static async generate(config, hass) {
       const view = await M.generateDashboardView(config, hass);
@@ -599,7 +612,8 @@
       M.__kiGlobalKeys = Object.keys(G.globals);
       // Fiks 22.9: kiosk_mode på rotnivå fra ki-store (53-kiosk.js) – kiosk-mode leser det når dashbordet lastes
       const KM = M.kioskConfig ? M.kioskConfig() : null;
-      return { ...G.globals, ...(KM ? { kiosk_mode: KM } : {}), title: (config && config.title) || 'Hjem', views: [view] };
+      const stue = M.stueView ? M.stueView(config, view) : null; // Fiks 58 B: valgfri nettbrettvisning /stue
+      return { ...G.globals, ...(KM ? { kiosk_mode: KM } : {}), title: (config && config.title) || 'Hjem', views: stue ? [view, stue] : [view] };
     }
     static async getConfigElement() { return document.createElement('ki-dashboard-strategy-editor'); }
     static noEditor = false;
@@ -627,6 +641,7 @@
           { type: 'select', name: 'home.layout_mode', label: 'Layout', options: [['auto', 'Auto'], ['mobil', 'Mobil'], ['stor', 'Stor skjerm']], default: 'auto' },
           { type: 'range', name: 'popup_header_gap', label: 'Popups · fra Bubble-headeren til første kort (px)', icon: 'mdi:format-vertical-align-top', min: -40, max: 40, default: -10, presets: [[-10, 'Standard −10'], [0, 'Som før 0']] }, // 26.18 (overstyres av Tilpass Hjem → Popups)
           { type: 'select', name: 'navbar.style', label: 'Navbar', options: [['white', 'Standard'], ['glass', 'Liquid Glass']], default: 'white' },
+          { type: 'boolean', name: 'stue', label: 'Stue-dashbord for nettbrett (egen visning /stue)', default: false }, // Fiks 58 B
           { type: 'entity', name: 'fallback_temperature', label: 'Temperatur når rommet mangler sensor', domain: 'sensor', device_class: 'temperature', auto: () => 'sensor.hus_temperature' },
           { type: 'entity', name: 'fallback_humidity', label: 'Fukt når rommet mangler sensor', domain: 'sensor', device_class: 'humidity', auto: () => 'sensor.hus_fuktighet' },
         ] },

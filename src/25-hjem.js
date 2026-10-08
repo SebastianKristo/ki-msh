@@ -83,6 +83,8 @@
         ] },
         // Fiks 36.4: kombinerte rom (Hjem-configen combined_rooms, samme som «Tilpass Hjem» → Kort → «Kombiner rom»)
         { type: 'section', id: 'kombiner', label: 'Kombiner rom', icon: 'mdi:vector-combine', fields: [M.combinedField ? M.combinedField('hjem') : { type: 'info', label: '–' }] },
+        // Fiks 58 A: hurtigpanel (11-hurtigpanel.js) – samme felt som «rediger fliser» i panelet
+        ...(M.hurtigSchema ? [M.hurtigSchema('hurtigpanel.', 'mobil')] : []),
         { type: 'order', name: 'order', hiddenName: 'hidden', label: 'Blokker (rekkefølge på mobil · skjul)', options: BLOCKS.map((b) => [b[0], b[2]]) },
         // 23.7: «Tilpass alt» (54-onboarding.js) – samler alle Tilpass-arkene med hurtigvalg
         { type: 'section', id: 'tilpass_alt', label: 'Tilpass alt', icon: 'mdi:tune', fields: [
@@ -108,6 +110,7 @@
       if (M.kioskTick) M.kioskTick(h); // 22.9: kiosk per nettleser (Browser Mod-ID, 53-kiosk.js)
       if (M.onboardMaybe) M.onboardMaybe(h); // 23.7: onboarding første gang (54-onboarding.js – bare i ekte HA med strategien)
       if (this._ring) this._ring.hass = h;
+      if (this.__hurtig) this.__hurtig.update(h); // Fiks 58 A: hurtigpanelet (11-hurtigpanel.js)
       if (first) { this._schedule(true); this._checkOpen(); }
       else if (this._lastAreas !== h.areas) this._schedule(true);
     }
@@ -122,11 +125,13 @@
       if (!this._onRs) { this._onRs = () => this._measure(); window.addEventListener('resize', this._onRs); }
       requestAnimationFrame(() => this._measure());
       if (M.ringHjemBind) M.ringHjemBind(this); // 19.18/19.19: ringe-kort + #ringeklokke fra URL ved kaldstart
+      if (M.hurtig) M.hurtig.attach(this); // Fiks 58 A: nedtrekkspanel (bare i Hjem, aldri med popup/ark åpent)
     }
     disconnectedCallback() {
       super.disconnectedCallback();
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._onRs) { window.removeEventListener('resize', this._onRs); this._onRs = null; }
+      if (M.hurtig) M.hurtig.detach(this);
     }
     // Egen rect mot dashbordflaten → negative marger (sidemarg måles fra dashbordkanten) + bredde og Fold-oppsett.
     _calc() {
