@@ -165,6 +165,7 @@
     .eb .ec.off{background:var(--sd-in);color:${C.text3}}
     .eb .ebt{height:44px;padding:0 18px;border-radius:22px;background:var(--sd-ic);font-size:14px;font-weight:600}
     .eb .ebt.p{background:${PINK};color:${ON}}
+    .eb .elg{display:flex;align-items:center;gap:14px;font-size:14px;font-weight:600}.eb .elg .seg{flex:0 1 320px}
     /* navbar til venstre (2b) */
     .nv{position:fixed;top:12px;bottom:12px;width:92px;border-radius:46px;background:#fafafa;color:#232323;display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;box-sizing:border-box;z-index:5;box-shadow:0 12px 30px rgb(0 0 0/0.35)}/* ki-hex-ok: hvit navbar (designet) */
     .nv button{width:min(68px, calc((100vh - 120px) / 8.2));height:min(68px, calc((100vh - 120px) / 8.2));min-width:44px;min-height:44px;border-radius:50%;display:grid;place-items:center;flex:none;--nvi:min(38px, calc((100vh - 120px) / 14))}
@@ -550,7 +551,7 @@
       const hid = new Set(this.lay.hidden);
       return `<section class="eb" data-key="eb"><div class="et">${M.icon('mdi:view-dashboard-edit-outline', 22)}<b>Tilpass stua</b><button class="ebt press" data-act="ereset" data-haptic="medium">Tilbakestill</button><button class="ebt p press" data-act="edone" data-haptic="success">Ferdig</button></div>
         <span class="eh">Dra kortene for å flytte dem. Trykk på øyet for å vise eller skjule et kort.</span>
-        <div class="ecs">${CHIPS.map(([k, l]) => `<button class="ec press${hid.has(k) ? ' off' : ''}" data-act="echip" data-k="${k}" data-haptic="selection" aria-pressed="${!hid.has(k)}">${M.icon(hid.has(k) ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18)}${esc(l)}</button>`).join('')}</div></section>`;
+        <div class="ecs">${CHIPS.map(([k, l]) => `<button class="ec press${hid.has(k) ? ' off' : ''}" data-act="echip" data-k="${k}" data-haptic="selection" aria-pressed="${!hid.has(k)}">${M.icon(hid.has(k) ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18)}${esc(l)}</button>`).join('')}</div><div class="elg" data-noi18n><span>Språk · Language</span><div class="seg">${[['no', 'Norsk'], ['en', 'English']].map(([k, l]) => `<button class="${(M.i18n ? M.i18n.lang() : 'no') === k ? 'on' : ''}" data-act="lang" data-v="${k}" data-haptic="selection">${l}</button>`).join('')}</div></div></section>`;
     }
     render() {
       const tab = this.tab, edit = !!this.ui.edit && tab === 'hjem';
@@ -780,6 +781,7 @@
         case 'cvx': return this.setUI({ cvx: { ...(this.ui.cvx || {}), [d.k]: !(this.ui.cvx || {})[d.k] } });
         case 'cvset': return M.call(h, 'cover', 'set_cover_position', { entity_id: String(d.ids).split(',').filter(Boolean), position: Number(d.v) });
         // 2b · Tilpass (redigeringsmodus) – utkast i this._lay, lagres i config.layout ved «Ferdig»
+        case 'lang': if (M.i18n) M.i18n.set(d.v); return this.update(); // Fiks 59
         case 'edit': if (this._hp) this._hp.close(false); this._lay = M.stueLayout(this.config); return this.setUI({ edit: true });
         case 'edone': { const L = this._lay; this._lay = null; this.setUI({ edit: false }); if (L) M.mshPatchConfig(this, { layout: L }); return; }
         case 'ereset': this._lay = M.stueLayout({}); return this.update();

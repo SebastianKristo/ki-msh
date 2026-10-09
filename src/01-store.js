@@ -269,6 +269,7 @@
           if (r && r.value && typeof r.value === 'object' && !busy()) { data = r.value; cache(); emit(''); }
         } catch (e) { /* eldre HA: behold cache */ }
         loaded = true;
+        try { if (M.i18n) M.i18n.fromHass(hass); } catch (e) { /* */ } // Fiks 59: språkvalget følger brukeren
         try { if (M.migrateNavProfiles) M.migrateNavProfiles(); } catch (e) { /* */ } // Fiks 19.13: 18.5/18.6 → nav_profiles
         if (migrate()) { cache(); emit(''); push(false); }
         // sist sett (maks hver 6. time, så det ikke gir unødige skriv)

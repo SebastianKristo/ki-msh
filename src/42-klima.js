@@ -261,7 +261,7 @@
     static get defaults() { return {}; }
     static get schema() {
       return [
-        { type: 'info', label: 'Hero-kortet i Klima-popupen (første seksjon i msh-klima-card). Data fra KI Energi: sensor.ki_energi_status og sensor.ki_laster. Tersklene settes i Avansert → Terskler.' },
+        { type: 'info', label: kiT('Hero-kortet i Klima-popupen (første seksjon i msh-klima-card). Data fra KI Energi: sensor.ki_energi_status og sensor.ki_laster. Tersklene settes i Avansert → Terskler.', 'The hero card in the Climate popup (first section in msh-klima-card). Data from KI Energi: sensor.ki_energi_status and sensor.ki_laster. Thresholds are set under Advanced → Thresholds.') },
         { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
       ];
     }

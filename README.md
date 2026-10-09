@@ -92,6 +92,8 @@ Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md
   legger seg over navbaren og holder seg innenfor dashbordflaten.
 - **Haptic** på trykk (én per trykk), `touch-action` og `stopPropagation` på alt som dras, så Bubble Card ikke lukker
   popupen mens du justerer en slider.
+- **Språk:** norsk eller engelsk (britisk) for hele dashbordet – velg i onboarding, øverst i «Tilpass Hjem» eller i
+  Stue-redigeringen. Byttes uten omlasting, lagres per HA-bruker og følger HA-språket som standard.
 - **Hurtigpanel:** dra ned fra toppen av Hjem (siden må stå i ro øverst) for et nedtrekkspanel i Android-stil med
   hurtigfliser (alarm, dørlås, garasjeport, ikke forstyrr, varmepumpe, støvsuger, gjeste-Wi-Fi, natta), «Alle lys»,
   minispiller og varsler som kan sveipes bort. Sveip-innstillingene (sone, avstand, dødsone, ro i toppen, musehjul)

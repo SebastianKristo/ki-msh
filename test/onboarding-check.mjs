@@ -62,8 +62,12 @@ const flush = (p) => p.evaluate(async () => { window.MSH.store.flush(); await ne
 
   /* ---------------- 2 · onboarding med flagget */
   await p.evaluate(() => { window.__kiOnboard = true; window.MSH.onboardMaybe(window.H); });
-  await p.waitForTimeout(3600);
+  await p.waitForTimeout(900);
   let t = await sheet(p);
+  // Fiks 59: første steg er «Språk / Language» (norsk valgt som standard)
+  ok(/Språk \/ Language/.test(t) && /Norsk/.test(t) && /English/.test(t), 'steg «Språk / Language» først', t.slice(0, 80));
+  await click(p, '[data-a="lnext"]'); await p.waitForTimeout(3600);
+  t = await sheet(p);
   ok(/Hei, Sebastian\./.test(t), 'steg 0: «Hei, Sebastian.»', t.slice(0, 80));
   const scan = await p.evaluate(() => { const P = window.MSH.portals(); return [...P[P.length - 1].shadowRoot.querySelectorAll('.scan .row')].map((r) => r.innerText.replace(/\s+/g, ' ').trim()); });
   const num = (l) => { const r = scan.find((x) => x.startsWith(l)); return r ? r.slice(l.length).trim() : null; };

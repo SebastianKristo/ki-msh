@@ -630,6 +630,7 @@
       const secs = [['kort', 'Kort', 'mdi:view-dashboard'], ['faner', 'Faner', 'mdi:tab'], ['pop', 'Popups', 'mdi:dock-window'], ['tekst', 'Tekst', 'mdi:text']];
       const html = `<div class="ed" data-key="ed">
         <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="cancel">Avbryt</button><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done" ${this._busy ? 'disabled aria-busy' : ''}>${this._busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+        ${M.i18n ? `<div data-key="lrow">${M.i18n.rowHTML('data-a="kilang"')}</div>` : ''}
         ${M.openTilpassAlt ? `<button class="press" data-a="tall" data-key="tall" style="display:flex;align-items:center;gap:8px;justify-self:start;height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-in,#404040);color:var(--ki-text, #fafafa);font-size:13px;font-weight:500">${ic('mdi:tune', 16)}Tilpass alt ›</button>` : ''}
         <div class="seg itabs" role="tablist" data-key="secs">${secs.map(([id, l, ic]) => M.iconTabs.btn({ label: l, icon: ic }, u.sec === id, `data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}"`, u.sec === id ? 'on-pk' : '')).join('')}</div>
         ${inner}
@@ -1695,6 +1696,7 @@
       if (a === 'cancel') return this.close();
       if (a === 'sec') { u.sec = d.v; u.sel = null; u.pick = null; return this.render(); }
       if (a === 'reset') return this._reset();
+      if (a === 'kilang') { M.haptic('selection'); if (M.i18n) M.i18n.toggle(); return this.render(); } // Fiks 59
       if (a === 'tall') { const go = () => M.openTilpassAlt && M.openTilpassAlt(); if (this.tx && this.tx.active && this.tx.dirty) return this._done().then(() => { if (this.closed) go(); }); this.close(); return go(); } // 23.7: utkast lagres først
       if (a === 'acc') { u.acc = { ...u.acc, [d.v]: !u.acc[d.v] }; return this.render(); }
       if (a === 'showtodo' || a === 'blkeye') return this._actBlock(a, d);
