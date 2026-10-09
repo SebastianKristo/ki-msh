@@ -1604,7 +1604,8 @@ Stue-dashbord v2 for nettbrett: header med prosa, faner, nattmodus, scener, medi
 | `overrides.{night, plex, weather, power}` | bytt entitet |  |
 | `exclude · include.{scener, lys, gardiner, termostater, spillere}` | skjul / legg til |  |
 | `tab_order · undefined` | rekkefølge/synlighet: hjem, media, enheter, lys | Faner |
-| `dock_order · dock_hidden` | rekkefølge/synlighet: rolf, strom, media, tesla, server, klima, settings | Dock |
+| `lights` | Lys (utvalg og rekkefølge · tomt = lysene i området) · entities | Kort og oppsett |
+| `dock_order · dock_hidden` | rekkefølge/synlighet: rolf, strom, media, tesla, server, klima | Navbar |
 | `hurtigpanel.enabled` | Hurtigpanel · boolean | Hurtigpanel (dra ned) |
 | `hurtigpanel.show_hint` | Vis hint-streken øverst · boolean | Hurtigpanel (dra ned) |
 | `hurtigpanel.shade_layout` | Oppsett (delt \| sentrert) | Hurtigpanel (dra ned) |

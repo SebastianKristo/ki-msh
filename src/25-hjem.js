@@ -126,6 +126,7 @@
       requestAnimationFrame(() => this._measure());
       if (M.ringHjemBind) M.ringHjemBind(this); // 19.18/19.19: ringe-kort + #ringeklokke fra URL ved kaldstart
       if (M.hurtig) M.hurtig.attach(this); // Fiks 58 A: nedtrekkspanel (bare i Hjem, aldri med popup/ark åpent)
+      if (M.devicePresetGo) setTimeout(() => M.devicePresetGo(false), 800); // Fiks 58 B (2b): Stue-tablet → /stue ved oppstart
     }
     disconnectedCallback() {
       super.disconnectedCallback();

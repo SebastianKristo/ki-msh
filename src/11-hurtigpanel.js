@@ -27,6 +27,16 @@
   const M = window.MSH;
   if (!M || M.hurtig) return;
   const esc = M.esc, C = M.C;
+  // 2b · maks én oppdatering per skjermbilde under dra: M.rs(nøkkel, fn) kjører siste fn i neste rAF, M.flushRs(nøkkel) straks
+  const RS = new WeakMap();
+  M.rs = M.rs || function (key, fn) {
+    const e = RS.get(key);
+    if (e) { e.fn = fn; return; }
+    const n = { fn };
+    n.raf = requestAnimationFrame(() => { RS.delete(key); try { n.fn(); } catch (x) { console.error('[ki-msh] rs', x); } });
+    RS.set(key, n);
+  };
+  M.flushRs = M.flushRs || function (key) { const e = RS.get(key); if (!e) return; cancelAnimationFrame(e.raf); RS.delete(key); try { e.fn(); } catch (x) { /* */ } };
 
   /* ------------------------------------------------------------ sveip-innstillinger (per enhet) */
   const DEF = { zone: 'ovre', open: 180, dead: 40, rest: 400, wheel: 140 };
@@ -148,7 +158,7 @@
       case 'heat': done(m.on ? 'Varmepumpen slås av' : 'Varmepumpen slås på')(M.call(h, 'climate', m.on ? 'turn_off' : 'turn_on', { entity_id: id })); return;
       case 'vac': done(m.on ? 'Sendt hjem til dokken' : 'Rengjøring startet')(M.call(h, 'vacuum', m.on ? 'return_to_base' : 'start', { entity_id: id })); return;
       case 'guest':
-        if (m.on) { guestSheet(ctl, id); return; }
+        if (m.on) { ctl.close(); setTimeout(() => guestSheet(ctl, id), 200); return; }
         done('Gjeste-Wi-Fi på')(M.call(h, dom, 'turn_on', { entity_id: id })); return;
       case 'night':
         if (m.oneShot) { done(m.name + ' kjørt')(M.call(h, dom, 'turn_on', { entity_id: id })); return; }
@@ -322,7 +332,7 @@
     .rt{width:100%;aspect-ratio:1;max-width:56px;border-radius:50%;background:var(--ki-surface, #383838);display:grid;place-items:center;flex:none;transition:transform .12s ease,background .2s}
     .rt.on{background:${PINK};color:${ON_PINK}}
     .rt.dead{opacity:.45}
-    .ex{overflow:hidden;opacity:var(--exp,0);max-height:calc(var(--exp,0) * 470px);display:flex;flex-direction:column;gap:10px}
+    .ex{overflow:hidden;opacity:var(--exp,0);max-height:calc(var(--exp,0) * var(--hp-exmax, 470px));display:flex;flex-direction:column;gap:10px}
     .exi{display:flex;flex-direction:column;gap:10px;padding:2px 0 12px}
     .sl{position:relative;height:56px;border-radius:28px;background:var(--ki-surface, #383838);overflow:hidden;touch-action:none;display:flex;align-items:center;gap:10px;padding:0 18px}
     .sl .fl{position:absolute;left:0;top:0;bottom:0;background:${PINK};border-radius:28px;min-width:56px;pointer-events:none}
@@ -330,6 +340,14 @@
     .sl .pv{position:relative;z-index:1;font-size:14px;font-weight:600;pointer-events:none}
     .sl.dim .lb,.sl.dim .pv{color:var(--ki-text-3, #7f7f7f)}
     .sl.dim .fl{display:none}
+    .lsw{display:flex;gap:8px;align-items:center}.lsw .sl{flex:1;min-width:0}
+    .sl.grow .fl{background:${C.yellow}}.sl.grow.lit .lb{color:var(--ki-on-accent, #2a1720)}
+    .lpk{width:56px;height:56px;border-radius:28px;background:var(--ki-surface, #383838);display:grid;place-items:center;flex:none;transition:transform .2s ease}
+    .lpk.on{transform:rotate(180deg)}
+    .lpl{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;overscroll-behavior:contain;background:var(--ki-surface-3, #2c2c2c);border-radius:24px;padding:6px;touch-action:pan-y}
+    .lo2{min-height:44px;border-radius:22px;padding:0 14px;display:flex;align-items:center;gap:8px;text-align:left;font-size:14px;font-weight:500}
+    .lo2 span{flex:1}.lo2 i{font-style:normal;font-size:11px;color:var(--ki-text-3, #7f7f7f);max-width:45%}
+    .lo2.on{background:var(--ki-surface, #383838);font-weight:600}
     .sl.lit .lb{color:${ON_PINK}}
     .tg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .tp{height:64px;border-radius:32px;background:var(--ki-surface, #383838);display:flex;align-items:center;gap:10px;padding:0 12px 0 8px;text-align:left;min-width:0;transition:transform .12s ease,background .2s}
@@ -466,7 +484,7 @@
       const f = M.clamp(p / Math.max(1, H), 0, 1);
       this.scrim.style.transition = anim ? 'opacity .32s ease' : 'none';
       this.scrim.style.opacity = String(f);
-      this.scrim.style.setProperty('--hp-blur', (8 * f).toFixed(1) + 'px');
+      this.scrim.style.setProperty('--hp-blur', '0px'); // 2b: blur bare når panelet ligger åpent og ikke dras
       if (this.variant === 'mobil' && p > H + 24) this._setExp(M.clamp((p - H - 24) / 220, 0, 1));
     }
     _setExp(e, anim) {
@@ -507,9 +525,10 @@
         this.pn.style.transform = 'translateY(0)';
         this.scrim.style.transition = 'opacity .32s ease';
         this.scrim.style.opacity = '1';
-        this.scrim.style.setProperty('--hp-blur', '8px');
         this.scrim.classList.add('on');
       });
+      clearTimeout(this._blurT);
+      this._blurT = setTimeout(() => this._blur(true), 340);
       this._subPN();
       clearInterval(this._tick);
       this._tick = setInterval(() => { if (!this.active()) this.close(); else this._clock(); }, 500);
@@ -517,7 +536,9 @@
       window.addEventListener('keydown', this._kd, true);
       document.documentElement.setAttribute('data-ki-hurtig', '1');
     }
+    _blur(on) { this.scrim.style.setProperty('--hp-blur', on && this.isOpen && !(this._p && this._p.mode === 'drag') ? '8px' : '0px'); }
     close(anim = true) {
+      clearTimeout(this._blurT);
       const was = this.isOpen;
       this.isOpen = false; this.setOpen = false;
       clearInterval(this._tick); this._tick = null;
@@ -573,6 +594,7 @@
       if (!h) return;
       const html = this.variant === 'nettbrett' ? this._htmlTab(h) : this._htmlMob(h);
       M.morph(this.pn, html);
+      this.pn.style.setProperty('--hp-exmax', this._lpOpen ? '720px' : '470px'); // åpen lys-velger får plass
       this._setExp(this.variant === 'nettbrett' ? 1 : this.exp);
       this._fit(this.variant === 'nettbrett' ? 1 : this.exp > 0.5 ? 1 : 0);
     }
@@ -591,15 +613,36 @@
         <button class="rs press" data-a="reset">Tilbakestill</button></div>`;
     }
     _tileP(m) { return `<button class="tp press${m.on ? ' on' : ''}${m.dead ? ' dead' : ''}" data-a="tile" data-k="${m.key}" data-key="tp-${m.key}" aria-pressed="${m.on}"><span class="ci">${M.icon(m.icon, 22)}</span><span class="tx"><span class="nm ell">${esc(m.name)}</span><span class="st ell">${esc(m.status)}</span></span></button>`; }
+    // 2b · lys-sliderens mål: 'on' (alle lys som er på, mobil standard) · 'stue' (Stue-kortets lys, nettbrett standard) ·
+    //   'area:<id>' · light.<id>. Valget per enhet: localStorage hurtigpanel-lys / stue-panel-lys; standard = config light_entity.
+    _lkey() { return this.variant === 'nettbrett' ? 'stue-panel-lys' : 'hurtigpanel-lys'; }
+    _ltarget() { const v = lsGet(this._lkey()); return (typeof v === 'string' && v) || this.pc().light_entity || (this.variant === 'nettbrett' ? 'stue' : 'on'); }
     _lights(h) {
-      const L = M.all(h, 'light', (s) => !Array.isArray(s.attributes.entity_id) && !M.unavailable(s));
-      const on = L.filter((id) => h.states[id].state === 'on');
+      const all = M.all(h, 'light', (s) => !Array.isArray(s.attributes.entity_id) && !M.unavailable(s));
+      const t = this._ltarget();
+      let ids, label;
+      if (t === 'stue') { ids = ((this.o.lights && this.o.lights()) || []).filter((id) => h.states[id]); label = 'Alle lys i stua'; }
+      else if (t.startsWith('area:')) { const a = t.slice(5); ids = all.filter((id) => M.areaOf(h, id) === a); label = M.areaName(h, a); }
+      else if (t.startsWith('light.')) { ids = h.states[t] ? [t] : []; label = h.states[t] ? M.name(h, t) : t; }
+      else { ids = all.filter((id) => h.states[id].state === 'on'); label = 'Alle lys'; }
+      const on = ids.filter((id) => h.states[id] && h.states[id].state === 'on');
       const br = on.map((id) => h.states[id].attributes.brightness).filter((b) => b != null);
       const pct = this._slv != null ? this._slv : on.length ? Math.round((br.length ? br.reduce((a, b) => a + b, 0) / br.length : 255) / 2.55) : 0;
-      return { L, on, pct };
+      // 'on' kan bare dimme lys som er på; de andre målene slår også på
+      return { L: all, on, ids, pct, label, t, dim: t === 'on' ? !on.length : !ids.length };
     }
-    _slider(kind, label, icon, pct, dim, val) {
-      return `<div class="sl${dim ? ' dim' : ''}${pct > 30 ? ' lit' : ''}" data-sl="${kind}" data-key="sl-${kind}" role="slider" aria-label="${esc(label)}" aria-valuenow="${pct}"><span class="fl" style="width:${dim ? 0 : M.clamp(pct, 0, 100)}%"></span><span class="lb">${M.icon(icon, 22)}<span class="ell">${esc(label)}</span></span><span class="pv num">${esc(val)}</span></div>`;
+    _lightSl(h) {
+      const lt = this._lights(h);
+      return `<div class="lsw" data-key="lsw">${this._slider('lights', lt.label, 'mdi:lightbulb-group', lt.pct, lt.dim, lt.on.length ? lt.pct + ' %' : 'Av', this.variant === 'nettbrett')}<button class="lpk press${this._lpOpen ? ' on' : ''}" data-a="lpick" aria-label="Velg lys" aria-expanded="${!!this._lpOpen}">${M.icon('mdi:chevron-down', 22)}</button></div>${this._lpOpen ? this._lightList(h, lt) : ''}`;
+    }
+    _lightList(h, lt) {
+      const all = lt.L, areas = M.areas(h).filter((a) => all.some((id) => M.areaOf(h, id) === a.id));
+      const opt = (v, l, sub) => `<button class="lo2${lt.t === v ? ' on' : ''}" data-a="lset" data-v="${esc(v)}"><span class="ell">${esc(l)}</span>${sub ? `<i class="ell">${esc(sub)}</i>` : ''}${lt.t === v ? M.icon('mdi:check', 18) : ''}</button>`;
+      const first = this.variant === 'nettbrett' ? opt('stue', 'Alle lys i stua', '') + opt('on', 'Alle lys som er på', '') : opt('on', 'Alle lys som er på', '');
+      return `<div class="lpl" data-nodrag data-key="lpl">${first}${areas.map((a) => opt('area:' + a.id, a.name, 'Område')).join('')}${all.map((id) => opt(id, M.name(h, id), id)).join('')}</div>`;
+    }
+    _slider(kind, label, icon, pct, dim, val, grow) {
+      return `<div class="sl${dim ? ' dim' : ''}${grow ? ' grow' : ''}${pct > 30 ? ' lit' : ''}" data-sl="${kind}" data-key="sl-${kind}" role="slider" aria-label="${esc(label)}" aria-valuenow="${pct}"><span class="fl" style="width:${dim ? 0 : M.clamp(pct, 0, 100)}%"></span><span class="lb">${M.icon(icon, 22)}<span class="ell">${esc(label)}</span></span><span class="pv num">${esc(val)}</span></div>`;
     }
     _mini(h) {
       const pc = this.pc();
@@ -626,11 +669,10 @@
     }
     _htmlMob(h) {
       const T = M.hurtigTiles(h, this.pc(), 'mobil'), wx = M.hurtigWx(h), n = homeCount(h);
-      const lt = this._lights(h);
       return this._top(h, `${wx.txt} · ${n} hjemme`, `<button class="ib press" data-a="edit" aria-label="Rediger fliser">${M.icon('mdi:pencil-outline', 20)}</button><button class="ib press${this.setOpen ? ' on' : ''}" data-a="set" aria-label="Innstillinger for sveip">${M.icon('mdi:tune-variant', 20)}</button>`)
         + this._settings()
         + `<div class="rr">${T.slice(0, 6).map((m) => `<button class="rt press${m.on ? ' on' : ''}${m.dead ? ' dead' : ''}" data-a="tile" data-k="${m.key}" data-key="rt-${m.key}" aria-label="${esc(m.name + ': ' + m.status)}" aria-pressed="${m.on}">${M.icon(m.icon, 24)}</button>`).join('')}</div>`
-        + `<div class="ex"><div class="exi">${this._slider('lights', 'Alle lys', 'mdi:lightbulb-group', lt.pct, !lt.on.length, lt.on.length ? lt.pct + ' %' : 'Av')}<div class="tg">${T.map((m) => this._tileP(m)).join('')}</div>${this._mini(h)}</div></div>`
+        + `<div class="ex"><div class="exi">${this._lightSl(h)}<div class="tg">${T.map((m) => this._tileP(m)).join('')}</div>${this._mini(h)}</div></div>`
         + this._notifs()
         + `<div class="hd"><span class="hb"></span><span class="ht">${this.exp > 0.5 ? 'Dra opp for å lukke' : 'Dra ned for flere fliser'}</span></div>`;
     }
@@ -642,7 +684,7 @@
       const off = entOf(h, pc, 'screen_switch') || (scr && scr.startsWith('light.') ? scr : null);
       return this._top(h, `${pc.panel_name || 'Stue-panel'} · ${wx.txt}`, `<button class="ib press" data-a="edit" aria-label="Rediger">${M.icon('mdi:pencil-outline', 20)}</button><button class="ib press${this.setOpen ? ' on' : ''}" data-a="set" aria-label="Innstillinger for sveip">${M.icon('mdi:tune-variant', 20)}</button><button class="ib press" data-a="settings" aria-label="Innstillinger">${M.icon('mdi:cog-outline', 20)}</button>${off ? `<button class="ib press" data-a="scroff" data-e="${esc(off)}" aria-label="Skjerm av">${M.icon('mdi:monitor-off', 20)}</button>` : ''}`)
         + this._settings()
-        + `<div class="cols"><div class="lc">${this._slider('screen', ss ? 'Skjermens lysstyrke' : 'Skjermens lysstyrke · velg entitet', 'mdi:brightness-6', sp || 0, !ss, ss ? (sp || 0) + ' %' : '–')}<div class="tg">${T.map((m) => this._tileP(m)).join('')}</div>${this._mini(h)}</div><div class="rc">${this._notifs()}</div></div>`
+        + `<div class="cols"><div class="lc">${this._slider('screen', ss ? 'Skjermens lysstyrke' : 'Skjermens lysstyrke · velg entitet', 'mdi:brightness-6', sp || 0, !ss, ss ? (sp || 0) + ' %' : '–')}${this._lightSl(h)}<div class="tg">${T.map((m) => this._tileP(m)).join('')}</div>${this._mini(h)}</div><div class="rc">${this._notifs()}</div></div>`
         + `<div class="hd"><span class="hb"></span><span class="ht">Dra opp for å lukke</span></div>`;
     }
 
@@ -717,12 +759,13 @@
       if (e.cancelable) e.preventDefault();
       const S = this.sw();
       g.pull = Math.max(0, dy - S.dead);
-      this._paint(g.pull, false);
+      M.rs(this, () => { if (this._g === g) this._paint(g.pull, false); });
     }
     _gEnd(e, cancel) {
       const g = this._g;
       this._g = null;
       if (!g || g.mode !== 'pull') return;
+      M.flushRs(this);
       this._eat = now() + 400;
       const S = this.sw(), H = this.pn.offsetHeight || 400, p = g.pull || 0;
       if (!cancel && p > Math.min(S.open, H - 40)) { M.haptic('medium'); this.open(this.variant === 'mobil' && p > H + 90 ? 2 : 1); }
@@ -736,6 +779,8 @@
       if (!this.active() || scrollTopOf(this.owner) > 2 || t - this._topAt < this.sw().rest) { this._wAcc = 0; return; }
       const path = e.composedPath ? e.composedPath() : [];
       if (path.some((n) => n && PANEL_TAGS.has(n.tagName))) return;
+      // 2b: står du inne i en container som er scrollet ned, åpner ikke hjulet panelet
+      if (path.some((n) => n && n.nodeType === 1 && n.scrollTop > 0)) { this._wAcc = 0; return; }
       if (t - this._wT > 300) this._wAcc = 0;
       this._wT = t;
       this._wAcc += -e.deltaY * (e.deltaMode === 1 ? 16 : 1);
@@ -784,8 +829,7 @@
       if (p.mode === 'scroll') return;
       if (p.mode === 'swipe') {
         p.dx = dx;
-        p.nc.style.transform = `translateX(${dx}px)`;
-        p.nc.style.opacity = String(M.clamp(1 - Math.abs(dx) / 300, 0.2, 1));
+        M.rs(p.nc, () => { if (this._p !== p) return; p.nc.style.transform = `translateX(${p.dx}px)`; p.nc.style.opacity = String(M.clamp(1 - Math.abs(p.dx) / 300, 0.2, 1)); });
         return;
       }
       // drag
@@ -796,13 +840,17 @@
       else if (dy >= 0) ex = M.clamp(p.base + dy / R, 0, 1);
       else if (p.base === 1) { ex = M.clamp(1 + dy / R, 0, 1); lift = Math.min(0, dy + R); }
       else lift = dy;
-      if (this.variant === 'mobil') this._setExp(ex);
-      p.lift = lift;
-      this.pn.classList.remove('anim');
-      this.pn.style.transform = `translateY(${lift}px)`;
-      const H = this.pn.offsetHeight || 400;
-      this.scrim.style.transition = 'none';
-      this.scrim.style.opacity = String(M.clamp(1 + lift / H, 0, 1));
+      p.lift = lift; p.ex = ex;
+      if (!p.blurOff) { p.blurOff = true; this._blur(false); }
+      M.rs(this.pn, () => {
+        if (this._p !== p) return;
+        if (this.variant === 'mobil') this._setExp(p.ex);
+        this.pn.classList.remove('anim');
+        this.pn.style.transform = `translateY(${p.lift}px)`;
+        const H = this.pn.offsetHeight || 400;
+        this.scrim.style.transition = 'none';
+        this.scrim.style.opacity = String(M.clamp(1 + p.lift / H, 0, 1));
+      });
     }
     _pUp(e, cancel) {
       const p = this._p;
@@ -810,6 +858,7 @@
       this._p = null;
       if (p.mode === 'slide') { this._busy = false; if (!cancel) this._slideEnd(p); else { this._slv = null; } if (this._dirty) { this._dirty = false; this._render(); } return; }
       if (p.mode === 'swipe') {
+        M.flushRs(p.nc);
         const lim = this.variant === 'nettbrett' ? 130 : 110;
         p.nc.classList.remove('drag');
         if (!cancel && Math.abs(p.dx || 0) > lim) {
@@ -821,6 +870,9 @@
         return;
       }
       if (p.mode !== 'drag') return;
+      M.flushRs(this.pn);
+      if (this.variant === 'mobil' && p.ex != null) this._setExp(p.ex);
+      setTimeout(() => this._blur(true), 320);
       this._eat = now() + 300;
       const close = this.variant === 'nettbrett' ? 110 : 90;
       if ((p.lift || 0) < -close) { this.close(); return; }
@@ -839,10 +891,7 @@
       const p = this._p, r = p.sl.getBoundingClientRect();
       const v = Math.round(M.clamp((e.clientX - r.left) / r.width, 0.01, 1) * 100);
       this._slv = v;
-      const fl = p.sl.querySelector('.fl'), pv = p.sl.querySelector('.pv');
-      if (fl) fl.style.width = v + '%';
-      if (pv) pv.textContent = v + ' %';
-      p.sl.classList.toggle('lit', v > 30);
+      M.rs(p.sl, () => { const fl = p.sl.querySelector('.fl'), pv = p.sl.querySelector('.pv'); if (fl) fl.style.width = v + '%'; if (pv) pv.textContent = v + ' %'; p.sl.classList.toggle('lit', v > 30); });
       if (p.lastH == null || Math.abs(p.lastH - v) >= 10) { p.lastH = v; M.haptic('selection'); }
     }
     _slideEnd(p) {
@@ -850,8 +899,8 @@
       this._slv = null;
       if (v == null || !h) return;
       if (p.kind === 'lights') {
-        const on = this._lights(h).on;
-        if (on.length) M.call(h, 'light', 'turn_on', { entity_id: on, brightness_pct: v });
+        const lt = this._lights(h), ids = lt.t === 'on' ? lt.on : lt.ids;
+        if (ids.length) M.call(h, 'light', 'turn_on', { entity_id: ids, brightness_pct: v });
       } else if (p.kind === 'screen') {
         const id = entOf(h, this.pc(), 'screen');
         if (!id) return;
@@ -883,6 +932,8 @@
         case 'set': M.haptic('light'); this.setOpen = !this.setOpen; return this._render();
         case 'zone': M.haptic('selection'); this._setVal('zone', b.dataset.v); return this._render();
         case 'reset': M.haptic('medium'); lsSet(lsKey(this.variant), null); M.toast('Sveip-innstillingene er tilbakestilt'); return this._render();
+        case 'lpick': M.haptic('light'); this._lpOpen = !this._lpOpen; return this._render();
+        case 'lset': M.haptic('selection'); lsSet(this._lkey(), b.dataset.v); this._lpOpen = false; return this._render();
         case 'media': M.haptic('light'); return this.go('#media');
         case 'pp': M.haptic('light'); return M.call(h, 'media_player', 'media_play_pause', { entity_id: b.dataset.e });
         case 'settings': M.haptic('light'); return this.go('#settings');
