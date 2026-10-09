@@ -194,6 +194,12 @@
     .pill{display:flex;align-items:center;justify-content:space-around;gap:4px;height:64px;width:min(100%,392px);padding:0 14px;box-sizing:border-box;border-radius:32px;background:var(--ki-surface, #fafafa);color:var(--ki-text, #232323);box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.35*var(--ki-ka-k,1))))}
     .lbl{font-size:13px;color:var(--ki-text-mid, #979797);margin:18px 4px 8px}
     .seg{display:flex;padding:4px;gap:4px;border-radius:24px;background:var(--ki-sheet-seg,#232323)}
+    .pre{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .pre button{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);text-align:left;font:inherit;color:inherit;border:0;cursor:pointer;box-shadow:inset 0 0 0 2px transparent}
+    .pre button.on{box-shadow:inset 0 0 0 2px var(--pink, #f285c9)}
+    .pre b{font-size:14px;font-weight:600}.pre i{font-style:normal;font-size:12px;color:var(--ki-text-2, #afafaf)}
+    .mini{height:84px;border-radius:14px;background:var(--ki-bg, #232323);position:relative;overflow:hidden}
+    .mini span{position:absolute;border-radius:4px;background:var(--ki-surface-2, #4a4a4a)}
     .seg button{flex:1;height:40px;border-radius:20px;font-size:14px;font-weight:500;color:var(--ki-text-2, #afafaf)}
     .seg button.on{background:var(--ki-pill-bg, #e1e1e1);color:var(--ki-pill-fg, #232323)}
     .hp{border-radius:28px;background:var(--ki-bg, #232323);padding:20px 18px;display:flex;flex-direction:column;gap:14px}
@@ -240,7 +246,7 @@
       o.nav = bar.filter((k) => o.fns.some((f) => f.k === k && f.on)).slice(0, 5);
       o.hdr = { mode: H.mode, size: H.size, show_name: H.show_name };
       const K = kioskState();
-      o.dev = { name: devName(), haptic: hapticOn(), kiosk: K.kiosk, sidebar: K.sidebar };
+      o.dev = { name: devName(), haptic: hapticOn(), kiosk: K.kiosk, sidebar: K.sidebar, preset: M.devicePreset ? M.devicePreset() : '' };
     };
     init();
     loadBmName(h0).then(() => { if (!o.dev.name) o.dev.name = devName(); upd(); });
@@ -343,7 +349,12 @@
     };
     const step6 = () => {
       const id = bid();
+      // Fiks 58 B · forhåndsvalg: Telefon (Hjem) eller Stue-tablet (Stue-dashbordet, visningen /stue). Miniatyrene viser oppsettet.
+      const tab = '<span style="left:6px;top:6px;bottom:6px;width:10px;border-radius:5px;background:var(--ki-pill-bg,#fafafa)"></span><span style="left:22px;top:8px;width:46%;height:8px"></span><span style="left:22px;top:22px;right:8px;height:12px"></span>' + [0, 1, 2].map((i) => `<span style="left:calc(22px + ${i} * (100% - 30px) / 3);top:40px;width:calc((100% - 38px) / 3);bottom:8px"></span>`).join('');
+      const phone = '<span style="left:36%;width:28%;top:6px;bottom:6px;border-radius:8px;background:var(--ki-surface, #3a3a3a)"></span><span style="left:39%;width:22%;top:12px;height:8px"></span><span style="left:39%;width:22%;top:26px;height:20px"></span><span style="left:41%;width:18%;bottom:10px;height:6px;border-radius:3px;background:var(--ki-pill-bg,#fafafa)"></span>';
+      const pre = [['', 'Telefon', 'Hjem med navbar nederst', phone], ['stue', 'Stue-tablet', 'Stue-dashbordet (/stue)', tab]].map(([k, t, d, m]) => `<button class="${(o.dev.preset || '') === k ? 'on' : ''}" data-a="dpre" data-v="${k}" aria-pressed="${(o.dev.preset || '') === k}"><span class="mini">${m}</span><b>${t}</b><i>${d}</i></button>`).join('');
       return `<h2>Denne enheten</h2><p class="lead">Gjelder bare denne nettleseren${id ? ` (Browser Mod ${esc(id)})` : ''}.</p>
+        <div class="lbl">Oppsett</div><div class="pre" data-key="pre">${pre}</div>
         <div class="lbl">Enhetsnavn</div><input class="in" data-in="dname" data-key="dname" value="${esc(o.dev.name)}" placeholder="${esc(bmName || M.deviceInfo().label)}">
         <div class="lbl"></div>
         <div class="list">
@@ -413,6 +424,7 @@
           if (o.dev.haptic !== hapticOn() && M.setHapticOff) M.setHapticOff(!o.dev.haptic);
           const K = kioskState();
           if (K.kiosk !== o.dev.kiosk || K.sidebar !== (o.dev.sidebar || o.dev.kiosk)) kioskWrite(o.dev.kiosk, o.dev.sidebar, nm);
+          if (M.setDevicePreset) M.setDevicePreset(o.dev.preset || ''); // Fiks 58 B
         }
       } catch (e) { console.error('[ki-msh] onboarding steg ' + s, e); }
     };
@@ -443,7 +455,7 @@
           return go(o.step + 1);
         }
         case 'goto': M.haptic('light'); o.ret = 7; return go(Number(v));
-        case 'open': M.haptic('success'); finish(); return ov.close();
+        case 'open': M.haptic('success'); finish(); ov.close(); if (M.devicePresetGo) setTimeout(() => M.devicePresetGo(true), 300); return;
         case 'pvis': { M.haptic('selection'); const p = o.persons.find((x) => x.id === v); if (p) p.on = !p.on; return upd(); }
         case 'me': {
           M.haptic('selection');
@@ -479,6 +491,7 @@
         case 'dhap': o.dev.haptic = !o.dev.haptic; if (o.dev.haptic) { if (M.setHapticOff) M.setHapticOff(false); M.haptic('medium'); } return upd();
         case 'dkiosk': M.haptic('selection'); o.dev.kiosk = !o.dev.kiosk; return upd();
         case 'dside': M.haptic('selection'); o.dev.sidebar = !o.dev.sidebar; return upd();
+        case 'dpre': M.haptic('selection'); o.dev.preset = v || ''; return upd();
         default:
       }
     });
@@ -586,7 +599,8 @@
     L.push({ id: 'enhet', g: 'enh', icon: 'mdi:cellphone', color: 'var(--light-blue)', title: 'Denne enheten', sub: `${devName() || M.deviceInfo().label} · ${M.deviceClassName ? M.deviceClassName(M.deviceClass()) : ''}`,
       desc: `Navn og oppsett for denne nettleseren${bid() ? ' (Browser Mod ' + bid() + ')' : ''}.`, open: { label: 'Innstillinger', popup: '#settings' },
       q: [{ type: 'text', label: 'Enhetsnavn', get: () => devName(), set: (v) => M.store.setDeviceName && M.store.setDeviceName(String(v || '').trim()) },
-        ...(bid() ? [toggle('Skjul HA-sidebaren', () => kioskState().sidebar, (v) => kioskWrite(kioskState().kiosk, v, devName()))] : [])] });
+        ...(bid() ? [toggle('Skjul HA-sidebaren', () => kioskState().sidebar, (v) => kioskWrite(kioskState().kiosk, v, devName()))] : []),
+        toggle('Stue-tablet (åpner Stue-dashbordet)', () => (M.devicePreset ? M.devicePreset() === 'stue' : false), (v) => { if (M.setDevicePreset) M.setDevicePreset(v ? 'stue' : ''); if (v && M.devicePresetGo) M.devicePresetGo(true); })] });
     const E = entStats(), eo = E.reduce((s, x) => s + x.o, 0), ee = E.reduce((s, x) => s + x.ex, 0), ei = E.reduce((s, x) => s + x.inc, 0);
     L.push({ id: 'ent', g: 'adv', icon: 'mdi:format-list-checks', color: 'var(--gray1000)', title: 'Entiteter', sub: `${eo} byttet · ${ee} fjernet · ${ei} lagt til`,
       desc: 'Overstyringer av autokonfigurasjonen (overrides / exclude / include) per kort.', kind: 'ent', q: [] });

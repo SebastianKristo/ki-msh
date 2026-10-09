@@ -96,8 +96,9 @@ Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md
   hurtigfliser (alarm, dørlås, garasjeport, ikke forstyrr, varmepumpe, støvsuger, gjeste-Wi-Fi, natta), «Alle lys»,
   minispiller og varsler som kan sveipes bort. Sveip-innstillingene (sone, avstand, dødsone, ro i toppen, musehjul)
   ligger i panelet og gjelder per enhet.
-- **Stue-dashbord for nettbrett** (`msh-stue-card`, valgfritt): klokke, vær, prosa, faner (Hjem/Media/Enheter/Lys),
-  nattmodus, scener, Plex, termostat, mediespiller, gardiner, lys og en hvit dock – med eget nedtrekkspanel.
+- **Stue-dashbord for nettbrett** (`msh-stue-card`, valgfritt): hvit navbar til venstre, klokke, vær, prosa, faner
+  (Hjem/Media/Enheter/Lys), nattmodus, scener, Plex, termostat, mediespiller, markise/gardiner, lys med «+ Legg til lys»
+  og «Tilpass» med dra og slipp – med eget nedtrekkspanel. Velg «Stue-tablet» i «Tilpass alt» → Denne enheten.
 
 ## Installasjon
 

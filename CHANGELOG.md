@@ -26,7 +26,22 @@ Designfilene (`Hurtigpanel.dc.html`, `Stue dashboard v2.dc.html`) finnes ikke i 
   med prikker, gardiner/markise som slidere, lys (trykk = av/på, sideveis dra = lysstyrke), hvit dock. Nedtrekkspanelet
   er samme komponent (`variant: 'nettbrett'`, delt/sentrert, skjermens lysstyrke, skjerm av) – gestlogikken finnes ett sted.
   Strategien: `stue: true` gir visningen `/stue` med kortet + de samme popupene.
-- Test: `node test/hurtig58-check.mjs` (ekte touch via CDP: alle akseptansekriteriene).
+- **2b · oppdateringer i Stue og Hurtigpanel:**
+  - «Tilpass alt» / onboarding → Denne enheten: forhåndsvalget **Stue-tablet** (miniatyr: navbar til venstre, header,
+    scener, tre kolonner) lagres i `localStorage['ki-device-preset'] = 'stue'`, slår på visningen `/stue` (ki-store
+    `stue.enabled`) og sender enheten dit ved oppstart (én gang per økt).
+  - Stue: hvit navbar til venstre (fast, 92 px, mot dashbordflaten; snarveier + `tune` → `#settings`), innholdet i full
+    bredde (padding 14/20/40/126). Scener 132 px / r40 med strek øverst.
+  - Markise og gardiner som utvidbare kort: hovedslider (snittet, setter alle delene), 0/25/50/75/100 %, gardiner med en
+    slider per del (cover-gruppe eller flere gardiner i rommet).
+  - Lys: «+ Legg til lys»-velger (stua først, «Tilbakestill»/«Ferdig»), utvalg og rekkefølge i config `lights`.
+  - «Tilpass» (dra og slipp) i Hjem-fanen: redigeringsfelt med øye-chips, overlegg per kort, spøkelse som følger pekeren,
+    masonry (8 px-rader, row dense, ResizeObserver; ≥1080 → 3 kolonner, ≥700 → 2). Lagres i config `layout`
+    (`{ cols, hidden }`, ikke localStorage – config er sannheten). Nedtrekkspanelet er av i redigeringsmodus.
+  - Panelet: rAF-batching under dra (`M.rs` / `M.flushRs`), blur bare når panelet ligger åpent og ikke dras, lys-slider
+    med valg av mål (alle som er på / Alle lys i stua / område / enkeltlampe – `localStorage` `hurtigpanel-lys` /
+    `stue-panel-lys`, standard `light_entity` i panelconfigen), musehjul åpner ikke inne i en container som er scrollet ned.
+- Test: `node test/hurtig58-check.mjs` (ekte touch via CDP: alle akseptansekriteriene + 2b).
 
 ## Ytelse på Android («tregt og tungt»)
 - **Bygg:** `build.mjs` minifiserer hver fil i `src/` for seg med esbuild (mellomrom, kommentarer, syntaks – navnene beholdes,

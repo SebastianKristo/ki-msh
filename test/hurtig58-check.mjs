@@ -36,6 +36,7 @@ async function setup(ctx, vp, tag, tall) {
   for (const m of mocks) await page.addScriptTag({ path: m });
   await page.addScriptTag({ path: bundle });
   await page.evaluate(async ([tag, tall]) => {
+    if (tag === 'msh-stue-card' && window.mockStue) window.mockStue(); // 2b: markise + gardiner i to deler
     const hass = window.mockHass(); window.__H = hass; window.__calls = [];
     const cs = hass.callService;
     hass.callService = function (d, s, data) { window.__calls.push([d, s, data]); return cs ? cs.apply(this, arguments) : Promise.resolve(); };
@@ -124,6 +125,19 @@ const close = (page, ctl = '__el.__hurtig') => page.evaluate((c) => { c.split('.
     const after = await page.evaluate((id) => ({ n: window.__el.__hurtig.root.querySelectorAll('.nc').length, gone: !window.__el.__hurtig.root.querySelector(`[data-nc="${id}"]`), saved: !!(JSON.parse(localStorage.getItem('hurtigpanel-dismissed') || '{}'))[id] }), nc.id);
     ok(after.gone && after.saved && after.n === nc.n - 1, `H8 · varsel sveipet bort og husket (${nc.n} → ${after.n})`);
   } else ok(false, 'H8 · fant ingen varsler i mock');
+  // H9 (2b): lys-sliderens mål kan velges (per enhet, localStorage hurtigpanel-lys)
+  await page.evaluate(() => window.__el.__hurtig.open(2)); await sleep(500);
+  const lp = await page.evaluate(async () => {
+    const c = window.__el.__hurtig, r = c.root;
+    r.querySelector('[data-a="lpick"]').click(); await new Promise((x) => setTimeout(x, 100));
+    const opts = [...r.querySelectorAll('[data-a="lset"]')].map((b) => b.dataset.v);
+    const area = opts.find((v) => v.startsWith('area:'));
+    r.querySelector(`[data-a="lset"][data-v="${area}"]`).click(); await new Promise((x) => setTimeout(x, 100));
+    return { n: opts.length, first: opts[0], area, saved: JSON.parse(localStorage.getItem('hurtigpanel-lys') || 'null'), label: r.querySelector('[data-sl="lights"] .lb').textContent.trim(), list: !!r.querySelector('.lpl') };
+  });
+  ok(lp.first === 'on' && lp.area && lp.saved === lp.area && !lp.list && lp.label && lp.label !== 'Alle lys', `H9 · lys-velgeren: ${lp.n} valg, valgt ${lp.saved} («${lp.label}»)`);
+  await close(page);
+  await page.evaluate(() => localStorage.removeItem('hurtigpanel-lys'));
   // S3 (panel): trykkflater
   const small = await page.evaluate(() => [...window.__el.__hurtig.root.querySelectorAll('button')].filter((b) => b.offsetParent && b.closest('.ex') === null).map((b) => { const r = b.getBoundingClientRect(); return [b.className, Math.round(r.width), Math.round(r.height)]; }).filter(([, w, h]) => w < 44 || h < 36));
   ok(!small.length, 'S3 · panelets knapper ≥ 44 px' + (small.length ? ' ' + JSON.stringify(small) : ''));
@@ -174,7 +188,7 @@ const close = (page, ctl = '__el.__hurtig') => page.evaluate((c) => { c.split('.
   await page.evaluate(() => window.__el.setUI({ tab: 'lys' })); await sleep(700);
   await swipe(page, 683, 60, 683, 500);
   ok(!(await st(page, S)).open, 'S1 · panelet åpnes ikke i Lys-fanen');
-  const one = await page.evaluate(() => window.__el.shadowRoot.querySelectorAll('.cols .col').length);
+  const one = await page.evaluate(() => window.__el.shadowRoot.querySelectorAll('.ms .gc').length);
   ok(one === 1, 'S1 · Lys-fanen viser bare Lys-kolonnen');
   // rekkefølge lagres i config (MSH.mshPatchConfig → saveCardConfig stubbes)
   await page.evaluate(async () => { window.MSH.saveCardConfig = async (h, o, n) => ({ config: n }); await window.MSH.mshPatchConfig(window.__el, { tab_order: ['lys', 'hjem', 'media', 'enheter'] }); });
@@ -197,6 +211,44 @@ const close = (page, ctl = '__el.__hurtig') => page.evaluate((c) => { c.split('.
   await sleep(200);
   const calls = await page.evaluate(() => window.__calls);
   ok(calls.some(([d, s]) => d === 'input_boolean' && s === 'turn_off'), 'S2 · «Slå av» kaller input_boolean.turn_off');
+  // S4 (2b): navbar til venstre, masonry med 3 kolonner, utvidbare gardiner med deler, «+ Legg til lys», redigeringsmodus
+  const g4 = await page.evaluate(() => { const R = window.__el.shadowRoot, nv = R.querySelector('.nv').getBoundingClientRect(), ms = R.querySelector('.ms'); return { nvL: Math.round(nv.left), nvW: Math.round(nv.width), n: getComputedStyle(ms).gridTemplateColumns.split(' ').length, add: !!R.querySelector('[data-act="addlight"]') }; });
+  ok(g4.nvL === 14 && g4.nvW === 92 && g4.n === 3 && g4.add, `S4 · navbar venstre (${g4.nvL}/${g4.nvW} px), masonry ${g4.n} kolonner, «Legg til lys»`);
+  await page.evaluate(() => { window.__calls = []; window.__el.hass = { ...window.__el.hass, callService(d, s, data) { window.__calls.push([d, s, data]); return Promise.resolve(); } }; });
+  await page.evaluate(() => window.__el.shadowRoot.querySelector('[data-act="cvx"][data-k="gardiner"]').click()); await sleep(300);
+  const cv = await page.evaluate(() => { const R = window.__el.shadowRoot, c = R.querySelector('[data-key="cv-gardiner"]'); const q = c.querySelectorAll('.qb button'); q[2].click(); return { q: q.length, parts: c.querySelectorAll('.prt .csl').length }; });
+  await sleep(100);
+  const cvc = await page.evaluate(() => window.__calls.find(([d, s]) => d === 'cover' && s === 'set_cover_position'));
+  ok(cv.q === 5 && cv.parts === 2 && cvc && cvc[2].position === 50 && cvc[2].entity_id.length === 2, `S4 · gardiner utvidet: 5 hurtigknapper, ${cv.parts} deler, 50 % setter begge (${JSON.stringify(cvc && cvc[2])})`);
+  // «+ Legg til lys» → velger → fjern ett lys → Ferdig → config.lights
+  await page.evaluate(() => { window.MSH.saveCardConfig = async (h, o, n) => ({ config: n }); window.__el.shadowRoot.querySelector('[data-act="addlight"]').click(); });
+  await sleep(300);
+  const lights = await page.evaluate(async () => {
+    const ovs = [...window.MSH.overlayRoot().children].map((x) => x.shadowRoot).filter((r) => r && r.querySelector('[data-a="tl"]'));
+    const r = ovs[ovs.length - 1]; const on = [...r.querySelectorAll('[data-a="tl"].on')].map((b) => b.dataset.id);
+    r.querySelector(`[data-a="tl"][data-id="${on[0]}"]`).click(); await new Promise((x) => setTimeout(x, 50));
+    r.querySelector('[data-a="done"]').click(); await new Promise((x) => setTimeout(x, 300));
+    return { before: on.length, cfg: window.__el.config.lights, tiles: window.__el.shadowRoot.querySelectorAll('[data-lt]').length };
+  });
+  ok(lights.cfg && lights.cfg.length === lights.before - 1 && lights.tiles === lights.before - 1, `S4 · lysvelgeren: ${lights.before} → ${lights.tiles} lys, lagret i config.lights`);
+  // Redigeringsmodus: dra «lys» til kolonne 1, skjul Plex, Ferdig → config.layout; panelet er av
+  await page.evaluate(() => window.__el.shadowRoot.querySelector('[data-act="edit"]').click()); await sleep(400);
+  await swipe(page, 683, 60, 683, 500);
+  ok(!(await st(page, S)).open && await page.evaluate(() => !!window.__el.shadowRoot.querySelector('.eb')), 'S4 · redigeringsmodus: redigeringsfelt, nedtrekkspanelet er av');
+  await page.evaluate(() => { const g = window.__el.shadowRoot.querySelector('.ms'); window.scrollTo(0, g.getBoundingClientRect().top + window.scrollY - 40); }); await sleep(200);
+  const dr = await page.evaluate(() => { const R = window.__el.shadowRoot, ov = R.querySelector('[data-drag="lys"]').getBoundingClientRect(), ms = R.querySelector('.ms').getBoundingClientRect(); return { x: ov.left + 120, y: ov.top + 60, tx: ms.left + 60, ty: ms.top + 10 }; });
+  await page.mouse.move(dr.x, dr.y); await page.mouse.down(); await sleep(50);
+  for (let i = 1; i <= 10; i++) { await page.mouse.move(dr.x + (dr.tx - dr.x) * i / 10, dr.y + (dr.ty - dr.y) * i / 10); await sleep(30); }
+  const ghost = await page.evaluate(() => [...window.MSH.overlayRoot().querySelectorAll('.msh-ghost')].some((x) => x.shadowRoot.querySelector('.ghost')));
+  await page.mouse.up(); await sleep(300);
+  await page.evaluate(() => window.__el.shadowRoot.querySelector('[data-act="ehide"][data-k="plex"]').click()); await sleep(200);
+  await page.evaluate(() => window.__el.shadowRoot.querySelector('[data-act="edone"]').click()); await sleep(400);
+  const lay2 = await page.evaluate(() => window.__el.config.layout);
+  ok(ghost && lay2 && lay2.cols[0][0] === 'lys' && lay2.hidden.includes('plex') && !lay2.cols[2].includes('lys'), 'S4 · dra og slipp: spøkelse, «lys» først i kolonne 1, Plex skjult, lagret i config.layout ' + JSON.stringify(lay2));
+  ok(await page.evaluate(() => !window.__el.shadowRoot.querySelector('[data-gc="plex"]') && !window.__el.shadowRoot.querySelector('.eb')), 'S4 · etter «Ferdig»: Plex skjult, redigeringsfeltet borte');
+  // S5 (2b): forhåndsvalget Stue-tablet
+  const pre = await page.evaluate(() => { window.MSH.setDevicePreset('stue'); const r = { ls: localStorage.getItem('ki-device-preset'), st: (window.MSH.store.get('stue') || {}).enabled, v: !!window.MSH.stueView({}, { cards: [{ type: 'vertical-stack', cards: [] }] }) }; window.MSH.setDevicePreset(''); return r; });
+  ok(pre.ls === 'stue' && pre.st === true && pre.v, `S5 · Stue-tablet: ki-device-preset=${pre.ls}, ki-store stue.enabled=${pre.st}, strategien lager /stue`);
   const small = await page.evaluate(() => [...window.__el.shadowRoot.querySelectorAll('button,[role=button]')].filter((b) => b.offsetParent).map((b) => { const r = b.getBoundingClientRect(); return [b.className || b.dataset.act, Math.round(r.width), Math.round(r.height)]; }).filter(([, w, h]) => w < 44 || h < 36));
   ok(!small.length, 'S3 · Stue: trykkflater ≥ 44 px' + (small.length ? ' ' + JSON.stringify(small.slice(0, 6)) : ''));
   const ovf = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
