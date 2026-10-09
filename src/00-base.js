@@ -2277,6 +2277,7 @@
       this._hass = h;
       MSH.lastHass = h;
       if (MSH.theme) MSH.theme.update(h); // Fiks 34: lys/mørk fra hass.themes.darkMode
+      if (MSH.i18n && (!old || old.language !== h.language)) MSH.i18n.fromHass(h); // Fiks 59: HA-språket som standard
       if (!old || this._changed(old, h)) this._schedule();
       if (!old) { this._checkOpen(); if (MSH.store && !MSH.store.loaded) MSH.store.load(h); }
       if (this._heroEl) this._heroEl.hass = h;

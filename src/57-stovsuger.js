@@ -369,7 +369,7 @@
           <input class="inp" data-radd="name" placeholder="Navn (f.eks. Stue)" autocapitalize="off" spellcheck="false" style="${INP}">
           <input class="inp" data-radd="src" placeholder="input_boolean.… eller segment-ID (tall)" autocapitalize="off" spellcheck="false" style="${INP}">
           <button class="btn" style="height:44px" data-a="fn" data-k="${key}" data-op="radd" data-v="">${M.icon('mdi:check', 18)}Legg til</button></div>` : '';
-      return box(`${L.length ? rows : small(vac ? 'Fant ingen rom fra roboten (segmenter) eller input_boolean.' + objOf(vac) + '_*.' : 'Velg støvsuger under Entiteter.')}${form}
+      return box(`${L.length ? rows : small(vac ? kiT('Fant ingen rom fra roboten (segmenter) eller ', 'Found no rooms from the robot (segments) or ') + 'input_boolean.' + objOf(vac) + '_*.' : 'Velg støvsuger under Entiteter.')}${form}
         <button class="btn" style="height:48px" data-a="fn" data-k="${key}" data-op="raddopen" data-v="">${M.icon(add ? 'mdi:close' : 'mdi:plus', 20)}${add ? 'Lukk' : 'Legg til rom'}</button>
         ${small('Dra i håndtaket for rekkefølge: plass 1–2 er store, 3–5 ligger nederst. Farge-prikken bytter farge, øyet skjuler rommet.')}`);
     }, click: (dd, ed) => {

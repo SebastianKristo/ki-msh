@@ -220,6 +220,13 @@
     .scan .n{font-size:15px;font-weight:500;color:var(--ki-text-2, #afafaf)}
     .spin{width:14px;height:14px;border-radius:7px;border:2px solid var(--ki-text-3, #7f7f7f);border-top-color:transparent;animation:sp 0.8s linear infinite}
     @keyframes sp{to{transform:rotate(360deg)}}
+    .lch{display:flex;align-items:center;gap:14px;min-height:76px;padding:12px 16px;border-radius:28px;background:var(--ki-sheet-grp,#3a3a3a);border:0;font:inherit;color:inherit;text-align:left;cursor:pointer;box-shadow:inset 0 0 0 2px transparent;width:100%}
+    .lch.on{box-shadow:inset 0 0 0 3px var(--pink, #f285c9)}
+    .lch .lfl{width:48px;height:48px;border-radius:24px;display:grid;place-items:center;font-size:15px;font-weight:700;background:var(--ki-surface-2, #4a4a4a);flex:none}
+    .lch.on .lfl{background:${PINK};color:var(--ki-on-accent, #2a1720)}
+    .lch .tt{flex:1}.lch b{display:block;font-size:17px}.lch i{font-style:normal;font-size:13px;color:var(--ki-text-2, #afafaf)}
+    .lch .lck{width:28px;height:28px;border-radius:14px;display:grid;place-items:center;flex:none;background:${PINK};color:var(--ki-on-accent, #2a1720)}
+    .lch:not(.on) .lck{background:none}
     .big{width:88px;height:88px;border-radius:44px;display:grid;place-items:center;margin:40px auto 8px;background:${GREEN};color:var(--ki-on-accent, #232323)}
     .ctr{text-align:center}
     .chg{font-size:14px;font-weight:500;color:var(--ki-pink-text, #f285c9);flex:none;height:36px;padding:0 4px}
@@ -258,6 +265,7 @@
       const h = hassNow();
       if (!h) return '<div class="ob"><p class="lead">Venter på Home Assistant …</p></div>';
       const s = o.step;
+      if (s === -1) return stepLang();
       if (s === 0) return step0(h);
       if (s === 7) return step7(h);
       const segs = Array.from({ length: 6 }, (_, i) => `<i class="${i + 1 < s ? 'done' : i + 1 === s ? 'cur' : ''}"></i>`).join('');
@@ -278,6 +286,19 @@
       ['Sensorer', 'mdi:eye', (h) => cnt(h, 'sensor')],
       ['KI Rom-integrasjon', 'mdi:home-analytics', (h) => kiRomN(h)],
     ];
+    // Fiks 59 · nytt første steg «Språk / Language»: to store valg, rosa ring og hake på valgt, gjelder straks for hele
+    // veiviseren (og dashbordet). Språknavnene vises alltid på eget språk (data-noi18n).
+    const stepLang = () => {
+      const L = M.i18n ? M.i18n.lang() : 'no';
+      const opt = (k, flag, nm, sub) => `<button class="lch${L === k ? ' on' : ''}" data-a="lang" data-v="${k}" aria-pressed="${L === k}" data-noi18n><span class="lfl">${flag}</span><span class="tt"><b>${nm}</b><i>${sub}</i></span><span class="lck">${L === k ? ic('mdi:check', 20) : ''}</span></button>`;
+      return `<div class="ob" data-key="ob-lang">
+        <h1 style="margin-top:36px" data-noi18n>Språk / Language</h1>
+        <p class="lead" data-noi18n>${L === 'en' ? 'Choose the language for the dashboard. You can change it later under Customize.' : 'Velg språket for dashbordet. Du kan endre det senere under Tilpass.'}</p>
+        <div class="list">${opt('no', 'NO', 'Norsk', 'Bokmål')}${opt('en', 'EN', 'English', 'British English')}</div>
+        <div class="spacer"></div>
+        <div class="foot"><button class="main" data-a="lnext" data-key="lnext">Neste</button></div>
+      </div>`;
+    };
     const step0 = (h) => {
       const nm = firstName((h.user && h.user.name) || '');
       const rows = SCAN.map(([l, icn, f], i) => {
@@ -444,6 +465,8 @@
       const a = el.dataset.a, v = el.dataset.v, h = hassNow();
       switch (a) {
         case 'start': M.haptic('light'); return go(1);
+        case 'lang': M.haptic('selection'); if (M.i18n) M.i18n.set(v); return upd();
+        case 'lnext': M.haptic('light'); go(0); if (o.startScan) o.startScan(); return;
         case 'std': M.haptic('success'); finish(); return go(7);
         case 'skip': M.haptic('light'); finish(); return go(7);
         case 'back': M.haptic('light'); if (o.ret) { const r = o.ret; o.ret = null; return go(r); } return go(Math.max(0, o.step - 1));
@@ -496,8 +519,9 @@
       }
     });
     upd();
+    o.startScan = () => { if (o.timer) return; o.timer = setInterval(() => { if (ov.closed || o.scan >= SCAN.length) { clearInterval(o.timer); return; } o.scan++; if (o.step === 0) upd(); }, 320); };
     if (o.step === 0) {
-      o.timer = setInterval(() => { if (ov.closed || o.scan >= SCAN.length) { clearInterval(o.timer); return; } o.scan++; if (o.step === 0) upd(); }, 320);
+      o.startScan();
     }
     return o;
   };
@@ -516,7 +540,7 @@
     obTried = true;
     Promise.resolve(M.store.load(hass)).then(() => {
       if (!M.store.loaded || M.store.get('onboarded')) return;
-      setTimeout(() => { if (!M.store.get('onboarded') && obAllowed()) M.openOnboarding({ step: 0 }); }, 500);
+      setTimeout(() => { if (!M.store.get('onboarded') && obAllowed()) M.openOnboarding({ step: -1 }); }, 500); // Fiks 59: språk først
     });
   };
 
@@ -596,6 +620,9 @@
     L.push({ id: 'haptic', g: 'enh', icon: 'mdi:vibrate', color: 'var(--yellow)', title: 'Haptikk', sub: `${hapticOn() ? 'På' : 'Av'} på denne enheten`,
       desc: 'Vibrasjon ved trykk. Gjelder bare denne enheten.', open: { label: 'Tilpass Hjem', ev: { editor: 'home', focus: 'faner' } },
       q: [toggle('Haptikk på denne enheten', () => hapticOn(), (v) => { if (M.setHapticOff) M.setHapticOff(!v); if (v) M.haptic('medium'); })] });
+    // Fiks 59 · språk (per bruker, følger deg mellom enhetene)
+    L.push({ id: 'lang', g: 'dash', icon: 'mdi:translate', color: 'var(--blue)', title: 'Språk · Language', sub: M.i18n && M.i18n.lang() === 'en' ? 'English' : 'Norsk',
+      desc: 'Norsk eller engelsk i hele dashbordet. Gjelder brukeren din på alle enheter.', q: [toggle('English', () => !!(M.i18n && M.i18n.lang() === 'en'), (v) => { if (M.i18n) M.i18n.set(v ? 'en' : 'no'); })] });
     L.push({ id: 'enhet', g: 'enh', icon: 'mdi:cellphone', color: 'var(--light-blue)', title: 'Denne enheten', sub: `${devName() || M.deviceInfo().label} · ${M.deviceClassName ? M.deviceClassName(M.deviceClass()) : ''}`,
       desc: `Navn og oppsett for denne nettleseren${bid() ? ' (Browser Mod ' + bid() + ')' : ''}.`, open: { label: 'Innstillinger', popup: '#settings' },
       q: [{ type: 'text', label: 'Enhetsnavn', get: () => devName(), set: (v) => M.store.setDeviceName && M.store.setDeviceName(String(v || '').trim()) },

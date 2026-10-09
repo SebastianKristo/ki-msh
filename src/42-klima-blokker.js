@@ -1135,7 +1135,7 @@
       ...diag.map(([id, navn]) => { const st = K.st(id); return row({ dot: st ? 'ok' : 'feil', name: navn, chip: st ? ['OK', 'ok'] : ['Mangler', 'feil'], sub: id, v: st ? String(st.state).slice(0, 24) : 'finnes ikke', act: st ? 'k-more' : null, data: { id }, ent: st ? mapId(id) : null }); }),
       row({ dot: maler.length ? 'ok' : 'advarsel', name: 'Timesmåler i bruk', after: helpBtn(card, 'malekilde'), sub: maler.length ? maler.join(', ') : 'Ingen utility_meter funnet — motoren måler timen selv mot energiregisteret', v: maler.length ? K.s(maler[0]) : 'egen måling', act: maler.length ? 'k-more' : null, data: { id: maler[0] || '' } }) + helpBox(card, 'malekilde'),
       row({ dot: ok === true ? 'ok' : ok === false ? 'feil' : 'advarsel', name: 'Lagring av læring', after: helpBtn(card, 'lagring'), sub: `${K.a('sensor.ki_energi_status', 'lagring', 'ukjent')} · ${K.a('sensor.ki_energi_status', 'profil_oppforinger', 0)} profiloppføringer · ${K.a('sensor.ki_energi_status', 'tau_soner', 0)} soner`, act: 'k-more', data: { id: 'sensor.ki_energi_status' } }) + helpBox(card, 'lagring'),
-    ]) + (brukt ? note(`Motoren rapporterer at den bruker: ${brukt}`) : '')
+    ]) + (brukt ? note(`${kiT('Motoren rapporterer at den bruker:', 'The engine reports that it uses:')} ${brukt}`) : '')
       + btns(card, [{ label: 'Kjør motoren nå', icon: 'mdi:play', dom: 'ki_energi', svc: 'tick', ok: 'Motoren kjørt' }, { label: 'Fjern alle overstyringer', icon: 'mdi:hand-back-right-off', dom: 'ki_energi', svc: 'fjern_overstyring', danger: true, ok: 'Alle overstyringer fjernet' }]);
   }
 

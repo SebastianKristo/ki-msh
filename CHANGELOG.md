@@ -2,6 +2,25 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 59 · Språk (norsk / engelsk)
+Designordbøkene (`i18n-en*.js`) finnes ikke i repoet – den engelske ordboken er bygget fra tekstene i `src/` og alle
+testkortene (≈ 5 000 oppføringer, britisk engelsk, «Tilpass» = «Customize»).
+- **Motor** (`src/00-a-i18n.js`, `M.i18n`): norsk er kildespråket. API `window.kiLang()`, `kiSetLang('en'|'no')`
+  (localStorage `ki-lang` + hendelsen `ki-lang`), `kiT('Norsk', 'English')` / `kiT('Norsk')`. Valget lagres også per
+  HA-bruker i ki-store (`lang`); standard følger `hass.language` (nb/nn/no → norsk, ellers engelsk). Synk mellom faner
+  via `storage`, `<html lang="nb|en">`.
+- **Oversettelse i DOM:** én MutationObserver per KI-shadow-root (+ `ki-overlay-root`) oversetter tekstnoder og
+  `placeholder`/`title`/`aria-label`; originalteksten huskes (WeakMap), så bytte tilbake til norsk gir nøyaktig
+  originalen uten omlasting. Oppslag tåler store/små bokstaver, ikoner foran, tegnsetting bak, sammensatte tekster
+  (` · `, ` – `, ` / `, `, `, `: `, « og ») og variabler (`§` for tall og navn: «Skjul §», «Lys · § av § på»).
+  Dato-ord (ukedager, måneder, i dag/i morgen) oversettes. `data-noi18n` og entitets-ID-er/URL-er/YAML røres ikke.
+  Mangler oversettelse → norsk (dev: `MSH.i18n.missing`).
+- **Språkvalg:** første steg i onboarding («Språk / Language», gjelder straks), øverste rad i «Tilpass Hjem»
+  («Språk · Language») og Norsk/English-segment i Stue-redigering. Funksjons-popupenes navn i strategien oversettes og
+  bygges på nytt ved bytte.
+- Ordbok: `src/00-a-lang-en-01.js` … `-12.js` (`MSH.i18n.add({...})`). Test: `node test/i18n59-check.mjs`
+  (`I18N_MISSING=<fil>` skriver tekster uten oversettelse).
+
 ## Fiks 58 · Hurtigpanel (nedtrekk) og Stue-dashbord v2
 Designfilene (`Hurtigpanel.dc.html`, `Stue dashboard v2.dc.html`) finnes ikke i repoet – bygget etter prompt-teksten.
 - **A · Hurtigpanel** (`src/11-hurtigpanel.js`, `M.hurtig`): nedtrekkspanel på Hjem (`msh-hjem-card`), portalt til

@@ -528,7 +528,7 @@
       }),
       ...funcs.map((f) => {
         const o = uo(f.hash);
-        const p = M.popupTemplateA({ name: o.name || f.name, icon: o.icon || f.icon, hash: f.hash, card: { type: 'custom:' + f.tag, card_id: M.popupCardId ? M.popupCardId(f.hash) : 'pop-' + f.hash.slice(1), ...(f.extra || {}) } });
+        const p = M.popupTemplateA({ name: o.name || (f.person || !M.i18n ? f.name : M.i18n.t(f.name)), icon: o.icon || f.icon, hash: f.hash, card: { type: 'custom:' + f.tag, card_id: M.popupCardId ? M.popupCardId(f.hash) : 'pop-' + f.hash.slice(1), ...(f.extra || {}) } });
         if (o.color) setIconColor(p, o.color);
         if (f.tap) p.tap_action = f.tap;
         return { group: 'fn', person: !!f.person, config: p };
@@ -600,6 +600,9 @@
     const card = { type: 'custom:msh-stue-card', card_id: 'ki-stue', ...(o.area ? { area: o.area } : {}) };
     return { title: o.title || 'Stue', path: o.path || 'stue', icon: 'mdi:sofa', panel: true, cards: [{ type: 'vertical-stack', cards: [card, ...pops] }] };
   };
+
+  // Fiks 59: språkbytte → popupnavnene (Bubble-headeren) genereres på nytt uten omlasting
+  window.addEventListener('ki-lang', () => { try { if (M.strategyConfig && M.refreshPopups) M.refreshPopups(); } catch (e) { /* */ } });
 
   class KiDashboardStrategy extends HTMLElement {
     static async generate(config, hass) {
