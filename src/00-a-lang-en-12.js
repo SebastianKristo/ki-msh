@@ -340,5 +340,6 @@ window.MSH.i18n.add({
   "Norgespris-sensor": "Norgespris sensor",
   "Kjøkken spot": "Kitchen spot",
   "Rom (BT50)": "Room (BT50)",
-  "Topp BT7": "Top BT7"
+  "Topp BT7": "Top BT7",
+  "På Android åpnes Vær alltid som vanlig popup": "On Android, Weather always opens as a standard popup"
 });

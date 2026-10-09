@@ -873,10 +873,11 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `tile_gap` | Mellom lys-radene · range | Mellomrom |
 | `top` | Fra popup-headeren til første kort · range | Mellomrom |
 | `bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
-| `tab_order · hide_tabs` | rekkefølge/synlighet: out, f:forste, f:andre, on | Faner |
+| `tab_order · hide_tabs` | rekkefølge/synlighet: out, f:forste, f:andre, f:_, on | Faner |
 | `tab_names.out` | Utelys | Faner › Navn på fanene |
 | `tab_names.f:forste` | 1. etg | Faner › Navn på fanene |
 | `tab_names.f:andre` | 2. etg | Faner › Navn på fanene |
+| `tab_names.f:_` | Andre | Faner › Navn på fanene |
 | `tab_names.on` | Lys på | Faner › Navn på fanene |
 | `floor_tabs.forste` | 1. etg · boolean | Faner › Fane per etasje |
 | `floor_tabs.andre` | 2. etg · boolean | Faner › Fane per etasje |
@@ -924,7 +925,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `light_order.gang · hide_lights` | rekkefølge/synlighet: light.gang_speil, light.gang_tak | Rom og lys › 1. etg › Gang |
 | `groups.gang.name` | Gruppenavn | Rom og lys › 1. etg › Gang › Gruppe (én rad i popupen) |
 | `groups.gang.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 1. etg › Gang › Gruppe (én rad i popupen) |
-| `light_room.gang_speil` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Gang › Speil |
+| `light_room.gang_speil` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 1. etg › Gang › Speil |
 | `lights.gang_speil.name` | Navn | Rom og lys › 1. etg › Gang › Speil |
 | `lights.gang_speil.icon` | Ikon · icon | Rom og lys › 1. etg › Gang › Speil |
 | `light_types.gang_speil` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Gang › Speil |
@@ -932,7 +933,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.gang_speil.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.hide_temperature_slider` | Skjul temperatur (pil) · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
 | `lights.gang_speil.hide_color_controls` | Skjul farge (pil) · boolean | Rom og lys › 1. etg › Gang › Speil › Slider (avansert) |
-| `light_room.gang_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Gang › Tak |
+| `light_room.gang_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 1. etg › Gang › Tak |
 | `lights.gang_tak.name` | Navn | Rom og lys › 1. etg › Gang › Tak |
 | `lights.gang_tak.icon` | Ikon · icon | Rom og lys › 1. etg › Gang › Tak |
 | `light_types.gang_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Gang › Tak |
@@ -944,7 +945,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `light_order.kjokken · hide_lights` | rekkefølge/synlighet: light.kjokken_spot | Rom og lys › 1. etg › Kjøkken |
 | `groups.kjokken.name` | Gruppenavn | Rom og lys › 1. etg › Kjøkken › Gruppe (én rad i popupen) |
 | `groups.kjokken.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 1. etg › Kjøkken › Gruppe (én rad i popupen) |
-| `light_room.kjokken_spot` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Kjøkken › Spot |
+| `light_room.kjokken_spot` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 1. etg › Kjøkken › Spot |
 | `lights.kjokken_spot.name` | Navn | Rom og lys › 1. etg › Kjøkken › Spot |
 | `lights.kjokken_spot.icon` | Ikon · icon | Rom og lys › 1. etg › Kjøkken › Spot |
 | `light_types.kjokken_spot` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Kjøkken › Spot |
@@ -956,7 +957,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `light_order.stue · hide_lights` | rekkefølge/synlighet: light.stue_lampe, light.stue_led, light.stue_tak | Rom og lys › 1. etg › Stue |
 | `groups.stue.name` | Gruppenavn | Rom og lys › 1. etg › Stue › Gruppe (én rad i popupen) |
 | `groups.stue.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 1. etg › Stue › Gruppe (én rad i popupen) |
-| `light_room.stue_lampe` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Stue › Lampe |
+| `light_room.stue_lampe` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 1. etg › Stue › Lampe |
 | `lights.stue_lampe.name` | Navn | Rom og lys › 1. etg › Stue › Lampe |
 | `lights.stue_lampe.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › Lampe |
 | `light_types.stue_lampe` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › Lampe |
@@ -964,7 +965,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.stue_lampe.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.hide_temperature_slider` | Skjul temperatur (pil) · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
 | `lights.stue_lampe.hide_color_controls` | Skjul farge (pil) · boolean | Rom og lys › 1. etg › Stue › Lampe › Slider (avansert) |
-| `light_room.stue_led` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Stue › LED |
+| `light_room.stue_led` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 1. etg › Stue › LED |
 | `lights.stue_led.name` | Navn | Rom og lys › 1. etg › Stue › LED |
 | `lights.stue_led.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › LED |
 | `light_types.stue_led` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › LED |
@@ -972,7 +973,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.stue_led.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.hide_temperature_slider` | Skjul temperatur (pil) · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
 | `lights.stue_led.hide_color_controls` | Skjul farge (pil) · boolean | Rom og lys › 1. etg › Stue › LED › Slider (avansert) |
-| `light_room.stue_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 1. etg › Stue › Tak |
+| `light_room.stue_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 1. etg › Stue › Tak |
 | `lights.stue_tak.name` | Navn | Rom og lys › 1. etg › Stue › Tak |
 | `lights.stue_tak.icon` | Ikon · icon | Rom og lys › 1. etg › Stue › Tak |
 | `light_types.stue_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 1. etg › Stue › Tak |
@@ -985,7 +986,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `light_order.bad · hide_lights` | rekkefølge/synlighet: light.bad_tak | Rom og lys › 2. etg › Bad |
 | `groups.bad.name` | Gruppenavn | Rom og lys › 2. etg › Bad › Gruppe (én rad i popupen) |
 | `groups.bad.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 2. etg › Bad › Gruppe (én rad i popupen) |
-| `light_room.bad_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 2. etg › Bad › Tak |
+| `light_room.bad_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 2. etg › Bad › Tak |
 | `lights.bad_tak.name` | Navn | Rom og lys › 2. etg › Bad › Tak |
 | `lights.bad_tak.icon` | Ikon · icon | Rom og lys › 2. etg › Bad › Tak |
 | `light_types.bad_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Bad › Tak |
@@ -997,7 +998,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `light_order.soverom · hide_lights` | rekkefølge/synlighet: light.soverom_nattbord, light.soverom_tak | Rom og lys › 2. etg › Soverom |
 | `groups.soverom.name` | Gruppenavn | Rom og lys › 2. etg › Soverom › Gruppe (én rad i popupen) |
 | `groups.soverom.members` | Lys i gruppen (minst 2) · entities | Rom og lys › 2. etg › Soverom › Gruppe (én rad i popupen) |
-| `light_room.soverom_nattbord` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 2. etg › Soverom › Nattbord |
+| `light_room.soverom_nattbord` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 2. etg › Soverom › Nattbord |
 | `lights.soverom_nattbord.name` | Navn | Rom og lys › 2. etg › Soverom › Nattbord |
 | `lights.soverom_nattbord.icon` | Ikon · icon | Rom og lys › 2. etg › Soverom › Nattbord |
 | `light_types.soverom_nattbord` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Soverom › Nattbord |
@@ -1005,7 +1006,7 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.soverom_nattbord.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.hide_temperature_slider` | Skjul temperatur (pil) · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
 | `lights.soverom_nattbord.hide_color_controls` | Skjul farge (pil) · boolean | Rom og lys › 2. etg › Soverom › Nattbord › Slider (avansert) |
-| `light_room.soverom_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom) | Rom og lys › 2. etg › Soverom › Tak |
+| `light_room.soverom_tak` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › 2. etg › Soverom › Tak |
 | `lights.soverom_tak.name` | Navn | Rom og lys › 2. etg › Soverom › Tak |
 | `lights.soverom_tak.icon` | Ikon · icon | Rom og lys › 2. etg › Soverom › Tak |
 | `light_types.soverom_tak` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › 2. etg › Soverom › Tak |
@@ -1013,6 +1014,19 @@ Utelys med tidslinje og styring, lys per etasje og rom med felles lys-rad, og ov
 | `lights.soverom_tak.brightness_max` | Største lysstyrke (%) · number | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.hide_temperature_slider` | Skjul temperatur (pil) · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
 | `lights.soverom_tak.hide_color_controls` | Skjul farge (pil) · boolean | Rom og lys › 2. etg › Soverom › Tak › Slider (avansert) |
+| `room_order._ · hide_rooms` | rekkefølge/synlighet: _ | Rom og lys › Andre |
+| `room_names._` | Navn på rommet | Rom og lys › Andre › Uten rom |
+| `light_order._ · hide_lights` | rekkefølge/synlighet: light.creality_k2_light | Rom og lys › Andre › Uten rom |
+| `groups._.name` | Gruppenavn | Rom og lys › Andre › Uten rom › Gruppe (én rad i popupen) |
+| `groups._.members` | Lys i gruppen (minst 2) · entities | Rom og lys › Andre › Uten rom › Gruppe (én rad i popupen) |
+| `light_room.creality_k2_light` | Rom ( \| bod \| gang \| kjokken \| stue \| bad \| kontor \| soverom \| vaskerom \| _) | Rom og lys › Andre › Uten rom › Creality K2 Light |
+| `lights.creality_k2_light.name` | Navn | Rom og lys › Andre › Uten rom › Creality K2 Light |
+| `lights.creality_k2_light.icon` | Ikon · icon | Rom og lys › Andre › Uten rom › Creality K2 Light |
+| `light_types.creality_k2_light` | Lystype ( \| dim \| ct \| color \| onoff) | Rom og lys › Andre › Uten rom › Creality K2 Light |
+| `lights.creality_k2_light.brightness_min` | Minste lysstyrke (%) · number | Rom og lys › Andre › Uten rom › Creality K2 Light › Slider (avansert) |
+| `lights.creality_k2_light.brightness_max` | Største lysstyrke (%) · number | Rom og lys › Andre › Uten rom › Creality K2 Light › Slider (avansert) |
+| `lights.creality_k2_light.hide_temperature_slider` | Skjul temperatur (pil) · boolean | Rom og lys › Andre › Uten rom › Creality K2 Light › Slider (avansert) |
+| `lights.creality_k2_light.hide_color_controls` | Skjul farge (pil) · boolean | Rom og lys › Andre › Uten rom › Creality K2 Light › Slider (avansert) |
 | `include.lys` | Lagt til · entities | Rom og lys |
 | `outdoor.ring_start` | Døgnringen (0 \| 12) | Utelys › Visning |
 | `outdoor.sections · outdoor.hidden_sections` | rekkefølge/synlighet: auto, lamps, sun, settings | Utelys › Visning |
@@ -1129,11 +1143,12 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `events_limit` | Maks antall hendelser · number | Hendelser |
 | `events_columns` | Kolonner · number | Hendelser |
 | `events_height` | Maks høyde | Hendelser |
-| `order · hidden` | rekkefølge/synlighet: camera.inngang, camera.inngang_package_camera, camera.pakke, camera.veranda, camera.garasje, camera.hage_high, camera.innkjorsel_high, camera.ringeklokke_high |  |
+| `order · hidden` | rekkefølge/synlighet: camera.inngang, camera.inngang_package_camera, camera.pakke, camera.veranda, camera.creality_k2, camera.garasje, camera.hage_high, camera.innkjorsel_high, camera.ringeklokke_high |  |
 | `names.camera\.inngang` | camera.inngang | Navn på kameraene |
 | `names.camera\.inngang_package_camera` | camera.inngang_package_camera | Navn på kameraene |
 | `names.camera\.pakke` | camera.pakke | Navn på kameraene |
 | `names.camera\.veranda` | camera.veranda | Navn på kameraene |
+| `names.camera\.creality_k2` | camera.creality_k2 | Navn på kameraene |
 | `names.camera\.garasje` | camera.garasje | Navn på kameraene |
 | `names.camera\.hage_high` | camera.hage_high | Navn på kameraene |
 | `names.camera\.innkjorsel_high` | camera.innkjorsel_high | Navn på kameraene |
@@ -1171,6 +1186,14 @@ Kamera-popup eller eget kamera-dashbord: alle camera.* med mosaikk/rutenett/list
 | `cameras.veranda.privacy` | Personvern-modus · entity | Veranda |
 | `cameras.veranda.motion` | Bevegelse · entity | Veranda |
 | `cameras.veranda.last_motion` | Siste bevegelse · entity | Veranda |
+| `names.camera\.creality_k2` | Navn | Creality K2 |
+| `cameras.creality_k2.icon` | Ikon · icon | Creality K2 |
+| `cameras.creality_k2.light` | Lys · entity | Creality K2 |
+| `cameras.creality_k2.siren` | Sirene · entity | Creality K2 |
+| `cameras.creality_k2.talk` | Snakk (script/button) · entity | Creality K2 |
+| `cameras.creality_k2.privacy` | Personvern-modus · entity | Creality K2 |
+| `cameras.creality_k2.motion` | Bevegelse · entity | Creality K2 |
+| `cameras.creality_k2.last_motion` | Siste bevegelse · entity | Creality K2 |
 | `names.camera\.garasje` | Navn | Garasje |
 | `cameras.garasje.icon` | Ikon · icon | Garasje |
 | `cameras.garasje.light` | Lys · entity | Garasje |
@@ -1623,3 +1646,88 @@ Stue-dashbord v2 for nettbrett: header med prosa, faner, nattmodus, scener, medi
 | `hurtigpanel.entities.screen_switch` | Skjerm av (bryter) · entity | Hurtigpanel (dra ned) |
 | `hurtigpanel.players` | Minispiller (tom = alle mediespillere) · entities | Hurtigpanel (dra ned) |
 | `hurtigpanel.notif_order · hurtigpanel.hidden_notifs` | rekkefølge/synlighet: ring, appliance, power, tesla, vacuum, avfall, ha | Hurtigpanel (dra ned) |
+
+## `msh-planter-card`
+
+Planter-popup (#planter): status, neste vanning, jordfukt med målbånd, lys/temp/næring og «Merk som vannet».
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `exclude · include.{planter}` | skjul / legg til |  |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.name` | Navn | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.latin` | Latinsk navn | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.moisture` | Jordfukt · entity | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.needs` | Trenger vann · entity | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.last` | Sist vannet · entity | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.water` | Merk som vannet (knapp) · entity | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.every` | Vann hver (dager) · number | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.lo` | Jordfukt min (%) · number | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.hi` | Jordfukt maks (%) · number | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.lux` | Lys · entity | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.temp` | Temperatur · entity | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_arekapalme_trenger_vann.ec` | Næring · entity | Plante · Arekapalme |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.name` | Navn | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.latin` | Latinsk navn | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.moisture` | Jordfukt · entity | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.needs` | Trenger vann · entity | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.last` | Sist vannet · entity | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.water` | Merk som vannet (knapp) · entity | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.every` | Vann hver (dager) · number | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.lo` | Jordfukt min (%) · number | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.hi` | Jordfukt maks (%) · number | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.lux` | Lys · entity | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.temp` | Temperatur · entity | Plante · Palmelilje |
+| `plants_cfg.binary_sensor_palmelilje_trenger_vann.ec` | Næring · entity | Plante · Palmelilje |
+| `plants_cfg.plant_monstera.name` | Navn | Plante · Monstera |
+| `plants_cfg.plant_monstera.latin` | Latinsk navn | Plante · Monstera |
+| `plants_cfg.plant_monstera.moisture` | Jordfukt · entity | Plante · Monstera |
+| `plants_cfg.plant_monstera.needs` | Trenger vann · entity | Plante · Monstera |
+| `plants_cfg.plant_monstera.last` | Sist vannet · entity | Plante · Monstera |
+| `plants_cfg.plant_monstera.water` | Merk som vannet (knapp) · entity | Plante · Monstera |
+| `plants_cfg.plant_monstera.every` | Vann hver (dager) · number | Plante · Monstera |
+| `plants_cfg.plant_monstera.lo` | Jordfukt min (%) · number | Plante · Monstera |
+| `plants_cfg.plant_monstera.hi` | Jordfukt maks (%) · number | Plante · Monstera |
+| `plants_cfg.plant_monstera.lux` | Lys · entity | Plante · Monstera |
+| `plants_cfg.plant_monstera.temp` | Temperatur · entity | Plante · Monstera |
+| `plants_cfg.plant_monstera.ec` | Næring · entity | Plante · Monstera |
+| `gap` | Mellom seksjonene · range | Mellomrom |
+| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+
+## `msh-sovn-card`
+
+Søvn-popup (#sovn): hvem sover, siste 24 timer og vekking per person.
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `exclude · include.{personer}` | skjul / legg til |  |
+| `people_cfg.cybele.asleep` | Sover · entity | Person · Cybele |
+| `people_cfg.cybele.window` | Vindu · entity | Person · Cybele |
+| `people_cfg.cybele.alarm` | Vekketid · entity | Person · Cybele |
+| `people_cfg.cybele.alarm_on` | Vekking på/av · entity | Person · Cybele |
+| `people_cfg.cybele.light` | Vekkelys · entity | Person · Cybele |
+| `people_cfg.rune.asleep` | Sover · entity | Person · Rune |
+| `people_cfg.rune.window` | Vindu · entity | Person · Rune |
+| `people_cfg.rune.alarm` | Vekketid · entity | Person · Rune |
+| `people_cfg.rune.alarm_on` | Vekking på/av · entity | Person · Rune |
+| `people_cfg.rune.light` | Vekkelys · entity | Person · Rune |
+| `people_cfg.sebastian.asleep` | Sover · entity | Person · Sebastian |
+| `people_cfg.sebastian.window` | Vindu · entity | Person · Sebastian |
+| `people_cfg.sebastian.alarm` | Vekketid · entity | Person · Sebastian |
+| `people_cfg.sebastian.alarm_on` | Vekking på/av · entity | Person · Sebastian |
+| `people_cfg.sebastian.light` | Vekkelys · entity | Person · Sebastian |
+| `gap` | Mellom seksjonene · range | Mellomrom |
+| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |
+
+## `msh-printer-card`
+
+3D-printer-popup (#3d-printer): status, kamera, kontroller, temperaturer og filament (CFS/AMS).
+
+| Nøkkel | Betydning | Gruppe |
+|---|---|---|
+| `overrides.{status, progress, file, left, layer, layers, nozzle, nozzle_t, bed, bed_t, chamber, camera, light, power, pause, resume, stop, start, speed, fan, fan_ch, zoff, lh, cfs_temp, cfs_hum}` | bytt entitet |  |
+| `exclude · include.{slots}` | skjul / legg til |  |
+| `gap` | Mellom seksjonene · range | Mellomrom |
+| `pad_top` | Fra popup-headeren til første kort · range | Mellomrom |
+| `pad_bottom` | Luft i bunnen (over navbaren) · range | Mellomrom |

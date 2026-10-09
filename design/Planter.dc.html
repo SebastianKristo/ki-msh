@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#252525;color:#f2f1ee;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#f2f1ee}a:hover{color:oklch(0.8 0.12 150)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./i18n.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:420px;min-height:100vh;margin:0 auto;background:#282828;padding:20px 18px 40px;display:flex;flex-direction:column;gap:22px">
+  <header style="display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#8e8d89">Planter</div>
+    <button style="width:36px;height:36px;border-radius:18px;background:#3a3a3a;display:grid;place-items:center"><span class="ms" style="font-size:20px">close</span></button>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:6px;padding:0 4px">
+    <div style="{{ statusStyle }}"><span style="{{ statusDot }}"></span>{{ status }}</div>
+    <div style="font-size:24px;font-weight:500;letter-spacing:-0.015em">{{ headline }}</div>
+    <div style="font-size:14px;color:#8e8d89">Vekstsesong · 11,8 t dagslys · {{ count }} planter</div>
+  </section>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;border-radius:20px;background:#303030">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+  </div>
+
+  <section style="display:flex;flex-direction:column;gap:8px">
+    <sc-for list="{{ plants }}" as="p" hint-placeholder-count="2">
+      <div style="display:flex;flex-direction:column;gap:14px;padding:16px;border-radius:24px;background:#303030">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="{{ p.iconWrap }}"><span class="ms" style="font-size:24px;font-variation-settings:'FILL' 1">potted_plant</span></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:15px;font-weight:500">{{ p.name }}</span>
+            <span style="font-size:12px;color:#8e8d89;font-style:italic">{{ p.latin }}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+            <span style="{{ p.dueStyle }}">{{ p.due }}</span>
+            <span style="font-size:11px;color:#6d6c69">{{ p.last }}</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#8e8d89"><span>Jordfukt</span><span style="font-variant-numeric:tabular-nums">{{ p.moist }} % · mål {{ p.range }}</span></div>
+          <div style="position:relative;height:8px;border-radius:4px;background:#3c3c3c">
+            <span style="{{ p.band }}"></span>
+            <span style="{{ p.moistBar }}"></span>
+          </div>
+        </div>
+        <sc-if value="{{ p.adv }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+            <sc-for list="{{ p.metrics }}" as="m" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:14px;background:#252525">
+                <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:#8e8d89;white-space:nowrap"><span class="ms" style="font-size:14px">{{ m.icon }}</span>{{ m.label }}</span>
+                <span style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap">{{ m.v }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <button onClick="{{ p.water }}" style="{{ p.btn }}"><span class="ms" style="font-size:18px;font-variation-settings:'FILL' 1">water_drop</span>{{ p.btnLabel }}</button>
+      </div>
+    </sc-for>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:1000}}">
+const GREEN = 'oklch(0.8 0.12 150)', AMBER = 'oklch(0.82 0.12 75)', BLUE = 'oklch(0.8 0.12 250)';
+const a = (c, o) => c.replace(')', ` / ${o})`);
+const PINK = 'linear-gradient(135deg, oklch(0.78 0.13 350), oklch(0.9 0.05 20))';
+class Component extends DCLogic {
+  state = { tab: 'enkel', plants: [
+    { name: 'Arekapalme', latin: 'Dypsis lutescens', moist: 41, lo: 35, hi: 60, every: 7, days: 4, lux: '2 400 lx', temp: '21,4°', ec: '640 µS' },
+    { name: 'Palmelilje', latin: 'Yucca elephantipes', moist: 53, lo: 20, hi: 45, every: 16, days: 16, lux: '3 100 lx', temp: '22,1°', ec: '410 µS' },
+    { name: 'Monstera', latin: 'Monstera deliciosa', moist: 22, lo: 30, hi: 55, every: 8, days: 9, lux: '1 800 lx', temp: '21,0°', ec: '520 µS' },
+  ] };
+  renderVals() {
+    const s = this.state;
+    const info = p => { const left = p.every - p.days; return { left, dry: p.moist < p.lo, wet: p.moist > p.hi }; };
+    const all = s.plants.map(info);
+    const dry = all.filter(x => x.dry || x.left <= 0).length;
+    const next = Math.min(...all.map(x => x.left));
+    const col = dry ? AMBER : GREEN;
+    return {
+      status: dry ? `${dry} trenger vann` : 'Alt i orden', statusStyle: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500, color: '#c9c7c2' },
+      statusDot: { width: 8, height: 8, borderRadius: 4, background: col, boxShadow: `0 0 10px ${col}` },
+      headline: next <= 0 ? 'Vann i dag' : next === 1 ? 'Neste vanning i morgen' : `Neste vanning om ${next} dager`, count: s.plants.length,
+      tabs: [['enkel', 'Enkel'], ['avansert', 'Avansert']].map(([k, label]) => ({ label, go: () => this.setState({ tab: k }), style: { height: 40, borderRadius: 16, fontSize: 13, fontWeight: 500, background: s.tab === k ? PINK : 'transparent', color: s.tab === k ? '#2a1720' : '#a9a7a2' } })),
+      plants: s.plants.map((p, i) => { const f = info(p), need = f.dry || f.left <= 0; return {
+        name: p.name, latin: p.latin, moist: p.moist, range: `${p.lo}–${p.hi} %`, adv: s.tab === 'avansert',
+        due: need ? 'Trenger vann' : f.wet ? `Fuktig ${p.moist} %` : `Om ${f.left} dager`, last: p.days === 0 ? 'Vannet i dag' : `Vannet for ${p.days} d siden`,
+        dueStyle: { fontSize: 13, fontWeight: 600, color: need ? AMBER : f.wet ? BLUE : '#f2f1ee', whiteSpace: 'nowrap' },
+        iconWrap: { width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: a(need ? AMBER : GREEN, 0.16), color: need ? AMBER : GREEN },
+        band: { position: 'absolute', top: 0, bottom: 0, left: `${p.lo}%`, width: `${p.hi - p.lo}%`, background: a(GREEN, 0.18), borderRadius: 4 },
+        moistBar: { position: 'absolute', top: 0, bottom: 0, left: 0, width: `${p.moist}%`, borderRadius: 4, background: need ? AMBER : f.wet ? BLUE : GREEN, transition: 'width .6s' },
+        metrics: [['light_mode', 'Lys', p.lux], ['thermostat', 'Temp', p.temp], ['science', 'Næring', p.ec]].map(([icon, label, v]) => ({ icon, label, v })),
+        water: () => this.setState(st => ({ plants: st.plants.map((x, j) => j === i ? { ...x, moist: Math.min(95, Math.round((x.lo + x.hi) / 2 + 8)), days: 0 } : x) })),
+        btnLabel: p.days === 0 ? 'Vannet i dag' : 'Merk som vannet',
+        btn: { height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 600, background: need ? a(BLUE, 0.9) : '#3a3a3a', color: need ? '#252525' : '#c9c7c2' } }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

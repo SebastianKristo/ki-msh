@@ -1,0 +1,8 @@
+[
+  { "name": "Planter", "hash": "#planter", "cards": [ { "type": "custom:msh-planter-card" } ] },
+  { "name": "Planter · Avansert", "hash": "#planter", "cards": [ { "type": "custom:msh-planter-card", "start_tab": "avansert" } ] },
+  { "name": "Søvn", "hash": "#sovn", "cards": [ { "type": "custom:msh-sovn-card" } ] },
+  { "name": "Søvn · Vekking", "hash": "#sovn", "cards": [ { "type": "custom:msh-sovn-card", "start_tab": "wake" } ] },
+  { "name": "3D-printer", "hash": "#3d-printer", "cards": [ { "type": "custom:msh-printer-card" } ] },
+  { "name": "3D-printer · Avansert", "hash": "#3d-printer", "cards": [ { "type": "custom:msh-printer-card", "start_tab": "adv" } ] }
+]

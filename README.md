@@ -92,6 +92,8 @@ Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md
   legger seg over navbaren og holder seg innenfor dashbordflaten.
 - **Haptic** på trykk (én per trykk), `touch-action` og `stopPropagation` på alt som dras, så Bubble Card ikke lukker
   popupen mens du justerer en slider.
+- **Planter, Søvn og 3D-printer:** egne popups (`#planter`, `#sovn`, `#3d-printer`) som lages automatisk når entitetene
+  finnes – jordfukt og vanning per plante, hvem sover og vekking per person, og printerstatus med kamera og filament.
 - **Språk:** norsk eller engelsk (britisk) for hele dashbordet – velg i onboarding, øverst i «Tilpass Hjem» eller i
   Stue-redigeringen. Byttes uten omlasting, lagres per HA-bruker og følger HA-språket som standard.
 - **Hurtigpanel:** dra ned fra toppen av Hjem (siden må stå i ro øverst) for et nedtrekkspanel i Android-stil med

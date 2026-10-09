@@ -632,7 +632,7 @@
       const all = open ? ids.map((id) => this._cvPos(id)) : [];
       return `<section class="cvbox" data-key="sec-curtain">
         <div class="cvr"><span class="cvn">${esc(this._nm(ids[0]))}${this._tag(ids[0], true)}</span>${this._cvSlider(ids[0], v0)}<span class="cvp num">${v0}%</span>${multi ? `<button class="cvx" data-act="cvx" data-haptic="selection">${this._chev(open)}</button>` : ''}</div>
-        ${open ? `<div class="cvo"><div class="cvpre">${[0, 25, 50, 75, 100].map((v) => { const on = all.length && all.every((x) => x === v); return `<button class="pre press ${on ? 'on' : ''}" data-act="cvall" data-v="${v}" aria-pressed="${on ? 'true' : 'false'}">${v}%</button>`; }).join('')}</div>${rest}</div>` : ''}
+        ${open ? `<div class="cvo"><div class="cvpre">${[0, 25, 50, 75, 100].map((v) => { const on = all.length && all.every((x) => x === v); return `<button class="pre press ${on ? 'on' : ''}" data-act="cvall" data-v="${v}" aria-pressed="${on ? 'true' : 'false'}">${v}%</button>`; }).join('')}</div>${rest ? `<div class="cvg" data-key="cvg">${rest}</div>` : ''}</div>` : ''}
       </section>`;
     }
 
@@ -1137,9 +1137,14 @@
         .unav{opacity:.5}
         /* rullegardin */
         .cvbox{border-radius:33px;background:${G.g200}}
-        /* 35.5 / 35.7 regel 7: navnet kuttes aldri – fast kolonne 112 px, to linjer ved behov («Gardiner / Venstre») */
+        /* Fiks 60.1: navnet kuttes aldri og bestemmer bredden – hovedraden: navnet maks 60 %, slideren minst 96 px;
+           underradene i ett felles grid (navnekolonne = lengste navn, maks 60 %), så sliderne starter og slutter likt */
         .cvr{display:flex;align-items:center;gap:14px;min-height:66px;padding:8px 14px 8px 22px;box-sizing:border-box}
-        .cvn,.cvn2{flex:0 0 112px;width:112px;min-width:0;line-height:1.2;overflow-wrap:anywhere;word-break:normal;text-wrap:balance;white-space:normal;hyphens:manual}
+        .cvn,.cvn2{min-width:0;line-height:1.2;overflow-wrap:anywhere;word-break:normal;text-wrap:balance;white-space:normal;hyphens:manual}
+        .cvn{flex:0 1 auto;max-width:60%}
+        .cvr .cvs{flex:1 1 96px;min-width:96px}
+        .cvg{display:grid;grid-template-columns:fit-content(60%) minmax(96px,1fr) auto;align-items:center;column-gap:14px;row-gap:14px;padding:0 6px 0 10px}
+        .cvg .cvs{min-width:96px}
         .cvn{font-size:15px;font-weight:500}
         .cvp{font-size:15px;min-width:40px;text-align:right}
         .cvs,.vs{position:relative;flex:1;min-width:0;height:28px;display:flex;align-items:center;touch-action:none;cursor:pointer;user-select:none}
@@ -1154,7 +1159,7 @@
         .pre{height:40px;border-radius:20px;background:var(--ki-surface-2, #2a2a2a);color:var(--ki-text, #fafafa);font-size:14px;transition:background .2s,color .2s}
         .pre.on{background:${PINK};color:var(--ki-on-accent, #2a1720)}
         .pre:active{transform:scale(.95)}
-        .cvr2{display:flex;align-items:center;gap:14px;padding:0 6px 0 10px}
+        .cvr2{display:contents}
         .cvn2{font-size:14px;font-weight:500}
         .cvp2{font-size:14px;min-width:40px;text-align:right}
         /* scener */

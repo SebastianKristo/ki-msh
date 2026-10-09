@@ -623,6 +623,136 @@ views:
             slider_value_position: right
             cards:
               - type: custom:msh-garasje-card
+          # Planter (fiks 60.3): KI Planter, plant.* eller jordfukt-sensor
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Planter
+            icon: mdi:flower
+            state: null
+            hash: '#planter'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-planter-card          # Søvn (fiks 60.3): sover-bryter / vekking per person
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: Søvn
+            icon: mdi:weather-night
+            state: null
+            hash: '#sovn'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-sovn-card          # 3D-printer (fiks 60.3): Creality / Bambu / Prusa / Klipper / OctoPrint
+          - type: custom:bubble-card
+            card_type: pop-up
+            name: 3D-printer
+            icon: mdi:printer-3d
+            state: null
+            hash: '#3d-printer'
+            is_sidebar_hidden: true
+            styles: |-
+              .bubble-pop-up-container {
+                --vertical-stack-card-gap: 0px!important;
+              } #header-container > div > div {
+                background: var(--gray000)!important;
+              }
+              #header-container > button {background: none;}
+              .icon-container {background-color:var(--gray1000)!important;}
+              .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
+              .bubble-icon {
+                --mdc-icon-size: 24px !important;
+              }
+              .bubble-name {
+                font-size: 30px !important;
+                font-weight: 500;
+                line-height: 1.4 !important;
+                padding: 8px 0 !important;
+              }
+              .bubble-close-button {
+                background-color: var(--gray200) !important;
+                border-radius: 50%;
+              }
+            bg_blur: '5'
+            shadow_opacity: '20'
+            bg_opacity: '98'
+            margin_top_mobile: 50px
+            margin_top_desktop: 50px
+            card_layout: large
+            button_type: name
+            sub_button:
+              main: []
+              bottom: []
+            slider_fill_orientation: left
+            slider_value_position: right
+            cards:
+              - type: custom:msh-printer-card
           # Ringeklokke (fiks 19.17): UniFi Protect G6 Entry – åpnes av seg selv når det ringer («Når det ringer» = Popup)
           - type: custom:bubble-card
             card_type: pop-up
