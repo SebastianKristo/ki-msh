@@ -830,12 +830,19 @@
   const SW = HIDE.map((x) => x[0]);
   const secMap = (c) => (c && c.sections && typeof c.sections === 'object' && !Array.isArray(c.sections) ? c.sections : {});
   const stilOf = (c) => { const v = c ? (c.style !== undefined ? c.style : c.stil) : null; return v === 'klassisk' ? 'klassisk' : 'scene'; }; // standard scene (26.24)
+  // Fiks 60.2: på Android åpnes Vær alltid som vanlig popup (klassisk, ark, navbar synlig) – lagret stil brukes ikke der,
+  // men beholdes i config (stilOf = lagret valg, for editorene; stilEff / viewEff = det som faktisk vises)
+  const android = () => !!(M.perf && M.perf.isAndroid ? M.perf.isAndroid() : /Android/i.test(navigator.userAgent || ''));
+  const stilEff = (c) => (android() ? 'klassisk' : stilOf(c));
   // Fiks 56 I · view: 'fullscreen' (standard) | 'sheet' (Ark = oppsettet før 56).
   // Fiks 57 C: om navbaren og Now Playing skjules mens #vaer er åpen styres av navbarens hide_in_popups (standard ['#vaer'],
   // MSH.navHidesIn, 10-navbar.js) – i begge visningene. Vær-kortets gamle hide_navbar leses bare som migrering
   // (MSH.vaerNavLegacy: eksplisitt false i Fullskjerm → navbarens liste blir [] til den lagres) og fjernes når valget lagres.
   const viewOf = (c) => (c && (c.view === 'sheet' || c.view === 'ark') ? 'sheet' : 'fullscreen');
+  const viewEff = (c) => (android() ? 'sheet' : viewOf(c)); // 60.2
   const navHidden = () => (M.navHidesIn ? M.navHidesIn('#vaer') : true);
+  // 60.2: navbar/Now Playing skjules i #vaer bare når værscenen faktisk vises (Android og «Klassisk» = vanlig popup med navbar)
+  const navHiddenEff = () => navHidden() && stilEff(vaerCfg()) === 'scene';
   const hideNavOf = () => navHidden();
   M.vaerViewOf = viewOf;
   M.vaerHideNavOf = hideNavOf;
@@ -1062,7 +1069,7 @@
     _applySpacing() {
       super._applySpacing();
       if (this._config.embedded || !M.popupContainer(this)) return;
-      const nav = !navHidden(), base = nav && M.popupBottomPad ? M.popupBottomPad(16) : 'calc(16px + env(safe-area-inset-bottom, 0px))';
+      const nav = !navHiddenEff(), base = nav && M.popupBottomPad ? M.popupBottomPad(16) : 'calc(16px + env(safe-area-inset-bottom, 0px))';
       this.style.paddingBottom = base;
       // sticky regnes fra innsiden av Bubble-containerens padding → trekk den fra, så knappene står 16 px over bunnen/navbaren
       const C = M.popupContainer(this), pb = C ? parseFloat(getComputedStyle(C).paddingBottom) || 0 : 0;
@@ -1083,7 +1090,7 @@
     }
     // Scenelag (bak hele popupen, også bak headeren) + faste kontroller (stedsvelger · tune) i popup-laget
     _mountLayers() {
-      const pop = this._popEl(), scene = stilOf(this._rawConfig) === 'scene', R = this.shadowRoot;
+      const pop = this._popEl(), scene = stilEff(this._rawConfig) === 'scene', R = this.shadowRoot;
       this._uid = this._uid || M.uid();
       this._popRef = pop;
       if (pop) {
@@ -1095,9 +1102,9 @@
         if (host && !host.querySelector('style[data-ki-vaer-skin]')) { const stl = document.createElement('style'); stl.setAttribute('data-ki-vaer-skin', ''); stl.textContent = VAER_BLOCK; host.appendChild(stl); }
         pop.setAttribute('data-ki-vaer-owner', this._uid);
         // 56 I: Fullskjerm (standard) / Ark – live via attributtet, uten ny generering av popupen
-        const full = viewOf(this._rawConfig) === 'fullscreen' && !this._config.embedded;
+        const full = viewEff(this._rawConfig) === 'fullscreen' && !this._config.embedded;
         pop.toggleAttribute('data-ki-vaer-full', full);
-        const hn = navHidden(); // 57 C: navbarens hide_in_popups
+        const hn = navHiddenEff(); // 57 C: navbarens hide_in_popups (60.2: bare med scene)
         pop.toggleAttribute('data-ki-vaer-nonav', hn);
         if (this._navHide !== hn && location.hash === '#vaer') setTimeout(syncNav, 0); // første montering / valget endret mens popupen er åpen
         this._navHide = hn;
@@ -1461,7 +1468,7 @@
         })(),
         moon: `<section class="tl mnt" ${a.moon ? `data-ent="${esc(a.moon)}"` : ''}><span class="th">${M.icon('bedtime', 16)}Månefase</span>${moon.none ? '<svg class="moon" style="width:64px;height:64px"><circle cx="32" cy="32" r="32" style="fill:var(--ki-surface-2, #404040)"/></svg>' : moonDisc(moon.p, 64)}<span class="ts" style="margin-top:auto">${esc(moon.name)}</span></section>`,
       };
-      const scene = stilOf(c) === 'scene';
+      const scene = stilEff(c) === 'scene';
       const tord = orderOf(scene ? [...TK, 'moon'] : TK, c.tile_order || c.tiles), thid = new Set(c.hidden_tiles || []);
       const tl = tord.filter((k) => !thid.has(k));
       // Fliser: hold inne ~420 ms og dra for å bytte plass (26.25) – lagres i tile_order
@@ -1665,7 +1672,7 @@
       // 56 G: tekst ut fra kortflaten (lys modus): mørk værflate → lys tekst, lys flate → mørk; nedbørsblå ≥ 4,5:1 mot flaten
       const ink = M.theme && M.theme.mode && M.theme.mode() === 'light' ? M.vaerSurfInk(sc.key) : null;
       const inkA = ink ? ` data-lum="${ink.lum}" style="--vt1:${ink.t1};--vt2:${ink.t2};--vblue:${ink.blue}"` : '';
-      const full = viewOf(raw) === 'fullscreen' && !c.embedded && !!M.popupContainer(this);
+      const full = viewEff(raw) === 'fullscreen' && !c.embedded && !!M.popupContainer(this);
       return `<div class="wrap scene${full ? ' full' : ''}" data-ki-island data-scene="${sc.key}"${inkA}><div class="scn-slot" data-nomorph></div>${empty}${blocks.join('')}${st && src ? `<span class="attr">Data fra ${esc(src)}</span>` : ''}<div class="ctl-slot" data-nomorph></div></div>`;
     }
     onAction(name, el, ev) {
@@ -1967,12 +1974,13 @@ ${VE}`;
   M.POPUP_FORCE['#vaer'] = (cfg) => {
     if (!cfg || typeof cfg !== 'object' || !Array.isArray(cfg.cards) || !cfg.cards.some((c) => c && String(c.type || '').replace(/^custom:/, '') === 'msh-vaer-card')) return null;
     const out = { ...cfg, styles: vaerStyles(cfg.styles) };
-    return viewOf(cardCfgOf(cfg)) === 'fullscreen' ? { ...out, ...FULL } : out;
+    return viewEff(cardCfgOf(cfg)) === 'fullscreen' ? { ...out, ...FULL } : out;
   };
   // Tilpass Hjem → Popups → Vær: samme stil-verdi som «Tilpass Vær» og GUI-editoren (kortets config via ki-store)
   const liveVaer = () => { const out = []; (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && el.localName === 'msh-vaer-card' && el.isConnected !== undefined) out.push(el); })); return out; };
   const vaerCfg = () => { const el = liveVaer().find((x) => x.isConnected) || liveVaer()[0]; if (el && el._rawConfig) return el._rawConfig; const s0 = M.store && M.store.eff ? M.store.eff('cards.pop-vaer') : null; return s0 || {}; };
   M.vaerStil = () => stilOf(vaerCfg());
+  M.vaerScene = () => stilEff(vaerCfg()) === 'scene'; // 60.2: navbaren skjules i #vaer bare når scenen faktisk vises
   M.vaerView = () => viewOf(vaerCfg());
   // 57 C: skjules navbaren mens #vaer er åpen? = navbarens hide_in_popups. Migrering: Vær-kortets gamle hide_navbar: false
   // (eksplisitt valgt i Fullskjerm, Fiks 56 I) → false (navbarens liste uten #vaer) til listen lagres; ellers null.
@@ -1980,7 +1988,7 @@ ${VE}`;
   M.vaerNavLegacy = () => { const c = vaerCfg(); return c && c.hide_navbar === false && viewOf(c) === 'fullscreen' ? false : null; };
   const syncNav = () => (M.liveCards || new Map()).forEach((set) => set.forEach((el) => { if (el && el.localName === 'msh-navbar-card' && typeof el._syncHide === 'function') { try { el._syncHide(); } catch (e) { /* */ } } }));
   // Listen endret (Tilpass navbar / GUI-editoren / snarveien) → Vær-popupens bunnluft legges om (bare padding, ingen ny tegning)
-  window.addEventListener('ki-nav-hide', () => { const hn = navHidden(); liveVaer().forEach((x) => { if (!x.isConnected || !x._applySpacing) return; try { x._navHide = hn; if (x._popRef) x._popRef.toggleAttribute('data-ki-vaer-nonav', hn); x._applySpacing(); } catch (e) { /* */ } }); });
+  window.addEventListener('ki-nav-hide', () => { const hn = navHiddenEff(); liveVaer().forEach((x) => { if (!x.isConnected || !x._applySpacing) return; try { x._navHide = hn; if (x._popRef) x._popRef.toggleAttribute('data-ki-vaer-nonav', hn); x._applySpacing(); } catch (e) { /* */ } }); });
   // v: 'klassisk' | 'scene' (stil) · 'view:fullscreen' | 'view:sheet' · 'nav:on' | 'nav:off' (Skjul navbar og Now Playing → navbarens hide_in_popups)
   M.setVaerStil = async (v) => {
     let patch;
@@ -2012,7 +2020,7 @@ ${VE}`;
     return `<div class="msh-vsm" data-key="vsm" style="display:flex;flex-direction:column;gap:6px">
       <div style="font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 4px">Vær · stil</div>
       <div role="radiogroup" data-glass-drag="x" style="display:flex;gap:4px;padding:4px;border-radius:24px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))">${STIL.map(([k, l]) => { const on = k === cur; return `<button role="radio" aria-checked="${on}" ${on ? 'data-active="1"' : ''} data-a="${act}" data-v="${k}" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;padding:6px;border:0;border-radius:20px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:${on ? PINK : 'transparent'};color:${on ? 'var(--ki-on-accent, #2f2f2f)' : 'var(--ki-text-2, var(--gray800,#afafaf))'}">${prev(k)}<span>${l}</span></button>`; }).join('')}</div>
-      <div style="font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:0 4px">${cur === 'scene' ? 'Værscene bak hele popupen (regn, snø, lyn, stjerner, sol og tåke)' : 'Vær v4 med toppkort og vanlige kort'} · samme valg som i «Tilpass Vær»</div>
+      <div style="font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:0 4px">${cur === 'scene' ? 'Værscene bak hele popupen (regn, snø, lyn, stjerner, sol og tåke)' : 'Vær v4 med toppkort og vanlige kort'} · samme valg som i «Tilpass Vær»${android() ? ' · På Android åpnes Vær alltid som vanlig popup' : ''}</div>
       ${vaerViewHTML(act, PINK)}</div>`;
   };
   // 56 I · «Visning: Fullskjerm / Ark» (standard Fullskjerm) – samme config-nøkkel (view) som GUI-editoren og kortets Tilpass.

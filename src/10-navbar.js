@@ -40,8 +40,18 @@
   // Innebygde knapper (id = popup-hash uten #). Ikon/navn fra designets CAT.
   const CAT = { vanning: ['sprinkler', 'Sprinkler'], media: ['music_note', 'Musikk'], klima: ['thermostat', 'Klima'], ruter: ['tram', 'Ruter'], gjoremal: ['checklist', 'Gjøremål'], kart: ['map', 'Kart'], energi: ['bolt', 'Energi'] }; // energi (21.1): i «Mer» til den flyttes // kart (20.22): skjult til den legges til i Tilpass navbar // basseng: fjernet (bassengpopupen er slettet – en gammel «basseng» i bar/more filtreres bort)
   const DEF = { bar: ['vanning', 'media', 'klima', 'ruter'], more: ['gjoremal'] };
+  // Fiks 60.3: Planter · Søvn · 3D-printer i «Mer» – bare når popupen finnes (strategiens rapport, ellers entitetene)
+  Object.assign(CAT, { planter: ['potted_plant', 'Planter'], sovn: ['bedtime', 'Søvn'], '3d-printer': ['mdi:printer-3d', '3D-printer'] });
+  const OPT = new Set(['planter', 'sovn', '3d-printer']);
+  const optOk = (id) => {
+    if (!OPT.has(id)) return true;
+    const R = M.popupReport, hash = '#' + id;
+    if (R && Array.isArray(R.entries) && R.entries.length) return R.entries.some((e) => e.hash === hash && !e.hidden);
+    const h = M.lastHass, f = M.popupNeeds && M.popupNeeds[hash];
+    return !!(h && f && f(h));
+  };
   // Popups i prosjektet (mål for egne knapper)
-  const POPS = [['sikkerhet', 'shield', 'Sikkerhet'], ['kamera', 'videocam', 'Kamera'], ['lys', 'lightbulb', 'Lys'], ['klima', 'thermostat', 'Klima'], ['vaer', 'partly_cloudy_day', 'Vær'], ['gjoremal', 'checklist', 'Gjøremål'], ['vanning', 'sprinkler', 'Vanning'], ['media', 'music_note', 'Media'], ['ruter', 'tram', 'Ruter'], ['kart', 'map', 'Kart'], ['energi', 'bolt', 'Energi']];
+  const POPS = [['sikkerhet', 'shield', 'Sikkerhet'], ['kamera', 'videocam', 'Kamera'], ['lys', 'lightbulb', 'Lys'], ['klima', 'thermostat', 'Klima'], ['vaer', 'partly_cloudy_day', 'Vær'], ['gjoremal', 'checklist', 'Gjøremål'], ['vanning', 'sprinkler', 'Vanning'], ['media', 'music_note', 'Media'], ['ruter', 'tram', 'Ruter'], ['kart', 'map', 'Kart'], ['energi', 'bolt', 'Energi'], ['planter', 'potted_plant', 'Planter'], ['sovn', 'bedtime', 'Søvn'], ['3d-printer', 'mdi:printer-3d', '3D-printer']];
   const ACTS = [['', 'block', 'Ingen'], ['lock_toggle', 'key', 'Veksle dørlås'], ['lock', 'lock', 'Lås dør'], ['unlock', 'lock_open', 'Lås opp'], ['alarm_toggle', 'shield', 'Veksle alarm'], ['alarm_on', 'shield', 'Armer alarm'], ['alarm_off', 'remove_moderator', 'Slå av alarm'], ['lights_on', 'lightbulb', 'Alle lys på'], ['lights_off', 'light_off', 'Alle lys av'], ['garage_toggle', 'garage', 'Veksle garasjeport'], ['tv_toggle', 'tv', 'Veksle TV'], ['vac_toggle', 'robot_2', 'Pause/start støvsuger'], ['service', 'terminal', 'Egendefinert tjeneste']];
   const ACT_DOM = { lock_toggle: 'lock', lock: 'lock', unlock: 'lock', alarm_toggle: 'alarm_control_panel', alarm_on: 'alarm_control_panel', alarm_off: 'alarm_control_panel', garage_toggle: 'cover', tv_toggle: 'media_player', vac_toggle: 'vacuum' };
   const OPS = [['>', 'Over'], ['<', 'Under'], ['=', 'Er'], ['!=', 'Er ikke']];
@@ -250,7 +260,7 @@
   function norm(c) {
     c = c || {};
     const B = c.buttons || {};
-    const ok = (id) => !!CAT[id] || !!(B[id] && B[id].custom);
+    const ok = (id) => (!!CAT[id] && optOk(id)) || !!(B[id] && B[id].custom);
     const bar = (Array.isArray(c.bar) ? c.bar : DEF.bar).filter(ok);
     const more = (Array.isArray(c.more) ? c.more : DEF.more).filter((id) => ok(id) && !bar.includes(id));
     Object.keys(CAT).concat(Object.keys(B).filter((id) => B[id] && B[id].custom)).forEach((id) => { if (!bar.includes(id) && !more.includes(id)) more.push(id); });
@@ -307,6 +317,9 @@
     const u = Date.parse(a.media_position_updated_at || ''), dt = s.state === 'playing' && isFinite(u) ? Math.max(0, (Date.now() - u) / 1000) : 0;
     return { dur: dur > 0 ? dur : 0, pos: dur > 0 ? Math.min(dur, p0 + dt) : p0 + dt };
   };
+  // Fiks 60.5: kan spilleren spoles? Radio/direktekanal (media_content_type radio/channel) eller uten varighet → nei
+  // (utvidet mini-spiller uten tidslinje, lavere kort)
+  const mCanSeek = (s) => { const a = (s && s.attributes) || {}, t = String(a.media_content_type || '').toLowerCase(); return t !== 'radio' && t !== 'channel' && Number(a.media_duration) > 0; };
   const mFmt = (t) => { t = Math.max(0, Math.round(t)); const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), x = String(t % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${m}:${x}`; };
   const mPic = (h, u) => { if (!u) return ''; u = String(u); if (u[0] === '/' && u[1] !== '/' && h && typeof h.hassUrl === 'function') { try { return h.hassUrl(u) || u; } catch (e) { return u; } } return u; };
   // Fiks 20.16 · «Skjul når en popup er åpen»: nav_profiles.mini_hide_popups (bruker × enhet, 19.13) vinner over mini.hide_in_popups
@@ -340,6 +353,7 @@
     .mini{position:fixed;z-index:23;height:64px;border-radius:40px;overflow:hidden;isolation:isolate;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-family:${M.FONT};transform-origin:bottom center;opacity:1;transition:opacity .25s ease,transform .25s cubic-bezier(.2,.8,.3,1),height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
     /* Fiks 22.8: utvidet (sveip opp på play/pause) – 172 px, bunnen står fast; omslag/tekst + ⌄ · spole-slider · ⏮ −10 ⏯ +10 ⏭ */
     .mini.exp{height:172px;border-radius:32px}
+    .mini.exp.nsk{height:124px} /* 60.5: radio / uten varighet – ingen tidslinje */
     .mrow.mx{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:8px;padding:10px 12px 12px}
     .mxt{display:flex;align-items:center;gap:8px;height:48px;flex:none;min-width:0}
     .mseek{position:relative;height:40px;flex:none;border-radius:20px;overflow:hidden;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;background:rgb(0 0 0/0.08);touch-action:none;-webkit-touch-callout:none}
@@ -394,7 +408,8 @@
     .mini.drag{transition:opacity .25s ease,height .3s cubic-bezier(.2,.8,.3,1),border-radius .3s ease}
     .mrmf{position:fixed;z-index:22;height:64px;border-radius:40px;overflow:hidden;display:flex;align-items:stretch;background:var(--red, #f28073);color:var(--ki-on-accent, #232323);font-family:${M.FONT};opacity:0;pointer-events:none;transition:opacity .2s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
     .mrmf.on{opacity:1;pointer-events:auto}
-    .mrmf.x{height:172px;border-radius:32px} /* Fiks 50: «Fjern» bak det utvidede kortet */
+    .mrmf.x{height:172px;border-radius:32px}
+    .mrmf.x.nsk{height:124px} /* Fiks 50: «Fjern» bak det utvidede kortet */
     .mrmb{width:33.34%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:600;color:inherit;border-radius:40px 0 0 40px}
     .mrmb:active{background:rgb(0 0 0/0.08)}
     .mundo{position:fixed;z-index:23;height:64px;display:flex;align-items:center;justify-content:center;pointer-events:none;font-family:${M.FONT}}
@@ -1071,7 +1086,9 @@
       const L = this._hideList(), sig = L.join(',');
       if (sig !== this._hSig) { const first = this._hSig === undefined; this._hSig = sig; if (!first) window.dispatchEvent(new CustomEvent('ki-nav-hide', { detail: { list: L } })); }
       if (!this._portal) return;
-      this._hFade(!this._inline && L.includes(hideHash(location.hash)));
+      const hh = hideHash(location.hash);
+      // Fiks 60.2: #vaer skjuler navbaren bare når værscenen vises (ikke på Android / med stilen «Klassisk»)
+      this._hFade(!this._inline && L.includes(hh) && !(hh === '#vaer' && M.vaerScene && !M.vaerScene()));
     }
     _syncVaer() { this._syncHide(); } // gammelt navn (48-vaer.js før 57)
     _hFade(on) {
@@ -1308,7 +1325,7 @@
       live = ids.filter((id) => st(id) === 'playing' || (st(id) === 'paused' && now - t(id) < 600000));
       // «Noe spiller»: pause teller i 10 min – render på nytt når den går ut
       const exp = ids.filter((id) => st(id) === 'paused' && now - t(id) < 600000).map((id) => 600000 - (now - t(id)));
-      if (exp.length) this._mExp = setTimeout(() => this._schedule(true), Math.min(...exp) + 100);
+      if (exp.length) { clearTimeout(this._mPauseT); this._mPauseT = setTimeout(() => this._schedule(true), Math.min(...exp) + 100); } // 60.5: egen timer – overskrev før den utvidede spilleren (_mExp)
       if (live.length || m.cond === 'playing') return sort(live);
       const last = sort(ids.filter((id) => !/^(unavailable|unknown)$/.test(st(id) || 'unavailable')))[0];
       return last ? [last] : [];
@@ -1399,9 +1416,9 @@
       const rmOn = !!(this._mRm || (dr && dr.mx > 0));
       const U = this._mUndo && Date.now() < this._mUndo.until && !show ? this._mUndo : null;
       if (!U) this._mUndo = null;
-      const field = `<div class="mrmf${rmOn ? ' on' : ''}${this._mExp ? ' x' : ''}" data-mrmf style="${pos}" aria-hidden="${rmOn ? 'false' : 'true'}"><button class="mrmb" data-act="mrm" data-id="${esc(this._mCur || '')}" data-haptic="off" aria-label="Fjern denne spilleren fra mini-spilleren">${M.icon('mdi:trash-can-outline', 22)}<span>Fjern</span></button></div>`;
+      const field = `<div class="mrmf${rmOn ? ' on' : ''}${this._mExp ? ' x' : ''}${this._mExp && !mCanSeek(this.hass && this.hass.states[this._mExp]) ? ' nsk' : ''}" data-mrmf style="${pos}" aria-hidden="${rmOn ? 'false' : 'true'}"><button class="mrmb" data-act="mrm" data-id="${esc(this._mCur || '')}" data-haptic="off" aria-label="Fjern denne spilleren fra mini-spilleren">${M.icon('mdi:trash-can-outline', 22)}<span>Fjern</span></button></div>`;
       const undo = U ? `<div class="mundo${glass ? ' glass' : ''}" data-mundo style="${pos}"><button data-act="mundo" data-haptic="light">Mini-spilleren er skjult<b>Angre</b></button></div>` : '';
-      return `${field}<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}${this._mExp ? ' exp' : ''}${dr || this._mSnap ? ' drag' : ''}" data-mini style="${pos};--mx:${mx.toFixed(1)}px;--my:${my.toFixed(1)}px" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>${undo}`;
+      return `${field}<div class="mini ${glass ? 'glass' : 'white'} ${show ? '' : 'off'}${this._mExp ? ' exp' : ''}${this._mExp && !mCanSeek(this.hass && this.hass.states[this._mExp]) ? ' nsk' : ''}${dr || this._mSnap ? ' drag' : ''}" data-mini style="${pos};--mx:${mx.toFixed(1)}px;--my:${my.toFixed(1)}px" aria-hidden="${show ? 'false' : 'true'}"><div class="msw">${rows}</div>${dots}</div>${undo}`;
     }
     // Visningsnavn for en spiller (samme som i Media-popupen), brukt i raden og i toasten «<navn> fjernet»
     _miniName(id) {
@@ -1417,7 +1434,7 @@
       let pos = P.pos;
       if (sv && sv.id === id && (sv.drag || Date.now() - sv.t < 2500)) pos = sv.v;
       const pct = seekOk ? Math.max(0, Math.min(100, (pos / P.dur) * 100)) : 0;
-      const seek = tv && !P.dur ? '' : `<div class="mseek${seekOk ? '' : ' dis'}" data-seek="${esc(id)}" data-dur="${P.dur}" data-set="${seekOk ? 1 : 0}" role="slider" aria-label="Spol" aria-valuemin="0" aria-valuemax="${Math.round(P.dur)}" aria-valuenow="${seekOk ? Math.round(pos) : 0}">
+      const seek = !mCanSeek(s) ? '' : `<div class="mseek${seekOk ? '' : ' dis'}" data-seek="${esc(id)}" data-dur="${P.dur}" data-set="${seekOk ? 1 : 0}" role="slider" aria-label="Spol" aria-valuemin="0" aria-valuemax="${Math.round(P.dur)}" aria-valuenow="${seekOk ? Math.round(pos) : 0}">
           <span class="mskf" style="width:${pct.toFixed(2)}%"></span><span class="msn">${seekOk ? mFmt(pos) : '–'}</span><span class="msr">${seekOk ? '−' + mFmt(P.dur - pos) : '–'}</span></div>`;
       const k = (act, d, icon, label, dis) => `<button class="mvb" data-act="${act}" data-id="${esc(id)}" data-d="${d}" data-haptic="light" aria-label="${label}"${dis ? ' disabled' : ''}>${M.icon(icon, 24)}</button>`;
       return `<div class="mrow mx" data-mid="${esc(id)}" data-key="mx_${esc(id)}">

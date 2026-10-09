@@ -2,6 +2,30 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 60 · Rom-slidere, Vær på Android, Planter/Søvn/3D-printer (prompt v4)
+- **1 · Gardin-/markise-slidere i Rom** (`src/31-rom.js`): navnet bestemmer bredden og kuttes aldri. I hovedraden er navnet
+  `flex: 0 1 auto; max-width: 60 %` og slideren `flex: 1 1 96px; min-width: 96px`. Underradene ligger i ett felles grid
+  (`fit-content(60%) minmax(96px, 1fr) auto`, radene `display: contents`), så alle sliderne starter og slutter likt; et langt navn
+  gir kortere slidere for alle radene.
+- **2 · Vær på Android** (`src/48-vaer.js`, `src/10-navbar.js`): på Android åpnes Vær alltid som vanlig popup (klassisk, ark,
+  navbar og mini-spiller synlige), uansett lagret stil – valget lagres fortsatt. Navbaren skjules i `#vaer` bare når værscenen
+  faktisk vises (`MSH.vaerScene()`), også på PC/iPad/iPhone med stilen «Klassisk». Merknad i «Tilpass alt» → Vær.
+- **3 · Nye popups** (designfilene ligger i `design/`):
+  - **Planter** `#planter` (`src/65-planter.js`, `msh-planter-card`): status, neste vanning, Enkel/Avansert, jordfukt med målbånd,
+    Lys/Temp/Næring og «Merk som vannet». Autokonfig fra KI Planter (`binary_sensor.<plante>_trenger_vann`), `plant.*` og
+    enheter med jordfukt-sensor. Erstatter den importerte `#planter` (`ki-planter-pro-card`).
+  - **Søvn** `#sovn` (`src/66-sovn.js`, `msh-sovn-card`): ring per person, hvem sover, Søvn/Vekking, siste 24 timer (historikk
+    ved åpning, 5 min cache), vekketid ±15 min, på/av og ukedager.
+  - **3D-printer** `#3d-printer` (`src/67-printer.js`, `msh-printer-card`): status, fremdrift, kamera, Pause/Fortsett/Stopp/Lys/
+    Strøm, «Skriv ut siste jobb», temperaturer, Avansert og filament (CFS/AMS). `#3d` er alias.
+  - Alle tre står i «Mer»-menyen (bare når popupen finnes) og i popup-listene, og er med i `examples/dashboard.yaml`.
+    PC/Datamaskiner står fortsatt i `GONE` til designet er klart.
+- **4 · Lik bakgrunn:** de nye kortene har gjennomsiktig rot (popupens #282828); de eksisterende hadde det fra før.
+- **5 · Mini-spiller** (`src/10-navbar.js`): radio/kanal (`media_content_type` radio/channel) eller uten varighet → ingen
+  tidslinje i det utvidede kortet (124 px). Retter også en gammel feil der pause-timeren overskrev den utvidede spilleren.
+- **Språk:** engelsk for alt nytt (`src/00-a-lang-en-13.js`); alle kort tegnes på nytt ved språkbytte, så `kiT()`-tekst følger med.
+- Test: `node test/v4-check.mjs`.
+
 ## Fiks 59 · Språk (norsk / engelsk)
 Designordbøkene (`i18n-en*.js`) finnes ikke i repoet – den engelske ordboken er bygget fra tekstene i `src/` og alle
 testkortene (≈ 5 000 oppføringer, britisk engelsk, «Tilpass» = «Customize»).

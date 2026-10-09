@@ -2030,6 +2030,9 @@
 
   // Levende kortinstanser per card_id (en rebuild lager nye instanser; editoren oppdaterer alle).
   MSH.liveCards = MSH.liveCards || new Map();
+  // Fiks 60.3: språkbytte → alle levende kort tegnes på nytt, så tekst fra kiT('Norsk', 'English') i render() følger med
+  // (resten oversettes av MutationObserveren i 00-a-i18n.js)
+  window.addEventListener('ki-lang', () => MSH.liveCards.forEach((set) => set.forEach((c) => { if (c.isConnected && typeof c._schedule === 'function') c._schedule(true); })));
   MSH.applyLive = function (cardId, cfg) {
     const set = cardId && MSH.liveCards.get(cardId);
     if (set) [...set].forEach((c) => { if (c.isConnected && c._rawConfig !== cfg) c.setConfig(MSH.store ? { ...cfg, __eff: 1 } : cfg); });
