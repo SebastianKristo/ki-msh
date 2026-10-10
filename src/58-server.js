@@ -833,7 +833,7 @@
   /* ------------------------------------------------------------ Fiks 62: «Tilpass server»-arket (designet: cu) */
   // Arket ligger øverst i popupen (top 12 px under popupens toppkant), radius 32, #2f2f2f-flate, liste #3a3a3a, utvidet rad #404040
   const TP_CSS = () => `.sh{top:var(--sv-tp-top,12px);bottom:auto;left:calc(var(--ki-rail-x,0px) + 8px);right:8px;max-width:440px;border-radius:32px;padding:16px 14px;
-      max-height:calc(100% - var(--sv-tp-top,12px) - 16px);background:var(--ki-popup, #2f2f2f);box-shadow:0 16px 48px ${M.theme && M.theme.blackA ? M.theme.blackA(0.5) : 'rgba(0,0,0,0.5)'};transform:translate3d(0,-10px,0)}
+      max-height:calc(100% - var(--sv-tp-top,12px) - 16px);background:var(--ki-popup, #2f2f2f);box-shadow:0 16px 48px ${M.theme.blackA(0.5)};transform:translate3d(0,-10px,0)}
     :host(.on) .sh{transform:translate3d(0,0,0)}
     .body{gap:14px}
     .tph{display:flex;align-items:center;gap:10px;padding:0 4px}.tt{flex:1;font-size:20px;font-weight:600;letter-spacing:-0.02em}

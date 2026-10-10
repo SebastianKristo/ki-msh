@@ -9010,7 +9010,7 @@ try{(function(){const M=window.MSH;if(!M||customElements.get("msh-server-card"))
     ${pre} .dot{width:8px;height:8px;border-radius:4px;flex:none}
     ${pre} .dot.ok{background:${GR};box-shadow:0 0 0 3px ${M.alpha(GR,.2)}}${pre} .dot.warn{background:${OR};box-shadow:0 0 0 3px ${M.alpha(OR,.2)}}${pre} .dot.none{background:var(--ki-ctrl, #545454)}
     ${pre} .hcb{display:flex;flex-direction:column;gap:1px;min-width:0;width:100%}${pre} .hcb b{font-size:14px;font-weight:600}${pre} .hcb>span{font-size:12px;color:var(--ki-text-mid, #979797)}`,TP_CSS=()=>`.sh{top:var(--sv-tp-top,12px);bottom:auto;left:calc(var(--ki-rail-x,0px) + 8px);right:8px;max-width:440px;border-radius:32px;padding:16px 14px;
-      max-height:calc(100% - var(--sv-tp-top,12px) - 16px);background:var(--ki-popup, #2f2f2f);box-shadow:0 16px 48px ${M.theme&&M.theme.blackA?M.theme.blackA(.5):"rgba(0,0,0,0.5)"};transform:translate3d(0,-10px,0)}
+      max-height:calc(100% - var(--sv-tp-top,12px) - 16px);background:var(--ki-popup, #2f2f2f);box-shadow:0 16px 48px ${M.theme.blackA(.5)};transform:translate3d(0,-10px,0)}
     :host(.on) .sh{transform:translate3d(0,0,0)}
     .body{gap:14px}
     .tph{display:flex;align-items:center;gap:10px;padding:0 4px}.tt{flex:1;font-size:20px;font-weight:600;letter-spacing:-0.02em}
