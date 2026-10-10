@@ -1565,7 +1565,7 @@ Støvsuger-popup (#rolf): animert robot, rom, soner, kontroll, vedlikehold og ka
 
 ## `msh-server-card`
 
-Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA · qBittorrent, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.
+Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA · qBittorrent · arildkristo.com (Cloudflare), toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.
 
 | Nøkkel | Betydning | Gruppe |
 |---|---|---|

@@ -2,6 +2,42 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 62 · Server: arildkristo.com (Cloudflare), ikon i fanene og «Tilpass server» (prompt v6)
+Designfilen ligger i `design/Server v6.dc.html`.
+- **1 · arildkristo.com** (`src/58c-server-cf.js`, `MSH.serverCF`): ny vert-fane etter qBittorrent. Den vises bare når
+  Cloudflare-sensorene finnes. Sensorene finnes via `unique_id` `ki_arildkristo_*` (fra `hass.entities`, ellers
+  `config/entity_registry/list` én gang) og deretter `sensor.ki_arild_kristo_<suffiks>`. Hver nøkkel kan overstyres med
+  `overrides.cf_<nøkkel>` i Avansert → «arildkristo.com (Cloudflare)».
+  - Chip «Tilkoblet», eller oransje «Feil i spørring» når en status-sensor ikke er `ok`.
+  - Toppkortet viser Besøk, Forespørsler og Data (MB). Kort-velgeren viser «N besøk · 24 t».
+  - Prosa: «arildkristo.com har hatt … besøk og … forespørsler siste 24 timer.»
+- **Underfaner:**
+  - Trafikk: veksleren «Siste 24 t / I dag».
+  - Besøk: Besøkende, Toppland og Mest besøkte sider. Listene leses fra `"Navn 123 · Navn 45"`, med søyle relativt til
+    den største.
+  - Ytelse: Svartid og feil, og Hurtiglager med målere.
+  - Sikkerhet: Sikkerhet og DNS.
+  - Flisene ligger i 2 kolonner, etikettene brytes, og trykk åpner more-info. `unavailable`/`none` vises som «–», og et
+    kort uten tilgjengelige sensorer skjules.
+- **Historikk:** `recorder/statistics_during_period` med `period: day`.
+  - Periode 7 d / 30 d / 90 d / 1 år (52 uker), lagret i `localStorage['ki-cf-periode']`. Siste søyle har full farge,
+    resten 55 %. Trykk viser dato og verdi.
+  - Tellere viser sum og «snitt § / dag» (over 1000 MB vises som GB). ms/% viser snitt og «maks §», og en uke er snitt.
+  - Dataene mellomlagres i 5 min og hentes bare når fanen vises.
+- **Statuslinje** per underfane: grønn «Cloudflare · N spørringer ok · oppdateres hvert 30. min», eller oransje varsel med
+  feilteksten.
+- **2 · Ikon i vert-fanene:** 18 px ikon foran navnet med 6 px mellomrom, i tekstfargen. Standardikoner: Nettverk `router`,
+  Proxmox `view_in_ar`, Unraid `dns`, HA `home`, qBittorrent `download`, arildkristo.com `language`. Kort-velgeren bruker
+  samme ikon.
+- **3 · «Tilpass server»:** tannhjulet åpner et ark øverst i popupen (portalt, mørk bakgrunn; utenfor, ✕ eller Esc lukker).
+  - «Faner viser» (`tab_mode`): Ikon og navn / Navn på valgt fane / Bare ikoner. En fane med bare ikon har min-bredde lik
+    fanehøyde + 8 og `title` = navnet.
+  - «Ikon per server» (`host_icons`): 18 ikoner i 6 kolonner, og «Tilbakestill» vises når ikonet er endret.
+  - Lagres i kortets config (speilet i `localStorage['ki-server-tilpass']`). Samme valg finnes i GUI-editoren
+    (Visning → «Faner viser», Faner → «Ikon per server»).
+  - «Flere innstillinger» åpner hele «Tilpass Server»-arket som før.
+- **Språk:** engelsk for alt nytt (`src/00-a-lang-en-15.js`). Test: `node test/v6-check.mjs`.
+
 ## Fiks 61 · Onboarding v2, servere, strømpris, hurtigpanel og Ringeopptak (prompt v5)
 Designfilene ligger i `design/` (Onboarding v2, Ringeopptak, Hurtigpanel, Strømpriser, Ringeklokke og ny Hjem v3).
 - **1 · Servere** (`src/06-server.js`, `src/20-hjem-header.js`): pil, meny og bytteknapp vises bare når det finnes mer enn én

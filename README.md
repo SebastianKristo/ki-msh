@@ -95,6 +95,9 @@ Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md
 - **Tilpass alt:** en veiviser i 13 steg (språk, enhet, servere, header, tema, navbar, faner, rom, Hjem-kort, popups og kiosk),
   der alt endres direkte og vises med en gang.
 - **Ringeopptak:** når det har ringt på, kan du se et kort videoklipp eller bilder fra ringingen fra hurtigpanelet eller Hjem.
+- **Server · nettsted (Cloudflare):** egen fane for arildkristo.com med trafikk, besøk, ytelse og sikkerhet fra Cloudflare
+  Analytics (REST-sensorene i `packages/ki_cloudflare.yaml`) og historikk fra Home Assistant-statistikken. Alle vert-fanene
+  har ikon, og tannhjulet åpner «Tilpass server» der du velger hva fanene viser og ikon per server.
 - **Planter, Søvn og 3D-printer:** egne popups (`#planter`, `#sovn`, `#3d-printer`) som lages automatisk når entitetene
   finnes – jordfukt og vanning per plante, hvem sover og vekking per person, og printerstatus med kamera og filament.
 - **Språk:** norsk eller engelsk (britisk) for hele dashbordet – velg i onboarding, øverst i «Tilpass Hjem» eller i
@@ -176,7 +179,7 @@ Alle popups er Bubble Card `pop-up` og åpnes med hashen (f.eks. `#vanning`). Ko
 | Innstillinger | `#settings` | `msh-innstillinger-card` | KI Varslinger og sikkerhet, `ki_energi` |
 | Vanning | `#vanning` | `msh-vanning-card` | OpenSprinkler, `valve.*`, KI Vanning |
 | Varmepumpe | `#varmepumpe` | `msh-varmepumpe-card` | NIBE (`nibe_heatpump` / myUplink) |
-| Server | `#server` | `msh-server-card` | UniFi, UniFi Protect, Proxmox VE, Unraid |
+| Server | `#server` | `msh-server-card` | UniFi, UniFi Protect, Proxmox VE, Unraid, qBittorrent, Cloudflare (arildkristo.com) |
 | Klima | `#klima` | `msh-klima-card` | `climate.*`, `fan.*`, effekt og pris |
 | Lys | `#lys` | `msh-lys-card` | `light.*` per etasje/område |
 | Media | `#media` | `msh-media-card` | `media_player.*` |
