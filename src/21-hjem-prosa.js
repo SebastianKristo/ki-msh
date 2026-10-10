@@ -195,6 +195,7 @@
   }
 
   // Standardprosa: kun setninger for kilder som faktisk finnes.
+  M.prosaDefault = (h, c) => defaultProse(h, c || {}, sections(h, c || {}).active); // Fiks 61.2: «Tilpass alt» → Hjem-kort
   function defaultProse(h, c, skip) {
     const S = { ...sources(h, c) };
     // Fiks 17.9: vær/pris vises av seksjonene når de er aktive – ikke dobbelt

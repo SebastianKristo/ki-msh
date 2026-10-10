@@ -26,6 +26,9 @@ async function boot(ud) {
   await p.evaluate((ud) => { localStorage.clear(); localStorage.setItem('ki-device-id', 'testenhet'); localStorage.setItem('browser_mod-browser-id', 'fold-123'); localStorage.setItem('ki_kiosk_applied', ''); window.__userData = ud || {}; }, ud);
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   await p.addScriptTag({ path: bundle });
+  // Fiks 61.2: «Tilpass alt» og første oppstart åpner nå veiviseren v2 (test/v5-check.mjs). Denne testen vokter den gamle
+  // oversikten/onboardingen (MSH.openOnboardingV1 / openTilpassAltV1), som fortsatt finnes.
+  await p.evaluate(() => { if (MSH.openOnboardingV1) MSH.openOnboarding = MSH.openOnboardingV1; if (MSH.openTilpassAltV1) MSH.openTilpassAlt = MSH.openTilpassAltV1; });
   await p.evaluate(async () => {
     window.deepAll = (sel, root) => { const out = []; const walk = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(root || document); return out; };
     window.deep = (sel, root) => window.deepAll(sel, root)[0] || null;

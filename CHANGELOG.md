@@ -2,6 +2,32 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 61 · Onboarding v2, servere, strømpris, hurtigpanel og Ringeopptak (prompt v5)
+Designfilene ligger i `design/` (Onboarding v2, Ringeopptak, Hurtigpanel, Strømpriser, Ringeklokke og ny Hjem v3).
+- **1 · Servere** (`src/06-server.js`, `src/20-hjem-header.js`): pil, meny og bytteknapp vises bare når det finnes mer enn én
+  server. Hvert sted kan ha en adresse (`url`), som brukes utenfor Companion-appen. Stedene redigeres i «Tilpass header» og i
+  «Tilpass alt» → Servere (første rad = denne serveren).
+- **2 · «Tilpass alt» v2** (`src/54b-tilpass-v2.js`): veiviser i 13 steg som erstatter den gamle oversikten og
+  første oppstart. Prikkene er klikkbare, «n av 13» viser alle steg, og siste steg har «Endre» per steg. Valgene skrives
+  straks til samme config som kortene leser (header, header-profil, navbar, fanekortet, prosa, Søppel, power_price,
+  kiosk, enhetsoppsett), så endringene vises med en gang. Den gamle koden finnes som `openOnboardingV1` / `openTilpassAltV1`.
+- **3 · Strømpris** (`src/15-strompris-kilde.js`, `26`, `29`, `61`): «Kortet viser» Nord Pool + Norgespris / bare Nord Pool /
+  statisk pris (sensor eller fast verdi, «Fast pris» og «Statisk pris»), valuta kr / $ / € / egen med hundredel (øre, cent
+  eller egen) på grafaksen. Samme valg i «Tilpass Hjem» → Popups → Strømpris, GUI-editoren og Strøm-popupen → Visning →
+  «Prisgraf». Lagring sender `hjem-price`, og kortet og popupen tegnes på nytt.
+- **4 · Hurtigpanel**: varsellista scroller jevnt – panelet tar over dragget bare helt øverst (dra ned) eller helt nederst
+  (dra opp). Bakgrunnen låses mens panelet er åpent (html/body overflow hidden, overscroll none), og touchmove/hjul
+  utenfor `[data-qs-scroll]` stoppes.
+- **5 · Lys-søk**: søkefelt øverst i «Slideren styrer» (ID og navn, maks 30 treff), «Bruk denne entiteten» for en gyldig ukjent
+  `light.*`. Slideren kaller `light.turn_on` med `brightness_pct`, og `light.turn_off` på 0.
+- **6 · Hint**: «Vis hint øverst» i sveip-innstillingene (`hurtigpanel-cfg.hint`), og «Tilbakestill» slår det på igjen.
+- **7 · Ringeopptak** (`src/50b-ringeopptak.js`): modal med Video (spill av, spoling, klokkeslett) og Bilder (+0/+2/+4/+6 s),
+  merker (Person, Pakke), Se live, Lagre og Del. Åpnes fra ringevarselet i hurtigpanelet («Se opptak», play-merke), fra
+  «Opptak» i ringekortet på Hjem og fra det nye «tapt ringing»-kortet. Det vises når ringekortet går ut uten å bli avvist,
+  og X fjerner det. Kildene er `rec_clip` og `rec_snaps` i Ringeklokke-kortet, ellers `/local/ringeklokke/klipp.mp4` og
+  `bilde_0–3.jpg` eller `image.*`. Mangler fil, vises en plassholder.
+- **Språk**: engelsk for alt nytt (`src/00-a-lang-en-14.js`). Test: `node test/v5-check.mjs`.
+
 ## Fiks 60 · Rom-slidere, Vær på Android, Planter/Søvn/3D-printer (prompt v4)
 - **1 · Gardin-/markise-slidere i Rom** (`src/31-rom.js`): navnet bestemmer bredden og kuttes aldri. I hovedraden er navnet
   `flex: 0 1 auto; max-width: 60 %` og slideren `flex: 1 1 96px; min-width: 96px`. Underradene ligger i ett felles grid

@@ -112,19 +112,19 @@ ok((await page.evaluate(() => document.documentElement.lang)) === 'nb', 'L3 · <
 // L1: storage-synk mellom faner
 const st = await page.evaluate(async () => { localStorage.setItem('ki-lang', 'en'); window.dispatchEvent(new StorageEvent('storage', { key: 'ki-lang', newValue: 'en' })); await new Promise((r) => setTimeout(r, 200)); const a = window.kiLang(); window.kiSetLang('no'); return a; });
 ok(st === 'en', 'L1 · storage-eventet fra en annen fane bytter språk');
-// L5: onboarding
+// L5: onboarding (Fiks 61.2: veiviseren v2 – første steg Språk)
 const ob = await page.evaluate(async () => {
-  window.MSH.openOnboarding({ step: -1 }); await new Promise((r) => setTimeout(r, 400));
+  window.MSH.openOnboarding({ step: 0 }); await new Promise((r) => setTimeout(r, 400));
   const P = window.MSH.portals(), sr = P[P.length - 1].shadowRoot;
-  const t0 = sr.querySelector('h1').textContent;
+  const t0 = sr.querySelector('.hd b').textContent;
   sr.querySelector('[data-a="lang"][data-v="en"]').click(); await new Promise((r) => setTimeout(r, 300));
-  const on = sr.querySelector('.lch.on').dataset.v, next = sr.querySelector('[data-a="lnext"]').textContent.trim(), lang = window.kiLang();
+  const on = sr.querySelector('.lch.on').dataset.v, next = sr.querySelector('.nx').textContent.trim(), lang = window.kiLang(), t1 = sr.querySelector('.hd b').textContent;
   sr.querySelector('[data-a="lang"][data-v="no"]').click(); await new Promise((r) => setTimeout(r, 200));
-  const next2 = sr.querySelector('[data-a="lnext"]').textContent.trim();
+  const next2 = sr.querySelector('.nx').textContent.trim();
   P.forEach((p) => p.remove());
-  return { t0, on, next, lang, next2 };
+  return { t0, t1, on, next, lang, next2 };
 });
-ok(ob.t0 === 'Språk / Language' && ob.on === 'en' && ob.lang === 'en' && ob.next === 'Next' && ob.next2 === 'Neste', 'L5 · onboarding: «Språk / Language», valget gjelder straks (' + JSON.stringify(ob) + ')');
+ok(ob.t0 === 'Språk' && ob.t1 === 'Language' && ob.on === 'en' && ob.lang === 'en' && ob.next === 'Next' && ob.next2 === 'Neste', 'L5 · onboarding: første steg Språk, valget gjelder straks (' + JSON.stringify(ob) + ')');
 ok(!errs.length, 'L7 · ingen konsollfeil' + (errs.length ? ' ' + JSON.stringify(errs.slice(0, 3)) : ''));
 const miss = await page.evaluate(() => [...window.MSH.i18n.missing]);
 console.log(`  (gjenværende tekster uten oversettelse i disse kortene: ${miss.length})`);
