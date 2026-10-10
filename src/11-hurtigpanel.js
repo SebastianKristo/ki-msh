@@ -49,9 +49,14 @@
     const out = {};
     if (o && ZONES.some((z) => z[0] === o.zone)) out.zone = o.zone;
     Object.keys(LIM).forEach((k) => { if (o && M.isNum(o[k])) out[k] = M.clamp(Number(o[k]), LIM[k][0], LIM[k][1]); });
+    if (o && typeof o.hint === 'boolean') out.hint = o.hint; // Fiks 61.6: «Vis hint øverst» (standard på)
     return out;
   };
   const propsOf = (p) => clampSet({ zone: p && p.zone, open: p && p.openDistance, dead: p && p.deadZone, rest: p && p.topRest, wheel: p && p.wheel });
+  // 61.5: navn laget fra en entitets-ID (light.alle_lys → «Alle lys»)
+  const niceId = (id) => { const t = String(id).split('.').pop().replace(/_/g, ' '); return t.charAt(0).toUpperCase() + t.slice(1); };
+  // 61.4: lista står i kanten i dragretningen (øverst + dra ned, nederst + dra opp)
+  const listEdge = (el, dy) => (dy > 0 ? el.scrollTop <= 0 : dy < 0 ? el.scrollTop + el.clientHeight >= el.scrollHeight - 1 : false);
   M.hurtigSwipe = (variant, props) => ({ ...DEF, ...propsOf(props), ...clampSet(lsGet(lsKey(variant))) });
 
   /* ------------------------------------------------------------ fliser */
@@ -229,10 +234,13 @@
     const add = (n) => { if (hid.has(n.kind)) return; if (D[n.id] === (n.sig != null ? String(n.sig) : '*' + dayKey())) return; L.push(n); };
     // 1. Ringeklokke (amber)
     try {
-      if (M.ringActive && M.ringActive()) {
-        const rc = M.ringCfg ? M.ringCfg() : {}, A = M.ringAuto(h, rc), cam = A.camera && h.states[A.camera];
-        add({ kind: 'ring', id: 'ring', sig: String((M.ring || {}).t || ''), app: 'Ringeklokke', icon: 'mdi:doorbell-video', color: C.orange, t: (M.ring || {}).t, title: 'Noen er ved inngangen', body: 'Det ringer på døren.', img: cam ? cam.attributes.entity_picture : null,
-          actions: [['Se kamera', () => ctl.go('#ringeklokke')], ['Snakk', () => { ctl.close(); if (M.ringCustom) M.ringCustom(h, A, rc); else ctl.go('#ringeklokke'); }]], onDismiss: () => M.ringDismiss && M.ringDismiss() });
+      // Fiks 61.7: levende eller tapt ringing → «Det ringte på · Inngang», trykk / «Se opptak» åpner Ringeopptak
+      const live = M.ringActive && M.ringActive(), mt = M.ringMissedT ? M.ringMissedT() : 0;
+      if (live || mt) {
+        const rc = M.ringCfg ? M.ringCfg() : {}, A = M.ringAuto(h, rc), cam = A.camera && h.states[A.camera], t = live ? (M.ring || {}).t : mt;
+        const rec = () => { if (M.ringRec) M.ringRec.open({ t, onLive: () => ctl.go('#ringeklokke') }); };
+        add({ kind: 'ring', id: 'ring', sig: String(t || ''), app: 'Ringeklokke', icon: 'mdi:doorbell-video', color: C.orange, t, title: `Det ringte på · ${M.ringAreaLabel ? M.ringAreaLabel(h, A) : 'Inngang'}`, body: 'Trykk for å se video og bilder fra ringingen.', img: (M.ringRec && M.ringRec.snapUrl(h, 0, t)) || (cam ? cam.attributes.entity_picture : null), play: true, onTap: rec,
+          actions: [['Se opptak', rec], ['Se kamera', () => ctl.go('#ringeklokke')]], onDismiss: () => { if (live && M.ringDismiss) M.ringDismiss(); if (M.ringMissedClear) M.ringMissedClear(); } });
       }
     } catch (e) { /* */ }
     // 2. Hvitevarer (blå)
@@ -344,8 +352,14 @@
     .sl.grow .fl{background:${C.yellow}}.sl.grow.lit .lb{color:var(--ki-on-accent, #2a1720)}
     .lpk{width:56px;height:56px;border-radius:28px;background:var(--ki-surface, #383838);display:grid;place-items:center;flex:none;transition:transform .2s ease}
     .lpk.on{transform:rotate(180deg)}
-    .lpl{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;overscroll-behavior:contain;background:var(--ki-surface-3, #2c2c2c);border-radius:24px;padding:6px;touch-action:pan-y}
-    .lo2{min-height:44px;border-radius:22px;padding:0 14px;display:flex;align-items:center;gap:8px;text-align:left;font-size:14px;font-weight:500}
+    .lpl{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto;overscroll-behavior:contain;background:var(--ki-surface-3, #2c2c2c);border-radius:24px;padding:6px;touch-action:pan-y}
+    .lhd{font-size:12px;color:var(--ki-text-mid, #979797);padding:6px 10px 2px}
+    .lq{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;margin:0 2px 4px;border-radius:22px;background:var(--ki-surface-2, #2a2a2a);flex:none;color:var(--ki-text-mid, #979797)}
+    .lq input{flex:1;min-width:0;height:100%;border:0;outline:none;background:none;color:var(--ki-text, #fafafa);font:inherit;font-size:15px;user-select:text;-webkit-user-select:text}
+    .lqx{width:28px;height:28px;border-radius:14px;background:var(--ki-surface, #444);display:grid;place-items:center;flex:none;color:var(--ki-text, #fafafa)}
+    .lcu{box-shadow:inset 0 0 0 1.5px ${M.theme.whiteA(0.14)};flex:none}
+    .lnone{font-size:13px;color:var(--ki-text-mid, #979797);padding:10px 12px}
+    .lo2{flex:none;min-height:44px;border-radius:22px;padding:0 14px;display:flex;align-items:center;gap:8px;text-align:left;font-size:14px;font-weight:500}
     .lo2 span{flex:1}.lo2 i{font-style:normal;font-size:11px;color:var(--ki-text-3, #7f7f7f);max-width:45%}
     .lo2.on{background:var(--ki-surface, #383838);font-weight:600}
     .sl.lit .lb{color:${ON_PINK}}
@@ -368,7 +382,7 @@
     .nh{display:flex;align-items:center;gap:8px;padding:14px 6px 8px}
     .nh .t{font-size:15px;font-weight:600;flex:1;min-width:0}
     .nh .ca{flex:none;white-space:nowrap;height:36px;padding:0 14px;border-radius:18px;background:var(--ki-surface, #383838);font-size:13px;font-weight:600}
-    .nl{display:flex;flex-direction:column;gap:8px;overflow-y:auto;overscroll-behavior:contain;max-height:max(160px, calc(100dvh - var(--hp-nl-off, 600px)));touch-action:pan-y;padding-bottom:2px}
+    .nl{display:flex;flex-direction:column;gap:8px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;transform:translateZ(0);max-height:max(160px, calc(100dvh - var(--hp-nl-off, 600px)));touch-action:pan-y;padding-bottom:2px}
     .nc{position:relative;background:var(--ki-surface, #383838);border-radius:24px;padding:14px;display:flex;gap:12px;touch-action:pan-y;transition:transform .25s ease,opacity .25s ease}
     .nc.drag{transition:none}
     .nc .ni{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none}
@@ -380,7 +394,9 @@
     .nc .pg span{display:block;height:100%;border-radius:3px}
     .nc .acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
     .nc .ab{height:36px;min-width:44px;padding:0 14px;border-radius:18px;background:var(--ki-surface-2, #4a4a4a);font-size:13px;font-weight:600;white-space:nowrap}
-    .nc .snap{width:84px;height:64px;border-radius:14px;background:#2f2f2f center/cover no-repeat;flex:none}/* ki-hex-ok: kamera-plassholder */
+    .nc .snap{position:relative;width:84px;height:64px;border-radius:14px;background:#2f2f2f center/cover no-repeat;flex:none}
+    .nc .snp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:14px;display:grid;place-items:center;background:rgba(0,0,0,0.5);color:#fff;font-style:normal} /* ki-hex-ok: play-merke over kamerabildet */
+    .nc.tap{cursor:pointer}/* ki-hex-ok: kamera-plassholder */
     .empty{padding:18px;text-align:center;font-size:14px;color:var(--ki-text-3, #7f7f7f);background:var(--ki-surface-3, #2c2c2c);border-radius:24px}
     .hd{touch-action:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0 4px;font-size:12px;color:var(--ki-text-3, #7f7f7f)}
     .hd .hb{width:44px;height:5px;border-radius:3px;background:var(--ki-text-lo, #696969)}
@@ -392,6 +408,11 @@
     .seg button{flex:1;height:36px;border-radius:18px;font-size:13px;font-weight:600;color:var(--ki-text-2, #afafaf)}
     .seg button.on{background:${PINK};color:${ON_PINK}}
     .set input[type=range]{width:100%;accent-color:var(--pink, #f285c9);height:28px;touch-action:none}
+    .hn{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:14px;text-align:left;width:100%}
+    .tgl{position:relative;width:46px;height:28px;border-radius:14px;flex:none;background:var(--ki-ctrl, #545454);transition:background .2s}
+    .tgl.on{background:${M.C.accent}}
+    .tgl i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:left .2s}
+    .tgl.on i{left:21px}
     .rs{align-self:flex-start;height:36px;padding:0 16px;border-radius:18px;background:var(--ki-surface-2, #4a4a4a);font-size:13px;font-weight:600}
     /* nettbrett */
     .pn.tab{border-radius:0 0 40px 40px;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px 12px;max-height:100vh}
@@ -470,7 +491,7 @@
     _hintSoon() { cancelAnimationFrame(this._hr); this._hr = requestAnimationFrame(() => this._hintUpd()); }
     _hintUpd() {
       const pc = this.pc();
-      const on = !this.isOpen && pc.show_hint !== false && this.active() && scrollTopOf(this.owner) <= 2;
+      const on = !this.isOpen && pc.show_hint !== false && this.sw().hint !== false && this.active() && scrollTopOf(this.owner) <= 2;
       if (on) this._place();
       this.hint.classList.toggle('on', on);
     }
@@ -510,7 +531,7 @@
       }
       nl.style.maxHeight = Math.max(160, Math.floor(vh - fixed - 4)) + 'px';
       this.pn.style.touchAction = 'none';
-      requestAnimationFrame(() => { this.pn.style.touchAction = this.pn.scrollHeight > this.pn.clientHeight + 2 ? 'pan-y' : 'none'; });
+      requestAnimationFrame(() => { const sc = this.pn.scrollHeight > this.pn.clientHeight + 2; this.pn.style.touchAction = sc ? 'pan-y' : 'none'; this.pn.toggleAttribute('data-qs-scroll', sc); });
     }
     // ---- åpne/lukke
     open(level) {
@@ -535,6 +556,7 @@
       this._kd = (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.close(); } };
       window.addEventListener('keydown', this._kd, true);
       document.documentElement.setAttribute('data-ki-hurtig', '1');
+      this._lockBg(true);
     }
     _blur(on) { this.scrim.style.setProperty('--hp-blur', on && this.isOpen && !(this._p && this._p.mode === 'drag') ? '8px' : '0px'); }
     close(anim = true) {
@@ -553,7 +575,14 @@
       clearTimeout(this._hideT);
       this._hideT = setTimeout(() => { if (!this.isOpen && !this._g) this.pn.classList.remove('vis'); this._hintUpd(); }, anim ? 340 : 0);
       document.documentElement.removeAttribute('data-ki-hurtig');
+      this._lockBg(false);
       if (was) M.haptic('light');
+    }
+    // Fiks 61.4: bakgrunnslås mens panelet er åpent (html/body overflow hidden, html overscroll none) – gjenopprettes ved lukk/unmount
+    _lockBg(on) {
+      const H = document.documentElement, B = document.body;
+      if (on && !this._bgLock) { this._bgLock = { ho: H.style.overflow, bo: B.style.overflow, hb: H.style.overscrollBehavior }; H.style.overflow = 'hidden'; B.style.overflow = 'hidden'; H.style.overscrollBehavior = 'none'; }
+      else if (!on && this._bgLock) { const L = this._bgLock; this._bgLock = null; H.style.overflow = L.ho; B.style.overflow = L.bo; H.style.overscrollBehavior = L.hb; }
     }
     // ---- persistent_notification (bare mens panelet er åpent – fallgruve 8)
     _subPN() {
@@ -610,6 +639,7 @@
       return `<div class="set" data-nodrag><div class="sh">${M.icon('mdi:gesture-swipe-down', 20)}<span>Innstillinger for sveip</span><button class="ib press" data-a="set" aria-label="Lukk innstillinger">${M.icon('mdi:close', 20)}</button></div>
         <div class="lab"><span>Hvor sveipet kan starte</span></div><div class="seg">${ZONES.map(([v, l]) => `<button class="${S.zone === v ? 'on' : ''}" data-a="zone" data-v="${v}">${l}</button>`).join('')}</div>
         ${row('open', 'Avstand for å åpne', ' px')}${row('dead', 'Dødsone', ' px')}${row('rest', 'Ro i toppen', ' ms')}${row('wheel', 'Musehjul / styreflate', '')}
+        <button class="hn" data-a="hint" role="switch" aria-checked="${S.hint !== false}"><span>Vis hint øverst</span><span class="tgl${S.hint !== false ? ' on' : ''}"><i></i></span></button>
         <button class="rs press" data-a="reset">Tilbakestill</button></div>`;
     }
     _tileP(m) { return `<button class="tp press${m.on ? ' on' : ''}${m.dead ? ' dead' : ''}" data-a="tile" data-k="${m.key}" data-key="tp-${m.key}" aria-pressed="${m.on}"><span class="ci">${M.icon(m.icon, 22)}</span><span class="tx"><span class="nm ell">${esc(m.name)}</span><span class="st ell">${esc(m.status)}</span></span></button>`; }
@@ -623,7 +653,7 @@
       let ids, label;
       if (t === 'stue') { ids = ((this.o.lights && this.o.lights()) || []).filter((id) => h.states[id]); label = 'Alle lys i stua'; }
       else if (t.startsWith('area:')) { const a = t.slice(5); ids = all.filter((id) => M.areaOf(h, id) === a); label = M.areaName(h, a); }
-      else if (t.startsWith('light.')) { ids = h.states[t] ? [t] : []; label = h.states[t] ? M.name(h, t) : t; }
+      else if (t.startsWith('light.')) { ids = [t]; label = h.states[t] ? M.name(h, t) : niceId(t); } // 61.5: også en lys-ID som ikke finnes ennå
       else { ids = all.filter((id) => h.states[id].state === 'on'); label = 'Alle lys'; }
       const on = ids.filter((id) => h.states[id] && h.states[id].state === 'on');
       const br = on.map((id) => h.states[id].attributes.brightness).filter((b) => b != null);
@@ -635,11 +665,21 @@
       const lt = this._lights(h);
       return `<div class="lsw" data-key="lsw">${this._slider('lights', lt.label, 'mdi:lightbulb-group', lt.pct, lt.dim, lt.on.length ? lt.pct + ' %' : 'Av', this.variant === 'nettbrett')}<button class="lpk press${this._lpOpen ? ' on' : ''}" data-a="lpick" aria-label="Velg lys" aria-expanded="${!!this._lpOpen}">${M.icon('mdi:chevron-down', 22)}</button></div>${this._lpOpen ? this._lightList(h, lt) : ''}`;
     }
+    // Fiks 61.5: søk øverst («Slideren styrer») – i ID og navn (mellomrom = _), maks 30 treff; uten søk de faste valgene,
+    //   områdene og alle light.*. Ukjent, gyldig ID → «Bruk denne entiteten» (light.<søk>), ellers «Ingen lys funnet …».
     _lightList(h, lt) {
-      const all = lt.L, areas = M.areas(h).filter((a) => all.some((id) => M.areaOf(h, id) === a.id));
-      const opt = (v, l, sub) => `<button class="lo2${lt.t === v ? ' on' : ''}" data-a="lset" data-v="${esc(v)}"><span class="ell">${esc(l)}</span>${sub ? `<i class="ell">${esc(sub)}</i>` : ''}${lt.t === v ? M.icon('mdi:check', 18) : ''}</button>`;
-      const first = this.variant === 'nettbrett' ? opt('stue', 'Alle lys i stua', '') + opt('on', 'Alle lys som er på', '') : opt('on', 'Alle lys som er på', '');
-      return `<div class="lpl" data-nodrag data-key="lpl">${first}${areas.map((a) => opt('area:' + a.id, a.name, 'Område')).join('')}${all.map((id) => opt(id, M.name(h, id), id)).join('')}</div>`;
+      const all = M.all(h, 'light'), areas = M.areas(h).filter((a) => lt.L.some((id) => M.areaOf(h, id) === a.id));
+      const opt = (v, l, sub) => `<button class="lo2${lt.t === v ? ' on' : ''}" data-a="lset" data-v="${esc(v)}" data-key="lo-${esc(v)}"><span class="ell">${esc(l)}</span>${sub ? `<i class="ell" data-noi18n>${esc(sub)}</i>` : ''}${lt.t === v ? M.icon('mdi:check', 18) : ''}</button>`;
+      const fixed = (this.variant === 'nettbrett' ? [['stue', 'Alle lys i stua', ''], ['on', 'Alle lys som er på', '']] : [['on', 'Alle lys som er på', '']]).concat(areas.map((a) => ['area:' + a.id, a.name, 'Område']));
+      const ents = all.map((id) => [id, M.name(h, id), id]);
+      if (lt.t.startsWith('light.') && !all.includes(lt.t)) ents.unshift([lt.t, niceId(lt.t), lt.t]);
+      const q = String(this._lq || '').trim().toLowerCase(), qs = q.replace(/\s+/g, '_');
+      const hits = q ? fixed.concat(ents).filter((x) => x[0].toLowerCase().includes(qs) || String(x[1]).toLowerCase().includes(q)).slice(0, 30) : fixed.concat(ents);
+      const cid = q.startsWith('light.') ? qs : 'light.' + qs, cOk = !!q && /^light\.[a-z0-9_]+$/.test(cid) && !ents.some((x) => x[0] === cid);
+      const srch = `<div class="lq" data-key="lq">${M.icon('mdi:magnify', 20)}<input data-lq data-key="lq-in" value="${esc(this._lq || '')}" placeholder="Søk etter lys, f.eks. light.alle_lys" autocapitalize="off" autocorrect="off" spellcheck="false">${q ? `<button class="lqx" data-a="lqx" aria-label="Tøm">${M.icon('mdi:close', 16)}</button>` : ''}</div>`;
+      const custom = cOk ? `<button class="lo2 lcu" data-a="lset" data-v="${esc(cid)}" data-key="lcu">${M.icon('mdi:plus', 20)}<span class="ell">Bruk denne entiteten</span><i class="ell" data-noi18n>${esc(cid)}</i></button>` : '';
+      const none = q && !hits.length && !cOk ? '<span class="lnone">Ingen lys funnet. Skriv hele ID-en, f.eks. light.alle_lys.</span>' : '';
+      return `<div class="lpl" data-nodrag data-qs-scroll data-key="lpl"><span class="lhd">Slideren styrer</span>${srch}${custom}${none}${hits.map((x) => opt(x[0], x[1], x[2])).join('')}</div>`;
     }
     _slider(kind, label, icon, pct, dim, val, grow) {
       return `<div class="sl${dim ? ' dim' : ''}${grow ? ' grow' : ''}${pct > 30 ? ' lit' : ''}" data-sl="${kind}" data-key="sl-${kind}" role="slider" aria-label="${esc(label)}" aria-valuenow="${pct}"><span class="fl" style="width:${dim ? 0 : M.clamp(pct, 0, 100)}%"></span><span class="lb">${M.icon(icon, 22)}<span class="ell">${esc(label)}</span></span><span class="pv num">${esc(val)}</span></div>`;
@@ -660,12 +700,12 @@
       const card = (n) => {
         const acts = (n.actions || []).map(([l], i) => `<button class="ab press" data-a="nact" data-n="${esc(n.id)}" data-i="${i}">${esc(l)}</button>`).join('');
         const pg = n.progress != null ? `<div class="pg"><span style="width:${M.clamp(Number(n.progress) || 0, 0, 100)}%;background:${n.color}"></span></div>` : '';
-        const img = n.img ? `<span class="snap" style="background-image:url('${esc(M.hjemPicUrl ? M.hjemPicUrl(this.hass, n.img) : n.img)}')"></span>` : '';
+        const img = n.img ? `<span class="snap" style="background-image:url('${esc(M.hjemPicUrl ? M.hjemPicUrl(this.hass, n.img) : n.img)}')">${n.play ? `<i class="snp">${M.icon('mdi:play', 16)}</i>` : ''}</span>` : '';
         const tone = M.theme && M.theme.tone ? M.theme.tone(n.color).bg : `color-mix(in srgb, ${n.color} 18%, transparent)`;
-        return `<div class="nc" data-nc="${esc(n.id)}" data-key="nc-${esc(n.id)}"><span class="ni" style="background:${tone};color:${M.theme && M.theme.accentText ? M.theme.accentText(n.color) : n.color}">${M.icon(n.icon, 22)}</span><div class="nb"><span class="na ell">${esc(n.app)}${n.t ? ' · ' + hm(n.t) : ''}</span><span class="nt">${esc(n.title)}</span>${n.body ? `<span class="nx">${esc(n.body)}</span>` : ''}${pg}${acts ? `<div class="acts">${acts}</div>` : ''}</div>${img}</div>`;
+        return `<div class="nc${n.onTap ? ' tap' : ''}" data-nc="${esc(n.id)}" data-key="nc-${esc(n.id)}"${n.onTap ? ` data-a="ntap" data-n="${esc(n.id)}"` : ''}><span class="ni" style="background:${tone};color:${M.theme && M.theme.accentText ? M.theme.accentText(n.color) : n.color}">${M.icon(n.icon, 22)}</span><div class="nb"><span class="na ell">${esc(n.app)}${n.t ? ' · ' + hm(n.t) : ''}</span><span class="nt">${esc(n.title)}</span>${n.body ? `<span class="nx">${esc(n.body)}</span>` : ''}${pg}${acts ? `<div class="acts">${acts}</div>` : ''}</div>${img}</div>`;
       };
       return `<div class="nh"><span class="t">Varsler · ${L.length}</span>${L.length ? '<button class="ca press" data-a="clear">Fjern alle</button>' : ''}</div>
-        <div class="nl" data-key="nl">${L.length ? L.map(card).join('') : '<div class="empty">Ingen varsler</div>'}</div>`;
+        <div class="nl" data-key="nl" data-qs-scroll>${L.length ? L.map(card).join('') : '<div class="empty">Ingen varsler</div>'}</div>`;
     }
     _htmlMob(h) {
       const T = M.hurtigTiles(h, this.pc(), 'mobil'), wx = M.hurtigWx(h), n = homeCount(h);
@@ -718,14 +758,23 @@
       // ---- inni panelet
       const R = this.root;
       on(R, 'click', (e) => this._click(e));
-      on(R, 'input', (e) => { const r = e.target.closest && e.target.closest('[data-set]'); if (r) this._setVal(r.dataset.set, Number(r.value), true); });
+      on(R, 'input', (e) => { if (e.target.hasAttribute && e.target.hasAttribute('data-lq')) { this._lq = e.target.value; return this._render(); } const r = e.target.closest && e.target.closest('[data-set]'); if (r) this._setVal(r.dataset.set, Number(r.value), true); });
       on(R, 'change', (e) => { const r = e.target.closest && e.target.closest('[data-set]'); if (r) this._setVal(r.dataset.set, Number(r.value)); });
       on(this.scrim, 'click', () => this.close());
       on(this.pn, 'pointerdown', (e) => this._pDown(e));
       on(this.pn, 'pointermove', (e) => this._pMove(e));
       on(this.pn, 'pointerup', (e) => this._pUp(e));
       on(this.pn, 'pointercancel', (e) => this._pUp(e, true));
-      on(this.pn, 'touchmove', (e) => { if (this._p && this._p.mode && this._p.mode !== 'scroll') e.preventDefault(); }, { passive: false });
+      on(this.pn, 'touchmove', (e) => {
+        const p = this._p;
+        if (p && p.mode && p.mode !== 'scroll') { e.preventDefault(); return; }
+        // 61.4: før retningen er avgjort – ved kanten av varsellista hindres nettleserens scroll, så panelet kan ta over
+        if (p && !p.mode && p.nl && e.touches[0] && e.cancelable) { const dy = e.touches[0].clientY - p.y; if (Math.abs(dy) > 2 && p.nl.scrollHeight > p.nl.clientHeight + 2 && listEdge(p.nl, dy)) e.preventDefault(); }
+      }, { passive: false });
+      // 61.4: ingen scroll bak panelet – touchmove/hjul utenfor en scrollbar [data-qs-scroll] stoppes mens panelet er åpent
+      const inScroll = (e) => (e.composedPath ? e.composedPath() : []).some((n) => n && n.nodeType === 1 && (n.hasAttribute('data-qs-scroll') || /^(INPUT|TEXTAREA|SELECT)$/.test(n.tagName)));
+      on(W, 'touchmove', (e) => { if (this.isOpen && e.cancelable && !inScroll(e) && !(this._p && this._p.mode === 'slide')) e.preventDefault(); }, { passive: false, capture: true });
+      on(W, 'wheel', (e) => { if (this.isOpen && e.cancelable && !inScroll(e)) e.preventDefault(); }, { passive: false, capture: true });
       on(this.pn, 'wheel', (e) => this._pWheel(e), { passive: true });
     }
     _unbind() { (this._L || []).forEach(([t, ev, fn, o]) => t.removeEventListener(ev, fn, o)); this._L = []; }
@@ -820,7 +869,8 @@
         if (Math.abs(dx) > Math.abs(dy) && p.nc) { p.mode = 'swipe'; p.nc.classList.add('drag'); }
         else if (Math.abs(dy) >= Math.abs(dx)) {
           // Rullbar varselliste / rullbart panel (lave skjermer) / innstillingene: nettleseren ruller, panelet står
-          const listScroll = p.nl && p.nl.scrollHeight > p.nl.clientHeight + 2;
+          // Fiks 61.4: varsellista scroller selv – panelet tar over bare helt øverst (dra ned) eller helt nederst (dra opp)
+          const listScroll = p.nl && p.nl.scrollHeight > p.nl.clientHeight + 2 && !listEdge(p.nl, dy);
           if (listScroll || p.noDrag || (p.scrollable && !p.onHd)) { p.mode = 'scroll'; return; }
           p.mode = 'drag';
         } else { p.mode = 'scroll'; return; }
@@ -856,8 +906,10 @@
       const p = this._p;
       if (!p || e.pointerId !== p.id) return;
       this._p = null;
+      if (p.mode === 'drag') this._sup = now() + 400;
       if (p.mode === 'slide') { this._busy = false; if (!cancel) this._slideEnd(p); else { this._slv = null; } if (this._dirty) { this._dirty = false; this._render(); } return; }
       if (p.mode === 'swipe') {
+        this._sup = now() + 400; // 61.7: ikke åpne varselet etter et sveip
         M.flushRs(p.nc);
         const lim = this.variant === 'nettbrett' ? 130 : 110;
         p.nc.classList.remove('drag');
@@ -900,7 +952,7 @@
       if (v == null || !h) return;
       if (p.kind === 'lights') {
         const lt = this._lights(h), ids = lt.t === 'on' ? lt.on : lt.ids;
-        if (ids.length) M.call(h, 'light', 'turn_on', { entity_id: ids, brightness_pct: v });
+        if (ids.length) { if (v <= 0) M.call(h, 'light', 'turn_off', { entity_id: ids }); else M.call(h, 'light', 'turn_on', { entity_id: ids, brightness_pct: v }); } // 61.5: 0 = av
       } else if (p.kind === 'screen') {
         const id = entOf(h, this.pc(), 'screen');
         if (!id) return;
@@ -931,9 +983,11 @@
         case 'edit': M.haptic('light'); return this.edit('hurtigpanel');
         case 'set': M.haptic('light'); this.setOpen = !this.setOpen; return this._render();
         case 'zone': M.haptic('selection'); this._setVal('zone', b.dataset.v); return this._render();
+        case 'hint': this._setVal('hint', this.sw().hint === false); this._render(); return this._hintUpd(); // 61.6
         case 'reset': M.haptic('medium'); lsSet(lsKey(this.variant), null); M.toast('Sveip-innstillingene er tilbakestilt'); return this._render();
         case 'lpick': M.haptic('light'); this._lpOpen = !this._lpOpen; return this._render();
-        case 'lset': M.haptic('selection'); lsSet(this._lkey(), b.dataset.v); this._lpOpen = false; return this._render();
+        case 'lset': M.haptic('selection'); lsSet(this._lkey(), b.dataset.v); this._lpOpen = false; this._lq = ''; return this._render();
+        case 'lqx': M.haptic('light'); this._lq = ''; this._render(); { const i = this.root.querySelector('[data-lq]'); if (i) i.focus(); } return undefined;
         case 'media': M.haptic('light'); return this.go('#media');
         case 'pp': M.haptic('light'); return M.call(h, 'media_player', 'media_play_pause', { entity_id: b.dataset.e });
         case 'settings': M.haptic('light'); return this.go('#settings');
@@ -944,6 +998,12 @@
           this.root.querySelectorAll('.nc').forEach((x, i) => { x.style.transitionDelay = i * 30 + 'ms'; x.style.transform = 'translateX(420px)'; x.style.opacity = '0'; });
           setTimeout(() => { L.forEach((n) => { if (n.onDismiss) { try { n.onDismiss(); } catch (x) { /* */ } } dismiss(n.id, n.sig != null ? String(n.sig) : '*' + dayKey()); }); this._pn = {}; this._render(); }, 260);
           return;
+        }
+        case 'ntap': { // 61.7: trykk på varselet (ikke under/etter sveip eller dra)
+          if ((this._sup && now() < this._sup) || (this._eat && now() < this._eat)) return undefined;
+          const n = (this._nl || []).find((x) => x.id === b.dataset.n);
+          if (n && n.onTap) { M.haptic('light'); n.onTap(); }
+          return undefined;
         }
         case 'nact': {
           const n = (this._nl || []).find((x) => x.id === b.dataset.n), A = n && (n.actions || [])[Number(b.dataset.i)];

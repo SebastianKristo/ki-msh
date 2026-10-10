@@ -439,6 +439,9 @@
     const out = [...ord.map((id) => A.find((t) => t.id === id)).filter(Boolean), ...A.filter((t) => !ord.includes(t.id))];
     return out.map((t) => ({ ...t, autoLabel: t.label, defView: t.view, label: get(c, 'tab_labels.' + t.id) || t.label, view: t.kind === 'batterier' ? 'batterier' : get(c, 'tab_views.' + t.id) || t.view, hidden: (c.tab_hidden || []).includes(t.id), hc: t.kind === 'hjem' ? hjemHC(hass, c) : null }));
   }
+  M.hjemAllTabs = (hass, c) => allTabs(hass, c || {}); // Fiks 61.2: «Tilpass alt» → Faner / Rom
+  M.hjemBaseRooms = (hass, c, t) => baseRooms(hass, c || {}, t);
+  M.hjemTileSlot = (c, tk, k) => get(c || {}, `tiles.${tk}.${k}.slot`) || defSlot(c || {}, tk, k) || 'off';
   // Rom som hører til fanen (før skjuling): etasjens rom + rom hentet fra andre etasjer.
   function floorRank(hass) {
     const fl = M.floors(hass).slice().sort((a, b) => outdoorFloor(a) - outdoorFloor(b) || (a.level ?? 0) - (b.level ?? 0)), rk = {};

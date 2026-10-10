@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#141416;color:#f2f1ee;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#f2f1ee}a:hover{color:oklch(0.82 0.12 75)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+</style>
+<script src="./i18n.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;margin:0 auto">
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 0 0 4px">
+      <div style="flex:1;font-size:18px;font-weight:500;color:#f2f1ee">Strømpriser</div>
+      <div style="display:flex;padding:4px;border-radius:24px;background:#303030;gap:2px">
+        <sc-for list="{{ days }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.go }}" style="{{ m.style }}">{{ m.label }}</button></sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding:18px 16px;border-radius:28px;background:#303030">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:0 4px">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="font-size:12px;color:#8e8d89">{{ head.label }}</div>
+        <div style="font-size:28px;font-weight:300;letter-spacing:-0.025em;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap">{{ head.v }}<span style="font-size:13px;color:#8e8d89"> {{ u.unit }}</span></div>
+      </div>
+      <sc-if value="{{ u.both }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+        <div style="font-size:12px;color:#8e8d89">Norgespris</div>
+        <div style="font-size:28px;font-weight:300;letter-spacing:-0.025em;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;color:oklch(0.78 0.13 350)">{{ head.n }}<span style="font-size:13px;color:#8e8d89"> {{ u.unit }}</span></div>
+      </div></sc-if>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;padding:4px 0 0">
+      <div style="display:flex;align-items:center;gap:14px;font-size:11px;color:#8e8d89;padding-left:26px;flex-wrap:wrap"><span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:14px;height:2.5px;border-radius:2px;background:oklch(0.78 0.13 175)"></span>{{ u.lineName }}</span><sc-if value="{{ u.both }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:14px;height:2.5px;border-radius:2px;background:oklch(0.78 0.13 350)"></span>Norgespris</span></sc-if><span style="margin-left:auto;color:#6d6c69">{{ u.subUnit }}</span></div>
+      <div style="display:flex;gap:6px">
+        <div style="display:flex;flex-direction:column;justify-content:space-between;font-size:9px;color:#6d6c69;font-variant-numeric:tabular-nums;height:150px;width:20px;text-align:right">
+          <sc-for list="{{ yl }}" as="y" hint-placeholder-count="5"><span style="line-height:0">{{ y }}</span></sc-for>
+        </div>
+        <div onPointerMove="{{ move }}" onPointerDown="{{ move }}" onPointerLeave="{{ leave }}" style="position:relative;flex:1;height:150px;touch-action:pan-y;cursor:crosshair">
+          <svg viewBox="0 0 480 150" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">
+            <defs>
+              <linearGradient id="spStroke" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="150">
+                <stop offset="0" stop-color="oklch(0.74 0.17 55)"></stop>
+                <stop offset="{{ thrA }}" stop-color="oklch(0.74 0.17 55)"></stop>
+                <stop offset="{{ thrB }}" stop-color="oklch(0.78 0.13 175)"></stop>
+                <stop offset="1" stop-color="oklch(0.78 0.13 175)"></stop>
+              </linearGradient>
+              <linearGradient id="spFill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="150">
+                <stop offset="0" stop-color="oklch(0.74 0.17 55 / 0.28)"></stop>
+                <stop offset="{{ thrA }}" stop-color="oklch(0.74 0.17 55 / 0.12)"></stop>
+                <stop offset="{{ thrB }}" stop-color="oklch(0.78 0.13 175 / 0.14)"></stop>
+                <stop offset="1" stop-color="oklch(0.78 0.13 175 / 0)"></stop>
+              </linearGradient>
+            </defs>
+            <sc-for list="{{ grid }}" as="g" hint-placeholder-count="5"><line x1="0" x2="480" y1="{{ g }}" y2="{{ g }}" stroke="rgba(255,255,255,0.07)" stroke-width="1" vector-effect="non-scaling-stroke"></line></sc-for>
+            <path d="{{ area }}" fill="url(#spFill)"></path>
+            <path d="{{ nLine }}" fill="none" stroke="oklch(0.78 0.13 350)" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"></path>
+            <path d="{{ line }}" fill="none" stroke="url(#spStroke)" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+          </svg>
+          <span style="{{ selBand }}"></span>
+          <span style="{{ halo }}"></span>
+          <span style="{{ dot }}"></span>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#6d6c69;font-variant-numeric:tabular-nums;padding-left:26px"><span>00</span><span>04</span><span>08</span><span>12</span><span>16</span><span>20</span><span>24</span></div>
+    </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:340}}">
+const NOW_H = 21;
+const SPOT = [62,58,55,54,56,68,118,142,138,125,110,98,92,88,90,104,128,156,188,204,176,140,112,86].map(v => v / 100);
+const TMR = [70,66,63,61,64,74,102,121,115,104,96,90,86,84,88,97,112,131,149,158,139,118,98,80].map(v => v / 100);
+const price = sp => sp * 1.25 + 0.45 - Math.max(0, (sp - 0.75) * 0.9) * 1.25;
+const nf = (n, d = 2) => n.toLocaleString('nb-NO', { minimumFractionDigits: d, maximumFractionDigits: d });
+const hh = h => String(h).padStart(2, '0');
+const PINK = 'linear-gradient(135deg, oklch(0.78 0.13 350), oklch(0.9 0.05 20))';
+const priceU = () => { let C = {}; try { C = JSON.parse(localStorage.getItem('hjem-price') || '{}') || {}; } catch (e) {} const cur = C.cur || 'kr', sym = cur === 'custom' ? (C.curTxt || 'kr') : cur, sub = cur === 'kr' ? 'øre' : cur === 'custom' ? (C.subTxt || 'cent') : 'cent', chart = C.chart || 'both';
+  return { chart, both: chart === 'both', unit: `${sym}/kWh`, subUnit: `${sub}/kWh`, staticVal: +(C.staticVal ?? 1) || 0, lineName: chart === 'static' ? (window.kiT ? window.kiT('Statisk pris', 'Static price') : 'Statisk pris') : 'Nord Pool spot' }; };
+class Component extends DCLogic {
+  state = { day: 'today', hour: null };
+  componentDidMount() { this._pu = () => this.forceUpdate(); window.addEventListener('hjem-price', this._pu); window.addEventListener('storage', this._pu); }
+  componentWillUnmount() { window.removeEventListener('hjem-price', this._pu); window.removeEventListener('storage', this._pu); }
+  renderVals() {
+    const s = this.state, isToday = s.day === 'today', U = priceU(), st = U.chart === 'static';
+    const arr = st ? Array(24).fill(U.staticVal * 100) : (isToday ? SPOT : TMR).map(p => p * 100), NP = 50;
+    const top = 0, T = Math.ceil(Math.max(...(st ? arr.map(v => v / 100) : [...SPOT, ...TMR])) * 100 / 50) * 50 + 50;
+    const Y = v => 150 - v / T * 150, X = i => i * 20;
+    const ln = arr.reduce((d, v, i) => d + (i ? `L${X(i)},${Y(v).toFixed(1)}` : `M0,${Y(v).toFixed(1)}`) + `L${X(i + 1)},${Y(v).toFixed(1)}`, '');
+    const thrV = 1e9, selI = s.hour ?? (isToday ? NOW_H : null), selV = selI != null ? arr[selI] : null;
+    const future = isToday ? arr.slice(NOW_H) : arr, minV = Math.min(...future), minH = arr.indexOf(minV, isToday ? NOW_H : 0);
+    const mk = (w, extra) => selI == null ? { display: 'none' } : { position: 'absolute', left: `${(selI + 0.5) / 24 * 100}%`, top: `${Y(selV) / 150 * 100}%`, borderRadius: w / 2, width: w, height: w, margin: -w / 2, pointerEvents: 'none', transition: 'left .15s, top .15s', ...extra };
+    const hot = selV > thrV;
+    return { u: U,
+      days: [['today', 'I dag'], ['tmr', 'I morgen']].map(([k, label]) => ({ label, go: () => this.setState({ day: k, hour: null }),
+        style: { height: 30, padding: '0 20px', borderRadius: 15, fontSize: 14, fontWeight: 400, whiteSpace: 'nowrap', background: s.day === k ? 'linear-gradient(135deg, oklch(0.84 0.1 350), oklch(0.92 0.04 20))' : 'transparent', color: s.day === k ? '#5a3a48' : '#c9c7c2', transition: 'background .25s, color .25s' } })),
+      nLine: U.both ? `M0,${Y(NP).toFixed(1)}L480,${Y(NP).toFixed(1)}` : 'M0,0',
+      head: { n: nf(NP / 100), ...(st ? { label: s.hour != null ? `Fast pris kl. ${hh(s.hour)}` : 'Fast pris', v: nf(U.staticVal) } : s.hour != null ? { label: `Spot ${isToday ? 'i dag' : 'i morgen'} kl. ${hh(s.hour)}`, v: nf(arr[s.hour] / 100) } : isToday ? { label: 'Spot nå', v: nf(arr[NOW_H] / 100) } : { label: 'Spot snitt i morgen', v: nf(arr.reduce((a, b) => a + b, 0) / 2400) }) },
+      yl: Array.from({ length: 5 }, (_, i) => Math.round(T - i * T / 4)), grid: Array.from({ length: 5 }, (_, i) => i * 37.5),
+      line: ln, area: `${ln}L480,150L0,150Z`,
+      thrA: Math.max(0, Math.min(1, (Y(thrV) - 8) / 150)), thrB: Math.max(0, Math.min(1, (Y(thrV) + 8) / 150)),
+      pastW: isToday ? X(NOW_H) : 0,
+      move: e => { const r = e.currentTarget.getBoundingClientRect(); const i = Math.max(0, Math.min(23, Math.floor((e.clientX - r.left) / r.width * 24))); if (i !== s.hour) this.setState({ hour: i }); },
+      leave: () => this.setState({ hour: null }),
+      selBand: selI == null ? { display: 'none' } : { position: 'absolute', top: 0, bottom: 0, left: `${selI / 24 * 100}%`, width: `${100 / 24}%`, background: 'rgba(255,255,255,0.12)', borderRadius: 2, pointerEvents: 'none', transition: 'left .15s' },
+      halo: mk(34, { background: hot ? 'oklch(0.74 0.17 55 / 0.3)' : 'oklch(0.78 0.13 175 / 0.3)' }),
+      dot: mk(14, { background: hot ? 'oklch(0.74 0.17 55)' : 'oklch(0.78 0.13 175)', boxShadow: '0 0 0 3px #303030' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

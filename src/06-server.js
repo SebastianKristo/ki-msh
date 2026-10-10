@@ -37,7 +37,7 @@
       if (typeof s === 'string') return { navn: s.trim(), server: s.trim() };
       if (!s || typeof s !== 'object') return {};
       const o = { navn: s.navn || s.server, server: s.server || s.navn };
-      ['ikon', 'farge', 'sti'].forEach((k) => { if (s[k] != null && s[k] !== '') o[k] = s[k]; });
+      ['ikon', 'farge', 'sti', 'url'].forEach((k) => { if (s[k] != null && s[k] !== '') o[k] = s[k]; }); // 61.1: url = adressen (valgfri)
       return o;
     }).filter((s) => s.navn);
   };
@@ -145,7 +145,9 @@
     return 'tittel';
   };
   // Er det den store linja som er knappen for menyen? (bare med servere)
-  V.storLinjeErMeny = (c, std) => V.list(c).length > 0 && V.plass(c, std) !== 'under';
+  // Fiks 61.1: bytteknapp/pil/meny bare når det finnes mer enn én server (én = bare dette stedet)
+  V.flere = (c) => V.list(c).length > 1;
+  V.storLinjeErMeny = (c, std) => V.flere(c) && V.plass(c, std) !== 'under';
   // Hilsenteksten for den store linja (_greetingText): tittel → «{server}» med mindre hilsenen har {server}
   V.tittelMal = (c, std, hilsen) => (V.plass(c, std) === 'tittel' && !/\{server\}/.test(hilsen || '') ? '{server}' : (hilsen || ''));
 
@@ -182,6 +184,9 @@
   // Byttet MÅ gå gjennom window.open – appen fanger det opp som «bytt server». location.href ignoreres stille av appen.
   V.bytt = function (s, c) {
     M.haptic('selection');
+    // 61.1: utenfor Companion-appen og med adresse → åpne adressen (samme sti)
+    const app = /Home Assistant/i.test((navigator && navigator.userAgent) || '');
+    if (!app && s && s.url) { const c2 = V.cfg(c), sti = String(s.sti || c2.server_sti || '').replace(/^\/+/, ''); const u = String(s.url).replace(/\/+$/, '') + (sti ? '/' + sti : ''); window.open(u, '_self'); return u; }
     const url = V.url(s, c);
     window.open(url);
     return url;

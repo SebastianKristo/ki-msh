@@ -36,7 +36,7 @@
     if (!g || g.diff == null) return null;
     const d = g.diff, up = d > 0.005, dn = d < -0.005;
     const sign = up ? '+' : dn ? '−' : '±';
-    const abs = Math.abs(d), txt = P.unit === 'øre/kWh' ? `${sign}${M.nf(abs * 100, 1)} øre/kWh` : `${sign}${M.nf(abs, 2)} kr/kWh`;
+    const abs = Math.abs(d), txt = P.k === 100 ? `${sign}${M.nf(abs * 100, 1)} ${P.sub || 'øre'}/kWh` : `${sign}${M.nf(abs, 2)} ${P.cur || 'kr'}/kWh`;
     return { arrow: up ? '↑' : dn ? '↓' : '→', color: up ? 'var(--ki-red-text, ' + RED + ')' : dn ? 'var(--ki-green-text, ' + GREEN + ')' : 'var(--ki-text-mid, #979797)', text: txt, diff: d, today: g.todayAvg, tomorrow: g.tomorrowAvg };
   };
   // Fanen «I dag / I morgen» (kortet og forhåndsvisningen i editoren): { style, font, height, padding }
@@ -85,7 +85,14 @@
             ]),
             { type: 'entity', name: pf('grid_entity'), label: 'Nettleie-sensor (valgfri, today/tomorrow)', domain: 'sensor', auto: () => '' },
             { type: 'select', name: pf('mode'), label: 'Pris som vises', options: se ? [['spot', 'Spotpris'], ['total', 'Totalpris m/ nettleie']] : [['spot', 'Spotpris'], ['total', 'Totalpris m/ nettleie'], ['norgespris', 'Norgespris']], default: 'spot' },
-            ...(se ? [] : [{ type: 'select', name: pf('unit'), label: 'Enhet', options: [['kr', 'kr/kWh'], ['ore', 'øre/kWh']], default: 'kr' }]),
+            ...(se ? [] : [{ type: 'select', name: pf('unit'), label: 'Enhet', options: [['kr', `${P ? P.cur : 'kr'}/kWh`], ['ore', `${P ? P.sub : 'øre'}/kWh`]], default: 'kr' }]),
+            // Fiks 61.3: samme valg som «Tilpass Hjem» → Popups → Strømpris og Strøm-popupen (power_price i ki-store)
+            { type: 'select', name: pf('chart'), label: 'Kortet viser', options: [['both', se ? 'Nord Pool' : 'Nord Pool + Norgespris'], ['nordpool', 'Bare Nord Pool'], ['static', 'Statisk pris']], default: 'both' },
+            { type: 'entity', name: pf('static_entity'), label: 'Statisk sensor (én pris for hele døgnet)', domain: 'sensor', auto: () => '' },
+            { type: 'number', name: pf('static_val'), label: 'Fast pris uten sensor', step: 0.01, placeholder: '1' },
+            { type: 'select', name: pf('cur'), label: 'Valuta', options: [['kr', 'kr'], ['$', '$'], ['€', '€'], ['custom', 'Egen']], default: 'kr' },
+            { type: 'text', name: pf('cur_txt'), label: 'Egen valuta (f.eks. SEK)' },
+            { type: 'text', name: pf('sub_txt'), label: 'Hundredel (f.eks. öre)', placeholder: 'cent' },
             { type: 'info', label: P ? P.status + (tr ? ` · nettleie i morgen ${tr.arrow} ${tr.text}` : '') : '' },
           ] },
           { type: 'section', id: 'fane', label: 'Fane «I dag / I morgen»', icon: 'mdi:tab', fields: [
@@ -124,13 +131,15 @@
       const nowH = new Date().getHours();
       const scrub = ui.sel != null && has;
       const sel = scrub ? ui.sel : isToday && has ? nowH : null;
-      const ML = { spot: 'Spot', total: 'Totalpris', norgespris: 'Norgespris' }[P.mode];
+      const stat = P.chart === 'static'; // 61.3: fast pris
+      const ML = stat ? 'Fast pris' : { spot: 'Spot', total: 'Totalpris', norgespris: 'Norgespris' }[P.mode];
       const srcL = (M.POWER_SOURCES.find((x) => x[0] === P.source) || [0, ''])[1];
       const dayL = isToday ? 'i dag' : 'i morgen';
 
       // Verdirad (valgt enhet)
       let label, val;
-      if (scrub) { label = isToday ? `${ML} ${dayL} kl. ${hh(sel)}` : `I morgen kl. ${hh(sel)}–${hh(sel + 1)}`; val = ser[sel]; }
+      if (stat) { label = scrub ? `Fast pris kl. ${hh(sel)}` : 'Fast pris'; val = scrub ? ser[sel] : P.now; } // 61.3 (som designet)
+      else if (scrub) { label = isToday ? `${ML} ${dayL} kl. ${hh(sel)}` : `I morgen kl. ${hh(sel)}–${hh(sel + 1)}`; val = ser[sel]; }
       else if (isToday) { label = `${ML} nå`; val = P.now != null ? P.now : ser[nowH]; }
       else { label = `${ML} snitt i morgen`; val = avg(ser); }
       let rLabel, rVal;
@@ -185,7 +194,7 @@
       }
       const yax = ticks.map((v) => `<span style="top:${((Y(v) / VH) * 100).toFixed(2)}%">${M.nf(v, step % 1 ? 1 : 0)}</span>`).join('');
       const xax = [0, 4, 8, 12, 16, 20, 24].map((h) => `<span style="left:${((h / 24) * 100).toFixed(3)}%">${hh(h)}</span>`).join('');
-      const mainLeg = P.mode === 'spot' ? `${srcL && P.source !== 'custom' ? srcL + ' ' : ''}spot${se && P.area ? ' ' + P.area : ''}` : P.mode === 'total' ? 'Totalpris m/ nettleie' : 'Norgespris';
+      const mainLeg = stat ? 'Statisk pris' : P.mode === 'spot' ? `${srcL && P.source !== 'custom' ? srcL + ' ' : ''}spot${se && P.area ? ' ' + P.area : ''}` : P.mode === 'total' ? 'Totalpris m/ nettleie' : 'Norgespris';
       const uS = `<small> ${P.unit}</small>`;
       return `<div class="sp" data-ent="__energi">
         <div class="hdr">
@@ -209,7 +218,7 @@
             <div class="ya num">${yax}</div>
             <div class="plot" data-scrub role="img" aria-label="${esc(ML)} per time ${dayL} i ${P.graphUnit}">${svg}${marker}
               ${st && !has && !isToday ? '<span class="tmr-note">Prisene for i morgen kommer ca. kl. 13:00</span>' : ''}
-              ${st ? '' : `<button class="pick" data-act="customize" data-section="kilde">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
+              ${st || stat ? '' : `<button class="pick" data-act="customize" data-section="kilde">${M.icon('mdi:plus', 18)}Velg entitet</button>`}</div>
           </div>
           <div class="xa num">${xax}</div>
         </div>
@@ -354,7 +363,7 @@
           return this._render();
         }
         const sub = String(path).slice('power_price.'.length);
-        let pp = setIn((M.store && M.store.get('power_price')) || {}, sub, typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v) && /norgespris$|tab\./.test(sub) ? Number(v) : v);
+        let pp = setIn((M.store && M.store.get('power_price')) || {}, sub, typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v) && /norgespris$|static_val$|tab\./.test(sub) ? Number(v) : v);
         if (isObj(pp.tab) && !Object.keys(pp.tab).length) delete pp.tab;
         this._config = { ...this._config, power_price: pp };
         if (commit !== false && M.store) {

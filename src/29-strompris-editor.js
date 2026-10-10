@@ -124,7 +124,22 @@
         <div class="pwh">${ic('mdi:tag-outline', 18)}Pris som vises</div>
         ${seg('mode', se ? [['spot', 'Spotpris'], ['total', 'Totalpris']] : [['spot', 'Spotpris'], ['total', 'Totalpris'], ['norgespris', 'Norgespris']], c.mode)}
         <span class="hint">${c.mode === 'total' ? 'Spot + nettleie time for time.' : c.mode === 'norgespris' ? 'Fast sats (+ nettleie hvis valgt). Grafen viser spot som referanselinje.' : se ? 'Nord Pool-spot omregnet til kr/kWh.' : 'Grafen viser Norgespris som referanselinje.'}</span>
-        ${se ? '' : `<span class="pwl">Enhet</span>${seg('unit', [['kr', 'kr/kWh'], ['ore', 'øre/kWh']], c.unit)}`}
+        ${se ? '' : `<span class="pwl">Enhet</span>${seg('unit', [['kr', `${P.cur}/kWh`], ['ore', `${P.sub}/kWh`]], c.unit)}`}
+      </div>
+      <div class="pwc" data-key="pw-chart">
+        <div class="pwh">${ic('mdi:chart-line', 18)}Kortet viser</div>
+        ${seg('chart', [['both', se ? 'Nord Pool' : 'Nord Pool + Norgespris'], ['nordpool', 'Bare Nord Pool'], ['static', 'Statisk']], c.chart)}
+        <span class="hint">${c.chart === 'static' ? 'Grafen viser én pris for hele døgnet («Fast pris»).' : c.chart === 'nordpool' ? 'Norgespris skjules i kortet og grafen.' : 'Nord Pool med Norgespris som stiplet linje.'}</span>
+        ${c.chart === 'static' ? `<span class="pwl">Statisk sensor</span>
+          ${M.entityPicker.html({ key: 'pk-pw-static', value: raw.static_entity || '', auto: '', autoMode: true, autoLabel: 'Fast pris', domains: 'sensor,input_number', attrs: 'data-in="pwent" data-f="static_entity"' })}
+          <div class="pwrow"><span class="pwl">Fast pris uten sensor (${esc(P.cur)}/kWh)</span><input class="pwin" style="width:110px" type="number" inputmode="decimal" step="0.01" min="0" data-in="pwnum" data-f="static_val" value="${esc(raw.static_val != null ? raw.static_val : '')}" placeholder="1"></div>` : ''}
+      </div>
+      <div class="pwc" data-key="pw-cur">
+        <div class="pwh">${ic('mdi:cash', 18)}Valuta<i>${esc(P.cur)}/kWh · ${esc(P.sub)}/kWh</i></div>
+        ${seg('cur', [['kr', 'kr'], ['$', '$'], ['€', '€'], ['custom', 'Egen']], c.cur)}
+        ${c.cur === 'custom' ? `<div class="pwrow"><span class="pwl">Valuta</span><input class="pwin" style="width:110px" data-in="pwtxt" data-f="cur_txt" value="${esc(raw.cur_txt || '')}" placeholder="SEK"></div>
+          <div class="pwrow"><span class="pwl">Hundredel</span><input class="pwin" style="width:110px" data-in="pwtxt" data-f="sub_txt" value="${esc(raw.sub_txt || '')}" placeholder="cent"></div>` : ''}
+        <span class="hint">Hundredelen brukes på grafaksen: kr → øre, $ og € → cent.</span>
       </div>
       <div class="pwc" data-key="pw-tab">
         <div class="pwh">${ic('mdi:tab', 18)}Fane «I dag / I morgen»</div>
@@ -187,7 +202,7 @@
           return true;
         }
         case 'pwreset':
-          save(ed, { profile: undefined, source: undefined, spot_entity: undefined, entity: undefined, se_entity: undefined, area: undefined, se_area: undefined, se_unit: undefined, mode: undefined, unit: undefined, norgespris_entity: undefined, grid_entity: undefined });
+          save(ed, { chart: undefined, static_entity: undefined, static_val: undefined, cur: undefined, cur_txt: undefined, sub_txt: undefined, profile: undefined, source: undefined, spot_entity: undefined, entity: undefined, se_entity: undefined, area: undefined, se_area: undefined, se_unit: undefined, mode: undefined, unit: undefined, norgespris_entity: undefined, grid_entity: undefined });
           M.toast('Strømpris: automatisk oppsett');
           return true;
         default: return false;
@@ -199,6 +214,11 @@
         if (kind !== 'change') return true;
         const v = String(el.value).replace(',', '.').trim();
         save(ed, { [el.dataset.f]: v === '' || isNaN(Number(v)) ? undefined : Number(v) });
+        return true;
+      }
+      if (k === 'pwtxt') { // 61.3: egen valuta / hundredel
+        if (kind !== 'change') return true;
+        save(ed, { [el.dataset.f]: String(el.value).trim() || undefined });
         return true;
       }
       if (k === 'pwtab') {

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#232323;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+input,select{font:inherit}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./i18n.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:560px;min-height:100vh;margin:0 auto;padding:28px 18px 40px;display:flex;flex-direction:column;gap:18px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <a href="Hjem v3.dc.html" style="width:44px;height:44px;border-radius:22px;background:#383838;display:grid;place-items:center;text-decoration:none;flex:none"><span class="ms" style="font-size:22px">arrow_back</span></a>
+    <span style="flex:1;font-size:28px;font-weight:500">Tilpass alt</span>
+    <button onClick="{{ jump.toggle }}" style="height:40px;padding:0 10px 0 14px;border-radius:20px;background:#383838;display:flex;align-items:center;gap:4px;font-size:13px;color:#c7c7c7"><span>{{ stepLabel }}</span><span class="ms" style="font-size:20px">list</span></button>
+  </div>
+  <div style="display:flex;gap:4px"><sc-for list="{{ dots }}" as="d" hint-placeholder-count="13"><button onClick="{{ d.go }}" title="{{ d.title }}" style="{{ d.style }}"></button></sc-for></div>
+  <sc-if value="{{ jump.open }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;padding:6px;border-radius:28px;background:#2f2f2f">
+      <sc-for list="{{ jump.list }}" as="j" hint-placeholder-count="13">
+        <button onClick="{{ j.go }}" style="{{ j.style }}"><span class="ms" style="font-size:20px;color:#afafaf">{{ j.icon }}</span><span style="flex:1;text-align:left">{{ j.title }}</span><span style="font-size:12px;color:#7f7f7f">{{ j.n }}</span></button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <span style="font-size:24px;font-weight:500">{{ cur.title }}</span>
+    <span style="font-size:15px;color:#bdbdbd;line-height:1.5;text-wrap:pretty">{{ cur.sub }}</span>
+  </div>
+
+  <sc-if value="{{ isLang }}" hint-placeholder-val="{{ false }}">
+    <div data-noi18n="1" style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ langs }}" as="l" hint-placeholder-count="2">
+        <button onClick="{{ l.go }}" style="{{ l.style }}">
+          <span style="{{ l.iconWrap }}">{{ l.code }}</span>
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:17px;font-weight:500">{{ l.label }}</span><span style="font-size:13px;color:#9a9a9a">{{ l.sub }}</span></span>
+          <span class="ms" style="{{ l.check }}">check_circle</span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isDevice }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <sc-for list="{{ presets }}" as="p" hint-placeholder-count="4">
+        <button onClick="{{ p.go }}" style="{{ p.style }}">
+          <span style="{{ p.thumb }}"><sc-for list="{{ p.blocks }}" as="b" hint-placeholder-count="4"><span style="{{ b }}"></span></sc-for></span>
+          <span style="font-size:16px;font-weight:600;text-align:left">{{ p.label }}</span>
+          <span style="font-size:12px;color:#9a9a9a;text-align:left;line-height:1.4">{{ p.sub }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ previewHref }}" hint-placeholder-val="{{ false }}"><a href="{{ previewHref }}" style="height:48px;border-radius:24px;background:#383838;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;text-decoration:none"><span class="ms" style="font-size:20px">open_in_new</span>Forhåndsvis {{ presetName }}</a></sc-if>
+  </sc-if>
+
+  <sc-if value="{{ isSrv }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{ srv.list }}" as="v" hint-placeholder-count="1">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:32px;background:#383838">
+          <button onClick="{{ v.cycle }}" title="Trykk på ikonet for å bytte." style="{{ v.iconWrap }}"><span class="ms" style="font-size:24px">{{ v.icon }}</span></button>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+            <input value="{{ v.name }}" onChange="{{ v.setName }}" placeholder="Navn, f.eks. Oslo eller Hytta" style="width:100%;box-sizing:border-box;height:30px;border:0;outline:none;background:none;color:#fafafa;font-size:16px;font-weight:500;padding:0">
+            <input value="{{ v.url }}" onChange="{{ v.setUrl }}" placeholder="Adresse (valgfritt)" style="width:100%;box-sizing:border-box;height:22px;border:0;outline:none;background:none;color:#9a9a9a;font-size:13px;padding:0">
+          </div>
+          <sc-if value="{{ v.isFirst }}" hint-placeholder-val="{{ true }}"><span style="flex:none;font-size:12px;color:#9a9a9a;padding-right:10px">Denne serveren</span></sc-if>
+          <sc-if value="{{ v.canDel }}" hint-placeholder-val="{{ false }}"><button onClick="{{ v.del }}" title="Fjern" style="width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:rgb(242 128 115 / 0.2);color:rgb(242 128 115)"><span class="ms" style="font-size:20px">close</span></button></sc-if>
+        </div>
+      </sc-for>
+      <button onClick="{{ srv.add }}" style="height:56px;border-radius:28px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500"><span class="ms" style="font-size:22px">add</span>Legg til server</button>
+      <span style="font-size:12px;color:#9a9a9a;padding:6px 6px 0">Forslag</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{ srv.chips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.go }}" style="height:36px;padding:0 14px 0 10px;border-radius:18px;background:#383838;display:flex;align-items:center;gap:6px;font-size:14px"><span class="ms" style="font-size:18px">{{ c.icon }}</span>{{ c.label }}</button></sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-for list="{{ st.groups }}" as="g" hint-placeholder-count="0">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <sc-if value="{{ g.hasHead }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;font-weight:500;color:#9a9a9a;padding:6px 6px 0">{{ g.head }}</span></sc-if>
+      <sc-for list="{{ g.segs }}" as="sg" hint-placeholder-count="0">
+        <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:24px;background:#383838">
+          <span style="font-size:14px;font-weight:500">{{ sg.label }}</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ sg.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button></sc-for></div>
+          <sc-if value="{{ sg.hasNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#9a9a9a;line-height:1.4">{{ sg.note }}</span></sc-if>
+        </div>
+      </sc-for>
+      <sc-for list="{{ g.fields }}" as="f" hint-placeholder-count="0">
+        <label style="display:flex;flex-direction:column;gap:6px;padding:12px 16px;border-radius:24px;background:#383838">
+          <span style="font-size:12px;color:#9a9a9a">{{ f.label }}</span>
+          <input value="{{ f.v }}" onChange="{{ f.set }}" placeholder="{{ f.ph }}" style="{{ f.inputS }}">
+          <sc-if value="{{ f.hasTokens }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ f.tokens }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.go }}" style="height:30px;padding:0 12px;border-radius:15px;background:#4a4a4a;font-size:12px">{{ t.label }}</button></sc-for></div></sc-if>
+        </label>
+      </sc-for>
+      <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="0">
+        <button onClick="{{ r.go }}" style="display:flex;align-items:center;gap:14px;min-height:72px;padding:0 18px 0 8px;border-radius:36px;background:#383838">
+          <span style="{{ r.iconWrap }}"><span class="ms" style="font-size:24px">{{ r.icon }}</span></span>
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0"><span style="font-size:16px;font-weight:500">{{ r.label }}</span><sc-if value="{{ r.sub }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#9a9a9a">{{ r.sub }}</span></sc-if></span>
+          <span style="{{ r.track }}"><span style="{{ r.knob }}"></span></span>
+        </button>
+      </sc-for>
+      <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="0">
+        <div style="{{ it.box }}">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0">
+            <span style="{{ it.iconWrap }}"><span class="ms" style="font-size:22px">{{ it.icon }}</span></span>
+            <sc-if value="{{ it.hasInput }}" hint-placeholder-val="{{ false }}"><input value="{{ it.label }}" onChange="{{ it.setLabel }}" style="flex:1;min-width:0;height:40px;border-radius:14px;border:0;outline:none;padding:0 12px;background:#2a2a2a;color:#fafafa;font-size:15px"></sc-if>
+            <sc-if value="{{ it.noInput }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span data-noi18n="{{ it.noTr }}" style="font-size:15px;font-weight:500">{{ it.label }}</span><sc-if value="{{ it.sub }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#9a9a9a">{{ it.sub }}</span></sc-if></span></sc-if>
+            <sc-if value="{{ it.canMove }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex:none;border-radius:18px;background:#2a2a2a;padding:2px">
+                <button onClick="{{ it.up }}" title="Flytt opp" style="{{ it.upS }}"><span class="ms" style="font-size:20px">expand_less</span></button>
+                <button onClick="{{ it.down }}" title="Flytt ned" style="{{ it.downS }}"><span class="ms" style="font-size:20px">expand_more</span></button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ it.hasEye }}" hint-placeholder-val="{{ false }}"><button onClick="{{ it.eye }}" title="Vis / skjul" style="width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:#2a2a2a"><span class="ms" style="{{ it.eyeS }}">{{ it.eyeIcon }}</span></button></sc-if>
+            <sc-if value="{{ it.hasGo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ it.go }}" style="height:36px;padding:0 14px;border-radius:18px;flex:none;background:#2a2a2a;font-size:13px">Endre</button></sc-if>
+          </div>
+          <sc-for list="{{ it.chipRows }}" as="cr" hint-placeholder-count="0">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:2px"><sc-for list="{{ cr }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.go }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+          </sc-for>
+        </div>
+      </sc-for>
+      <sc-if value="{{ g.isProse }}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{ prose.list }}" as="p" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:24px;background:#383838">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="flex:1;font-size:12px;color:#9a9a9a">{{ p.nLabel }}</span>
+              <div style="display:flex;border-radius:18px;background:#2a2a2a;padding:2px">
+                <button onClick="{{ p.up }}" title="Flytt opp" style="{{ p.upS }}"><span class="ms" style="font-size:20px">expand_less</span></button>
+                <button onClick="{{ p.down }}" title="Flytt ned" style="{{ p.downS }}"><span class="ms" style="font-size:20px">expand_more</span></button>
+              </div>
+              <button onClick="{{ p.del }}" title="Fjern" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:rgb(242 128 115 / 0.2);color:rgb(242 128 115)"><span class="ms" style="font-size:18px">close</span></button>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:6px">
+              <input value="{{ p.pre }}" onChange="{{ p.setPre }}" placeholder="Før" style="min-width:0;height:40px;border-radius:14px;border:0;outline:none;padding:0 10px;background:#2a2a2a;color:#fafafa;font-size:14px">
+              <select value="{{ p.src }}" onChange="{{ p.setSrc }}" style="min-width:0;height:40px;border-radius:14px;border:0;outline:none;padding:0 8px;background:rgb(242 133 201 / 0.18);color:rgb(242 133 201);font-size:14px"><sc-for list="{{ p.opts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.label }}</option></sc-for></select>
+              <input value="{{ p.post }}" onChange="{{ p.setPost }}" placeholder="Etter" style="min-width:0;height:40px;border-radius:14px;border:0;outline:none;padding:0 10px;background:#2a2a2a;color:#fafafa;font-size:14px">
+            </div>
+          </div>
+        </sc-for>
+        <button onClick="{{ prose.add }}" style="height:52px;border-radius:26px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500"><span class="ms" style="font-size:22px">add</span>Legg til setning</button>
+      </sc-if>
+    </div>
+  </sc-for>
+
+  <div style="flex:1"></div>
+  <div style="display:flex;gap:10px">
+    <button onClick="{{ back }}" style="{{ backStyle }}">Tilbake</button>
+    <button onClick="{{ next }}" style="flex:2;height:56px;border-radius:28px;background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:#2a1720;font-size:16px;font-weight:600">{{ nextLabel }}</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const PK = 'rgb(242 133 201)';
+const STEPS = [
+  ['lang', 'translate', 'Språk', 'Velg språk for hele dashbordet.'],
+  ['device', 'devices', 'Ny enhet', 'Hva skal denne skjermen brukes til? Velg et oppsett som passer.'],
+  ['servers', 'dns', 'Servere', 'Velg hvilke Home Assistant-servere dashbordet skal kunne bytte mellom, og gi dem et navn. Med bare én server vises ingen bytteknapp.'],
+  ['ha', 'home', 'Velkommen', 'Dashbordet konfigureres automatisk fra områder, etasjer og registre i Home Assistant. Velg hva som skal tas med.'],
+  ['header', 'person', 'Header', 'Hilsen, personer og hva som skjer når du trykker på navnet.'],
+  ['theme', 'palette', 'Tema', 'Utseende for navbar og popups.'],
+  ['nav', 'tune', 'Navbar', 'Velg hvilke knapper som ligger i navbaren, i Mer-menyen eller er skjult, og rekkefølgen.'],
+  ['tabs', 'tab', 'Faner', 'Navn, rekkefølge, visning og størrelse på fanene.'],
+  ['rooms', 'meeting_room', 'Rom', 'Hvilke rom som vises på hver fane, rekkefølge, side og størrelse.'],
+  ['home', 'dashboard', 'Hjem-kort', 'Setningen øverst og kortene på Hjem-fanen.'],
+  ['popups', 'open_in_new', 'Popups', 'Innstillinger for Vær, Søppel og Strømpris.'],
+  ['kiosk', 'fit_screen', 'Kiosk-modus', 'Hva som skjules i Home Assistant, og på hvilke enheter.'],
+  ['done', 'check_circle', 'Ferdig', 'Alt er lagret. Trykk Endre for å gå tilbake til et steg.'],
+];
+const SRV_ICONS = ['home', 'apartment', 'cabin', 'sailing', 'agriculture', 'villa', 'business'];
+const SRV_COLS = ['rgb(102 209 158)', 'rgb(242 210 111)', 'rgb(115 185 242)', 'rgb(242 133 201)', 'rgb(242 181 115)', 'rgb(190 160 242)'];
+const CAT = { vann: ['sprinkler', 'Sprinkler'], strom: ['power', 'Strøm'], media: ['music_note', 'Musikk'], car: ['electric_car', 'Tesla'], server: ['view_week', 'Server'], settings: ['settings', 'Innstillinger'], klima: ['thermostat', 'Klima'], trash: ['delete', 'Søppel'], cal: ['calendar_month', 'Kalender'], plants: ['potted_plant', 'Planter'], sleep: ['bedtime', 'Søvn'], bill: ['receipt_long', 'Strømregning'], printer: ['print', '3D-printer'], todo: ['checklist', 'Gjøremål'], pool: ['pool', 'Basseng'], mower: ['grass', 'Gressklipper'], nibe: ['heat_pump', 'Varmepumpe'], vac: ['robot_2', 'Robotstøvsuger'], ruter: ['tram', 'Ruter'] };
+const NAV_DEF = { bar: ['vann', 'media', 'klima', 'pool', 'ruter'], more: ['todo'], hidden: {}, custom: [], showNames: false, shrink: true, width: 'std', mini: { on: true, cond: 'playing', ent: '', state: 'on', hideMedia: true } };
+const DEF_TABS = [{ id: 'hjem', label: 'Hjem', view: 'karusell' }, { id: '1', label: '1. etg', view: 'liste' }, { id: '2', label: '2. etg', view: 'liste' }, { id: 'ute', label: 'Ute', view: 'liste' }, { id: 'aktuelt', label: 'Aktuelt', view: 'liste' }, { id: 'batterier', label: 'Batterier', view: 'batterier' }];
+const ROOMS = [['stue','Stue','1',1,'weekend','L','L'],['gang','Gang','1',1,'door_front','S','R'],['kjokken','Kjøkken','1',1,'countertops','L','R'],['bad','Bad 1. et','1',0,'wc','M','L'],['sov1','Soverom 1. et','1',0,'bed','S','L'],['vask','Vaskerom','1',0,'local_laundry_service','M','R'],['allrom','Allrom','2',0,'chair','L','L'],['pult','Pult','2',1,'computer','M','L'],['kontor','Rune kontor','2',0,'desk','L','L'],['bad2','Bad 2. et','2',0,'bathtub','S','R'],['sov','Soverom','2',0,'bed','L','R'],['sovc','Cybele soverom','2',0,'single_bed','L','R'],['sovr','Rune soverom','2',0,'king_bed','S','R'],['vaskegang','Vaskegang','2',0,'local_laundry_service','S','R'],['trapp','Trappegang','2',0,'stairs','S','L'],['loft','Loft','2',0,'roofing','S','L'],['garasje','Garasje','ute',0,'garage','L','L'],['ute','Ute','ute',1,'park','L','R'],['basseng','Basseng','ute',0,'pool','S','L']];
+const TILES = [['lock', 'key', 'Dørlås'], ['garage', 'garage', 'Garasjeport'], ['alarm', 'shield', 'Alarm'], ['cam', 'videocam', 'Kamera'], ['ruter', 'tram', 'Ruter'], ['todo', 'handyman', 'Gjøremål']];
+const DEF_TILES_HJEM = [{ id: 't1', kind: 'lock', side: 'L', pos: 'top' }, { id: 't5', kind: 'garage', side: 'L', pos: 'top' }, { id: 't2', kind: 'alarm', side: 'L', pos: 'bottom' }, { id: 't3', kind: 'cam', side: 'R', pos: 'bottom', stack: true }, { id: 't6', kind: 'ruter', side: 'R', pos: 'bottom', stack: true }, { id: 't4', kind: 'todo', side: 'R', pos: 'bottom' }];
+const DEF_PROSE = [{ id: 'p1', pre: 'Ute er det', src: 'weather', fmt: '{v}', post: '.', icon: '', color: 'hvit', link: 'vaer', cop: 'alltid' }, { id: 'p2', pre: 'Strømmen koster', src: 'price', fmt: '{v}', post: '', icon: 'dot', color: 'hvit', link: '', cop: 'alltid' }, { id: 'p3', pre: 'og vi bruker', src: 'watt', fmt: '{v}', post: '', icon: '', color: 'hvit', link: '', cop: 'alltid' }, { id: 'p4', pre: 'med', src: 'lights', fmt: '{v}', post: 'på.', icon: '✨', color: 'hvit', link: 'lys', cop: 'alltid' }, { id: 'p5', pre: 'Vi har', src: 'events', fmt: '{v}', post: 'i dag.', icon: '⏰', color: 'hvit', link: 'cal', cop: 'alltid' }];
+const SRC = [['text','Fast tekst'],['weather','Vær'],['temp','Ute-temp'],['price','Strømpris'],['watt','Effekt'],['lights','Lys på'],['events','Hendelser'],['home','Hjemme'],['lock','Dørlås'],['alarm','Alarm'],['trash','Søppel'],['todo','Gjøremål']];
+const PEOPLE = { sebastian: ['Sebastian', 'rgb(242 181 115)'], cybele: ['Cybele', 'rgb(242 133 201)'], rune: ['Rune', 'rgb(115 185 242)'] };
+const KIOSK_DEF = { mobile: { on: true, hide: ['header'], when: 'bool', width: 1000 }, nonadmin: { on: true, hide: ['kiosk'], when: 'always' }, users: { on: false, hide: ['header', 'sidebar'], when: 'bool', users: ['cybele', 'rune'] }, 'dev:veggskjerm_gang': { on: true, hide: ['kiosk'], when: 'always' }, 'dev:ipad_kjokken': { on: true, hide: ['header', 'sidebar'], when: 'bool' }, 'dev:pixel_fold': { on: false, hide: ['header'], when: 'bool' }, 'dev:macbook': { on: false, hide: ['header'], when: 'bool' }, 'dev:stue_tv': { on: false, hide: ['kiosk'], when: 'always' } };
+const KIOSK_L = { mobile: ['smartphone', 'Mobil', 'Skjermer under 1000 px'], nonadmin: ['person_off', 'Ikke-admin', 'Brukere uten adminrettigheter'], users: ['group', 'Utvalgte brukere', 'Cybele, Rune'], 'dev:veggskjerm_gang': ['tablet', 'Veggskjerm gang', ''], 'dev:ipad_kjokken': ['tablet_mac', 'iPad kjøkken', ''], 'dev:pixel_fold': ['devices_fold', 'Pixel Fold', ''], 'dev:macbook': ['laptop_mac', 'MacBook', ''], 'dev:stue_tv': ['tv', 'Stue-TV', ''] };
+const KIOSK_HIDE = [['kiosk', 'Alt'], ['header', 'Header'], ['sidebar', 'Sidebar'], ['menubutton', 'Menyknapp'], ['search', 'Søk'], ['assistant', 'Assistent'], ['notifications', 'Varsler'], ['account', 'Konto'], ['edit_dashboard', 'Rediger dashbord']];
+const J = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } };
+const W = (k, v) => { try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch (e) {} };
+const mv = (a, i, d) => { const j = i + d; if (j < 0 || j >= a.length) return a; const n = [...a]; [n[i], n[j]] = [n[j], n[i]]; return n; };
+const chip = on => ({ height: 36, padding: '0 14px', borderRadius: 18, fontSize: 13, fontWeight: 500, background: on ? PK : '#2a2a2a', color: on ? '#2a1720' : '#fafafa' });
+const sq = ok => ({ width: 34, height: 34, borderRadius: 17, display: 'grid', placeItems: 'center', opacity: ok ? 1 : 0.3 });
+const iw = (on, col) => ({ width: 44, height: 44, borderRadius: 22, flex: 'none', display: 'grid', placeItems: 'center', background: col || (on ? PK : '#4a4a4a'), color: col || on ? '#2a1720' : '#fafafa' });
+const box = dim => ({ display: 'flex', flexDirection: 'column', gap: 10, padding: 10, borderRadius: 26, background: '#383838', opacity: dim ? 0.55 : 1 });
+const loadSrv = () => { const v = J('ki-servers', null); return Array.isArray(v) && v.length ? v : [{ name: 'Hjem', icon: 'home', url: '' }]; };
+class Component extends DCLogic {
+  state = { step: 0, preset: 'full', roomCtx: 'hjem', on: { areas: true, floors: true, people: true } };
+  componentDidMount() { this._lg = () => this.forceUpdate(); window.addEventListener('ki-lang', this._lg); try { const p = localStorage.getItem('ki-device-preset'); if (p) this.setState({ preset: p }); } catch (e) {} }
+  componentWillUnmount() { window.removeEventListener('ki-lang', this._lg); }
+  patch(k, p) { W(k, { ...J(k, {}), ...p }); window.haptic && window.haptic('selection'); this.forceUpdate(); }
+  setSrv(list) { this.setState({ srv: list }); W('ki-servers', list.filter(x => (x.name || '').trim()).map(x => ({ ...x, name: x.name.trim() }))); }
+  tog(icon, label, sub, on, go) { return { icon, label, sub, go, iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: on ? PK : '#4a4a4a', color: on ? '#2a1720' : '#fafafa' },
+    track: { position: 'relative', width: 48, height: 28, borderRadius: 14, flex: 'none', background: on ? PK : '#5a5a5a', transition: 'background .2s' },
+    knob: { position: 'absolute', top: 3, left: on ? 23 : 3, width: 22, height: 22, borderRadius: 11, background: '#fafafa', transition: 'left .2s' } }; }
+  seg(label, opts, cur, set, note) { return { label, note: note || '', hasNote: !!note, opts: opts.map(([v, l]) => ({ label: l, go: () => set(v), style: chip(cur === v) })) }; }
+  field(label, v, set, ph, mono, tokens) { return { label, v: v ?? '', set: e => set(e.target.value), ph: ph || '', hasTokens: !!tokens, tokens: tokens || [], inputS: { width: '100%', boxSizing: 'border-box', height: 32, border: 0, outline: 'none', background: 'none', color: '#fafafa', padding: 0, fontSize: mono ? 14 : 16, fontFamily: mono ? 'ui-monospace,monospace' : 'inherit' } }; }
+  grp(o) { return { head: o.head || '', hasHead: !!o.head, segs: o.segs || [], fields: o.fields || [], rows: o.rows || [], items: o.items || [], isProse: !!o.prose }; }
+  item(o) { return { icon: o.icon, label: o.label, sub: o.sub || '', noTr: o.noTr ? '1' : undefined, hasInput: !!o.setLabel, noInput: !o.setLabel, setLabel: o.setLabel, iconWrap: iw(!o.dim, o.col), box: box(o.dim),
+    canMove: !!o.up, up: o.up, down: o.down, upS: sq(o.canUp), downS: sq(o.canDown), hasEye: !!o.eye, eye: o.eye, eyeIcon: o.dim ? 'visibility_off' : 'visibility', eyeS: { fontSize: 20, color: o.dim ? '#7f7f7f' : '#fafafa' },
+    hasGo: !!o.go, go: o.go, chipRows: o.chipRows || [] }; }
+  groups(kind) {
+    const s = this.state, P = (k, p) => this.patch(k, p);
+    if (kind === 'ha') return [this.grp({ rows: [['home', 'Områder', '14 rom funnet', 'areas'], ['stairs', 'Etasjer', '1. etg, 2. etg, Ute', 'floors'], ['group', 'Personer', 'Sebastian, Cybele, Rune', 'people']].map(([i, l, sub, k]) => this.tog(i, l, sub, !!s.on[k], () => this.setState({ on: { ...s.on, [k]: !s.on[k] } }))) })];
+    if (kind === 'header') {
+      const H = { mode: 'hilsen', greet: '👋 {name}!', order: ['sebastian', 'cybele', 'rune'], hidden: {}, size: 'M', badge: 'icon', showName: false, showPlace: false, ringMe: false, ...J('hjem-header', {}) }, h = p => P('hjem-header', p);
+      const A = { tap: 'server', double: 'config', hold: 'kiosk', ...(H.srvAct || {}) }, ACT = [['server', 'Bytt sted'], ['kiosk', 'Kiosk av/på'], ['config', 'Innstillinger'], ['edit', 'Rediger'], ['header', 'Tilpass header'], ['vaer', 'Åpne Vær'], ['none', 'Ingen']];
+      return [this.grp({ segs: [this.seg('Stil', [['hilsen', 'Hilsen'], ['sted', 'Sted'], ['navn', 'Navn'], ['profil', 'Profil'], ['stor', 'Stor']], H.mode, v => h({ mode: v }))],
+          fields: H.mode === 'hilsen' ? [this.field('Hilsen', H.greet, v => h({ greet: v }), '👋 {name}!', false, [['+ Fornavn', ' {name}'], ['+ Sted', ' {server}']].map(([label, t]) => ({ label, go: () => h({ greet: (H.greet + t).trim() }) })))] : [] }),
+        this.grp({ head: 'Personer', items: H.order.filter(id => PEOPLE[id]).map((id, i, O) => this.item({ icon: 'person', label: PEOPLE[id][0], noTr: 1, col: H.hidden[id] ? '#4a4a4a' : PEOPLE[id][1], dim: !!H.hidden[id], up: () => h({ order: mv(O, i, -1) }), down: () => h({ order: mv(O, i, 1) }), canUp: i > 0, canDown: i < O.length - 1, eye: () => h({ hidden: { ...H.hidden, [id]: !H.hidden[id] } }) })),
+          segs: [this.seg('Størrelse på bildene', [['S', 'Liten'], ['M', 'Middels'], ['L', 'Stor']], H.size, v => h({ size: v })), this.seg('Merke', [['icon', 'Ikon'], ['dot', 'Prikk'], ['ring', 'Ring'], ['none', 'Ingen']], H.badge, v => h({ badge: v }))],
+          rows: [['badge', 'Vis navn', '', 'showName'], ['location_on', 'Vis sted', 'Hjemme, sonen eller Borte under bildet', 'showPlace'], ['radio_button_checked', 'Ring rundt meg', 'Markerer bildet ditt', 'ringMe']].map(([i, l, sub, k]) => this.tog(i, l, sub, !!H[k], () => h({ [k]: !H[k] }))).concat([this.tog('partly_cloudy_day', 'Trykk på været åpner Vær', '', H.subNav !== false, () => h({ subNav: H.subNav === false }))]) }),
+        this.grp({ head: 'Trykk på navnet', segs: [['tap', 'Trykk'], ['double', 'Dobbelttrykk'], ['hold', 'Hold']].map(([k, l]) => this.seg(l, ACT, A[k], v => h({ srvAct: { ...A, [k]: v } }))) })];
+    }
+    if (kind === 'theme') {
+      const nav = (() => { try { return localStorage.getItem('hjem-nav') || 'white'; } catch (e) { return 'white'; } })(), anim = (() => { try { return localStorage.getItem('hjem-glass-anim') !== 'off'; } catch (e) { return true; } })();
+      return [this.grp({ segs: [this.seg('Navbar og popup-topp', [['white', 'Standard'], ['glass', 'Liquid glass']], nav, v => { W('hjem-nav', v); this.forceUpdate(); }, nav === 'glass' ? 'Glass-navbar og glass-topp i alle popups.' : 'Hvit navbar og bubble-card-topp i popups.')],
+        rows: nav === 'glass' ? [this.tog('animation', 'Glass-animasjon', 'Bevegelse i glasset når du trykker', anim, () => { W('hjem-glass-anim', anim ? 'off' : 'on'); this.forceUpdate(); })] : [] })];
+    }
+    if (kind === 'nav') {
+      const N0 = J('hjem-navcfg', {}), N = { ...NAV_DEF, ...N0, mini: { ...NAV_DEF.mini, ...(N0.mini || {}) } }, n = p => P('hjem-navcfg', p);
+      const bar = N.bar.filter(id => CAT[id]), more = N.more.filter(id => CAT[id]), off = Object.keys(CAT).filter(id => !bar.includes(id) && !more.includes(id));
+      const place = (id, to) => { const b = bar.filter(x => x !== id), m = more.filter(x => x !== id); if (to === 'bar') b.push(id); if (to === 'more') m.push(id); n({ bar: b, more: m }); };
+      const mk = (arr, where) => arr.map((id, i) => this.item({ icon: CAT[id][0], label: CAT[id][1], dim: where === 'off', up: where !== 'off' ? () => n({ [where]: mv(arr, i, -1) }) : null, down: () => n({ [where]: mv(arr, i, 1) }), canUp: i > 0, canDown: i < arr.length - 1,
+        chipRows: [[['bar', 'Navbar'], ['more', 'Mer'], ['off', 'Skjult']].map(([k, l]) => ({ label: l, go: () => place(id, k), style: chip(where === k) }))] }));
+      const mi = p => n({ mini: { ...N.mini, ...p } });
+      return [this.grp({ head: 'I navbaren', items: mk(bar, 'bar') }), this.grp({ head: 'I Mer-menyen', items: mk(more, 'more') }), this.grp({ head: 'Skjult', items: mk(off, 'off') }),
+        this.grp({ head: 'Utseende', segs: [this.seg('Bredde', [['kompakt', 'Kompakt'], ['std', 'Standard'], ['full', 'Full']], N.width, v => n({ width: v }))],
+          rows: [this.tog('label', 'Vis navn under ikonene', '', !!N.showNames, () => n({ showNames: !N.showNames })), this.tog('compress', 'Krymp ved scrolling', '', N.shrink !== false, () => n({ shrink: N.shrink === false })), this.tog('list', 'Navn i Mer-menyen', '', N.menuNames !== false, () => n({ menuNames: N.menuNames === false }))] }),
+        this.grp({ head: 'Mini-spiller', rows: [this.tog('play_circle', 'Vis mini-spiller', 'Over navbaren når noe spiller', !!N.mini.on, () => mi({ on: !N.mini.on })), this.tog('music_off', 'Skjul i Media-popupen', '', !!N.mini.hideMedia, () => mi({ hideMedia: !N.mini.hideMedia })), this.tog('web_asset_off', 'Skjul når en popup er åpen', '', !!N.mini.hidePop, () => mi({ hidePop: !N.mini.hidePop }))] })];
+    }
+    if (kind === 'tabs') {
+      const CU = J('hjem-custom', {}), T = CU.tabs ? [...CU.tabs, ...DEF_TABS.filter(d => !CU.tabs.some(t => t.id === d.id) && !(CU.delTabs || []).includes(d.id))] : DEF_TABS, TC = { h: 'std', ...J('hjem-tabs', {}) };
+      const setTabs = t => P('hjem-custom', { tabs: t }), visN = T.filter(t => !t.hidden).length;
+      return [this.grp({ items: T.map((t, i) => { const up = f => setTabs(T.map(x => x.id === t.id ? { ...x, ...f } : x));
+          return this.item({ icon: t.id === 'hjem' ? 'home' : t.view === 'batterier' ? 'battery_alert' : 'tab', label: t.label, setLabel: e => up({ label: e.target.value }), dim: !!t.hidden, up: () => setTabs(mv(T, i, -1)), down: () => setTabs(mv(T, i, 1)), canUp: i > 0, canDown: i < T.length - 1, eye: () => (t.hidden || visN > 1) && up({ hidden: !t.hidden }),
+            chipRows: [[['karusell', 'Karusell'], ['liste', 'Kortliste'], ['batterier', 'Batterier']].map(([v, l]) => ({ label: l, go: () => up({ view: v }), style: chip((t.view || 'liste') === v) }))] }); }) }),
+        this.grp({ segs: [this.seg('Høyde på fanene', [['lav', 'Lav'], ['std', 'Standard'], ['mid', 'Middels'], ['hoy', 'Høy'], ['ekstra', 'Ekstra']], TC.h, v => P('hjem-tabs', { h: v }))] })];
+    }
+    if (kind === 'rooms') {
+      const k = s.roomCtx, L0 = J('hjem-layout-v2', null) || {}, L = { ctx: L0.ctx || {}, size: L0.size || {}, klima: L0.klima || {} };
+      const rs = k === 'hjem' ? ROOMS : ROOMS.filter(r => r[2] === k), lc = L.ctx[k] || {};
+      const order = [...(lc.order || []).filter(id => rs.some(r => r[0] === id)), ...rs.map(r => r[0]).filter(id => !(lc.order || []).includes(id))];
+      const side = id => (lc.side || {})[id] || (k === 'hjem' ? (['pult', 'kontor', 'kjokken'].includes(id) ? 'R' : 'L') : ROOMS.find(r => r[0] === id)[6]);
+      const hid = id => { const v = (lc.hidden || {})[id]; return v != null ? v : k === 'hjem' ? !ROOMS.find(r => r[0] === id)[3] : false; };
+      const size = id => L.size[id] || ROOMS.find(r => r[0] === id)[5];
+      const save = (c, sz) => { W('hjem-layout-v2', { ...L, ctx: { ...L.ctx, [k]: { order, side: lc.side || {}, hidden: lc.hidden || {}, ...c } }, size: sz || L.size }); window.haptic && window.haptic('selection'); this.forceUpdate(); };
+      return [this.grp({ segs: [this.seg('Fane', [['hjem', 'Hjem'], ['1', '1. etg'], ['2', '2. etg'], ['ute', 'Ute']], k, v => this.setState({ roomCtx: v }))] }),
+        this.grp({ items: order.map((id, i) => { const r = ROOMS.find(x => x[0] === id);
+          return this.item({ icon: r[4], label: r[1], noTr: 1, dim: hid(id), up: () => save({ order: mv(order, i, -1) }), down: () => save({ order: mv(order, i, 1) }), canUp: i > 0, canDown: i < order.length - 1, eye: () => save({ hidden: { ...(lc.hidden || {}), [id]: !hid(id) } }),
+            chipRows: [[['L', 'Venstre'], ['R', 'Høyre']].map(([v, l]) => ({ label: l, go: () => save({ side: { ...(lc.side || {}), [id]: v } }), style: chip(side(id) === v) })).concat([['S', 'Liten'], ['M', 'Middels'], ['L', 'Stor']].map(([v, l]) => ({ label: l, go: () => save({}, { ...L.size, [id]: v }), style: chip(size(id) === v) })))] }); }) })];
+    }
+    if (kind === 'home') {
+      const CU = J('hjem-custom', {}), TL = (CU.tiles || {}).hjem || DEF_TILES_HJEM;
+      const setT = t => P('hjem-custom', { tiles: { ...(CU.tiles || {}), hjem: t }, garMig: true, ruterMig: true });
+      return [this.grp({ head: 'Setningen øverst', prose: true }),
+        this.grp({ head: 'Kort på Hjem', items: TILES.map(([kd, icon, label]) => { const t = TL.find(x => x.kind === kd), on = !!t;
+          return this.item({ icon, label, dim: !on, eye: () => setT(on ? TL.filter(x => x.kind !== kd) : [...TL, { id: 't' + Date.now(), kind: kd, side: 'L', pos: 'top' }]),
+            chipRows: on ? [[['L', 'Venstre'], ['R', 'Høyre']].map(([v, l]) => ({ label: l, go: () => setT(TL.map(x => x.kind === kd ? { ...x, side: v } : x)), style: chip(t.side === v) })).concat([['top', 'Over rommene'], ['bottom', 'Under rommene']].map(([v, l]) => ({ label: l, go: () => setT(TL.map(x => x.kind === kd ? { ...x, pos: v } : x)), style: chip(t.pos === v) })))] : [] }); }) })];
+    }
+    if (kind === 'popups') {
+      const vs = (() => { try { return localStorage.getItem('hjem-vaer-stil') || 'scene'; } catch (e) { return 'scene'; } })();
+      const TR = J('hjem-trash', {}), PR = { profile: 'no', area: 'NO1', grid: '', spotEnt: '', ...J('hjem-price', {}) }, p = v => P('hjem-price', v), t = v => P('hjem-trash', v);
+      return [this.grp({ head: 'Vær', segs: [this.seg('Stil', [['scene', 'Scene'], ['klassisk', 'Klassisk']], vs, v => { W('hjem-vaer-stil', v); this.forceUpdate(); }, vs === 'scene' ? 'Helbakgrunn med været. Skjuler navbar og mini-spiller mens den er åpen.' : 'Kort med time- og døgnvarsel i vanlig popup.')] }),
+        this.grp({ head: 'Søppel', fields: [this.field('Sensor for neste tømming', TR.sensor, v => t({ sensor: v }), 'sensor.neste_tomming', true), this.field('Sensor for type', TR.typeSensor, v => t({ typeSensor: v }), 'sensor.tomming_type', true)] }),
+        this.grp({ head: 'Strømpris', segs: [this.seg('Land', [['no', 'Norge'], ['se', 'Sverige']], PR.profile, v => p({ profile: v }))].concat(PR.profile === 'no' ? [this.seg('Prisområde', [['NO1', 'NO1'], ['NO2', 'NO2'], ['NO3', 'NO3'], ['NO4', 'NO4'], ['NO5', 'NO5']], PR.area, v => p({ area: v }))] : [this.seg('Prisområde', [['SE1', 'SE1'], ['SE2', 'SE2'], ['SE3', 'SE3'], ['SE4', 'SE4']], PR.seArea || 'SE3', v => p({ seArea: v }))]),
+          fields: [this.field('Strømpris-entitet', PR.spotEnt, v => p({ spotEnt: v }), 'sensor.nordpool_kwh_no1', true), this.field('Nettleie (kr/kWh)', PR.grid, v => p({ grid: v }), '0,45')] })];
+    }
+    if (kind === 'kiosk') {
+      const K = J('hjem-kiosk', {}), T = { ...KIOSK_DEF, ...(K.targets || {}) }, setT = (id, f) => P('hjem-kiosk', { targets: { ...T, [id]: { ...T[id], ...f } } });
+      return [this.grp({ fields: [this.field('Bryter for kiosk-modus', K.ent || 'input_boolean.kiosk_mode', v => P('hjem-kiosk', { ent: v }), 'input_boolean.kiosk_mode', true)] }),
+        this.grp({ head: 'Gjelder for', items: Object.keys(T).filter(id => KIOSK_L[id]).map(id => { const x = T[id], [icon, label, sub] = KIOSK_L[id];
+          return this.item({ icon, label, sub, dim: !x.on, eye: () => setT(id, { on: !x.on }),
+            chipRows: x.on ? [KIOSK_HIDE.map(([k, l]) => ({ label: l, go: () => setT(id, { hide: k === 'kiosk' ? ['kiosk'] : x.hide.includes(k) ? x.hide.filter(y => y !== k) : [...x.hide.filter(y => y !== 'kiosk'), k] }), style: chip(x.hide.includes(k)) })), [['bool', 'Når bryteren er på'], ['always', 'Alltid']].map(([v, l]) => ({ label: l, go: () => setT(id, { when: v }), style: chip(x.when === v) }))] : [] }); }) })];
+    }
+    if (kind === 'done') return [this.grp({ items: STEPS.slice(0, -1).map(([k, icon, title], i) => this.item({ icon, label: title, go: () => this.setState({ step: i, jumpOpen: false }) })) })];
+    return [];
+  }
+  renderVals() {
+    const s = this.state, [kind, , title, sub] = STEPS[s.step], last = s.step === STEPS.length - 1;
+    const PRE = [['full', 'Hele dashbordet', 'Mobil og PC · alle rom og popups', 'Hjem v3.dc.html', [[0, 0, 12, 2], [0, 3, 6, 6], [6, 3, 6, 6]]], ['stue', 'Stue-tablet', 'Vegg-tablet i stua · lys, varme, media og scener', 'Stue dashboard v2.dc.html', [[0, 0, 1, 12], [2, 0, 10, 3], [2, 4, 10, 2], [2, 7, 3, 5], [5, 7, 4, 5], [9, 7, 3, 5]]], ['kiosk', 'Kiosk', 'Klokke, vær og kalender i stor skrift', '', [[0, 0, 12, 5], [0, 6, 6, 6], [6, 6, 6, 6]]], ['rom', 'Ett rom', 'Bare ett rom · velg rom etterpå', '', [[0, 0, 12, 4], [0, 5, 12, 7]]]];
+    const cp = PRE.find(p => p[0] === s.preset) || PRE[0], go = i => () => { window.haptic && window.haptic('selection'); this.setState({ step: i, jumpOpen: false }); window.scrollTo(0, 0); };
+    const CU = J('hjem-custom', {}), PR = CU.prose || DEF_PROSE, setP = p => this.patch('hjem-custom', { prose: p });
+    return {
+      stepLabel: `${s.step + 1} av ${STEPS.length}`,
+      dots: STEPS.map((x, i) => ({ go: go(i), title: x[2], style: { flex: 1, height: 6, borderRadius: 3, background: i <= s.step ? PK : '#444' } })),
+      jump: { open: !!s.jumpOpen, toggle: () => this.setState({ jumpOpen: !s.jumpOpen }), list: STEPS.map(([, icon, t], i) => ({ icon, title: t, n: i + 1, go: go(i), style: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, padding: '0 14px', borderRadius: 22, fontSize: 15, background: i === s.step ? '#404040' : 'transparent' } })) },
+      cur: { title, sub },
+      isLang: kind === 'lang',
+      langs: [['no', 'NO', 'Norsk', 'Norsk bokmål'], ['en', 'EN', 'English', 'Engelsk']].map(([k, code, label, sub]) => { const act = (window.kiLang ? window.kiLang() : 'no') === k;
+        return { code, label, sub, go: () => { window.haptic && window.haptic('selection'); window.kiSetLang && window.kiSetLang(k); this.forceUpdate(); },
+          style: { display: 'flex', alignItems: 'center', gap: 14, minHeight: 72, padding: '0 18px 0 8px', borderRadius: 36, background: '#383838', boxShadow: act ? `inset 0 0 0 2px ${PK}` : 'none' },
+          iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 600, background: act ? PK : '#4a4a4a', color: act ? '#2a1720' : '#fafafa' },
+          check: { fontSize: 26, color: PK, opacity: act ? 1 : 0 } }; }),
+      isDevice: kind === 'device', presetName: cp[1], previewHref: cp[3] || false,
+      presets: PRE.map(([k, label, ps, href, blocks]) => { const act = s.preset === k; return { label, sub: ps, go: () => { W('ki-device-preset', k); this.setState({ preset: k }); },
+        style: { display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 24, background: '#383838', boxShadow: act ? `inset 0 0 0 2px ${PK}` : 'none', alignItems: 'stretch' },
+        thumb: { position: 'relative', height: 84, borderRadius: 14, background: '#2a2a2a', marginBottom: 4 },
+        blocks: blocks.map(([x, y, w, h]) => ({ position: 'absolute', left: `calc(${x / 12 * 100}% + 5px)`, top: `calc(${y / 12 * 100}% + 5px)`, width: `calc(${w / 12 * 100}% - 7px)`, height: `calc(${h / 12 * 100}% - 7px)`, borderRadius: 5, background: act ? 'rgba(242,133,201,0.55)' : '#4a4a4a' })) }; }),
+      isSrv: kind === 'servers',
+      srv: (() => { const L = s.srv || loadSrv(), up = (i, p) => this.setSrv(L.map((x, j) => j === i ? { ...x, ...p } : x)), T = (n, e) => window.kiT ? window.kiT(n, e) : n;
+        return { list: L.map((x, i) => ({ name: x.name, url: x.url || '', icon: x.icon || 'home', isFirst: i === 0, canDel: i > 0,
+            setName: e => up(i, { name: e.target.value }), setUrl: e => up(i, { url: e.target.value }),
+            cycle: () => { window.haptic && window.haptic('selection'); up(i, { icon: SRV_ICONS[(SRV_ICONS.indexOf(x.icon) + 1) % SRV_ICONS.length] }); },
+            del: () => this.setSrv(L.filter((_, j) => j !== i)),
+            iconWrap: { width: 56, height: 56, borderRadius: 28, flex: 'none', display: 'grid', placeItems: 'center', background: SRV_COLS[i % SRV_COLS.length], color: '#232323' } })),
+          add: () => this.setSrv([...L, { name: '', icon: SRV_ICONS[L.length % SRV_ICONS.length], url: '' }]),
+          chips: [['Oslo', 'Oslo', 'apartment'], ['Hytta', 'Cabin', 'cabin'], ['Båten', 'Boat', 'sailing'], ['Hjem', 'Home', 'home']].filter(([n, en]) => !L.some(x => x.name === n || x.name === en)).map(([n, en, icon]) => ({ label: T(n, en), icon, go: () => { const k = L.findIndex(x => !(x.name || '').trim()); k > -1 ? up(k, { name: T(n, en), icon }) : this.setSrv([...L, { name: T(n, en), icon, url: '' }]); } })) }; })(),
+      st: { groups: this.groups(kind) },
+      prose: { srcOpts: SRC.map(([v, label]) => ({ v, label })), add: () => setP([...PR, { id: 'p' + Date.now(), pre: '', src: 'text', fmt: '{v}', post: '', icon: '', color: 'hvit', link: '', cop: 'alltid' }]),
+        list: PR.map((p, i) => { const up = f => setP(PR.map(x => x.id === p.id ? { ...x, ...f } : x));
+          return { n: i + 1, nLabel: window.kiT ? window.kiT('Setning ' + (i + 1), 'Sentence ' + (i + 1)) : 'Setning ' + (i + 1), opts: SRC.map(([v, label]) => ({ v, label, sel: v === p.src })), key: p.id, pre: p.pre, post: p.post, src: p.src, setPre: e => up({ pre: e.target.value }), setPost: e => up({ post: e.target.value }), setSrc: e => up({ src: e.target.value }),
+            up: () => setP(mv(PR, i, -1)), down: () => setP(mv(PR, i, 1)), upS: sq(i > 0), downS: sq(i < PR.length - 1), del: () => setP(PR.filter(x => x.id !== p.id)) }; }) },
+      back: () => { this.setState({ step: Math.max(0, s.step - 1), jumpOpen: false }); window.scrollTo(0, 0); },
+      backStyle: { flex: 1, height: 56, borderRadius: 28, background: '#383838', fontSize: 16, opacity: s.step ? 1 : 0.4 },
+      next: () => { if (last) { location.href = cp[3] || 'Hjem v3.dc.html'; return; } this.setState({ step: s.step + 1, jumpOpen: false }); window.scrollTo(0, 0); },
+      nextLabel: last ? (s.preset === 'stue' ? 'Åpne Stue-tablet' : 'Gå til Hjem') : 'Neste',
+    };
+  }
+}
+</script>
+</body>
+</html>

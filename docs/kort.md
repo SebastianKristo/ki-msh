@@ -697,6 +697,12 @@ Strømpris nå og per time i dag / i morgen (Norge: spot, totalpris eller Norges
 | `power_price.grid_entity` | Nettleie-sensor (valgfri, today/tomorrow) · entity | Strømpris-kilde |
 | `power_price.mode` | Pris som vises (spot \| total \| norgespris) | Strømpris-kilde |
 | `power_price.unit` | Enhet (kr \| ore) | Strømpris-kilde |
+| `power_price.chart` | Kortet viser (both \| nordpool \| static) | Strømpris-kilde |
+| `power_price.static_entity` | Statisk sensor (én pris for hele døgnet) · entity | Strømpris-kilde |
+| `power_price.static_val` | Fast pris uten sensor · number | Strømpris-kilde |
+| `power_price.cur` | Valuta (kr \| $ \| € \| custom) | Strømpris-kilde |
+| `power_price.cur_txt` | Egen valuta (f.eks. SEK) | Strømpris-kilde |
+| `power_price.sub_txt` | Hundredel (f.eks. öre) | Strømpris-kilde |
 | `power_price.tab.style` | Stil (standard \| glass) | Fane «I dag / I morgen» |
 | `power_price.tab.font` | Tekststørrelse · range | Fane «I dag / I morgen» |
 | `power_price.tab.height` | Høyde · range | Fane «I dag / I morgen» |

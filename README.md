@@ -92,6 +92,9 @@ Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md
   legger seg over navbaren og holder seg innenfor dashbordflaten.
 - **Haptic** på trykk (én per trykk), `touch-action` og `stopPropagation` på alt som dras, så Bubble Card ikke lukker
   popupen mens du justerer en slider.
+- **Tilpass alt:** en veiviser i 13 steg (språk, enhet, servere, header, tema, navbar, faner, rom, Hjem-kort, popups og kiosk),
+  der alt endres direkte og vises med en gang.
+- **Ringeopptak:** når det har ringt på, kan du se et kort videoklipp eller bilder fra ringingen fra hurtigpanelet eller Hjem.
 - **Planter, Søvn og 3D-printer:** egne popups (`#planter`, `#sovn`, `#3d-printer`) som lages automatisk når entitetene
   finnes – jordfukt og vanning per plante, hvem sover og vekking per person, og printerstatus med kamera og filament.
 - **Språk:** norsk eller engelsk (britisk) for hele dashbordet – velg i onboarding, øverst i «Tilpass Hjem» eller i

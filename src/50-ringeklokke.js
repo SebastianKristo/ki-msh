@@ -112,6 +112,7 @@
     u += (u.includes('?') ? '&' : '?') + '_t=' + Math.floor(Date.now() / 10000);
     return u[0] === '/' && h.hassUrl ? h.hassUrl(u) : u;
   };
+  M.ringAreaLabel = areaLabel; M.ringCamImg = camImg; M.ringDetDefs = DET; // Fiks 61.7: Ringeopptak (50b-ringeopptak.js)
   const tsOf = (s) => { if (!s) return 0; const t = new Date(s.state).getTime(); return isNaN(t) ? 0 : t; };
   // Siste ringing: sensor.*_last_doorbell_ring → event-tilstanden → binary_sensor sist på → ringetilstanden
   const lastRingT = (h, A) => {
@@ -814,6 +815,18 @@
   /* ============================================================ ringe-kortet på Hjem (19.18) */
   // Ikke et Lovelace-kort: msh-hjem-card monterer det øverst i Hjem-fanen (under fanelinjen) mens det ringer.
   class RingBanner extends HTMLElement {
+    _put(html) { if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html); }
+    // Fiks 61.7 · «tapt ringing»: snapshot med play-merke, «Kl. HH:MM · n min siden», «Det ringte på · Inngang»,
+    //   «Trykk for å se video og bilder», X fjerner. Trykk → Ringeopptak.
+    _drawMissed(h, A) {
+      const t = M.ringMissedT(), img = M.ringRec ? M.ringRec.snapUrl(h, 0, t) : '';
+      const ago = Math.max(0, Math.round((Date.now() - t) / 60000));
+      this._put(`<style>${BANNER_CSS}</style><div class="rc ms" data-key="rc-m${t}">
+        <div class="r1"><button class="th" data-ki-island data-a="mopen" aria-label="Se opptak">${img ? `<img src="${esc(img)}" alt="" onerror="this.remove()">` : ''}<span class="pl">${M.icon('mdi:play', 22)}</span></button>
+          <button class="tx tl2" data-a="mopen"><div class="when">${M.icon('mdi:bell-ring-outline', 16)}<span>Kl. ${esc(hm(t))} · ${ago < 1 ? 'nå' : ago + ' min siden'}</span></div>
+            <div class="ttl ell">Det ringte på · ${esc(areaLabel(h, A))}</div><div class="sub2">Trykk for å se video og bilder</div></button>
+          <button class="x" data-a="mx" aria-label="Fjern">${M.icon('mdi:close', 20)}</button></div></div>`);
+    }
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
@@ -835,6 +848,9 @@
       if (a === 'open') { M.haptic('light'); return M.openPopup(HASH); }
       if (a === 'x') { M.haptic('light'); return M.ringAvvis(h, A, c); }
       if (a === 'svar') { M.haptic('selection'); this._open = !this._open; return this._draw(); }
+      if (a === 'rec') { M.haptic('light'); return M.ringRec && M.ringRec.open({ t: R.t }); } // 61.7
+      if (a === 'mopen') { M.haptic('light'); return M.ringRec && M.ringRec.open({ t: M.ringMissedT() }); }
+      if (a === 'mx') { M.haptic('light'); if (M.ringMissedClear) M.ringMissedClear(); return undefined; }
       if (a === 'reply') return M.ringSpeak(h, A, c, reps(c)[Number(el.dataset.i)]);
       if (a === 'custom') { M.haptic('light'); return M.ringCustom(h, A, c); }
       if (a === 'unlock') {
@@ -848,6 +864,7 @@
       const h = this.hass;
       if (!h || !this.isConnected) return;
       const c = cfgNow(), A = M.ringAuto(h, c), now = Date.now(), el = Math.max(0, now - R.t);
+      if (!M.ringActive() && M.ringMissedT && M.ringMissedT()) return this._drawMissed(h, A); // 61.7: tapt ringing
       const chips = chipsOf(h, A, c), cam = A.camera || A.pkg, fin = isFinite(R.until), total = fin ? R.until - R.t : 0;
       const lk = A.lock && h.states[A.lock], unl = R.unlocked || (lk && /^(unlocked|open)$/.test(lk.state)), ms = holdMs(c);
       const img = cam && !customElements.get('hui-image') ? camImg(h, cam) : '';
@@ -859,14 +876,15 @@
             ${chips.length ? `<div class="dcs">${chips.map(chipHTML).join('')}</div>` : ''}</div>
           <button class="x" data-a="x" aria-label="Avvis">${M.icon('mdi:close', 20)}</button>
         </div>
-        ${A.lock || (A.speaker && c.show_replies !== false) ? `<div class="r2">
+        ${true ? `<div class="r2">
           ${A.lock ? `<button class="hold ${unl ? 'done' : ''}" data-a="unlock" data-axis="x"><span class="fill"></span><span class="lb">${unl ? `${M.icon('mdi:lock-open-check', 18)}Låst opp` : `${M.icon('mdi:lock-open-variant', 18)}${ms ? 'Hold for å låse opp' : 'Trykk for å låse opp'}`}</span></button>` : ''}
           ${A.speaker && c.show_replies !== false ? `<button class="sv ${this._open ? 'on' : ''}" data-a="svar" aria-expanded="${this._open}">Svar ${M.icon(this._open ? 'mdi:chevron-up' : 'mdi:chevron-down', 18)}</button>` : ''}
+          ${M.ringRec ? `<button class="sv" data-a="rec">${M.icon('mdi:history', 18)}Opptak</button>` : ''}
         </div>` : ''}
         ${this._open && A.speaker ? `<div class="rps">${reps(c).map((r, i) => `<button class="rp" data-a="reply" data-i="${i}">${esc(r.text)}</button>`).join('')}<button class="rp own" data-a="custom">${M.icon('mdi:plus', 16)}Egen tekst</button></div>` : ''}
         ${fin ? `<div class="tl"><span style="animation-duration:${total}ms;animation-delay:-${Math.min(el, total)}ms"></span></div>` : ''}
       </div>`;
-      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);
+      this._put(html);
       // Live-miniatyr (hui-image, camera_view auto) – samme som kamera-flisene
       const slot = this.shadowRoot.querySelector('.thm');
       if (slot && cam && customElements.get('hui-image')) {
@@ -900,6 +918,10 @@
     .when ha-icon{font-size:16px}
     .when.shk ha-icon{animation:rkShake .9s ease-in-out infinite;transform-origin:50% 10%}
     .ttl{font-size:16px;font-weight:500}
+    .rc.ms{box-shadow:inset 0 0 0 1px ${WA(0.08)};animation:none} /* 61.7: tapt ringing */
+    .pl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:rgba(0,0,0,0.5);color:#fff;font-size:22px} /* ki-hex-ok: slør over kamerabildet */
+    .tl2{text-align:left;align-items:flex-start}
+    .sub2{font-size:12px;color:var(--ki-text-mid, #979797)}
     .dcs{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
     .dc{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;border-radius:12px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:12px;font-weight:500;--mdc-icon-size:14px}
     .dc.red{background:rgb(242 128 115 / .85);color:var(--ki-on-accent, #2f2f2f)}

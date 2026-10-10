@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+<script src="./image-slot.js"></script>
+<script src="./i18n.js"></script>
+</helmet>
+<div style="font-family:'Space Grotesk',system-ui,sans-serif;color:#fafafa">
+  <div onClick="{{ close }}" style="position:fixed;inset:0;z-index:1200;background:rgba(10,10,10,0.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)"></div>
+  <div data-nodrag="1" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1201;box-sizing:border-box;width:calc(100% - 24px);max-width:480px;max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:32px;background:#2f2f2f;box-shadow:0 30px 70px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.08)">
+    <div style="display:flex;align-items:center;gap:12px;padding:2px 2px 0 4px">
+      <span style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:rgb(242 181 115);color:#232323"><span class="ms" style="font-size:22px;font-variation-settings:'FILL' 1">doorbell</span></span>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:18px;font-weight:600">Det ringte på · Inngang</span>
+        <span style="font-size:13px;color:#a8a8a8">{{ sub }}</span>
+      </div>
+      <button onClick="{{ close }}" title="Lukk" style="width:40px;height:40px;border-radius:20px;flex:none;border:0;cursor:pointer;display:grid;place-items:center;background:#404040;color:#fafafa"><span class="ms" style="font-size:20px">close</span></button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:3px;border-radius:22px;background:#232323">
+      <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.go }}" style="{{ m.style }}"><span class="ms" style="font-size:18px">{{ m.icon }}</span>{{ m.label }}</button></sc-for>
+    </div>
+    <sc-if value="{{ isVideo }}" hint-placeholder-val="{{ true }}">
+      <div style="position:relative;aspect-ratio:16/10;border-radius:22px;overflow:hidden;background:#1c1c1c">
+        <image-slot id="ring-klipp" placeholder="Klipp fra ringeklokka" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
+        <span style="position:absolute;left:10px;top:10px;display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:11px;background:rgba(0,0,0,0.55);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none">{{ stamp }}</span>
+        <button onClick="{{ play }}" title="{{ playTitle }}" style="{{ playBtn }}"><span class="ms" style="font-size:30px;font-variation-settings:'FILL' 1">{{ playIcon }}</span></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:0 4px">
+        <span style="font-size:12px;color:#a8a8a8;font-variant-numeric:tabular-nums;width:34px">{{ tNow }}</span>
+        <div onPointerDown="{{ seek }}" style="position:relative;flex:1;height:24px;cursor:pointer;touch-action:none"><div style="position:absolute;left:0;right:0;top:10px;height:4px;border-radius:2px;background:#484848"></div><div style="{{ fill }}"></div><span style="{{ knob }}"></span></div>
+        <span style="font-size:12px;color:#a8a8a8;font-variant-numeric:tabular-nums;width:34px;text-align:right">{{ tEnd }}</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isSnap }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative;aspect-ratio:16/10;border-radius:22px;overflow:hidden;background:#1c1c1c">
+        <sc-for list="{{ frames }}" as="f" hint-placeholder-count="4"><div style="{{ f.big }}"><image-slot id="{{ f.id }}" placeholder="{{ f.ph }}" style="position:absolute;inset:0;width:100%;height:100%"></image-slot></div></sc-for>
+        <span style="position:absolute;left:10px;top:10px;display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:11px;background:rgba(0,0,0,0.55);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none">{{ snapStamp }}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">
+        <sc-for list="{{ frames }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.go }}" style="{{ f.thumb }}"><span style="position:absolute;inset:0;display:grid;place-items:center;color:#7f7f7f"><span class="ms" style="font-size:20px">photo_camera</span></span><span style="position:absolute;left:0;right:0;bottom:0;padding:3px 0;background:rgba(0,0,0,0.55);font-size:11px;font-weight:500;text-align:center">{{ f.label }}</span></button></sc-for>
+      </div>
+    </sc-if>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 2px">
+      <sc-for list="{{ dets }}" as="d" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px 0 8px;border-radius:14px;background:#404040;font-size:12px;color:#d0d0d0"><span class="ms" style="font-size:15px;font-variation-settings:'FILL' 1">{{ d.icon }}</span>{{ d.label }}</span></sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+      <sc-for list="{{ acts }}" as="a" hint-placeholder-count="3"><button onClick="{{ a.go }}" style="height:48px;border-radius:24px;border:0;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;background:#404040;color:#fafafa"><span class="ms" style="font-size:18px">{{ a.icon }}</span>{{ a.label }}</button></sc-for>
+    </div>
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><span style="align-self:center;font-size:12px;color:#a8a8a8">{{ toast }}</span></sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:480,&quot;height&quot;:760},&quot;at&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;17:21&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;ago&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;14 min siden&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onLive&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+const LEN = 10;
+const PK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const mmss = s => `0:${String(Math.floor(s)).padStart(2, '0')}`;
+const T = (n, e) => window.kiT ? window.kiT(n, e) : n;
+class Component extends DCLogic {
+  state = { mode: 'video', t: 0, playing: false, fr: 1, toast: null };
+  componentWillUnmount() { clearInterval(this._iv); clearTimeout(this._tt); }
+  setPlay(on) { clearInterval(this._iv); if (on) { if (this.state.t >= LEN) this.setState({ t: 0 }); this._iv = setInterval(() => { const t = Math.min(LEN, this.state.t + 0.1); this.setState({ t, playing: t < LEN }); if (t >= LEN) clearInterval(this._iv); }, 100); } this.setState({ playing: on }); }
+  say(m) { clearTimeout(this._tt); this.setState({ toast: m }); this._tt = setTimeout(() => this.setState({ toast: null }), 1800); }
+  renderVals() {
+    const s = this.state, at = this.props.at || '17:21', ago = this.props.ago || '', hp = t => window.haptic && window.haptic(t);
+    const [hh, mi] = at.split(':').map(Number), clk = sec => { const x = (hh * 3600 + mi * 60 + 4 + Math.floor(sec)); return `${String(Math.floor(x / 3600) % 24).padStart(2, '0')}:${String(Math.floor(x / 60) % 60).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+    const p = s.t / LEN;
+    return {
+      sub: ago ? `${T('Kl.', 'At')} ${at} · ${ago}` : `${T('Kl.', 'At')} ${at}`,
+      close: () => { hp('light'); this.setPlay(false); this.props.onClose && this.props.onClose(); },
+      modes: [['video', 'movie', 'Video'], ['snap', 'photo_library', 'Bilder']].map(([k, icon, label]) => ({ icon, label, go: () => { hp('selection'); this.setPlay(false); this.setState({ mode: k }); },
+        style: { height: 40, borderRadius: 20, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: s.mode === k ? PK : 'transparent', color: s.mode === k ? '#2a1720' : '#c7c7c7' } })),
+      isVideo: s.mode === 'video', isSnap: s.mode === 'snap',
+      stamp: clk(s.t), tNow: mmss(s.t), tEnd: mmss(LEN),
+      play: () => { hp('light'); this.setPlay(!s.playing); }, playIcon: s.playing ? 'pause' : s.t >= LEN ? 'replay' : 'play_arrow', playTitle: s.playing ? T('Pause', 'Pause') : T('Spill av', 'Play'),
+      playBtn: { position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 64, height: 64, borderRadius: 32, border: 0, cursor: 'pointer', display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.5)', color: '#fff', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)', opacity: s.playing ? 0.35 : 1, transition: 'opacity .2s' },
+      seek: e => { const r = e.currentTarget.getBoundingClientRect(), q = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); this.setState({ t: q * LEN }); },
+      fill: { position: 'absolute', left: 0, top: 10, height: 4, borderRadius: 2, width: `${p * 100}%`, background: 'rgb(242 133 201)' },
+      knob: { position: 'absolute', top: 5, left: `calc(${p * 100}% - 7px)`, width: 14, height: 14, borderRadius: 7, background: '#fafafa', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' },
+      frames: [0, 2, 4, 6].map((sec, i) => ({ id: `ring-snap-${i}`, ph: `${T('Bilde', 'Image')} +${sec} s`, label: `+${sec} s`, go: () => { hp('selection'); this.setState({ fr: i }); },
+        big: { position: 'absolute', inset: 0, opacity: s.fr === i ? 1 : 0, pointerEvents: s.fr === i ? 'auto' : 'none', transition: 'opacity .2s' },
+        thumb: { position: 'relative', aspectRatio: '4/3', borderRadius: 14, overflow: 'hidden', border: 0, cursor: 'pointer', padding: 0, color: '#fafafa', fontFamily: 'inherit', background: '#1c1c1c', boxShadow: s.fr === i ? 'inset 0 0 0 2px rgb(242 133 201)' : 'none' } })),
+      snapStamp: clk([0, 2, 4, 6][s.fr]),
+      dets: [['person', T('Person', 'Person')], ['package_2', T('Pakke', 'Package')]].map(([icon, label]) => ({ icon, label })),
+      acts: [['videocam', 'Se live', () => { this.setPlay(false); this.props.onLive ? this.props.onLive() : this.say(T('Åpner kamera', 'Opening camera')); }], ['download', 'Lagre', () => this.say(T('Lagret i Bilder', 'Saved to Photos'))], ['share', 'Del', () => this.say(T('Delingslenke kopiert', 'Share link copied'))]]
+        .map(([icon, label, go]) => ({ icon, label, go: () => { hp('light'); go(); } })),
+      toast: s.toast || false,
+    };
+  }
+}
+</script>
+</body>
+</html>

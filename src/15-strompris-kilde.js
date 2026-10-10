@@ -101,7 +101,7 @@
   };
 
   /* ------------------------------------------------------------ config */
-  const DEF = { profile: 'no', source: '', spot_entity: '', norgespris_entity: '', norgespris: 0.5, grid_entity: '', area: '', se_entity: '', se_area: '', se_unit: 'auto', mode: 'spot', unit: 'kr', tab: { style: 'standard', font: 14, height: 30, padding: 20 } };
+  const DEF = { profile: 'no', source: '', spot_entity: '', norgespris_entity: '', norgespris: 0.5, grid_entity: '', area: '', se_entity: '', se_area: '', se_unit: 'auto', mode: 'spot', unit: 'kr', chart: 'both', static_entity: '', static_val: 1, cur: 'kr', cur_txt: '', sub_txt: '', tab: { style: 'standard', font: 14, height: 30, padding: 20 } };
   M.POWER_PRICE_DEF = DEF;
   M.POWER_SOURCES = [['nordpool', 'Nord Pool'], ['tibber', 'Tibber'], ['strompris', 'Strømpris'], ['custom', 'Egen sensor']];
   M.POWER_AREAS = { no: ['NO1', 'NO2', 'NO3', 'NO4', 'NO5'], se: ['SE1', 'SE2', 'SE3', 'SE4'] };
@@ -127,6 +127,11 @@
     if (!['auto', 'ore', 'kr'].includes(c.se_unit)) c.se_unit = 'auto';
     if (!M.POWER_SOURCES.some((x) => x[0] === c.source) || (c.profile === 'se' && c.source === 'strompris')) c.source = '';
     const np = num(c.norgespris); c.norgespris = np == null ? 0.5 : np;
+    // Fiks 61.3 · visning og valuta: chart both (Nord Pool + Norgespris) | nordpool | static (fast pris: static_entity / static_val)
+    if (!['both', 'nordpool', 'static'].includes(c.chart)) c.chart = 'both';
+    const sv = num(c.static_val); c.static_val = sv == null ? 1 : sv;
+    if (!['kr', '$', '€', 'custom'].includes(c.cur)) c.cur = 'kr';
+    c.cur_txt = String(c.cur_txt || '').trim(); c.sub_txt = String(c.sub_txt || '').trim();
     Object.defineProperty(c, '__pp', { value: true });
     return c;
   };
@@ -222,7 +227,7 @@
       if (!el.isConnected) { watchers.delete(el); return; }
       try { if (el.update) el.update(); else if (el._schedule) el._schedule(true); } catch (e) { /* */ }
     });
-    try { window.dispatchEvent(new CustomEvent('msh-power-price')); } catch (e) { /* */ }
+    try { window.dispatchEvent(new CustomEvent('msh-power-price')); const ev = new Event('hjem-price'); ev.__ki = 1; window.dispatchEvent(ev); } catch (e) { /* */ } // 61.3: 'hjem-price' (som designet)
   }
   M.powerPriceWatch = (el) => { if (el) watchers.add(el); };
   let subbed = false;
@@ -232,6 +237,8 @@
     M.store.subscribe((d, path) => { if (!path || path === 'power_price' || String(path).startsWith('power_price.')) { memo = null; notify(); } });
   };
   sub();
+  // 61.3: 'hjem-price' fra andre steder (designets nøkkel) → tegn på nytt
+  window.addEventListener('hjem-price', (e) => { if (e && e.__ki) return; memo = null; watchers.forEach((el) => { if (el.isConnected) try { if (el.update) el.update(); else if (el._schedule) el._schedule(true); } catch (x) { /* */ } }); });
 
   /* ------------------------------------------------------------ hovedfunksjonen */
   let memo = null;
@@ -249,7 +256,9 @@
     const gEnt = c.grid_entity || null;
     if (card && card.s) [entity, npEnt, gEnt].forEach((id) => id && card.s(id));
     const h = new Date().getHours();
-    const key = JSON.stringify(c) + '|' + h + '|' + (entity || '') + '|' + (npEnt || '');
+    const sEnt = c.chart === 'static' && c.static_entity ? c.static_entity : null; // 61.3
+    if (card && card.s && sEnt) card.s(sEnt);
+    const key = JSON.stringify(c) + '|' + h + '|' + (entity || '') + '|' + (npEnt || '') + '|' + (sEnt && hass && hass.states[sEnt] ? hass.states[sEnt].state : '');
     if (memo && memo.states === (hass && hass.states) && memo.key === key && memo.tib === TIB.t) return memo.P;
 
     const st = entity && hass && hass.states ? hass.states[entity] : null;
@@ -305,6 +314,14 @@
       today = spotToday; tomorrow = spotTomorrow; now = spotNow;
       if (norgespris) ref = { label: 'Norgespris', now: norgespris.v, today: flat(Array(24).fill(0), norgespris.v), tomorrow: flat(spotTomorrow, norgespris.v) };
     }
+    // 61.3: «Bare Nord Pool» skjuler Norgespris; «Statisk» = flat linje på én pris for hele døgnet (sensor eller fast verdi)
+    let staticV = null;
+    if (c.chart === 'static') {
+      const ss = sEnt && hass && hass.states[sEnt];
+      staticV = ss && M.isNum(ss.state) ? Number(ss.state) * M.priceScale(ss) : c.static_val;
+      today = Array(24).fill(staticV); tomorrow = Array(24).fill(staticV); now = staticV; ref = null;
+    } else if (c.chart === 'nordpool' && ref && /Norgespris/.test(ref.label)) ref = null;
+    const showNp = c.chart === 'both' && !se;
     const nT = cnt(spotToday), nM = cnt(spotTomorrow);
 
     // Status
@@ -318,16 +335,19 @@
     if (kind !== 'err' && gEnt && !(hass && hass.states[gEnt])) { status += ` · nettleie ${gEnt} finnes ikke`; kind = 'warn'; }
 
     const ore = c.unit === 'ore';
+    // 61.3 · valuta: hovedenhet {valuta}/kWh, hundredel kr → øre (SE: öre), $ og € → cent, egendefinert → sub_txt (standard cent)
+    const curM = c.cur === 'custom' ? (c.cur_txt || 'kr') : c.cur === 'kr' ? 'kr' : c.cur;
+    const curS = c.cur === 'custom' ? (c.sub_txt || 'cent') : c.cur === 'kr' ? (se ? 'öre' : 'øre') : 'cent';
     const P = {
       cfg: c, profile: c.profile, source: src, area: (se ? c.se_area : c.area) || (entity && hass ? areaOfSensor(hass, entity) : '') || '',
       mode: c.mode, currency: se ? 'SEK' : 'NOK', entity: entity || null, auto, state: st,
       now, spotNow, today, tomorrow, spotToday, spotTomorrow, ref, grid, norgespris,
       hasToday: today.some((v) => v != null), hasTomorrow: tomorrow.some((v) => v != null), nToday: nT, nTomorrow: nM,
-      unit: ore ? 'øre/kWh' : 'kr/kWh', k: ore ? 100 : 1, graphUnit: se ? 'öre/kWh' : 'øre/kWh',
+      unit: ore ? `${curS}/kWh` : `${curM}/kWh`, k: ore ? 100 : 1, graphUnit: `${curS}/kWh`, cur: curM, sub: curS, chart: c.chart, staticV, showNp: showNp && c.chart !== 'static',
       status, statusKind: kind,
       fmt(v, o) {
         if (v == null || isNaN(v)) return '–';
-        const u = o && o.unit ? (ore ? ' øre/kWh' : ' kr/kWh') : ore ? ' øre' : ' kr';
+        const u = o && o.unit ? (ore ? ` ${curS}/kWh` : ` ${curM}/kWh`) : ore ? ` ${curS}` : ` ${curM}`;
         return (ore ? M.nf(v * 100, Math.abs(v) < 0.1 ? 1 : 0) : M.nf(v, 2)) + u;
       },
       val(v) { return v == null || isNaN(v) ? '–' : ore ? M.nf(v * 100, Math.abs(v) < 0.1 ? 1 : 0) : M.nf(v, 2); },

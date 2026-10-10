@@ -618,24 +618,26 @@
         ${u.ex ? `<div class="exl">${list.length ? list.map(([id, icon, l, kwh]) => `<div class="exi"><span class="ico">${ic(icon, 20)}</span><span class="n"><b>${esc(l)}</b><span>~${nf(kwh, kwh < 1 ? 2 : 1)} kWh</span></span><span class="v">${fx(kwh)} <small>kr</small></span></div>`).join('') : `<div class="exi"><span class="n"><span>Ingen eksempler valgt – velg i Tilpass → Visning</span></span></div>`}</div>` : ''}`;
       // graf
       const tom = u.pday === 1;
-      const hourly = (tom ? P.spotTomorrow : P.spotToday) || Array(24).fill(null);
+      // Fiks 61.3: «Prisgraf» (power_price.chart, felles med Hjem-kortet): both · nordpool (uten Norgespris) · static (flat linje)
+      const chartM = P.chart || 'both', stat = chartM === 'static', curU = `${P.cur || 'kr'}/kWh`, npLine = chartM === 'both' ? V.norge : null;
+      const hourly = (stat ? (tom ? P.tomorrow : P.today) : tom ? P.spotTomorrow : P.spotToday) || Array(24).fill(null);
       const nowH = new Date().getHours();
       const has = hourly.some((v) => v != null);
       let si = u.selH != null ? u.selH : tom ? null : nowH;
       if (si != null && hourly[si] == null) si = null;
       const avg = avgOf(hourly), sv2 = si == null ? avg : hourly[si];
       const lv = levelOf(sv2, avgOf(hourly), null);
-      const selLabel = !has ? (tom ? 'Spotpris i morgen' : 'Spotpris i dag') : si == null ? (tom ? 'Snitt i morgen' : 'Snitt i dag') : `${si === nowH && !tom ? 'Nå · ' : tom ? 'I morgen · ' : ''}kl. ${M.pad(si)}–${M.pad((si + 1) % 24)}`;
+      const selLabel = stat ? 'Fast pris' : !has ? (tom ? 'Spotpris i morgen' : 'Spotpris i dag') : si == null ? (tom ? 'Snitt i morgen' : 'Snitt i dag') : `${si === nowH && !tom ? 'Nå · ' : tom ? 'I morgen · ' : ''}kl. ${M.pad(si)}–${M.pad((si + 1) % 24)}`;
       const graf = `<div class="gc">
-        <div class="gh"><span style="display:flex;flex-direction:column;gap:4px"><span class="sl">${selLabel}</span><span class="sv"><b>${sv2 != null ? nf(sv2, 2) : '–'}</b><small>kr/kWh</small></span>${lv != null ? `<span class="lchip" style="background:${LVL[lv][1]}">${LVL[lv][0]}</span>` : ''}</span>
+        <div class="gh"><span style="display:flex;flex-direction:column;gap:4px"><span class="sl">${selLabel}</span><span class="sv"><b>${sv2 != null ? nf(sv2, 2) : '–'}</b><small>${esc(curU)}</small></span>${lv != null ? `<span class="lchip" style="background:${LVL[lv][1]}">${LVL[lv][0]}</span>` : ''}</span>
           <span class="seg" data-glass-drag="x">${[['I dag', 0], ['I morgen', 1]].map(([l, k]) => `<button class="${(u.pday || 0) === k ? 'on' : ''}" data-act="pday" data-v="${k}" data-haptic="selection">${l}</button>`).join('')}</span></div>
-        ${this._chartHTML(hourly, has, tom, si, nowH, V.norge)}
-        <div class="lg"><span><span style="width:14px;height:2px;background:rgb(242 133 201)"></span>Spotpris (kr/kWh)</span>${V.norge != null ? '<span><span style="width:14px;border-top:2px dashed rgb(115 165 230)"></span>Norgespris</span>' : ''}</div>
+        ${this._chartHTML(hourly, has, tom, si, nowH, npLine)}
+        <div class="lg"><span><span style="width:14px;height:2px;background:rgb(242 133 201)"></span>${stat ? 'Statisk pris' : `Spotpris (${esc(curU)})`}</span>${npLine != null ? '<span><span style="width:14px;border-top:2px dashed rgb(115 165 230)"></span>Norgespris</span>' : ''}</div>
       </div>`;
       // lavest/høyest/snitt
       const hv = hourly.filter((v) => v != null), mn = hv.length ? Math.min(...hv) : null, mx = hv.length ? Math.max(...hv) : null;
       const hOf = (v) => M.pad(hourly.indexOf(v));
-      const minis = `<div class="minis">${[['mdi:arrow-down', 'Lavest', mn, mn != null ? `kl. ${hOf(mn)}` : '–', GREEN_F], ['mdi:arrow-up', 'Høyest', mx, mx != null ? `kl. ${hOf(mx)}` : '–', RED_F], ['mdi:function-variant', 'Snitt', avg, 'kr/kWh', T2]]
+      const minis = `<div class="minis">${[['mdi:arrow-down', 'Lavest', mn, mn != null ? `kl. ${hOf(mn)}` : '–', GREEN_F], ['mdi:arrow-up', 'Høyest', mx, mx != null ? `kl. ${hOf(mx)}` : '–', RED_F], ['mdi:function-variant', 'Snitt', avg, curU, T2]]
         .map(([icon, l, v, s, col]) => `<div class="mi"><span class="l">${ic(icon, 15, 'color:' + col)}${l}</span><span class="v">${v != null ? nf(v, 2) : '–'}</span><span class="s">${s}</span></div>`).join('')}</div>`;
       // inkludert i prisen
       const TG = togglesOf(this.hass, c);
@@ -1057,6 +1059,8 @@
             <div class="entc">${ic('mdi:access-point', 20, 'color:var(--ki-text-2, #afafaf)')}<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><b>${esc(pe)}</b><span>${esc(pl)} · ${pv != null ? nf(pv, 2) : '–'} kr/kWh nå</span></span></div>
             <span class="bl" style="padding-top:4px">Eksempler som vises</span>
             ${EXALL.map(([id, icon, l, kwh]) => `<button class="swr" data-a="exs" data-v="${id}"><span class="swi">${ic(icon, 20)}</span><span class="swn"><b>${esc(l)}</b><span>~${nf(kwh, kwh < 1 ? 2 : 1)} kWh · ${pv != null ? nf(kwh * pv, kwh * pv >= 10 ? 1 : 2) : '–'} kr</span></span>${swH(exOn.includes(id))}</button>`).join('')}`)}
+          <span class="lab">Prisgraf</span>
+          ${(() => { const PC = M.powerPriceCfg ? M.powerPriceCfg() : {}, ch = PC.chart || 'both'; return `<div class="sg" data-glass-drag="x">${[['both', 'Nord Pool + Norgespris'], ['nordpool', 'Bare Nord Pool'], ['static', 'Statisk']].map(([k, l]) => `<button class="${ch === k ? 'on' : ''}" data-a="pchart" data-v="${k}">${l}</button>`).join('')}</div><span class="bl">Samme valg som «Tilpass Hjem» → Popups → Strømpris (statisk sensor og valuta settes der)</span>`; })()}
           <span class="lab">Fanelinje</span>
           ${acc('ts', 'mdi:tab', 'Stil på fanelinjen', `${TSTY[tsOf(c)].name} · ${Object.keys(TSTY).length} stiler`, Object.keys(TSTY).map((k) => `<button class="tsc${tsOf(c) === k ? ' on' : ''}" data-a="ts" data-v="${k}"><span class="tsh"><b>${TSTY[k].name}</b><span>${TSTY[k].sub}</span><span class="ck">${ic('mdi:check-circle', 20)}</span></span><span class="tsp">${tabBarHTML(c, null, true, k)}</span></button>`).join(''))}
           <span class="lab">Forbruk-kort · hold inne på kortene i popupen for å bytte plass</span>
@@ -1103,6 +1107,14 @@
           case 'auto': { hp(); st.q = null; if (/^S:/.test(v)) { const o = { ...(isObj(c.sensorer) ? c.sensorer : {}) }; delete o[v.slice(2)]; return x.set({ sensorer: Object.keys(o).length ? o : null }); } const o = { ...(c.ent || {}) }; delete o[v]; return x.set({ ent: Object.keys(o).length ? o : null }); }
           case 'start': hp(); return x.set({ start: v === 'last' ? null : v, start_tab: v === 'last' ? 'last' : null });
           case 'exp': hp(); return x.set({ exPrice: v });
+          case 'pchart': { // 61.3: felles power_price.chart (ki-store) → 'hjem-price'
+            hp();
+            const pp = { ...((M.store && M.store.get('power_price')) || {}) };
+            if (v === 'both') delete pp.chart; else pp.chart = v;
+            if (M.store) M.store.set('power_price', Object.keys(pp).length ? pp : undefined, { immediate: true });
+            try { window.dispatchEvent(new Event('hjem-price')); } catch (e2) { /* */ }
+            return x.rerender();
+          }
           case 'exs': { hp(); const on = exShowOf(c); return x.set({ exShow: on.includes(v) ? on.filter((k) => k !== v) : EXALL.map((k) => k[0]).filter((k) => k === v || on.includes(k)) }); }
           case 'ts': hp(); return x.set({ tabStyle: v });
           case 'acc': { hp('light'); st.acc = { ...(st.acc || {}), [v]: !(st.acc && st.acc[v]) }; return x.rerender(); }

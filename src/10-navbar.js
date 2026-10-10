@@ -268,6 +268,7 @@
     if (!(Array.isArray(c.bar) && c.bar.includes('kart')) && !(Array.isArray(c.more) && c.more.includes('kart'))) hidden.add('kart'); // 20.22: ny knapp, av til den slås på
     return { B, bar, more, hidden, badges: c.badges || {} };
   }
+  M.navCat = () => CAT; M.navNorm = norm; // Fiks 61.2: «Tilpass alt» → Navbar
   const catOf = (N, id) => { const b = N.B[id] || {}, d = CAT[id] || ['star', id]; return [b.icon || d[0], b.label || d[1]]; };
   // Trykk-handling (Fiks 15.6): buttons.<id>.tap i HA-format ({ action: navigate, navigation_path: '#tesla' | '/sti' },
   // { action: url, url_path }, { action: none }). Uten tap: gammel nøkkel buttons.<id>.hash, ellers innebygd '#<id>'.
