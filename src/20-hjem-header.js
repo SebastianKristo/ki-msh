@@ -1549,8 +1549,8 @@
           // Fiks 37: servere / server_navn / server_sti / server_plass / server_meny_med (MSH.servervelger, 06-server.js)
           { type: 'section', id: 'servers', label: 'Steder', icon: 'mdi:swap-horizontal', meta: (h, cc) => { const n = SV.list(cc).length; return n ? n + ' steder' : 'Ingen'; }, fields: [
             { type: 'rows', name: 'servere', label: 'Bytt sted – Home Assistant-servere', defaults: (h, cc) => SV.list(cc), addLabel: 'Legg til sted',
-              help: 'Trykk i Companion-appen bytter server med homeassistant://navigate/<dashbord>?server=<navn>. «Navn i appen» må være NØYAKTIG som i appens serverliste (ø/ö skrives som de er). Ikke satt = standardstedene Oslo, Toten og Strømstad. Slett alle steder for å fjerne menyen og pila.',
-              norm: (list) => SV.parse(list).map((r) => { const o = { navn: r.navn }; if (r.server && r.server !== r.navn) o.server = r.server; ['ikon', 'farge', 'sti'].forEach((k) => { if (r[k]) o[k] = r[k]; }); return o; }),
+              help: 'Trykk i Companion-appen bytter server med homeassistant://navigate/<dashbord>?server=<navn>. «Navn i appen» må være NØYAKTIG som i appens serverliste (ø/ö skrives som de er). Ikke satt = standardstedene Oslo, Toten og Strømstad. Med bare én server (eller ingen) vises verken meny eller pil.',
+              norm: (list) => SV.parse(list).map((r) => { const o = { navn: r.navn }; if (r.server && r.server !== r.navn) o.server = r.server; ['ikon', 'farge', 'sti', 'url'].forEach((k) => { if (r[k]) o[k] = r[k]; }); return o; }),
               title: (r) => r.navn || 'Nytt sted', sub: (r) => (!r.navn ? 'Mangler navn' : [r.server && r.server !== r.navn ? 'I appen: ' + r.server : '', r.sti ? '/' + String(r.sti).replace(/^\/+/, '') : 'Samme dashbord'].filter(Boolean).join(' · ')),
               chip: (r, i) => { const st = SV.stil(r, i); return `<span class="xchip" style="border-radius:11px;background:${M.alpha(st.farge, 0.22)};color:${M.theme ? M.theme.accentText(st.farge) : st.farge}">${M.icon(st.ikon, 18)}</span>`; },
               newRow: () => ({ navn: '' }),
@@ -1559,6 +1559,7 @@
                 { type: 'text', name: 'server', label: 'Navn i appen (valgfri)', help: 'Tom = samme som navnet. F.eks. Strömstad → Strømstad.' },
                 { type: 'icon', name: 'ikon', label: 'Ikon', auto: (r) => SV.stil(r, 0).ikon },
                 { type: 'color', name: 'farge', label: 'Farge' },
+                { type: 'text', name: 'url', label: 'Adresse (valgfri)', help: 'F.eks. https://hytta.duckdns.org – brukes utenfor Companion-appen.' },
                 { type: 'text', name: 'sti', label: 'Dashbord-sti (valgfri)', help: 'Tom = server_sti, ellers samme dashbord som du står på. Eks. «dashboard-mysmarthome».' },
               ] },
             { type: 'text', name: 'server_navn', label: 'Denne serverens navn (valgfri)', auto: (h, cc) => SV.navn({ ...SV.cfg(cc), server_navn: undefined }, h) || 'fant ingen', help: 'Tom = gjenkjennes fra navnet på Home Assistant-installasjonen (store/små bokstaver og ø/ö spiller ingen rolle).' },
@@ -1625,8 +1626,8 @@
       const ut = c.undertekst ? SV.rydd(fill(c.undertekst)) : '';
       const sub = ut || ((Md === 'hjem' || Md === 'profil') ? (W.text || '–') : '');
       // Pil på den store linja bare når den åpner menyen (servere + tittel/navn); uten servere: ingen meny, ingen pil
-      const pilOn = srv.list.length > 0 && plass !== 'under';
-      const under = plass === 'under', underMeny = under && srv.list.length > 0, apen = !!this._srv;
+      const pilOn = srv.list.length > 1 && plass !== 'under'; // 61.1: én server = ingen pil
+      const under = plass === 'under', underMeny = under && srv.list.length > 1, apen = !!this._srv;
       const big = Md === 'stor', hil = isHil(Md), HS = hilSizes(c, this._isFold());
       // 26.22: smal dashbordflate (< 420 px) → 56 px bilder og 26 px merke
       const narrow = hil && (M.dashRect ? M.dashRect().width : window.innerWidth) < HIL_NARROW.w;
@@ -1779,6 +1780,7 @@
       if (name === 'srvmenu') { // «under»: stedsnavnet på linja under åpner/lukker menyen
         if (ev) ev.stopPropagation();
         M.haptic('light');
+        if (!this._srv && this._server().list.length < 2) return undefined; // 61.1
         return this._srv ? this._srvClose() : this._serverMenu(el);
       }
       if (name === 'person') {
@@ -1819,7 +1821,7 @@
     // Trykk utenfor / Esc lukker; andre trykk innen 320 ms (dobbelttrykk) lukker uten utgangsanimasjon.
     _serverMenu(anchor) {
       const S = this._server();
-      if (!S.list.length) return null; // ingen servere → ingen meny
+      if (S.list.length < 2) return null; // 61.1: ingen eller én server → ingen meny
       const a = anchor || this.shadowRoot.querySelector(S.plass === 'under' ? '.svv' : '.ttl .tx') || this.shadowRoot.querySelector('.ttl');
       const ov = SV.meny({
         anchor: a, liste: S.list, her: S.name, tilpass: true,

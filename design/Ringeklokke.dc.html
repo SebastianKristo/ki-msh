@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#232323;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+[data-hscroll]::-webkit-scrollbar{display:none}
+</style>
+<script src="./i18n.js"></script>
+</helmet>
+<div style="box-sizing:border-box;width:100%;max-width:440px;margin:0 auto;padding:0 14px 40px;display:flex;flex-direction:column;gap:12px">
+  <sc-if value="{{ standalone }}" hint-placeholder-val="{{ false }}">
+    <header style="display:flex;align-items:center;gap:12px;padding:20px 4px 8px">
+      <span style="width:44px;height:44px;border-radius:22px;background:#e6e6e6;color:#232323;display:grid;place-items:center"><span class="ms" style="font-size:24px">doorbell</span></span>
+      <span style="font-size:30px;font-weight:500">Ringeklokke</span>
+    </header>
+  </sc-if>
+  <section style="position:relative;height:340px;border-radius:30px;overflow:hidden;background:linear-gradient(180deg,#1b1b1b,#101010);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08)">
+    <div style="position:absolute;inset:0;display:grid;place-items:center"><span class="ms" style="font-size:56px;color:#555">doorbell</span></div>
+    <div style="position:absolute;left:12px;right:12px;top:12px;display:flex;align-items:center;gap:8px">
+      <span style="height:34px;padding:0 12px;border-radius:17px;background:rgba(0,0,0,0.55);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:4px;background:#f07a6a"></span>LIVE</span>
+      <div style="display:flex;padding:3px;border-radius:19px;background:rgba(0,0,0,0.55)"><sc-for list="{{ cams }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.go }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+      <span style="flex:1"></span>
+      <button onClick="{{ toggleMute }}" style="width:40px;height:40px;border-radius:20px;background:rgba(0,0,0,0.55);display:grid;place-items:center"><span class="ms" style="font-size:20px">{{ muteIcon }}</span></button>
+      <button style="width:40px;height:40px;border-radius:20px;background:rgba(0,0,0,0.55);display:grid;place-items:center"><span class="ms" style="font-size:20px">settings</span></button>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:0;padding:60px 18px 16px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.85));display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:24px;font-weight:600">Ringeklokke</span>
+      <span style="font-size:14px;color:#c9c9c9">Gang · ringte for 1 min siden</span>
+      <div style="display:flex;gap:6px;padding-top:4px"><sc-for list="{{ tags }}" as="t" hint-placeholder-count="2"><span style="height:28px;padding:0 10px;border-radius:14px;background:rgba(255,255,255,0.12);display:flex;align-items:center;gap:5px;font-size:13px"><span class="ms" style="font-size:15px">{{ t.icon }}</span>{{ t.label }}</span></sc-for></div>
+    </div>
+  </section>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+    <button onClick="{{ snap }}" style="height:110px;border-radius:26px;background:#383838;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500"><span class="ms" style="font-size:28px">camera</span>Ta bilde</button>
+    <button onPointerDown="{{ holdStart }}" onPointerUp="{{ holdEnd }}" onPointerLeave="{{ holdEnd }}" style="{{ unlockStyle }}"><span class="ms" style="font-size:28px">{{ unlockIcon }}</span>{{ unlockLabel }}<span style="font-size:11px;opacity:0.7">{{ unlockSub }}</span></button>
+    <button onClick="{{ dismiss }}" style="height:110px;border-radius:26px;background:#383838;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500"><span class="ms" style="font-size:28px">notifications_off</span>Avvis</button>
+  </div>
+  <span style="font-size:12px;letter-spacing:0.1em;color:#9a9a9a;padding:6px 4px 0">SVAR VIA HØYTTALEREN</span>
+  <div data-hscroll="1" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px">
+    <sc-for list="{{ replies }}" as="r" hint-placeholder-count="4"><button onClick="{{ r.go }}" style="{{ r.style }}"><span class="ms" style="font-size:20px">{{ r.icon }}</span>{{ r.label }}</button></sc-for>
+  </div>
+  <span style="font-size:12px;letter-spacing:0.1em;color:#9a9a9a;padding:6px 4px 0">TIDLIGERE I DAG</span>
+  <div style="display:flex;flex-direction:column;border-radius:24px;background:#383838;overflow:hidden">
+    <sc-for list="{{ events }}" as="e" hint-placeholder-count="3">
+      <button style="{{ e.row }}"><span style="width:72px;height:48px;border-radius:10px;background:#2a2a2a;display:grid;place-items:center;flex:none"><span class="ms" style="font-size:20px;color:#666">{{ e.icon }}</span></span><span style="flex:1;display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:15px">{{ e.label }}</span><span style="font-size:12px;color:#9a9a9a">{{ e.time }}</span></span><span class="ms" style="font-size:20px;color:#9a9a9a">chevron_right</span></button>
+    </sc-for>
+  </div>
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div style="position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:50;padding:10px 18px;border-radius:20px;background:#fafafa;color:#232323;font-size:14px;font-weight:500">{{ toast }}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:900},&quot;embedded&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+class Component extends DCLogic {
+  state = { cam: 1, mute: true, unlocked: false, holding: false, toast: null };
+  say(t) { clearTimeout(this._t); this.setState({ toast: t }); this._t = setTimeout(() => this.setState({ toast: null }), 1800); }
+  componentWillUnmount() { clearTimeout(this._t); clearTimeout(this._h); }
+  renderVals() {
+    const s = this.state;
+    return {
+      standalone: !this.props.embedded,
+      cams: ['Kamera', 'Pakkekamera'].map((label, i) => ({ label, go: () => this.setState({ cam: i }), style: { height: 32, padding: '0 14px', borderRadius: 16, fontSize: 13, fontWeight: 500, background: s.cam === i ? '#fafafa' : 'transparent', color: s.cam === i ? '#232323' : '#fafafa' } })),
+      muteIcon: s.mute ? 'volume_off' : 'volume_up', toggleMute: () => this.setState({ mute: !s.mute }),
+      tags: [{ icon: 'package_2', label: 'Pakke' }, { icon: 'record_voice_over', label: 'Snakker' }],
+      snap: () => this.say('Bilde lagret'), dismiss: () => this.say('Ringing avvist'),
+      holdStart: () => { this.setState({ holding: true }); this._h = setTimeout(() => { this.setState({ unlocked: !s.unlocked, holding: false }); this.say(s.unlocked ? 'Døra er låst' : 'Døra er låst opp'); }, 1000); },
+      holdEnd: () => { clearTimeout(this._h); if (this.state.holding) this.setState({ holding: false }); },
+      unlockStyle: { height: 110, borderRadius: 26, background: PINK, color: '#2a1720', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 15, fontWeight: 600, transform: s.holding ? 'scale(0.96)' : 'none', transition: 'transform 1s' },
+      unlockIcon: s.unlocked ? 'lock' : 'lock_open_right', unlockLabel: s.unlocked ? 'Lås' : 'Lås opp', unlockSub: 'Hold 1 s',
+      replies: [['directions_run', 'Kommer!'], ['inventory_2', 'Legg pakken ved døren'], ['hourglass_top', 'Vent litt'], ['logout', 'Ikke hjemme']].map(([icon, label]) => ({ icon, label, go: () => this.say('Spiller: ' + label), style: { flex: 'none', height: 50, padding: '0 18px 0 14px', borderRadius: 25, background: '#383838', display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 500, whiteSpace: 'nowrap' } })),
+      events: [['doorbell', 'Ringeklokke', '22:45'], ['package_2', 'Pakke', '22:11'], ['directions_walk', 'Bevegelse', '19:02']].map(([icon, label, time], i) => ({ icon, label, time, row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px 10px 10px', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' } })),
+      toast: s.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>

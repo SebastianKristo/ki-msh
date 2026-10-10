@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+html,body{overscroll-behavior-y:none}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+[data-qs-scroll]::-webkit-scrollbar{display:none}
+</style>
+<script src="./i18n.js"></script>
+</helmet>
+<div style="font-family:'Space Grotesk',system-ui,sans-serif;color:#fafafa">
+  <sc-if value="{{ showHint }}" hint-placeholder-val="{{ false }}"><div style="position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:900;width:44px;height:4px;border-radius:2px;background:rgba(255,255,255,0.22);pointer-events:none"></div></sc-if>
+  <div onClick="{{ close }}" style="{{ scrim }}"></div>
+  <sc-if value="{{ rec.open }}" hint-placeholder-val="{{ false }}"><dc-import name="Ringeopptak" at="{{ rec.at }}" ago="{{ rec.ago }}" on-close="{{ rec.close }}" on-live="{{ rec.live }}" hint-size="0px,0px"></dc-import></sc-if>
+  <div ref="{{ panelRef }}" style="{{ panel }}">
+    <div style="display:flex;align-items:center;gap:12px;padding:0 4px">
+      <span style="font-size:40px;font-weight:300;letter-spacing:-0.04em;line-height:1">{{ time }}</span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px">{{ date }}</span><span style="font-size:13px;color:#979797">6,8° regn · 1 hjemme</span></span>
+      <button onClick="{{ edit }}" title="Rediger fliser" style="width:44px;height:44px;border-radius:22px;background:#383838;display:grid;place-items:center;border:0;color:#fafafa;cursor:pointer"><span class="ms" style="font-size:22px">edit</span></button>
+      <button onClick="{{ cfg.toggle }}" title="Sveip-følsomhet" style="{{ cfg.btn }}"><span class="ms" style="font-size:22px">tune</span></button>
+    </div>
+
+    <sc-if value="{{ cfg.open }}" hint-placeholder-val="{{ false }}">
+      <div data-nodrag="1" style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:24px;background:#383838;flex:none">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px;font-weight:500;flex:1">Sveip ned</span><button onClick="{{ cfg.reset }}" style="height:32px;padding:0 12px;border-radius:16px;background:#4a4a4a;font-size:13px;border:0;color:#fafafa;cursor:pointer;font-family:inherit;white-space:nowrap">Tilbakestill</button></div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:13px;color:#c9c9c9">Hvor sveipet kan starte</span>
+          <div style="padding:4px;border-radius:22px;background:#2c2c2c;display:grid;grid-template-columns:repeat(3,1fr);gap:4px"><sc-for list="{{ cfg.zones }}" as="z" hint-placeholder-count="3"><button onClick="{{ z.go }}" style="{{ z.style }}">{{ z.label }}</button></sc-for></div>
+        </div>
+        <button onClick="{{ cfg.hint.go }}" style="display:flex;align-items:center;gap:12px;min-height:52px;padding:0;border:0;background:none;color:inherit;font-family:inherit;text-align:left;cursor:pointer"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">Vis hint øverst</span><span style="font-size:12px;color:#979797">Den lille streken som viser at panelet kan dras ned</span></span><span style="{{ cfg.hint.track }}"><span style="{{ cfg.hint.knob }}"></span></span></button>
+        <sc-for list="{{ cfg.sliders }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;gap:8px;font-size:13px"><span style="flex:1;color:#c9c9c9">{{ r.label }}</span><span style="font-weight:500">{{ r.val }}</span></div>
+            <div onPointerDown="{{ r.down }}" onPointerMove="{{ r.move }}" onPointerUp="{{ r.up }}" onPointerCancel="{{ r.up }}" style="height:36px;display:flex;align-items:center;cursor:pointer;touch-action:none">
+              <div style="position:relative;width:100%;height:8px;border-radius:4px;background:#2c2c2c"><div style="{{ r.fill }}"></div><span style="{{ r.knob }}"></span></div>
+            </div>
+            <span style="font-size:12px;color:#979797;text-wrap:pretty">{{ r.help }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="{{ compactWrap }}">
+      <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="6"><sc-if value="{{ t.inRow }}" hint-placeholder-val="{{ true }}"><button onClick="{{ t.go }}" title="{{ t.label }}" style="{{ t.dot }}"><span class="ms" style="{{ t.ic }}">{{ t.icon }}</span></button></sc-if></sc-for>
+    </div>
+
+    <div style="{{ fullWrap }}">
+      <div style="display:flex;flex-direction:column;gap:10px;padding-top:2px">
+        <div style="display:flex;gap:8px;align-items:center"><div data-nodrag="1" onPointerDown="{{ dim.down }}" onPointerMove="{{ dim.move }}" onPointerUp="{{ dim.up }}" onPointerCancel="{{ dim.up }}" style="flex:1;min-width:0;position:relative;height:56px;border-radius:28px;background:#383838;overflow:hidden;cursor:pointer;touch-action:none;display:flex;align-items:center;gap:10px;padding:0 18px">
+          <span style="{{ dim.fill }}"></span>
+          <span class="ms" style="position:relative;font-size:24px;color:#2a1720;font-variation-settings:'FILL' 1">{{ dim.icon }}</span>
+          <span style="position:relative;font-size:15px;font-weight:500;color:#2a1720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ dim.name }}</span>
+          <span style="flex:1"></span>
+          <span style="position:relative;font-size:15px;font-weight:500">{{ dim.val }}</span>
+        </div><button onClick="{{ dim.toggle }}" title="Velg lys" style="{{ dim.pickBtn }}"><span class="ms" style="font-size:22px">{{ dim.pickIcon }}</span></button></div>
+        <sc-if value="{{ dim.picking }}" hint-placeholder-val="{{ false }}">
+          <div data-nodrag="1" data-qs-scroll="1" style="display:flex;flex-direction:column;gap:4px;padding:6px;border-radius:24px;background:#383838;max-height:340px;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain">
+            <span style="font-size:12px;color:#979797;padding:6px 10px 2px">Slideren styrer</span>
+            <div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;margin:0 2px 4px;border-radius:22px;background:#2a2a2a;flex:none"><span class="ms" style="font-size:20px;color:#979797">search</span><input value="{{ dim.q }}" onInput="{{ dim.setQ }}" placeholder="Søk etter lys, f.eks. light.alle_lys" autocapitalize="off" autocorrect="off" spellcheck="false" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:none;color:#fafafa;font-family:inherit;font-size:15px"></input><sc-if value="{{ dim.hasQ }}" hint-placeholder-val="{{ false }}"><button onClick="{{ dim.clearQ }}" title="Tøm" style="width:28px;height:28px;border-radius:14px;border:0;background:#444;color:#fafafa;display:grid;place-items:center;cursor:pointer"><span class="ms" style="font-size:16px">close</span></button></sc-if></div>
+            <sc-if value="{{ dim.custom.show }}" hint-placeholder-val="{{ false }}"><button onClick="{{ dim.custom.go }}" style="display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 14px;border-radius:20px;border:0;cursor:pointer;font-family:inherit;text-align:left;flex:none;background:#2a2a2a;color:#fafafa;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.14)"><span class="ms" style="font-size:20px">add</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">Bruk denne entiteten</span><span data-noi18n="1" style="font-size:11px;opacity:0.7;font-family:ui-monospace,monospace">{{ dim.custom.id }}</span></span></button></sc-if>
+            <sc-if value="{{ dim.none }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#979797;padding:10px 12px">Ingen lys funnet. Skriv hele ID-en, f.eks. light.alle_lys.</span></sc-if>
+            <sc-for list="{{ dim.ents }}" as="e" hint-placeholder-count="6"><button onClick="{{ e.go }}" style="{{ e.style }}"><span class="ms" style="font-size:20px">{{ e.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left"><span style="font-size:14px;font-weight:500">{{ e.name }}</span><span data-noi18n="1" style="font-size:11px;opacity:0.7;font-family:ui-monospace,monospace">{{ e.id }}</span></span><span style="font-size:13px;opacity:0.8">{{ e.val }}</span></button></sc-for>
+          </div>
+        </sc-if>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="8"><button onClick="{{ t.go }}" style="{{ t.pill }}"><span style="{{ t.wrap }}"><span class="ms" style="{{ t.ic }}">{{ t.icon }}</span></span><span style="display:flex;flex-direction:column;gap:1px;text-align:left;min-width:0"><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span><span style="font-size:12px;opacity:0.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.st }}</span></span></button></sc-for>
+        </div>
+        <div style="height:64px;border-radius:32px;background:#e6e6e6;color:#232323;display:flex;align-items:center;gap:12px;padding:0 8px">
+          <span style="width:48px;height:48px;border-radius:24px;background:#3a3a3a;display:grid;place-items:center;color:#fafafa"><span class="ms" style="font-size:22px">radio</span></span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600">Kjøkken Radio</span><span style="font-size:13px;color:#4a4a4a">NRK Klassisk · Radio</span></span>
+          <button onClick="{{ radio }}" style="width:48px;height:48px;border-radius:24px;background:#fafafa;display:grid;place-items:center;border:0;color:#232323;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)"><span class="ms" style="font-size:26px;font-variation-settings:'FILL' 1">{{ radioIcon }}</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;padding:0 4px;min-height:36px"><span style="font-size:16px;font-weight:500;flex:1">Varsler · {{ count }}</span><sc-if value="{{ hasN }}" hint-placeholder-val="{{ true }}"><button onClick="{{ clear }}" style="height:36px;padding:0 14px;border-radius:18px;background:#383838;font-size:13px;white-space:nowrap;flex:none;border:0;color:#fafafa;cursor:pointer;font-family:inherit">Fjern alle</button></sc-if></div>
+    <div data-qs-scroll="1" style="{{ listWrap }}">
+      <sc-for list="{{ notes }}" as="n" hint-placeholder-count="4">
+        <div data-nodrag="1" onClick="{{ n.tap }}" onPointerDown="{{ n.down }}" onPointerMove="{{ n.move }}" onPointerUp="{{ n.up }}" onPointerCancel="{{ n.up }}" style="{{ n.style }}">
+          <span style="{{ n.iconWrap }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ n.icon }}</span></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+            <span style="font-size:12px;color:#979797">{{ n.app }} · {{ n.when }}</span>
+            <span style="font-size:15px;font-weight:500">{{ n.title }}</span>
+            <span style="font-size:13px;color:#c9c9c9;text-wrap:pretty">{{ n.body }}</span>
+            <sc-if value="{{ n.hasProg }}" hint-placeholder-val="{{ false }}"><div style="height:4px;border-radius:2px;background:#2c2c2c;margin-top:4px"><div style="{{ n.prog }}"></div></div></sc-if>
+            <sc-if value="{{ n.hasActs }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px;padding-top:6px;flex-wrap:wrap"><sc-for list="{{ n.acts }}" as="a" hint-placeholder-count="1"><button onClick="{{ a.go }}" style="height:36px;padding:0 14px;border-radius:18px;background:#4a4a4a;font-size:13px;font-weight:500;border:0;color:#fafafa;cursor:pointer;font-family:inherit">{{ a.label }}</button></sc-for></div></sc-if>
+          </div>
+          <sc-if value="{{ n.hasThumb }}" hint-placeholder-val="{{ false }}"><span style="position:relative;width:84px;height:64px;flex:none;border-radius:14px;overflow:hidden;background:#2c2c2c"><image-slot id="hjem-ringeklokke" placeholder="Snapshot" style="position:absolute;inset:0;width:100%;height:100%"></image-slot><span style="position:absolute;right:4px;bottom:4px;width:22px;height:22px;border-radius:11px;background:rgba(0,0,0,0.55);display:grid;place-items:center;color:#fff;pointer-events:none"><span class="ms" style="font-size:14px;font-variation-settings:'FILL' 1">play_arrow</span></span></span></sc-if>
+        </div>
+      </sc-for>
+      <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="height:110px;border-radius:24px;background:#2c2c2c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#979797"><span class="ms" style="font-size:26px">notifications_off</span><span style="font-size:14px">Ingen varsler</span></div></sc-if>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px"><span style="width:44px;height:4px;border-radius:2px;background:#5a5a5a"></span><span style="font-size:11px;color:#7a7a7a">{{ footHint }}</span></div>
+  </div>
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div style="position:fixed;left:50%;top:24px;transform:translateX(-50%);z-index:1002;padding:10px 18px;border-radius:20px;background:#fafafa;color:#232323;font-size:14px;font-weight:500">{{ toast }}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:420,&quot;height&quot;:900},&quot;active&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showHint&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;startOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const PINK = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const C = { amber: 'rgb(242 181 115)', green: 'rgb(102 209 158)', yellow: 'rgb(242 210 111)', red: 'rgb(242 128 115)', blue: 'rgb(115 185 242)', violet: 'rgb(179 156 232)' };
+const TILES = [['alarm', 'shield', 'Alarm', 'Borte', 'Av'], ['lock', 'lock', 'Dørlås', 'Låst', 'Ulåst'], ['garage', 'garage_home', 'Garasjeport', 'Åpen', 'Lukket'], ['dnd', 'notifications_off', 'Ikke forstyrr', 'Ringeklokke stille', 'Av'], ['heat', 'heat_pump', 'Varmepumpe', 'Varmer · 22°', 'Av'], ['vac', 'cleaning_services', 'Sir Sweeps', 'Rengjør', 'Ved dokk'], ['guest', 'wifi', 'Gjeste-Wi-Fi', 'På · vis QR', 'Av'], ['night', 'bedtime', 'Natta', 'På', 'Av']];
+const NOTES = [
+  ['ring', 'doorbell', C.amber, 'Ringeklokke', '17:21', 'Det ringte på · Inngang', 'Trykk for å se video og bilder fra ringingen.', ['Se opptak', 'Se kamera'], true],
+  ['vask', 'local_laundry_service', C.blue, 'Vaskemaskin', '17:05', 'Ferdig om 12 min', 'Bomull 40° · 0,8 kWh så langt', ['Ok'], false, 0.82],
+  ['strom', 'bolt', C.red, 'Strøm', '16:40', 'Dyr time fra 18:00', '2,14 kr/kWh. Tesla-ladingen venter til 22:00.', ['Utsett lading', 'Lad nå'], false],
+  ['tesla', 'electric_car', C.yellow, 'Tesla', '15:32', 'Lader · 25 %', 'Ferdig ca. 23:40 · grense 80 %', [], false, 0.25],
+  ['sweep', 'cleaning_services', C.violet, 'Sir Sweeps', '14:10', 'Utilgjengelig', 'Har ikke svart siden 14:10.', ['Prøv igjen'], false],
+  ['soppel', 'delete', C.green, 'Søppel', '12:00', 'Papir hentes i morgen', 'Sett ut dunken i kveld.', ['Satt ut'], false]];
+const EXP = 220;
+const nice = id => id.replace(/^light\./, '').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+const haLights = () => { try { const hs = window.hass || (document.querySelector('home-assistant') || {}).hass || (window.parent !== window && (window.parent.document.querySelector('home-assistant') || {}).hass); const st = hs && hs.states; if (!st) return []; return Object.keys(st).filter(k => k.startsWith('light.')).map(k => [k, (st[k].attributes && st[k].attributes.friendly_name) || nice(k), k, 'lightbulb']); } catch (e) { return []; } };
+const DEMO_L = ['light.alle_lys', 'light.alle_pa', 'light.stue_tak', 'light.stue_vindu', 'light.kjokken_benk', 'light.kjokken_tak', 'light.bad', 'light.kontor', 'light.trapp', 'light.loft', 'light.garasje', 'light.terrasse', 'light.inngang'];
+const LENTS = [['all', 'Alle lys som er på', 'light.alle_pa', 'lightbulb'], ['stue', 'Stue', 'light.stue', 'weekend'], ['kjokken', 'Kjøkken', 'light.kjokken', 'kitchen'], ['sofabord', 'Sofabord', 'light.sofabord', 'table_lamp'], ['spise', 'Spisebord', 'light.spisebord', 'light'], ['gang', 'Gang', 'light.gang', 'door_front'], ['sov', 'Soverom', 'light.soverom', 'bed'], ['ute', 'Utelys', 'light.utelys', 'outdoor_garden']];
+const DEF = { zone: 'ovre', open: 180, dead: 40, rest: 400, wheel: 140 };
+const LS = 'hurtigpanel-cfg';
+const SLIDERS = [['open', 'Avstand for å åpne', 80, 400, 10, ' px', 'Hvor langt du må dra før panelet blir liggende åpent.'], ['dead', 'Dødsone', 0, 140, 5, ' px', 'Panelet står stille de første pikslene, så små bevegelser ikke teller.'], ['rest', 'Ro i toppen', 0, 1200, 50, ' ms', 'Hvor lenge siden må ha stått helt øverst før et sveip kan åpne panelet. Hindrer at det åpner seg når du scroller opp.'], ['wheel', 'Musehjul / styreflate', 40, 500, 10, '', 'Hvor mye du må scrolle opp i toppen. Høyere tall krever mer.']];
+class Component extends DCLogic {
+  state = { now: new Date(), open: !!this.props.startOpen, exp: this.props.startOpen ? 1 : 0, pull: null, up: null, dx: null, tiles: { alarm: true, lock: true, heat: true }, notes: NOTES.map(n => n[0]), nx: {}, dim: 60, dimEnt: (() => { try { return localStorage.getItem('hurtigpanel-lys'); } catch (e) {} })() || this.props.lightEntity || 'all', dims: { all: 60, stue: 70, kjokken: 100, sofabord: 100, spise: 80, gang: 0, sov: 0, ute: 40 }, dimPick: false, radio: true, toast: null };
+  panelRef = React.createRef();
+  rs(p) { this._pp = { ...(this._pp || {}), ...p }; if (!this._rf) this._rf = requestAnimationFrame(() => { this._rf = 0; const q = this._pp; this._pp = null; if (q) this.setState(q); }); }
+  flushRs() { if (this._rf) { cancelAnimationFrame(this._rf); this._rf = 0; } const q = this._pp || {}; this._pp = null; return q; }
+  cfg() { let ls = {}; try { ls = JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) {} const P = this.props; return { ...DEF, ...(P.zone ? { zone: P.zone } : {}), ...(P.openDistance != null ? { open: P.openDistance } : {}), ...(P.deadZone != null ? { dead: P.deadZone } : {}), ...(P.topRest != null ? { rest: P.topRest } : {}), ...ls, ...(this.state && this.state.cfgEd || {}) }; }
+  setCfg(patch) { const c = { ...this.cfg(), ...patch }; try { localStorage.setItem(LS, JSON.stringify(c)); } catch (e) {} this.setState({ cfgEd: c }); }
+  restOk() { return this._topAt != null && Date.now() - this._topAt >= this.cfg().rest; }
+  h1() { const el = this.panelRef.current; return el ? Math.min(el.offsetHeight, window.innerHeight) : 560; }
+  componentDidMount() {
+    this._c = setInterval(() => this.setState({ now: new Date() }), 15000);
+    const inPanel = t => this.panelRef.current && this.panelRef.current.contains(t);
+    const start = (x, y, t) => {
+      const s = this.state;
+      if (s.open) { if (inPanel(t) && !t.closest('[data-nodrag]')) { const sc = t.closest('[data-qs-scroll]'); this._g = { x, y, on: false, open: true, exp0: s.exp, sc: sc && sc.scrollHeight > sc.clientHeight + 1 ? sc : null }; } return; }
+      const c = this.cfg(), zoneY = c.zone === 'kant' ? 80 : c.zone === 'overalt' ? window.innerHeight : window.innerHeight * 0.45;
+      if (this.props.active === false || window.scrollY > 2 || y > zoneY || !this.restOk()) return;
+      if (t.closest && t.closest('[data-snap],[data-hs],input,textarea')) return;
+      this._g = { x, y, on: false, open: false };
+    };
+    const move = (x, y, e) => {
+      const G = this._g; if (!G) return false;
+      const dx = x - G.x, dy = y - G.y;
+      if (!G.on && G.sc && Math.abs(dy) > 4) { const el = G.sc; if ((dy < 0 && el.scrollTop + el.clientHeight < el.scrollHeight - 1) || (dy > 0 && el.scrollTop > 0)) { this._g = null; return false; } }
+      if (!G.on) { const ok = G.open ? Math.abs(dy) > 10 : dy > 10; if (ok && Math.abs(dx) < Math.abs(dy)) { G.on = true; this._sup = true; } else if (Math.abs(dx) > 14 || (!G.open && dy < -10)) { this._g = null; return false; } }
+      if (!G.on) return false;
+      if (!G.open) { this.rs({ pull: Math.max(0, dy - this.cfg().dead) }); return true; }
+      const e2 = G.exp0 + dy / EXP;
+      if (e2 >= 0) this.rs({ exp: Math.max(0, Math.min(1, e2)), up: null });
+      else this.rs({ exp: 0, up: -e2 * EXP });
+      return true;
+    };
+    const end = () => {
+      const G = this._g; this._g = null; if (!G || !G.on) return;
+      setTimeout(() => { this._sup = false; }, 60);
+      const s = { ...this.state, ...this.flushRs() }, H = this.h1();
+      if (!G.open) { const p = s.pull || 0, over = p - H; const op = p > Math.min(this.cfg().open, H - 40); this.setState({ pull: null, open: op, exp: op && over > 90 ? 1 : 0 }); if (op) window.haptic && window.haptic('light'); return; }
+      if (s.up != null) { this.setState({ up: null, open: s.up < 90, exp: 0 }); return; }
+      this.setState({ exp: s.exp > (G.exp0 > 0.5 ? 0.7 : 0.3) ? 1 : 0 });
+    };
+    this._ts = e => { const t = e.touches[0]; start(t.clientX, t.clientY, e.target); };
+    this._tm = e => { const t = e.touches[0]; if (move(t.clientX, t.clientY, e)) { if (e.cancelable) e.preventDefault(); return; }
+      if (this.state.open && e.cancelable) { const sc = e.target.closest && e.target.closest('[data-qs-scroll]'); if (!sc || sc.scrollHeight <= sc.clientHeight + 1) e.preventDefault(); } };
+    this._te = () => end();
+    this._pd = e => { if (e.pointerType === 'mouse') start(e.clientX, e.clientY, e.target); };
+    this._pm = e => { if (e.pointerType === 'mouse') move(e.clientX, e.clientY, e); };
+    this._pu = e => { if (e.pointerType === 'mouse') end(); };
+    this._click = e => { if (this._sup) { e.preventDefault(); e.stopPropagation(); this._sup = false; } };
+    this._wheel = e => {
+      const s = this.state, now = Date.now(), WT = this.cfg().wheel; clearTimeout(this._wt); this._wt = setTimeout(() => { this._wa = 0; }, 260);
+      if (!s.open && window.scrollY <= 0 && e.deltaY < 0 && (now < (this._wb || 0) || !this.restOk())) { this._wb = now + 160; this._wa = 0; return; }
+      if (!s.open && this.props.active !== false && window.scrollY <= 0 && e.deltaY < 0) { this._wa = (this._wa || 0) - e.deltaY; if (this._wa > WT) { this._wa = 0; this.setState({ open: true, exp: 0 }); } }
+      else if (s.open && !e.target.closest('[data-qs-scroll]')) { this._wa = (this._wa || 0) + e.deltaY; if (this._wa > 70) { this._wa = 0; this.setState(s.exp ? { exp: 0 } : { open: false }); } else if (this._wa < -70) { this._wa = 0; this.setState({ exp: 1 }); } }
+    };
+    this._key = e => { if (e.key === 'Escape') this.setState({ open: false, exp: 0 }); };
+    this._topAt = window.scrollY <= 2 ? Date.now() - 60000 : null;
+    this._scr = () => { if (window.scrollY > 2) this._topAt = null; else if (this._topAt == null) { this._topAt = Date.now(); this._wb = Date.now() + this.cfg().rest; } };
+    window.addEventListener('scroll', this._scr, { passive: true });
+    const W = window, o = { passive: false };
+    W.addEventListener('touchstart', this._ts, { passive: true }); W.addEventListener('touchmove', this._tm, o); W.addEventListener('touchend', this._te); W.addEventListener('touchcancel', this._te);
+    W.addEventListener('pointerdown', this._pd); W.addEventListener('pointermove', this._pm); W.addEventListener('pointerup', this._pu);
+    this._wlock = e => { if (this.state.open && e.cancelable) { const sc = e.target.closest && e.target.closest('[data-qs-scroll]'); if (!sc || sc.scrollHeight <= sc.clientHeight + 1) e.preventDefault(); } };
+    W.addEventListener('click', this._click, true); W.addEventListener('wheel', this._wheel, { passive: true }); W.addEventListener('wheel', this._wlock, { passive: false }); W.addEventListener('keydown', this._key);
+  }
+  lockBg(on) { const d = document.documentElement, b = document.body; d.style.overflow = on ? 'hidden' : ''; b.style.overflow = on ? 'hidden' : ''; d.style.overscrollBehavior = on ? 'none' : ''; }
+  componentDidUpdate(pp, ps) {
+    if (!!ps.open !== !!this.state.open) this.lockBg(!!this.state.open);
+    if (pp.startOpen !== this.props.startOpen) this.setState({ open: !!this.props.startOpen, exp: this.props.startOpen ? 1 : 0 });
+    if (pp.active !== false && this.props.active === false && this.state.open) this.setState({ open: false, exp: 0 });
+  }
+  componentWillUnmount() {
+    const W = window; clearInterval(this._c); clearTimeout(this._t); this.lockBg(false); W.removeEventListener('wheel', this._wlock);
+    W.removeEventListener('touchstart', this._ts); W.removeEventListener('touchmove', this._tm); W.removeEventListener('touchend', this._te); W.removeEventListener('touchcancel', this._te);
+    W.removeEventListener('pointerdown', this._pd); W.removeEventListener('pointermove', this._pm); W.removeEventListener('pointerup', this._pu);
+    W.removeEventListener('click', this._click, true); W.removeEventListener('wheel', this._wheel); W.removeEventListener('keydown', this._key); W.removeEventListener('scroll', this._scr);
+  }
+  openRec(at) { window.haptic && window.haptic('light'); this.setState({ rec: { at } }); }
+  say(t) { clearTimeout(this._t); this.setState({ toast: t }); this._t = setTimeout(() => this.setState({ toast: null }), 1800); }
+  pct(e, el) { const r = el.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100))); }
+  renderVals() {
+    const s = this.state, d = s.now, H = this.h1();
+    const dragging = s.pull != null || s.up != null || !!(this._g && this._g.on);
+    const pullExp = s.pull != null ? Math.max(0, Math.min(1, (s.pull - H) / EXP)) : null;
+    const exp = pullExp != null ? pullExp : s.exp;
+    const prog = s.open ? 1 - Math.min(1, (s.up || 0) / H) : Math.min(1, (s.pull || 0) / H);
+    const ty = s.open ? `translateY(${-(s.up || 0)}px)` : `translateY(calc(-100% - 24px + ${Math.min(H + 24, s.pull || 0)}px))`;
+    const tr = dragging ? 'none' : 'all .32s cubic-bezier(.2,.8,.2,1)';
+    const notes = NOTES.filter(n => s.notes.includes(n[0]));
+    const dismiss = id => this.setState(st => ({ notes: st.notes.filter(x => x !== id), nx: { ...st.nx, [id]: 0 } }));
+    return {
+      panelRef: this.panelRef,
+      cfg: (() => { const c = this.cfg(); return { open: !!s.cfgOpen,
+        toggle: () => this.setState({ cfgOpen: !s.cfgOpen }),
+        btn: { width: 44, height: 44, borderRadius: 22, display: 'grid', placeItems: 'center', border: 0, cursor: 'pointer', background: s.cfgOpen ? PINK : '#383838', color: s.cfgOpen ? '#2a1720' : '#fafafa' },
+        reset: () => { try { localStorage.removeItem(LS); } catch (e) {} this.setState({ cfgEd: { ...DEF } }); },
+        hint: (() => { const on = c.hint !== false; return { go: () => { window.haptic && window.haptic('selection'); this.setCfg({ hint: !on }); }, track: { position: 'relative', width: 48, height: 28, borderRadius: 14, flex: 'none', background: on ? PINK : '#5a5a5a', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 23 : 3, width: 22, height: 22, borderRadius: 11, background: '#fafafa', transition: 'left .2s' } }; })(),
+        zones: [['kant', 'Øverste kant'], ['ovre', 'Øvre del'], ['overalt', 'Hele skjermen']].map(([v, label]) => ({ label, go: () => this.setCfg({ zone: v }), style: { height: 36, borderRadius: 18, border: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: c.zone === v ? PINK : 'transparent', color: c.zone === v ? '#2a1720' : '#fafafa' } })),
+        sliders: SLIDERS.map(([k, label, min, max, step, unit, help]) => { const v = c[k], p = (v - min) / (max - min) * 100;
+          const setV = e => { const q = this.pct(e, e.currentTarget) / 100; this.setCfg({ [k]: Math.round((min + q * (max - min)) / step) * step }); };
+          return { label, help, val: v + unit, fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: p + '%', borderRadius: 4, background: PINK }, knob: { position: 'absolute', top: '50%', left: p + '%', width: 24, height: 24, borderRadius: 12, background: '#fafafa', transform: 'translate(-50%,-50%)', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' },
+            down: e => { this._sd = k; e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); setV(e); }, move: e => { if (this._sd === k) setV(e); }, up: () => { this._sd = null; } }; }) }; })(),
+      showHint: this.props.active !== false && !s.open && (this.props.showHint ?? true) && this.cfg().hint !== false,
+      time: d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' }),
+      date: d.toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, c => c.toUpperCase()),
+      scrim: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,10,10,0.55)', backdropFilter: s.open && !dragging ? 'blur(8px)' : 'none', WebkitBackdropFilter: s.open && !dragging ? 'blur(8px)' : 'none', willChange: 'opacity', opacity: prog, pointerEvents: s.open ? 'auto' : 'none', transition: dragging ? 'none' : 'opacity .3s' },
+      panel: { willChange: 'transform', position: 'fixed', top: 0, left: 0, right: 0, margin: '0 auto', width: '100%', maxWidth: 560, maxHeight: '100dvh', zIndex: 1001, boxSizing: 'border-box', padding: '22px 14px 10px', borderRadius: '0 0 32px 32px', background: '#2a2a2a', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: 14, transform: ty, transition: dragging ? 'none' : 'transform .34s cubic-bezier(.2,.8,.2,1)', touchAction: 'none', userSelect: 'none', overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'none' },
+      compactWrap: { display: 'flex', justifyContent: 'space-between', gap: 6, maxHeight: (1 - exp) * 60, opacity: 1 - exp, overflow: 'hidden', transition: tr, flex: 'none' },
+      fullWrap: { maxHeight: exp * (s.dimPick ? 900 : 470), opacity: exp, overflow: 'hidden', transition: tr, flex: 'none', marginTop: exp ? 0 : -14 },
+      listWrap: { display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', scrollbarWidth: 'none', overscrollBehavior: 'contain', touchAction: 'pan-y', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)', minHeight: 0, flex: '1 1 auto', maxHeight: `max(160px, calc(100dvh - ${exp ? 600 : 230}px))`, transition: tr },
+      footHint: exp ? 'Dra opp for å lukke' : 'Dra ned for flere fliser',
+      close: () => this.setState({ open: false, exp: 0 }),
+      edit: () => this.say('Hold og dra for å bytte fliser'),
+      tiles: TILES.map(([k, icon, label, onT, offT], i) => { const a = !!s.tiles[k]; return { label, st: a ? onT : offT, icon: k === 'lock' && !a ? 'lock_open' : icon, inRow: i < 6,
+        go: () => { window.haptic && window.haptic('light'); this.setState(st => ({ tiles: { ...st.tiles, [k]: !a } })); },
+        ic: { fontSize: 22, fontVariationSettings: `'FILL' ${a ? 1 : 0}` },
+        dot: { width: 56, height: 56, borderRadius: 28, border: 0, cursor: 'pointer', display: 'grid', placeItems: 'center', flex: 'none', background: a ? PINK : '#383838', color: a ? '#2a1720' : '#fafafa', transition: 'background .2s' },
+        pill: { height: 64, borderRadius: 32, border: 0, cursor: 'pointer', fontFamily: 'inherit', padding: '0 12px 0 6px', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: a ? PINK : '#383838', color: a ? '#2a1720' : '#fafafa', transition: 'background .2s' },
+        wrap: { width: 52, height: 52, borderRadius: 26, flex: 'none', display: 'grid', placeItems: 'center', background: a ? 'rgba(42,23,32,0.12)' : '#4a4a4a' } }; }),
+      dim: (() => { const ALL = (() => { const m = new Map(); [...LENTS, ...haLights(), ...DEMO_L.map(k => [k, nice(k), k, 'lightbulb'])].forEach(x => { if (![...m.values()].some(y => y[2] === x[2])) m.set(x[0], x); }); return [...m.values()]; })();
+        const cur = ALL.find(x => x[0] === s.dimEnt || x[2] === s.dimEnt) || (/^light\.[a-z0-9_]+$/.test(s.dimEnt || '') ? [s.dimEnt, nice(s.dimEnt), s.dimEnt, 'lightbulb'] : LENTS[0]);
+        const q = (s.dimQ || '').trim().toLowerCase(), qs = q.replace(/\s+/g, '_'), hits = (q ? ALL.filter(x => x[2].includes(qs) || x[1].toLowerCase().includes(q)) : ALL.slice(0, LENTS.length)).slice(0, 30);
+        const cid = q.startsWith('light.') ? qs : 'light.' + qs, cOk = !!q && /^light\.[a-z0-9_]+$/.test(cid) && !ALL.some(x => x[2] === cid);
+        const pick = id => { try { localStorage.setItem('hurtigpanel-lys', id); } catch (e) {} window.haptic && window.haptic('selection'); this.setState({ dimEnt: id, dimPick: false, dimQ: '' }); }; const v = s.dims[cur[0]] ?? 0, setV = val => this.rs({ dims: { ...this.state.dims, ...((this._pp && this._pp.dims) || {}), [cur[0]]: val } });
+        return { q: s.dimQ || '', hasQ: !!q, setQ: e => this.setState({ dimQ: e.target.value }), clearQ: () => this.setState({ dimQ: '' }), none: !!q && !hits.length && !cOk,
+          custom: { show: cOk, id: cid, go: () => pick(cid) },
+          name: cur[1], icon: cur[3], val: v ? v + ' %' : 'Av', picking: !!s.dimPick, pickIcon: s.dimPick ? 'expand_less' : 'tune',
+          fill: { position: 'absolute', left: 0, top: 0, bottom: 0, width: v ? `max(56px, ${v}%)` : '56px', borderRadius: 28, background: PINK, transition: this._dd ? 'none' : 'width .2s' },
+          toggle: () => this.setState({ dimPick: !s.dimPick }),
+          pickBtn: { width: 56, height: 56, flex: 'none', borderRadius: 28, border: 0, cursor: 'pointer', display: 'grid', placeItems: 'center', background: s.dimPick ? PINK : '#383838', color: s.dimPick ? '#2a1720' : '#fafafa' },
+          ents: hits.map(([id, name, eid, icon]) => { const a = id === cur[0], ev = s.dims[id] ?? 0; return { name, id: eid, icon, val: ev ? ev + ' %' : 'Av', go: () => pick(id), style: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 52, padding: '6px 14px', borderRadius: 20, border: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', flex: 'none', background: a ? PINK : 'transparent', color: a ? '#2a1720' : '#fafafa' } }; }),
+          down: e => { this._dd = true; e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); setV(Math.max(1, this.pct(e, e.currentTarget))); },
+          move: e => { if (this._dd) setV(Math.max(1, this.pct(e, e.currentTarget))); }, up: () => { this._dd = false; this.forceUpdate(); } }; })(),
+      radio: () => this.setState({ radio: !s.radio }), radioIcon: s.radio ? 'pause' : 'play_arrow',
+      rec: { open: !!s.rec, at: (s.rec || {}).at || '17:21', ago: (() => { const a = (s.rec || {}).at || '17:21', [h, m] = a.split(':').map(Number), now = s.now, d = Math.round(((now.getHours() * 60 + now.getMinutes()) - (h * 60 + m) + 1440) % 1440); return d < 1 ? (window.kiT ? window.kiT('Akkurat nå', 'Just now') : 'Akkurat nå') : d < 60 ? (window.kiT ? window.kiT(d + ' min siden', d + ' min ago') : d + ' min siden') : (window.kiT ? window.kiT(Math.floor(d / 60) + ' t siden', Math.floor(d / 60) + ' h ago') : Math.floor(d / 60) + ' t siden'); })(),
+        close: () => this.setState({ rec: null }), live: () => { this.setState({ rec: null }); this.say('Se kamera'); } },
+      count: notes.length, hasN: notes.length > 0, empty: notes.length === 0, clear: () => this.setState({ notes: [] }),
+      notes: notes.map(([id, icon, col, app, when, title, body, acts, thumb, p]) => { const x = s.nx[id] || 0;
+        return { icon, app, when, title, body, hasThumb: !!thumb, hasProg: p != null, hasActs: acts.length > 0,
+          prog: { width: `${(p || 0) * 100}%`, height: '100%', borderRadius: 2, background: col },
+          acts: acts.map(label => ({ label, go: e => { e && e.stopPropagation && e.stopPropagation(); if (label === 'Se opptak') { this.openRec(when); return; } this.say(label); if (label === 'Ok' || label === 'Satt ut') dismiss(id); } })),
+          tap: () => { if (this._sup || id !== 'ring') return; this.openRec(when); },
+          down: e => { this._nd = { id, x: e.clientX, y: e.clientY, on: false }; },
+          move: e => { const N = this._nd; if (!N || N.id !== id) return; const dx = e.clientX - N.x; if (!N.on && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(e.clientY - N.y)) { N.on = true; this._sup = true; } if (N.on) this.rs({ nx: { ...this.state.nx, ...((this._pp && this._pp.nx) || {}), [id]: dx } }); },
+          up: () => { const N = this._nd; this._nd = null; if (!N || N.id !== id || !N.on) return; setTimeout(() => { this._sup = false; }, 60); if (Math.abs((this.flushRs().nx || this.state.nx)[id] || 0) > 110) dismiss(id); else this.setState(st => ({ nx: { ...st.nx, [id]: 0 } })); },
+          style: { display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 14px 14px 12px', borderRadius: 24, background: '#383838', transform: `translateX(${x}px)`, opacity: 1 - Math.min(0.7, Math.abs(x) / 260), transition: this._nd && this._nd.id === id ? 'none' : 'transform .25s, opacity .25s', touchAction: 'pan-y', flex: 'none' },
+          iconWrap: { width: 40, height: 40, borderRadius: 20, flex: 'none', display: 'grid', placeItems: 'center', background: col, color: '#232323' } }; }),
+      toast: s.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>
