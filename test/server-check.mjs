@@ -2,7 +2,7 @@
 // test/server35-check.mjs; her: autokonfig fra registrene (UniFi Network + Protect, Proxmox VE, Unraid, HA/Supervisor),
 // Protect-kameraer som rader i Enheter (opptak-bryter), «Finn», rød-tone-bekreftelse på enheter, egne portnavn, integrasjoner
 // «Ingen»/«Fant ikke …» + integrasjonsvelgeren (portalt ark, «Bruk» lagrer integrations), HA uten Supervisor, v5-config
-// (tabs.order/hidden/start) leses, hero_metric/exclude, «Tilpass Server» (MSH.overlay tilpass) ↔ GUI-editoren (samme skjema:
+// (tabs.order/hidden/start) leses, hero_metric/exclude, «Tilpass Server» (tannhjul → «Tilpass server» → «Flere innstillinger», Fiks 62) ↔ GUI-editoren (samme skjema:
 // velger, tab_height, show_prose, tab_order/hidden_tabs, start_tab), fyller bredden på PC.
 //   node test/server-check.mjs   (SHOTS=<mappe> for skjermbilder)
 import { createRequire } from 'node:module';
@@ -139,7 +139,11 @@ await p.close();
 
 /* ---------------------------------------------------------------- «Tilpass Server» (MSH.overlay tilpass) ↔ GUI-editor */
 p = await page();
-await click(p, '.trow .gear', 900);
+await click(p, '.trow .gear', 600);
+// Fiks 62: tannhjulet åpner «Tilpass server» (faner/ikoner) – «Flere innstillinger» åpner hele Tilpass-arket
+ok('tannhjulet → «Tilpass server» med «Flere innstillinger»', await p.evaluate(() => { const r = window.MSH.portals().pop().shadowRoot; return !!r.querySelector('.tt') && !!r.querySelector('.more'); }));
+await p.evaluate(() => window.MSH.portals().pop().shadowRoot.querySelector('.more').click());
+await wait(p, 900);
 let E = await p.evaluate(() => {
   const o = window.MSH.portals().pop(), r = o.shadowRoot, er = r.querySelector('msh-editor').shadowRoot;
   return { tp: o.dataset.tpSheet, tabs: [...er.querySelectorAll('.chips.tabs [data-a="tab"]')].map((x) => x.getAttribute('aria-label') || x.textContent.trim()), prev: [...er.querySelectorAll('.svp .tb')].map((x) => x.textContent.trim()),

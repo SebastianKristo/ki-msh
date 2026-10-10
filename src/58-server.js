@@ -14,6 +14,9 @@
  *      popupen; fanetrykk bytter aldri ved loddrett sveip) + stopPropagation, hold-dra omorganiserer fortsatt.
  *   Fiks 50 E: qBittorrent (plattform qbittorrent, translation_key) skjules automatisk når integrasjonen mangler (qbit_force).
  *   Fiks 50 G: Internett-kortet bruker SpeedTest (speedtestdotnet): Ned/Opp Mbit/s, «Ping 6 ms · målt 14:10», «Kjør test».
+ *   Fiks 62 (prompt v6): arildkristo.com (Cloudflare, 58c-server-cf.js) etter qBittorrent – skjules uten sensorene. Ikon i
+ *   vert-fanene (host_icons) og «Faner viser» (tab_mode alle|aktiv|ikon); tannhjulet åpner «Tilpass server» (_tilpass) med
+ *   «Flere innstillinger» → hele Tilpass-arket.
  *   Vert-grensesnitt for M.serverUnifi: card._host = { hass, config, ui, setUI, render, haptic, moreInfo, setCfg, go, confirm }.
  *   Felles utvidbar liste (35.2: Gjester/Tillegg): søk (44 px), filterchips med antall, rader 60 px med bryter (stopPropagation),
  *   trykk = utvid (6 stat-fliser, bruksstolper, brytere, handlinger). Rød-tone-handlinger krever bekreftelse (to trykk).
@@ -23,7 +26,7 @@
  *   Integrasjonene oppdages fra config entries (config_entries/get) + entitets-/enhetsregisteret; manuelt valg
  *   integrations: { unifi, protect, proxmox, unraid: <entry_id|'none'> } via integrasjonsvelgeren (portalt ark).
  * Config (samme skjema i «Tilpass Server» (MSH.openEditor → MSH.overlay tilpass:true) og GUI-editoren):
- *   velger: faner|kort · tab_height (32–60) · show_prose · tab_order · hidden_tabs · start_tab · hero_metric { net, proxmox,
+ *   velger: faner|kort · tab_mode · host_icons · tab_height (32–60) · show_prose · tab_order · hidden_tabs · start_tab · hero_metric { net, proxmox,
  *   unraid, ha } · integrations · overrides · exclude · gap/pad_top/pad_bottom. Gamle v5-nøkler (tabs.order/hidden/start) leses.
  * Farger: tokens fra ki-theme (src/00-a-theme.js) med dagens mørke verdi som fallback – mørk modus er uendret.
  * Fiks 52 A3 (Android-flimmer): bare aktiv vert tegnes (lazy), skjelett under Bubbles åpne-animasjon, tunge oppslag etter at
@@ -46,10 +49,26 @@
   const DOMS = INTEG.flatMap((i) => i.domains);
   // Verter (vertvelgeren) og underfaner (designet: HOSTS / SUBS)
   // Fiks 50 E: qBittorrent (designet: HOSTS k 'qbit') etter HA – skjules automatisk når integrasjonen mangler (qbit_force = vis likevel)
-  const HOSTS = [['net', 'Nettverk', 'mdi:router-network'], ['proxmox', 'Proxmox', 'mdi:cube-outline'], ['unraid', 'Unraid', 'mdi:dns'], ['ha', 'HA', 'mdi:home-assistant'], ['qbit', 'qBittorrent', 'mdi:download']];
+  // Fiks 62 (prompt v6): arildkristo.com (Cloudflare, 58c-server-cf.js) etter qBittorrent – skjules når sensorene mangler
+  const HOSTS = [['net', 'Nettverk', 'mdi:router-network'], ['proxmox', 'Proxmox', 'mdi:cube-outline'], ['unraid', 'Unraid', 'mdi:dns'], ['ha', 'HA', 'mdi:home-assistant'], ['qbit', 'qBittorrent', 'mdi:download'], ['cf', 'arildkristo.com', 'mdi:web']];
   const HOSTL = Object.fromEntries(HOSTS.map((t) => [t[0], t]));
   const KEYS = HOSTS.map((t) => t[0]);
-  const HOST_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid', ha: null, qbit: null };
+  const HOST_INT = { net: 'unifi', proxmox: 'proxmox', unraid: 'unraid', ha: null, qbit: null, cf: null };
+  // Fiks 62 · ikon i vert-fanene og kort-velgeren (designet: HOSTS.icon / cu.hosts.opts). Lagres som Material-navn i
+  // host_icons.<vert> (eller et HA-ikon med prefiks fra GUI-editoren); tegnes som <ha-icon> via tabellen under.
+  const HOST_IC = { net: 'router', proxmox: 'view_in_ar', unraid: 'dns', ha: 'home', qbit: 'download', cf: 'language' };
+  const IC_OPTS = ['router', 'lan', 'wifi', 'dns', 'storage', 'view_in_ar', 'deployed_code', 'home', 'download', 'language', 'cloud', 'public', 'shield', 'memory', 'dashboard', 'hub', 'movie', 'bolt'];
+  const IC_MDI = { router: 'mdi:router-network', lan: 'mdi:lan', wifi: 'mdi:wifi', dns: 'mdi:dns', storage: 'mdi:database', view_in_ar: 'mdi:cube-outline', deployed_code: 'mdi:package-variant-closed',
+    home: 'mdi:home', download: 'mdi:download', language: 'mdi:web', cloud: 'mdi:cloud-outline', public: 'mdi:earth', shield: 'mdi:shield-outline', memory: 'mdi:memory', dashboard: 'mdi:view-dashboard-outline',
+    hub: 'mdi:hub-outline', movie: 'mdi:movie-outline', bolt: 'mdi:lightning-bolt' };
+  const icMdi = (n) => IC_MDI[n] || (M.iconName ? M.iconName(n) : n);
+  // «Tilpass server»: config (host_icons / tab_mode) er sannheten; localStorage 'ki-server-tilpass' er bare speil/cache
+  const LS_TP = 'ki-server-tilpass';
+  const tpCache = () => { try { return JSON.parse(localStorage.getItem(LS_TP) || '{}') || {}; } catch (e) { return {}; } };
+  const TAB_MODES = ['alle', 'aktiv', 'ikon'];
+  const tabMode = (c) => { const m = (c && c.tab_mode) || tpCache().tabMode; return TAB_MODES.includes(m) ? m : 'alle'; };
+  const hostIconName = (c, k) => ((c && c.host_icons) || {})[k] || ((c && c.host_icons) ? null : (tpCache().icons || {})[k]) || HOST_IC[k];
+  const hostIcon = (c, k) => icMdi(hostIconName(c, k));
   // Fiks 50 K: Nettverk-underfanene heter UDM · Enheter · Switch (gamle «internett» i lagret UI-tilstand → «udm»)
   const SUBS = {
     net: [['udm', 'UDM'], ['enheter', 'Enheter'], ['switch', 'Switch']],
@@ -57,6 +76,7 @@
     proxmox: [['gjester', 'Gjester'], ['lagring', 'Lagring'], ['backup', 'Backup']],
     unraid: [['array', 'Array'], ['gjester', 'Gjester']],
     ha: [['tillegg', 'Tillegg'], ['oppdateringer', 'Oppdateringer'], ['system', 'System']],
+    cf: [['trafikk', 'Trafikk'], ['besok', 'Besøk'], ['ytelse', 'Ytelse'], ['sikkerhet', 'Sikkerhet']],
   };
   // Aksentfarger (designet: GR, BL, OR, RD, PU, PINK) – flater/grafer i original farge, tekst via ki-theme (--ki-*-text)
   const GR = C.green, BL = C.blue, OR = C.orange, RD = C.red, PU = C.purple, PK = C.pink;
@@ -77,6 +97,7 @@
     unraid: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['temp', 'CPU-temp', '°', OR]],
     ha: [['cpu', 'CPU', '%', RD], ['mem', 'Minne', '%', PU], ['disk', 'Disk', '%', OR]],
     qbit: [['down', 'Ned', 'MB/s', BL], ['up', 'Opp', 'MB/s', GR], ['act', 'Aktive', '', PU]],
+    cf: [['visits', 'Besøk', '', PK], ['req', 'Forespørsler', '', BL], ['data', 'Data', 'MB', OR]],
   };
   const NPT = 48; // punkter i grafen (30 min, 24 t – designet: series(…) med 48 punkter)
   const DEF = {};
@@ -677,7 +698,9 @@
   // Fiks 50 E: qBittorrent-fanen skjules automatisk når integrasjonen mangler (ingen entiteter/overstyringer), med mindre
   // qbit_force (Tilpass → Faner: «Vis qBittorrent-fanen selv om integrasjonen mangler»). hass: kortets, ellers MSH.lastHass.
   const qbitOff = (c, h) => { h = h || M.lastHass; return !c.qbit_force && !(h && h.states && oppdagQB(h, c).found); };
-  function visTabs(c, h) { const T = tabsCfg(c), qo = qbitOff(c, h), V = T.order.filter((k) => !T.hidden.includes(k) && !(k === 'qbit' && qo)); return V.length ? V : [T.order[0]]; }
+  // Fiks 62: arildkristo.com vises bare når Cloudflare-sensorene finnes (58c-server-cf.js)
+  const cfOff = (c, h) => { h = h || M.lastHass; return !(M.serverCF && h && h.states && M.serverCF.discover(h, c).found); };
+  function visTabs(c, h) { const T = tabsCfg(c), qo = qbitOff(c, h), co = cfOff(c, h), V = T.order.filter((k) => !T.hidden.includes(k) && !(k === 'qbit' && qo) && !(k === 'cf' && co)); return V.length ? V : [T.order[0]]; }
   // 33.4: felles fanehøyde (MSH.tabH, 05-tab-bar.js): kortets tab_height (28–64) → global «Fanehøyde i popups» → designets 44
   const tabH = (c) => (M.tabH ? M.tabH.height(c, 44) : 44);
   const TV = (k, n) => (M.tabH ? M.tabH.v(k, n) : n + 'px');
@@ -767,15 +790,20 @@
   /* ------------------------------------------------------------ vertvelgeren (kortet + forhåndsvisningen i Tilpass) */
   // Fiks 50 F: fanelinjen er en vannrett karusell (designet: pickTabs/tabStop/fadeTabs) – sporet (.tbox) er uendret pille,
   // scrolleren (.tabs) har padding 4, scroll-snap, skjult scrollbar og fade bare på siden med skjult innhold.
-  const tabRowHTML = (V, act, attrs) => `<div class="trow"><div class="tbox"><div class="tabs" role="tablist">${V.map((k) => `<button class="tb${k === act ? ' on' : ''}" role="tab" aria-selected="${k === act}" data-v="${k}" ${attrs ? attrs(k) : ''}>${esc(HOSTL[k][1])}</button>`).join('')}</div></div>
-    <button class="gear" ${attrs ? 'data-act="customize"' : ''} aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button></div>`;
+  // Fiks 62: ikon (18 px, 6 px mellomrom, følger tekstfargen) foran navnet · tab_mode alle | aktiv (bare valgt fane har navn) |
+  // ikon (bare ikoner). En fane med bare ikon: min-bredde fanehøyde + 8, padding 0 12px, title = navnet.
+  // ikonet følger fanehøyden (MSH.tabH 'ti', 33.4) – 18 px ved standard 44
+  const TB_IC = `--mdc-icon-size:${TV('ti', 18)};width:${TV('ti', 18)};height:${TV('ti', 18)}`;
+  const hostName = (k) => `<span class="tbn"${k === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[k][1])}</span>`;
+  const tabRowHTML = (V, act, attrs, c) => { const md = tabMode(c); return `<div class="trow"><div class="tbox"><div class="tabs" role="tablist" data-mode="${md}">${V.map((k) => { const on = k === act, nm = md === 'alle' || (md === 'aktiv' && on); return `<button class="tb${on ? ' on' : ''}${nm ? '' : ' io'}" role="tab" aria-selected="${on}" data-v="${k}" title="${esc(HOSTL[k][1])}"${nm ? '' : ` aria-label="${esc(HOSTL[k][1])}"`} ${attrs ? attrs(k) : ''}>${M.icon(hostIcon(c, k), 18, TB_IC)}${nm ? hostName(k) : ''}</button>`; }).join('')}</div></div>
+    <button class="gear" ${attrs ? 'data-act="customize"' : ''} aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button></div>`; };
   // Kort-variant: ring (CPU-/ned-last) + statusprikk + navn + undertekst. X: { [k]: { pct, col, ok, none, sub } }
   const ringDash = (p) => `${((M.clamp(p || 0, 0, 100) / 100) * 106.8).toFixed(1)} 106.8`;
-  const hostCardsHTML = (V, act, X, attrs) => `<div class="hcards">${V.map((k) => {
+  const hostCardsHTML = (V, act, X, attrs, c) => `<div class="hcards">${V.map((k) => {
     const x = X[k] || {}, on = k === act;
     return `<button class="hc${on ? ' on' : ''}" data-v="${k}" data-key="hc-${k}" ${attrs ? attrs(k) : ''} aria-pressed="${on}">
-      <span class="hct"><span class="ring"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" class="rtr"></circle><circle cx="20" cy="20" r="17" class="rfl" style="stroke:${x.none ? 'transparent' : x.ok ? x.col : OR}" stroke-dasharray="${ringDash(x.pct)}"></circle></svg>${M.icon(HOSTL[k][2], 18)}</span><span class="dot ${x.none ? 'none' : x.ok ? 'ok' : 'warn'}"></span></span>
-      <span class="hcb"><b class="ell">${esc(HOSTL[k][1])}</b><span class="ell num">${esc(x.sub || '–')}</span></span></button>`;
+      <span class="hct"><span class="ring"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" class="rtr"></circle><circle cx="20" cy="20" r="17" class="rfl" style="stroke:${x.none ? 'transparent' : x.ok ? x.col : OR}" stroke-dasharray="${ringDash(x.pct)}"></circle></svg>${M.icon(hostIcon(c, k), 18)}</span><span class="dot ${x.none ? 'none' : x.ok ? 'ok' : 'warn'}"></span></span>
+      <span class="hcb"><b class="ell"${k === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[k][1])}</b><span class="ell num">${esc(x.sub || '–')}</span></span></button>`;
   }).join('')}</div>`;
   const PREV_CSS = () => `.svp{padding:14px 12px;border-radius:24px;background:var(--ki-popup, #282828);display:flex;flex-direction:column;gap:10px}
     .svp .tl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f);margin:0 4px}.svp button{pointer-events:none}
@@ -786,6 +814,8 @@
     ${pre} .tabs::-webkit-scrollbar,${pre} .hcards::-webkit-scrollbar{display:none}
     ${pre} .tb{flex:1 0 auto;min-width:84px;height:var(--sv-th,44px);padding:0 16px;scroll-snap-align:center;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:${TV('tf', 14)};font-weight:500;white-space:nowrap;color:var(--ki-text-2, #c7c7c7);transition:background .2s,color .2s}
     ${pre} .tb.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
+    ${pre} .tb.io{min-width:calc(var(--sv-th,44px) + 8px);padding:0 12px}
+    ${pre} .tb ha-icon{color:currentColor}
     ${pre} .gear{width:calc(var(--sv-th,44px) + 8px);height:calc(var(--sv-th,44px) + 8px);border-radius:999px;flex:none;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);box-shadow:inset 0 0 0 1px var(--ki-line, rgba(255,255,255,0.05));color:var(--ki-text, #fafafa)}
     ${pre} .gear:active{transform:scale(.92)}
     ${pre} .hcards{display:flex;gap:8px;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x pan-y;overscroll-behavior-x:contain}
@@ -799,6 +829,39 @@
     ${pre} .dot{width:8px;height:8px;border-radius:4px;flex:none}
     ${pre} .dot.ok{background:${GR};box-shadow:0 0 0 3px ${M.alpha(GR, 0.2)}}${pre} .dot.warn{background:${OR};box-shadow:0 0 0 3px ${M.alpha(OR, 0.2)}}${pre} .dot.none{background:var(--ki-ctrl, #545454)}
     ${pre} .hcb{display:flex;flex-direction:column;gap:1px;min-width:0;width:100%}${pre} .hcb b{font-size:14px;font-weight:600}${pre} .hcb>span{font-size:12px;color:var(--ki-text-mid, #979797)}`;
+
+  /* ------------------------------------------------------------ Fiks 62: «Tilpass server»-arket (designet: cu) */
+  // Arket ligger øverst i popupen (top 12 px under popupens toppkant), radius 32, #2f2f2f-flate, liste #3a3a3a, utvidet rad #404040
+  const TP_CSS = () => `.sh{top:var(--sv-tp-top,12px);bottom:auto;left:calc(var(--ki-rail-x,0px) + 8px);right:8px;max-width:440px;border-radius:32px;padding:16px 14px;
+      max-height:calc(100% - var(--sv-tp-top,12px) - 16px);background:var(--ki-popup, #2f2f2f);box-shadow:0 16px 48px ${M.theme && M.theme.blackA ? M.theme.blackA(0.5) : 'rgba(0,0,0,0.5)'};transform:translate3d(0,-10px,0)}
+    :host(.on) .sh{transform:translate3d(0,0,0)}
+    .body{gap:14px}
+    .tph{display:flex;align-items:center;gap:10px;padding:0 4px}.tt{flex:1;font-size:20px;font-weight:600;letter-spacing:-0.02em}
+    .x{width:44px;height:44px;border-radius:22px;background:var(--ki-surface-2, #404040);display:grid;place-items:center;color:var(--ki-text, #fafafa)}
+    .grp{display:flex;flex-direction:column;gap:8px}.gl{padding:0 4px;font-size:13px;color:var(--ki-text-2, #afafaf)}
+    .mds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .md{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;border-radius:20px;min-width:0;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-1, #e1e1e1);transition:background .2s,color .2s}
+    .md:active,.io:active{transform:scale(.95)}
+    .md.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
+    .dm{display:flex;align-items:center;gap:3px;height:28px}
+    .dmi{display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 6px;border-radius:11px;color:var(--ki-text-1, #c7c7c7)}
+    .dmi i{width:14px;height:3px;border-radius:2px;background:currentColor;opacity:.7}
+    .md .dmi.a{background:var(--ki-text, #fafafa);color:var(--ki-popup, #282828)}
+    .md.on .dmi{color:var(--ki-on-accent, #3a3a3a)}.md.on .dmi.a{background:var(--ki-on-accent, #3a3a3a);color:var(--ki-text, #fafafa)}
+    .ml{font-size:12px;font-weight:600;text-align:center;line-height:1.25}
+    .hl{display:flex;flex-direction:column;gap:4px;border-radius:22px;background:var(--ki-surface, #3a3a3a);padding:4px}
+    .hr{border-radius:18px;transition:background .2s}.hr.open{background:var(--ki-surface-2, #404040)}
+    .hb{display:flex;align-items:center;gap:12px;min-height:56px;width:100%;padding:0 12px 0 8px;box-sizing:border-box;text-align:left;color:var(--ki-text, #fafafa)}
+    .hb>ha-icon:last-child{transition:transform .2s}.hr.open .hb>ha-icon:last-child{transform:rotate(180deg)}
+    .hi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-text, #fafafa);color:var(--ki-popup, #282828)}
+    .hn{flex:1;min-width:0;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .rs{font-size:12px;color:var(--ki-text-mid, #979797);padding:6px 8px}
+    .ig{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding:4px 8px 12px;animation:tpf .2s ease}
+    .io{aspect-ratio:1;min-width:0;border-radius:14px;display:grid;place-items:center;background:var(--ki-surface-3, #2f2f2f);color:var(--ki-text-1, #e1e1e1)}
+    .io.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
+    .more{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border-radius:22px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa);text-align:left;font-size:14px;font-weight:500}
+    .more span{flex:1}
+    @keyframes tpf{from{opacity:0}to{opacity:1}}`;
 
   /* ------------------------------------------------------------ «Tilpass Server» (= GUI-editoren, samme skjema) */
   const intStatus = (hh, cc, k) => {
@@ -816,7 +879,7 @@
     const preview = { type: 'html', html: (hh, cc, key, ed) => {
       if (ed && !ed.__svInst) { ed.__svInst = true; window.addEventListener('msh-server-entries', () => { if (ed.isConnected && ed._render) ed._render(); }); }
       const V = visTabs(cc, hh), act = (M.startTab ? M.startTab.pillKey(cc, V, ST_LEG) : null) || V[0]; // 36.5: forhåndsvisningen viser startfanen
-      return `<style>${PREV_CSS()}</style><div class="svp" data-key="svp" aria-hidden="true" style="${thVars(cc)}"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}) : tabRowHTML(V, act)}</div>`;
+      return `<style>${PREV_CSS()}</style><div class="svp" data-key="svp" aria-hidden="true" style="${thVars(cc)}"><div class="tl">Forhåndsvisning</div>${isCards(cc) ? hostCardsHTML(V, act, {}, null, cc) : tabRowHTML(V, act, null, cc)}</div>`;
     } };
     const ints = { type: 'html', html: (hh, cc, key) => `<div class="f" style="gap:8px;padding:0;background:none;box-shadow:none">${INTEG.map((I) => {
       const [txt, col] = intStatus(hh, cc, I.key);
@@ -837,16 +900,22 @@
             preview,
             { type: 'select', name: 'velger', label: 'Vertvelger', options: [['faner', 'Faner'], ['kort', 'Kort']], default: 'faner', help: 'Kort = to kolonner med last-ring og statusprikk. Tannhjulet ligger da i toppkortet.' },
             ...(M.tabH ? [M.tabH.field({ native: 44, preview: false })] : []), // 33.4: felles fanehøyde (forhåndsvisningen over følger valget)
+            { type: 'select', name: 'tab_mode', label: 'Faner viser', options: [['alle', 'Ikon og navn'], ['aktiv', 'Navn på valgt fane'], ['ikon', 'Bare ikoner']], default: 'alle' }, // Fiks 62
             { type: 'boolean', name: 'show_prose', label: 'Setning under toppkortet', default: true },
           ] },
         ] },
-        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs', 'faner'], fields: [
+        { key: 'faner', label: 'Faner', icon: 'mdi:tab', focus: ['tabs', 'faner', 'ikoner', 'host_icons'], fields: [
           { type: 'section', id: 'faner', label: 'Faner', icon: 'mdi:tab', fields: [
             ...(M.startTab ? [M.startTab.field({ legacy: ST_LEG, clear: ['tabs.start'], items: (hh, cc) => { const by = Object.fromEntries(hostOpts); return visTabs(cc || {}, hh).map((k) => ({ key: k, label: by[k] || k })); } })] : []), // 36.5: Startfane øverst
             preview,
             { type: 'order', name: 'tab_order', hiddenName: 'hidden_tabs', label: 'Rekkefølge', start: { legacy: ST_LEG, visible: (cc) => visTabs(cc) }, options: hostOpts,
               after: [{ type: 'boolean', name: 'qbit_force', label: 'Vis qBittorrent-fanen selv om integrasjonen mangler', default: false, help: 'Uten qBittorrent-integrasjonen skjules fanen automatisk.' }] },
             { type: 'info', label: 'Hold inne en fane i 0,4 s og dra for å endre rekkefølgen direkte i popupen.' },
+          ] },
+          // Fiks 62: «Ikon per server» – samme valg som i «Tilpass server»-arket (tannhjulet)
+          { type: 'section', id: 'ikoner', label: 'Ikon per server', icon: 'mdi:emoticon-outline', fields: [
+            { type: 'info', label: 'Trykk på tannhjulet ved fanene for å velge blant de 18 server-ikonene. Her kan du velge et hvilket som helst ikon.' },
+            ...HOSTS.map(([k, l]) => ({ type: 'icon', name: 'host_icons.' + k, label: l, placeholder: icMdi(HOST_IC[k]) })),
           ] },
         ] },
         { key: 'toppkort', label: 'Toppkort', icon: 'mdi:chart-line', focus: ['toppkort'], fields: [
@@ -878,6 +947,11 @@
             { type: 'info', label: 'Funnet automatisk fra qBittorrent-integrasjonen. Velg en annen entitet bare der det automatiske valget er feil.' },
             ...QB.map(([k, o, d]) => entX(o, QB_L[k], (hh, cc) => oppdagQB(hh, cc).auto[k], d === 'switch' ? { domains: ['switch'] } : null)),
           ] },
+          // Fiks 62: arildkristo.com (Cloudflare) – funnet via unique_id ki_arildkristo_*
+          { type: 'section', id: 'cf', label: 'arildkristo.com (Cloudflare)', icon: 'mdi:web', fields: [
+            { type: 'info', label: 'Funnet automatisk fra packages/ki_cloudflare.yaml (unique_id ki_arildkristo_*). Velg en annen entitet bare der det automatiske valget er feil.' },
+            ...((M.serverCF && M.serverCF.ALL) || []).map(([k, , , l]) => entX('cf_' + k, l, (hh, cc) => M.serverCF.discover(hh, cc).auto[k])),
+          ] },
           M.spacingSchema(),
           { type: 'section', id: 'avansert', label: 'Tilbakestill', icon: 'mdi:restore', fields: [reset] },
         ] },
@@ -900,7 +974,7 @@
       this._ce = (e) => {
         if (!this.isConnected || !this._settled) return;
         const src = e && e.detail && e.detail.src, host = this.tab;
-        if ((src === 'sup' && host !== 'ha') || (src === 'ce' && host === 'qbit')) return;
+        if ((src === 'sup' && host !== 'ha') || (src === 'ce' && (host === 'qbit' || host === 'cf'))) return;
         this.update();
       };
       this._hist = HIST; this._pend = {}; this._q = {}; this._flt = {}; this._armed = null; this._blink = {}; this._upd = {};
@@ -987,6 +1061,10 @@
         const U = R.unraid || {}, cp = ov(c, 'unraid_cpu') || U.cpu, mm = ov(c, 'unraid_ram') || U.ram, tp = ov(c, 'unraid_temp') || U.temp;
         return [mk(a, cp, pctOf(h, cp)), mk(b, mm, pctOf(h, mm)), mk(x, tp, numOf(h, tp))];
       }
+      if (host === 'cf') {
+        const [vi, rq, da] = M.serverCF ? M.serverCF.heroIds(h, c) : [];
+        return [mk(a, vi, numOf(h, vi)), mk(b, rq, numOf(h, rq)), mk(x, da, numOf(h, da))];
+      }
       if (host === 'qbit') {
         const Q = oppdagQB(h, c).ids, sp = (id) => { const v = numOf(h, id), f = mbsF(unitOf(h, id)); return [v == null ? null : v * f, f]; };
         const [vd, fd] = sp(Q.down), [vu, fu] = sp(Q.up);
@@ -1033,6 +1111,7 @@
     // Status per vert (chip, prikk): { t, ok, none }
     _status(R, HA, host) {
       const h = this.hass;
+      if (host === 'cf') return M.serverCF ? M.serverCF.chip(h, this.config) : { t: '–', ok: false, none: true };
       if (host === 'qbit') {
         const Q = oppdagQB(h, this.config), s = Q.ids.conn && h.states[Q.ids.conn];
         if (!Q.found) return { t: 'Ikke koblet', ok: false, none: true };
@@ -1082,6 +1161,9 @@
         case 'locate': return this._locate(d);
         case 'st': return this._stRun();
         case 'qalt': return this._qAlt(d.id);
+        // Fiks 62: tannhjulet åpner «Tilpass server» (faner/ikoner) – «Flere innstillinger» der åpner hele Tilpass-arket
+        case 'customize': if (!d.section && !d.full) return this._tilpass(); return super.onAction(name, el, ev);
+        case 'cfp': case 'cfr': case 'cfbar': if (M.serverCF) M.serverCF.onAction(this, name, el); return;
         default: return super.onAction(name, el, ev);
       }
     }
@@ -1237,6 +1319,49 @@
       this._blink[d.dev] = until; setTimeout(() => this.update(), until - Date.now() + 50);
       this.update();
     }
+    /* ---------------------------------------------------------- Fiks 62: «Tilpass server» (designet: cu) */
+    // Ark øverst i popupen (portalt til ki-overlay-root – fallgruve 1) med mørkt bakteppe; trykk utenfor / ✕ / Esc lukker.
+    // «Faner viser» (tab_mode) og «Ikon per server» (host_icons) lagres i kortets config og speiles i localStorage.
+    _tilpass() {
+      if (this._tp && !this._tp.closed) return;
+      const card = this, open = { k: null };
+      const top = (() => { let n = card, popTop = null; for (let i = 0; n && i < 40; i++) { if (n.classList && n.classList.contains('bubble-pop-up')) { popTop = n.getBoundingClientRect().top; break; } n = n.parentElement || (n.getRootNode && n.getRootNode().host); } return Math.round(M.clamp((popTop != null ? popTop : 0) + 12, 12, Math.max(12, window.innerHeight / 3))); })();
+      const ov = (this._tp = M.overlay({ sheet: false, maxWidth: 440, guard: 350, css: TP_CSS(), html: '', onClose: () => { if (card._tp === ov) card._tp = null; } }));
+      ov.host.style.setProperty('--sv-tp-top', top + 'px');
+      const draw = () => {
+        const c = card.config, md = tabMode(c), V = KEYS.filter((k) => card.tabs.includes(k) || (k !== 'cf' && k !== 'qbit'));
+        const modes = [['alle', 'Ikon og navn', [1, 1, 1]], ['aktiv', 'Navn på valgt fane', [1, 0, 0]], ['ikon', 'Bare ikoner', [0, 0, 0]]].map(([k, l, dm]) => `<button class="md${md === k ? ' on' : ''}" data-sa="mode" data-v="${k}" aria-pressed="${md === k}">
+            <span class="dm">${dm.map((t, j) => `<span class="dmi${j === 0 ? ' a' : ''}">${M.icon(icMdi(['router', 'dns', 'home'][j]), 12)}${t ? '<i></i>' : ''}</span>`).join('')}</span><span class="ml">${esc(l)}</span></button>`).join('');
+        const hosts = V.map((k) => {
+          const cur = hostIconName(c, k), on = open.k === k, changed = cur !== HOST_IC[k];
+          return `<div class="hr${on ? ' open' : ''}" data-key="tph-${k}"><button class="hb" data-sa="toggle" data-v="${k}" aria-expanded="${on}"><span class="hi">${M.icon(icMdi(cur), 20)}</span><span class="hn"${k === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[k][1])}</span>${changed ? `<span class="rs" data-sa="reset" data-v="${k}" role="button">Tilbakestill</span>` : ''}${M.icon('mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
+            ${on ? `<div class="ig">${IC_OPTS.map((ic) => `<button class="io${ic === cur ? ' on' : ''}" data-sa="icon" data-k="${k}" data-v="${ic}" title="${ic}" aria-pressed="${ic === cur}">${M.icon(icMdi(ic), 20)}</button>`).join('')}</div>` : ''}</div>`;
+        }).join('');
+        M.morph(ov.body, `<div class="tph"><span class="tt">Tilpass server</span><button class="x" data-sa="close" aria-label="Lukk" title="Lukk">${M.icon('mdi:close', 22)}</button></div>
+          <div class="grp"><span class="gl">Faner viser</span><div class="mds">${modes}</div></div>
+          <div class="grp"><span class="gl">Ikon per server</span><div class="hl">${hosts}</div></div>
+          <button class="more" data-sa="full">${M.icon('mdi:tune', 20)}<span>Flere innstillinger</span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-mid, #979797)')}</button>`);
+      };
+      const save = (patch) => {
+        const old = card._rawConfig || card.config, n = { ...old, ...patch };
+        card._setCfg(n);
+        try { localStorage.setItem(LS_TP, JSON.stringify({ icons: { ...(n.host_icons || {}) }, tabMode: n.tab_mode || 'alle' })); } catch (e) { /* */ }
+        setTimeout(draw, 0);
+      };
+      ov.body.addEventListener('click', (e) => {
+        const el = e.target.closest('[data-sa]'); if (!el) return;
+        e.stopPropagation();
+        const a = el.dataset.sa, v = el.dataset.v, c = card._rawConfig || card.config;
+        if (a === 'close') { M.haptic('light'); return ov.close(); }
+        if (a === 'full') { M.haptic('light'); ov.close(); return card.customize(); }
+        if (a === 'mode') { M.haptic('selection'); return save({ tab_mode: v === 'alle' ? undefined : v }); }
+        if (a === 'toggle') { M.haptic('light'); open.k = open.k === v ? null : v; return draw(); }
+        const icons = { ...((c && c.host_icons) || {}) };
+        if (a === 'reset') { M.haptic('light'); delete icons[v]; return save({ host_icons: Object.keys(icons).length ? icons : undefined }); }
+        if (a === 'icon') { M.haptic('selection'); if (v === HOST_IC[el.dataset.k]) delete icons[el.dataset.k]; else icons[el.dataset.k] = v; return save({ host_icons: Object.keys(icons).length ? icons : undefined }); }
+      });
+      draw();
+    }
     _openPick(k) {
       if (this._pick) this._pick.close();
       this._pick = openPick(this.hass, this._rawConfig || this.config, k, async (v) => {
@@ -1280,7 +1405,7 @@
         // kort-modus: billige sammendrag (første måling + status) for hver vert – ingen lister/underfaner
         V.forEach((k) => { X[k] = this._sum(R, HA, k, true); });
       }
-      const pick = cards ? hostCardsHTML(V, host, X, (k) => `data-act="host" data-haptic="selection"`) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"');
+      const pick = cards ? hostCardsHTML(V, host, X, (k) => `data-act="host" data-haptic="selection"`, c) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"', c);
       const ik = HOST_INT[host], found = !ik || R.found[ik], sub = this._sub(host);
       const parts = [pick, this._hero(R, HA, host, cards), showProse(c) ? this._prose(R, HA, host) : ''];
       if (!found) parts.push(this._notFound(R, ik));
@@ -1300,7 +1425,7 @@
       const R = oppdagPeek(h, c), HA = R && oppdagHAPeek(h, c), live = !!(R && HA);
       let X = {};
       if (cards && live) V.forEach((k) => { X[k] = this._sum(R, HA, k); });
-      const pick = cards ? hostCardsHTML(V, host, X, () => `data-act="host" data-haptic="selection"`) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"');
+      const pick = cards ? hostCardsHTML(V, host, X, () => `data-act="host" data-haptic="selection"`, c) : tabRowHTML(V, host, () => 'data-act="host" data-haptic="selection"', c);
       let prose = null;
       if (live && showProse(c)) { try { prose = this._prose(R, HA, host); } catch (e) { prose = null; } }
       const parts = [pick, live ? this._hero(R, HA, host, cards) : this._hero(null, null, host, cards, true)];
@@ -1311,11 +1436,12 @@
     }
     _hostDeps(R, HA, host) {
       const D = this._deps, add = (id) => { if (typeof id === 'string' && id.includes('.')) D.add(id); };
-      const P = { net: /^(net_|unifi_|speedtest_)/, proxmox: /^proxmox_/, unraid: /^unraid_/, ha: /^ha_/, qbit: /^qbit_/ }, ALL = /^(net_|unifi_|speedtest_|proxmox_|unraid_|ha_|qbit_)/;
+      const P = { net: /^(net_|unifi_|speedtest_)/, proxmox: /^proxmox_/, unraid: /^unraid_/, ha: /^ha_/, qbit: /^qbit_/, cf: /^cf_/ }, ALL = /^(net_|unifi_|speedtest_|proxmox_|unraid_|ha_|qbit_|cf_)/;
       Object.entries(this.config.overrides || {}).forEach(([k, id]) => { if ((P[host] && P[host].test(k)) || !ALL.test(k)) add(id); });
       if (host === 'net') { R.ents.unifi.forEach(add); Object.values(oppdagST(this.hass, this.config).ids).forEach(add); }
       else if (host === 'proxmox' || host === 'unraid') R.ents[host].forEach(add);
       else if (host === 'qbit') Object.values(oppdagQB(this.hass, this.config).ids).forEach(add);
+      else if (host === 'cf') { if (M.serverCF) M.serverCF.deps(this.hass, this.config).forEach(add); }
       else if (host === 'ha') {
         [HA.sys, HA.core, HA.os, HA.sup, HA.host].forEach((o) => Object.values(o || {}).forEach(add));
         HA.addons.forEach((a) => [a.run, a.sw, a.cpu, a.mem, a.ver, a.upd].forEach(add));
@@ -1326,8 +1452,9 @@
     _sum(R, HA, k, deps) {
       const m = this._metrics(R, HA, k)[0], st = this._status(R, HA, k);
       if (deps) this._sumDeps(R, HA, k, m);
-      return { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : k === 'qbit' ? Math.min(100, m.v * 5) : m.v,
-        sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : k === 'qbit' ? `${fmtN(m.v, m.v < 100 ? 1 : 0)} MB/s ned` : `${m.label} ${Math.round(m.v)} %` };
+      // Fiks 62: arildkristo.com – «N besøk · 24 t», ring 100 % = 500 besøk
+      return { ok: st.ok, none: st.none, col: m.color, pct: m.v == null ? 0 : k === 'net' ? Math.min(100, m.v / 10) : k === 'qbit' ? Math.min(100, m.v * 5) : k === 'cf' ? Math.min(100, m.v / 5) : m.v,
+        sub: m.v == null ? '–' : k === 'net' ? `${Math.round(m.v)} Mbit ned` : k === 'qbit' ? `${fmtN(m.v, m.v < 100 ? 1 : 0)} MB/s ned` : k === 'cf' ? `${M.nf(m.v)} besøk · 24 t` : `${m.label} ${Math.round(m.v)} %` };
     }
     // Kort-modus: det sammendraget for vert k leser (første måling + status)
     _sumDeps(R, HA, k, m) {
@@ -1338,6 +1465,7 @@
       else if (k === 'unraid') { const U = R.unraid; if (U) [U.arrayStatus, U.arraySw].forEach(add); }
       else if (k === 'ha') this._updIds().forEach(add);
       else if (k === 'qbit') add(oppdagQB(this.hass, this.config).ids.conn);
+      else if (k === 'cf' && M.serverCF) M.serverCF.status(this.hass, this.config).ids.forEach(add);
     }
     _hero(R, HA, host, cards, skel) {
       const ui = this.ui, c = this.config;
@@ -1360,7 +1488,7 @@
       const time = ui.sel == null ? `nå · ${M0.label.toLowerCase()}` : `−${M.nf(hrs, hrs % 1 ? 1 : 0)} t · ${M0.label.toLowerCase()}`;
       const unit = (m) => (m.unit === '%' || m.unit === '°' ? m.unit : m.unit ? ' ' + m.unit : ' ' + m.label.toLowerCase());
       return `<section class="hero" aria-label="Toppkort" data-key="hero-${host}">
-          <div class="htop"><span class="hn ell">${esc(HOSTL[host][1])}</span><span class="chip ${st.none ? 'none' : st.ok ? 'ok' : 'warn'}">${M.icon(st.none ? 'mdi:link-variant-off' : st.ok ? 'mdi:check' : 'mdi:alert', 13)}<span class="ell">${esc(st.t)}</span></span></div>
+          <div class="htop"><span class="hn ell"${host === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[host][1])}</span><span class="chip ${st.none ? 'none' : st.ok ? 'ok' : 'warn'}">${M.icon(st.none ? 'mdi:link-variant-off' : st.ok ? 'mdi:check' : 'mdi:alert', 13)}<span class="ell">${esc(st.t)}</span></span></div>
           ${cards ? `<button class="hcog" data-act="customize" aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button>` : ''}
           <div class="vals"><span class="bigw"><span class="big num">${fv(M0, at(M0))}</span><span class="bu">${esc(unit(M0).trim() === M0.label.toLowerCase() ? '' : unit(M0))}</span></span>
             ${Ms.map((m, j) => (j === mi ? '' : `<button class="sv" data-act="hm" data-v="${m.k}" data-haptic="selection" aria-label="Vis ${esc(m.label)}"><span class="svv num">${fv(m, at(m))}</span><span class="svu">${esc(unit(m))}</span></button>`)).join('')}</div>
@@ -1377,7 +1505,11 @@
       const h = this.hass, c = this.config, ik = HOST_INT[host], pill = (t) => `<span class="pp">${esc(t)}</span>`;
       let txt;
       if (ik && !R.found[ik]) txt = R.loading && R.mode[ik] !== 'none' ? `Leter etter ${pill(INT[ik].name)} …` : `Ingen ${pill(INT[ik].name)} er koblet til ennå.`;
-      else if (host === 'qbit') {
+      else if (host === 'cf') {
+        // Fiks 62: «arildkristo.com har hatt [N besøk] og [N forespørsler] siste 24 timer.»
+        const m = this._metrics(R, HA, 'cf'), v = m[0].v, r = m[1].v;
+        txt = `<span data-noi18n>${esc(HOSTL.cf[1])}</span> har hatt ${pill(v == null ? '–' : `${M.nf(v)} besøk`)} og ${pill(r == null ? '–' : `${M.nf(r)} forespørsler`)} siste 24 timer.`;
+      } else if (host === 'qbit') {
         const m = this._metrics(R, HA, 'qbit'), a = m[2].v;
         txt = `qBittorrent laster ned med ${pill(m[0].v == null ? '–' : `${fmtN(m[0].v, m[0].v < 100 ? 1 : 0)} MB/s`)} og har ${pill(a == null ? '–' : `${M.nf(a)} ${a === 1 ? 'aktiv torrent' : 'aktive torrenter'}`)}.`;
       } else if (host === 'net' && M.serverUnifi && typeof M.serverUnifi.prosa === 'function' && (() => { try { txt = M.serverUnifi.prosa(h, R, c) || ''; } catch (e) { console.error('[ki-msh] serverUnifi.prosa', e); txt = ''; } return !!txt; })()) {
@@ -1592,6 +1724,12 @@
         <button class="card qalt press${on ? ' on' : ''}" ${Q.alt && as ? `data-act="qalt" data-id="${esc(Q.alt)}" data-ent="${esc(Q.alt)}" data-haptic="medium"` : 'disabled'} role="switch" aria-checked="${on}" data-key="qalt">
           <span class="qai">${M.icon('mdi:speedometer', 20)}</span><span class="grow col"><b>Alternativ hastighet</b><span class="ell">${esc(altSub)}</span></span><span class="qtr"><i></i></span></button>`;
     }
+    // Fiks 62: arildkristo.com (Cloudflare) – innholdet kommer fra 58c-server-cf.js
+    _cfBody(sub) { return M.serverCF ? M.serverCF.body(this, sub) : ''; }
+    _b_cf_trafikk() { return this._cfBody('trafikk'); }
+    _b_cf_besok() { return this._cfBody('besok'); }
+    _b_cf_ytelse() { return this._cfBody('ytelse'); }
+    _b_cf_sikkerhet() { return this._cfBody('sikkerhet'); }
     _b_qbit_statistikk() {
       const h = this.hass, { Q, cnt, spd } = this._qb();
       const by = (id) => { const v = numOf(h, id); return v == null ? null : v * bytesF(unitOf(h, id)); };
@@ -1833,6 +1971,7 @@
       if (this._settled && !this._skel) {
         if (this._histSoon) { this._histSoon = false; setTimeout(() => this._loadHist(), 0); }
         const host = this.tab, sub = this._sub(host);
+        if (host === 'cf' && M.serverCF) M.serverCF.loadStats(this, sub); // Fiks 62: bare når fanen vises (fallgruve 8)
         clearTimeout(this._skhT);
         this._skhT = setTimeout(() => {
           if (!this.isConnected || this._skel || this.tab !== host) return;
@@ -1951,6 +2090,7 @@
       return `
         :host{display:block;width:100%}
         .wrap{display:flex;flex-direction:column;gap:8px}
+        ${M.serverCF ? M.serverCF.css() : ''}
         .pane{display:flex;flex-direction:column;gap:8px;min-width:0;animation:svf .3s ease}
         .skp{border-radius:28px;background:${S};opacity:.55;flex:none}
         .prose.sk{color:var(--ki-text-3, #7f7f7f)}
@@ -2145,7 +2285,7 @@
   M.popupNeeds = M.popupNeeds || {};
   // brukervalg (35): UniFi Network, Proxmox VE, Unraid eller Home Assistant Supervisor (hassio) – ikke Glances eller UniFi Protect alene
   const NEED_SKIP = { glances: 1, unifiprotect: 1 };
-  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && ((PLAT[e.platform] && !NEED_SKIP[e.platform]) || e.platform === 'hassio' || e.platform === 'qbittorrent')) || (Array.isArray(CE.data) && CE.data.some((e) => !NEED_SKIP[e.domain]));
+  M.popupNeeds[HASH] = (hass) => Object.values((hass && hass.entities) || {}).some((e) => e && ((PLAT[e.platform] && !NEED_SKIP[e.platform]) || e.platform === 'hassio' || e.platform === 'qbittorrent')) || Object.keys((hass && hass.states) || {}).some((id) => id.startsWith('sensor.ki_arild_kristo_')) || (Array.isArray(CE.data) && CE.data.some((e) => !NEED_SKIP[e.domain]));
   M.server = { oppdag, oppdagHA, oppdagQB, oppdagST, visTabs, maltTxt, sizeOf, mbsF, bytesF, confirm: confirmSheet, entries, entriesFor, openPick, INTEG, HOSTS, SUBS, tabsCfg, SUP };
-  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA · qBittorrent, toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
+  M.define('msh-server-card', Server, 'MSH Server', 'Server-popup (#server): vertvelger Nettverk · Proxmox · Unraid · HA · qBittorrent · arildkristo.com (Cloudflare), toppkort med graf, prosa-setning, underfaner og felles utvidbar liste.');
 })();
