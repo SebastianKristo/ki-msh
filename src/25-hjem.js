@@ -106,6 +106,7 @@
       const first = !this._hass;
       this._hass = h;
       Object.values(this._kids).forEach((k) => { k.hass = h; });
+      if (this._pcEl) this._pcEl.hass = h; // Fiks 64: PC-dashbordet
       if (M.ringTick) M.ringTick(h); // 19.18: ringeklokke (50-ringeklokke.js)
       if (M.kioskTick) M.kioskTick(h); // 22.9: kiosk per nettleser (Browser Mod-ID, 53-kiosk.js)
       if (M.onboardMaybe) M.onboardMaybe(h); // 23.7: onboarding første gang (54-onboarding.js – bare i ekte HA med strategien)
@@ -122,7 +123,8 @@
         this._ro.observe(this);
         const d = findDash(); if (d) this._ro.observe(d); else if (this.parentElement) this._ro.observe(this.parentElement);
       }
-      if (!this._onRs) { this._onRs = () => this._measure(); window.addEventListener('resize', this._onRs); }
+      if (!this._onRs) { this._onRs = () => { this._measure(); if (M.pc && !!this._pcOn !== M.pc.active()) this._schedule(true); }; window.addEventListener('resize', this._onRs); }
+      if (!this._onPc) { this._onPc = () => this._schedule(true); window.addEventListener('ki-pc-change', this._onPc); }
       requestAnimationFrame(() => this._measure());
       if (M.ringHjemBind) M.ringHjemBind(this); // 19.18/19.19: ringe-kort + #ringeklokke fra URL ved kaldstart
       if (M.hurtig) M.hurtig.attach(this); // Fiks 58 A: nedtrekkspanel (bare i Hjem, aldri med popup/ark åpent)
@@ -132,6 +134,7 @@
       super.disconnectedCallback();
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._onRs) { window.removeEventListener('resize', this._onRs); this._onRs = null; }
+      if (this._onPc) { window.removeEventListener('ki-pc-change', this._onPc); this._onPc = null; }
       if (M.hurtig) M.hurtig.detach(this);
     }
     // Egen rect mot dashbordflaten → negative marger (sidemarg måles fra dashbordkanten) + bredde og Fold-oppsett.
@@ -216,6 +219,9 @@
       // layout «Mobil»/«Stor» endret i editoren → mål på nytt (Fold-oppsettet følger valget straks)
       const G = this._geo && this._geo.lm === (this.config.layout_mode || 'auto') ? this._geo : (this._geo = this._calc());
       this._logLayout(G);
+      // Fiks 64: PC-dashbordet (msh-pc-card) i stedet for mobilvisningen – 'ki-pc-oppsett' = 'pc' og dashbordflaten ≥ 1100 px
+      this._pcOn = !this.config.no_pc && !!(M.pc && M.pc.active());
+      if (this._pcOn) return `<div class="out" style="margin:${-G.offT}px ${-G.offR}px 0 ${-G.offL}px"><div class="pcw" data-key="pcw" data-nomorph></div></div>`;
       const vis = this._order();
       this._vis = vis;
       const slot = (k) => `<div class="s s-${k}" data-key="s-${k}" data-slot="${k}" data-nomorph></div>`;
@@ -227,6 +233,14 @@
       </div>`;
     }
     afterRender() {
+      if (this._pcOn) {
+        const w = this.shadowRoot.querySelector('.pcw');
+        if (!this._pcEl) { this._pcEl = document.createElement('msh-pc-card'); try { this._pcEl.setConfig({ type: 'custom:msh-pc-card', card_id: 'ki-pc', ...(this.config.pc || {}) }); } catch (e) { console.error('[ki-msh] msh-pc-card', e); } }
+        this._pcEl._hjem = this;
+        if (this._hass) this._pcEl.hass = this._hass;
+        if (w && this._pcEl.parentNode !== w) w.appendChild(this._pcEl);
+        return;
+      }
       const G = this._geo || {};
       (this._vis || []).forEach((k) => {
         const s = this.shadowRoot.querySelector(`[data-slot="${k}"]`), el = this._kid(k, G);

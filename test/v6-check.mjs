@@ -35,7 +35,8 @@ const CF = () => window.mockExtend(({ add, E }) => {
   R(P + 'svartid_p95', 'svartid_p95', 186, { unit_of_measurement: 'ms', state_class: 'measurement' });
   R(P + '4xx_andel', 'andel_4xx', 1.82, { unit_of_measurement: '%' });
   R(P + '5xx_andel', 'andel_5xx', 0.04, { unit_of_measurement: '%' });
-  R(P + 'toppland_siste_24_timer', 'toppland_24t', 'Norway 3120 · United States 980 · Sweden 410 · Germany 220 · Netherlands 140');
+  // Fiks 63 (v7): attributtet «land» med alle land (ISO alpha-2), XX/T1 = ukjent/Tor
+  R(P + 'toppland_siste_24_timer', 'toppland_24t', 'Norway 3120 · United States 980 · Sweden 410 · Germany 220 · Netherlands 140', { land: [['NO', 3120], ['US', 980], ['SE', 410], ['DE', 220], ['NL', 140], ['GB', 92], ['DK', 85], ['FI', 41], ['FR', 36], ['CA', 30], ['ES', 22], ['JP', 12], ['IN', 9], ['BR', 7], ['AU', 6], ['XX', 50], ['T1', 4]].map(([kode, besok]) => ({ kode, besok })) });
   R(P + 'mest_besokte_sider_siste_24_timer', 'toppsider_24t', '/ 820 · /prosjekter 214 · /om 96 · /blogg/ki-hjem 71 · /kontakt 38');
   R(P + 'stoppede_foresporsler_siste_24_timer', 'stoppet_24t', 186, { unit_of_measurement: 'forespørsler', state_class: 'measurement' });
   R(P + 'andel_stoppet', 'andel_stoppet', 3.1, { unit_of_measurement: '%' });
@@ -47,6 +48,8 @@ const CF = () => window.mockExtend(({ add, E }) => {
 async function page(cfg, o = {}) {
   const ctx = o.ctx || await b.newContext({ viewport: o.vp || { width: 412, height: 900 }, hasTouch: true });
   const p = await ctx.newPage();
+  // Fiks 63: kartgeometrien (world-atlas) fra node_modules i stedet for CDN – eller feiler med vilje (o.geoFail)
+  await p.route('**/world-atlas@2.0.2/countries-110m.json', (r) => (o.geoFail ? r.abort() : r.fulfill({ path: resolve('node_modules/world-atlas/countries-110m.json'), contentType: 'application/json' })));
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/net::ERR|fonts\.googleapis|Failed to load resource/.test(m.text())) errs.push(m.text()); });
   await p.goto('file://' + resolve('test/harness.html'));
@@ -131,7 +134,7 @@ const tabs = (p) => p.evaluate(() => __A('.trow .tb').map((x) => x.dataset.v));
   await click(p, '.subs .sb[data-v="besok"]', 600);
   X = await p.evaluate(() => ({ titles: __A('.pane .ct').map(__t), tiles: __A('.cfk .cft1').map(__t),
     lists: __A('.cfl2').map((l) => __A('.cfl2').indexOf(l) >= 0 && [...l.querySelectorAll('.cflr')].map((r) => [r.children[0].textContent, r.children[2].textContent, parseFloat(r.querySelector('.cflt>span').style.width), r.children[0].hasAttribute('data-noi18n')])), st: __t(__R('.cfst')) }));
-  ok('2 Besøk: «Besøkende» (sidevisninger 1 240, unike 268) + Toppland + Mest besøkte sider + Historikk', X.titles.join() === 'Besøkende,Toppland,Mest besøkte sider,Historikk' && /1\s240/.test(X.tiles[0]) && /268/.test(X.tiles[1]), X);
+  ok('2 Besøk: «Besøkende» (sidevisninger 1 240, unike 268) + Toppland + Mest besøkte sider + Historikk', X.titles.join() === 'Besøkende,Besøk på kart,Toppland,Mest besøkte sider,Historikk' && /1\s240/.test(X.tiles[0]) && /268/.test(X.tiles[1]), X);
   const L0 = X.lists[0], L1 = X.lists[1];
   ok('2 Toppland leses riktig (navn · antall · søyle relativt til største, navn data-noi18n)', L0.length === 5 && L0[0][0] === 'Norway' && /3\s120/.test(L0[0][1]) && L0[0][2] === 100 && L0[1][0] === 'United States' && Math.abs(L0[1][2] - 31.4) < 0.1 && L0.every((r) => r[3]), L0);
   ok('2 Mest besøkte sider leses riktig («/» og stier)', L1.length === 5 && L1[0][0] === '/' && L1[0][1] === '820' && L1[3][0] === '/blogg/ki-hjem' && L1[4][1] === '38', L1);
@@ -257,6 +260,49 @@ const tabs = (p) => p.evaluate(() => __A('.trow .tb').map((x) => x.dataset.v));
   X = await p.evaluate(() => ({ io: __A('.trow .tb').filter((t) => !t.querySelector('.tbn')).length, n: __A('.trow .tb').length, net: __A('.trow .tb').find((t) => t.dataset.v === 'net').querySelector('ha-icon').getAttribute('icon') }));
   ok('6 valgene beholdes etter reload («Navn på valgt fane», nytt ikon)', X.io === X.n - 1 && X.net === 'mdi:cloud-outline', X);
   ok('6 ingen sidefeil', !errs.length, errs);
+  await ctx.close();
+}
+
+/* ---------------- 8 · besøkskart (Fiks 63, prompt v7) */
+{
+  const { p, ctx, errs } = await page({ start_tab: 'cf' }, { vp: { width: 412, height: 900 } });
+  ok('8 kartet vises ikke på Trafikk', await p.evaluate(() => !__R('.cfmapc')));
+  await click(p, '.subs .sb[data-v="besok"]', 1500);
+  let X = await p.evaluate(() => ({ titles: __A('.pane .ct').map(__t), paths: __A('.cfmap .cc').length, v: __A('.cfmap .cc.v').map((x) => [x.dataset.v, +x.style.fillOpacity]), lbl: __t(__R('.cfml')), leg: __t(__R('.cfmleg')), sea: !!__R('.cfmap .sea'),
+    ratio: (() => { const r = __R('.cfmap').getBoundingClientRect(), c = __R('.cfmapc').getBoundingClientRect(); return [Math.round(r.width / r.height * 10) / 10, Math.round(c.width - r.width)]; })(), aq: __A('.cfmap .cc').some((x) => x.dataset.v === '010') }));
+  ok('8 Besøk: «Besøk på kart» under Besøkende, over listene', X.titles.slice(0, 4).join() === 'Besøkende,Besøk på kart,Toppland,Mest besøkte sider', X.titles);
+  const mx = X.v.reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0]);
+  ok('8 land med besøk fylles (15 land, XX/T1 hoppet over), Norge mørkest (1), opasitet 0,25–1', X.v.length === 15 && mx[0] === '578' && mx[1] === 1 && X.v.every((x) => x[1] >= 0.25 && x[1] <= 1) && !X.aq, X.v);
+  ok('8 forklaring 0 → maks, etikett «15 land · 5 210 besøk», kartet 1,9 : 1 og fyller kortet', /^0\s*3\s120$/.test(X.leg) && /^15 land\s?· 5\s210 besøk$/.test(X.lbl) && X.ratio[0] === 1.9 && X.ratio[1] === 28, X);
+  await p.evaluate(() => __R('.cfmap .cc[data-v="752"]').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))); await sleep(300);
+  X = await p.evaluate(() => ({ lbl: __t(__R('.cfml')), sel: !!__R('.cfmap .selo') }));
+  ok('8 trykk på Sverige: «Sverige · 410 besøk · 7,9 %» og hvit kant', /^Sverige\s?· 410 besøk · 7,9 %$/.test(X.lbl) && X.sel, X);
+  if (shots) { await p.evaluate(() => __R('.cfmapc').scrollIntoView()); await sleep(200); await p.screenshot({ path: `${shots}/v6-kart.png` }); }
+  await p.evaluate(() => __R('.cfmap .sea').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))); await sleep(300);
+  X = await p.evaluate(() => ({ lbl: __t(__R('.cfml')), sel: !!__R('.cfmap .selo') }));
+  ok('8 trykk på havet nullstiller', /^15 land/.test(X.lbl) && !X.sel, X);
+  await p.evaluate(() => __R('.cfmap .cc[data-v="752"]').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))); await sleep(200);
+  await p.evaluate(() => __R('.cfmap .cc[data-v="752"]').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))); await sleep(200);
+  ok('8 trykk på samme land igjen nullstiller', await p.evaluate(() => /^15 land/.test(__t(__R('.cfml')))));
+  await p.evaluate(async () => { window.kiSetLang('en'); await new Promise((q) => setTimeout(q, 500)); __R('.cfmap .cc[data-v="840"]').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true })); await new Promise((q) => setTimeout(q, 300)); });
+  X = await p.evaluate(() => ({ lbl: __t(__R('.cfml')), t: __t(__R('.cfmapc .ct')) }));
+  ok('8 engelsk: «Visits on map», «United States · 980 visits · 18.8 %»-form', X.t === 'Visits on map' && /^United States\s?· 980 visits · 18,8 %$/.test(X.lbl), X);
+  await p.evaluate(() => window.kiSetLang('no'));
+  ok('8 ingen sidefeil', !errs.length, errs);
+  await ctx.close();
+}
+{
+  const { p, ctx } = await page({ start_tab: 'cf' }, { vp: { width: 360, height: 800 } });
+  await click(p, '.subs .sb[data-v="besok"]', 1500);
+  await p.evaluate(() => __R('.cfmap .cc[data-v="840"]').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))); await sleep(300);
+  const X = await p.evaluate(() => { const m = __R('.cfmap').getBoundingClientRect(), l = __R('.cfml').getBoundingClientRect(), g = __R('.cfmleg').getBoundingClientRect(), b = __R('.cfml b'); return { fill: Math.round(__R('.cfmapc').getBoundingClientRect().width - m.width), inside: l.right <= m.right && l.right <= g.left + 2, ell: getComputedStyle(b).textOverflow }; });
+  ok('8 360 px: kartet fyller kortet, etiketten holder seg innenfor (ellipse)', X.fill === 28 && X.inside && X.ell === 'ellipsis', X);
+  await ctx.close();
+}
+{
+  const { p, ctx } = await page({ start_tab: 'cf' }, { geoFail: true });
+  await click(p, '.subs .sb[data-v="besok"]', 1500);
+  ok('8 geometrien kan ikke lastes → «Kunne ikke laste kartet»', await p.evaluate(() => __t(__R('.cfmerr')) === 'Kunne ikke laste kartet'));
   await ctx.close();
 }
 

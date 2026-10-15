@@ -636,6 +636,7 @@
       // Fiks 26.16: Tilpass-ark åpent → navbar, mini-spiller og «Mer»-meny tar ikke imot trykk (ligger under bakteppet)
       this._onSheet = () => { if (this._portal) this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); };
       window.addEventListener('ki-sheet', this._onSheet);
+      if (!this._onPc) { this._onPc = () => this._schedule(true); window.addEventListener('ki-pc-change', this._onPc); }
     }
     disconnectedCallback() {
       super.disconnectedCallback();
@@ -855,6 +856,7 @@
         ['home', 'dashboard_customize', 'Tilpass Hjem', 'Kort, faner, popups og tekst', true],
         ['navbar', 'tune', 'Tilpass navbar', 'Knapper, plassering og stil', true],
         ['header', 'mdi:page-layout-header', 'Tilpass header', 'Hilsen, vær og personer', true],
+        ['pc', 'mdi:monitor', 'Dashbord på PC', () => (M.pc && M.pc.mode() === 'pc' ? 'Oversikt for PC' : 'Mobilvisning'), !!M.pc], // Fiks 64
         ['kiosk', 'mdi:fullscreen', 'Kiosk-modus', () => (kioskOn() ? 'På' : 'Av'), !!M.kioskSheet],
         // Fiks 35 (oppfølging 33.3): enhetsoversikten (gi nytt navn / nullstill / slett) lå før nederst i Innstillinger
         ['devices', 'mdi:devices', 'Enheter', () => { const n = M.store && M.store.devices ? M.store.devices().filter((d) => d.own > 0).length : 0; return n ? `${n} ${n === 1 ? 'enhet' : 'enheter'} med eget oppsett` : 'Gi nytt navn, nullstill eller slett'; }, !!(M.store && customElements.get('msh-settings-card'))],
@@ -885,6 +887,7 @@
         const k = el.dataset.v;
         if (k === 'alt') return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass-alt' } }));
         if (k === 'kiosk') return M.kioskSheet && M.kioskSheet(this);
+        if (k === 'pc') { const to = M.pc.mode() === 'pc' ? 'mobil' : 'pc'; M.pc.set(to); if (to === 'pc' && !M.pc.wide()) M.toast(kiT('PC-dashbordet vises når skjermen er minst 1100 px bred', 'The PC dashboard shows when the screen is at least 1100 px wide')); return; }
         if (k === 'devices') return this._devicesSheet();
         return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: k } }));
       });
@@ -956,6 +959,7 @@
         const n = N.bar.filter((id) => !N.hidden.has(id)).length;
         return `<div class="pv"><div class="pvh">${M.icon('mdi:dock-bottom', 18)}<span>Navbar · ${n} knapper + Mer · ${rail ? 'rail til venstre' : 'bunn'} (flytende utenfor redigering)</span></div>${this._navHtml(N, { ...geo, rail: false }, true)}</div>`;
       }
+      if (M.pc && M.pc.active()) { this._hidePortal(); return ''; } // Fiks 64: ingen navbar i PC-dashbordet
       if (!this._active()) {
         if (this._keepPortal()) return '<slot name="nav"></slot>'; // Fiks 55 B2: midlertidig uten layout – navbaren står urørt
         this._hidePortal(); return '';

@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#232323;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}}
+</style>
+<script src="./haptic.js"></script>
+<script src="./glass-drag.js"></script>
+<script src="./image-slot.js"></script>
+<script src="./i18n.js"></script>
+</helmet>
+<div style="min-height:100vh;box-sizing:border-box;padding:16px;display:flex;flex-wrap:wrap;gap:16px;background:#232323;font-size:14px">
+
+  <section style="{{ heroStil }}">
+    <div onPointerDown="{{ bredde.down }}" onDblClick="{{ bredde.reset }}" title="Dra for å endre bredden" style="position:absolute;top:0;right:0;bottom:0;width:14px;z-index:4;cursor:col-resize"></div>
+    <image-slot id="pc-hus-foto" placeholder="Slipp et bilde av huset eller rommet her" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(25,25,25,0.72) 0%,rgba(25,25,25,0.25) 38%,rgba(25,25,25,0.88) 100%);pointer-events:none"></div>
+    <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <span style="display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600;letter-spacing:-0.01em"><span class="ms" style="font-size:22px;color:rgb(242 133 201)">hub</span><span data-noi18n>KI Hjem</span></span>
+      <button onClick="{{ meny }}" title="Meny" style="width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:rgba(250,250,250,0.14);backdrop-filter:blur(10px)" style-hover="background:rgba(250,250,250,0.24)"><span class="ms" style="font-size:22px">menu</span></button>
+    </div>
+    <div style="position:relative;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:54px;font-weight:300;line-height:1;letter-spacing:-0.03em">{{ stedNavn }}</span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:#c7c7c7"><span class="ms" style="font-size:16px">{{ stedIkon }}</span>{{ stedSub }}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px 20px;padding:14px 16px;border-radius:22px;background:rgba(25,25,25,0.55);backdrop-filter:blur(10px)">
+        <sc-for list="{{ husStat }}" as="h" hint-placeholder-count="4">
+          <span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#afafaf"><span class="ms" style="{{ h.iconS }}">{{ h.icon }}</span>{{ h.l }}</span><span style="font-size:17px;font-weight:400;font-variant-numeric:tabular-nums">{{ h.v }}</span></span>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="5"><button onClick="{{ r.tap }}" style="{{ r.style }}">{{ r.n }}</button></sc-for>
+        <button onClick="{{ leggTilRom }}" title="Legg til rom" style="width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:rgba(250,250,250,0.14);backdrop-filter:blur(10px)" style-hover="background:rgba(250,250,250,0.26)"><span class="ms" style="font-size:20px">add</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section style="flex:9999 1 480px;min-width:0;display:flex;flex-direction:column;gap:16px">
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button onClick="{{ sok }}" title="Søk" style="width:44px;height:44px;flex:none;border-radius:22px;display:grid;place-items:center;background:#3a3a3a" style-hover="background:#454545"><span class="ms" style="font-size:20px">search</span></button>
+      <nav data-glass-drag="x" onPointerMove="{{ navMove }}" onPointerUp="{{ navUp }}" onPointerLeave="{{ navUp }}" onContextMenu="{{ navNoCtx }}" style="display:flex;flex-wrap:wrap;gap:2px;padding:4px;border-radius:26px;background:#2f2f2f;min-width:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);user-select:none;touch-action:pan-y">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.tap }}" onPointerDown="{{ t.down }}" data-tab="{{ t.i }}" title="{{ t.n }}" style="{{ t.style }}"><span class="ms" style="font-size:18px">{{ t.icon }}</span>{{ t.n }}</button></sc-for>
+      </nav>
+      <span style="flex:1 1 20px"></span>
+      <span style="font-size:13px;color:#979797;white-space:nowrap">{{ naa }}</span>
+      <button onClick="{{ varsler }}" title="Varsler" style="width:44px;height:44px;flex:none;border-radius:22px;display:grid;place-items:center;background:#3a3a3a;position:relative" style-hover="background:#454545"><span class="ms" style="font-size:20px">notifications</span><span style="position:absolute;top:10px;right:11px;width:8px;height:8px;border-radius:4px;background:rgb(242 133 201);box-shadow:0 0 0 2px #3a3a3a"></span></button>
+      <button onClick="{{ profil }}" title="Arild" style="width:44px;height:44px;flex:none;border-radius:22px;display:grid;place-items:center;background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%);color:#282828;font-weight:600" data-noi18n>A</button>
+    </div>
+
+    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <h1 style="flex:1 1 200px;margin:0;font-size:40px;font-weight:300;letter-spacing:-0.03em">{{ tabNavn }}</h1>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onClick="{{ periode }}" style="height:40px;padding:0 16px;border-radius:20px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;background:#3a3a3a" style-hover="background:#454545"><span class="ms" style="font-size:18px">calendar_today</span>I dag</button>
+        <button onClick="{{ tilpass }}" style="height:40px;padding:0 16px;border-radius:20px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;background:#3a3a3a" style-hover="background:#454545"><span class="ms" style="font-size:18px">edit</span>Tilpass</button>
+        <button onClick="{{ analyser }}" style="height:40px;padding:0 16px;border-radius:20px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;background:#3a3a3a" style-hover="background:#454545"><span class="ms" style="font-size:18px">insights</span>Analyser</button>
+      </div>
+    </div>
+
+    <sc-if value="{{ erOversikt }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:minmax(170px,auto);gap:12px;align-content:start">
+
+      <sc-if value="{{ vis.temp }}" hint-placeholder-val="{{ true }}">
+      <article style="grid-row:span 2;display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">Temperatur i huset</span><span style="font-size:12px;color:#979797">Litt kjølig i kjelleren</span></span>
+          <button onClick="{{ oppdater }}" title="Oppdater" style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:18px">refresh</span></button>
+          <button onClick="{{ aapneKlima }}" title="Åpne klima" style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:18px">chevron_right</span></button>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="display:flex;align-items:flex-start;gap:4px"><span style="font-size:72px;font-weight:200;line-height:0.9;letter-spacing:-0.04em;font-variant-numeric:tabular-nums" data-noi18n>21,5</span><span style="font-size:22px;font-weight:300;color:#c7c7c7" data-noi18n>°C</span></span>
+          <span style="flex:1"></span>
+          <span style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:#454545;color:rgb(242 133 201)"><span class="ms" style="font-size:20px">device_thermostat</span></span>
+        </div>
+        <span style="font-size:12px;color:#979797">Snitt av 7 rom · ute 7 °C</span>
+        <svg viewBox="0 0 320 90" preserveAspectRatio="none" style="width:100%;height:92px;overflow:visible">
+          <path d="{{ linje.fill }}" fill="rgba(242,133,201,0.16)"></path>
+          <path d="{{ linje.d }}" fill="none" stroke="rgb(242 133 201)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+        </svg>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#7f7f7f"><sc-for list="{{ linje.ticks }}" as="t" hint-placeholder-count="5"><span data-noi18n>{{ t }}</span></sc-for></div>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onClick="{{ endre }}" style="height:44px;padding:0 24px;border-radius:22px;font-size:14px;font-weight:600;color:#282828;background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%)" style-hover="filter:brightness(1.06)">Endre</button>
+          <button onClick="{{ aapneKlima }}" style="height:44px;padding:0 20px;border-radius:22px;font-size:13px;font-weight:500;background:#454545" style-hover="background:#505050">Klimaoversikt</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding-top:4px;border-top:1px solid rgba(250,250,250,0.08)">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px;padding-top:10px"><span style="font-size:13px;font-weight:500">KI-optimalisering</span><span style="font-size:11px;color:#979797">Kjørt for 3 dager siden</span></span>
+          <button onClick="{{ kiKjor }}" title="Kjør igjen" style="width:34px;height:34px;margin-top:10px;border-radius:17px;display:grid;place-items:center;background:#454545;color:rgb(242 133 201)" style-hover="background:#505050"><span class="ms" style="font-size:18px">auto_awesome</span></button>
+        </div>
+      </article>
+      </sc-if>
+
+      <sc-if value="{{ vis.fukt }}" hint-placeholder-val="{{ true }}">
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .04s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Luftfuktighet</span><span style="font-size:12px;color:#979797">Normal</span></span>
+          <button onClick="{{ aapneKlima }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(133 190 242)">humidity_percentage</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>42</span><span style="font-size:14px;color:#979797" data-noi18n>%</span></span>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:flex-end;gap:2px;height:52px"><sc-for list="{{ fukt }}" as="b" hint-placeholder-count="28"><span style="{{ b }}"></span></sc-for></div>
+      </article>
+      </sc-if>
+
+      <sc-if value="{{ vis.score }}" hint-placeholder-val="{{ true }}">
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .08s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Hjemmescore</span><span style="font-size:12px;color:#979797">Alt i orden</span></span>
+          <button onClick="{{ aapneScore }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(102 209 158)">favorite</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>86</span><span style="font-size:13px;color:#979797" data-noi18n>/100</span></span>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:52px"><sc-for list="{{ score }}" as="b" hint-placeholder-count="20"><span style="{{ b }}"></span></sc-for></div>
+      </article>
+      </sc-if>
+
+      <sc-if value="{{ vis.sikk }}" hint-placeholder-val="{{ true }}">
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .12s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Sikkerhet</span><span style="font-size:12px;color:#979797">Alarm av · alt låst</span></span>
+          <button onClick="{{ aapneSikkerhet }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ sikkKort }}" as="k" hint-placeholder-count="3">
+            <span style="display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:16px;background:#454545"><span class="ms" style="{{ k.iconS }}">{{ k.icon }}</span><span style="font-size:11px;color:#afafaf">{{ k.l }}</span><span style="font-size:13px;font-weight:500">{{ k.v }}</span></span>
+          </sc-for>
+        </div>
+      </article>
+      </sc-if>
+
+      <sc-if value="{{ vis.stromk }}" hint-placeholder-val="{{ true }}">
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .16s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Strøm i dag</span><span style="font-size:12px;color:#979797">23,80 kr så langt</span></span>
+          <button onClick="{{ aapneEnergi }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(242 133 201)">bolt</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>18,4</span><span style="font-size:13px;color:#979797" data-noi18n>kWh</span></span>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:52px"><sc-for list="{{ doegn }}" as="b" hint-placeholder-count="24"><span style="{{ b }}"></span></sc-for></div>
+      </article>
+      </sc-if>
+
+      <sc-if value="{{ vis.luftk }}" hint-placeholder-val="{{ true }}">
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .2s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Luftkvalitet</span><span style="font-size:12px;color:#979797">CO₂ 825 ppm</span></span>
+          <button onClick="{{ luftUt }}" title="Luft ut" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">mode_fan</span></button>
+        </div>
+        <span style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:28px;border-radius:14px;flex:none;display:grid;place-items:center;background:rgba(102,209,158,0.18);color:rgb(102 209 158)"><span class="ms" style="font-size:17px">air</span></span><span style="font-size:28px;font-weight:300;line-height:1">God</span></span>
+        <span style="flex:1"></span>
+        <svg viewBox="0 0 220 60" preserveAspectRatio="none" style="width:100%;height:56px;overflow:visible"><path d="{{ luft.d }}" fill="none" stroke="rgb(133 190 242)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+      </article>
+      </sc-if>
+
+      <sc-if value="{{ vis.pers }}" hint-placeholder-val="{{ true }}">
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .24s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Hvem er hjemme</span><span style="font-size:12px;color:#979797">2 av 4</span></span>
+          <button onClick="{{ aapnePersoner }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ personer }}" as="p" hint-placeholder-count="4">
+            <span style="display:flex;align-items:center;gap:10px"><span style="{{ p.av }}" data-noi18n>{{ p.i }}</span><span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-noi18n>{{ p.n }}</span><span style="font-size:12px;color:#979797">{{ p.s }}</span></span>
+          </sc-for>
+        </div>
+      </article>
+      </sc-if>
+
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ erKlima }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:minmax(170px,auto);gap:12px;align-content:start">
+
+      <article style="grid-row:span 2;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">Rom for rom</span><span style="font-size:12px;color:#979797">Nå og måltemperatur</span></span>
+          <button onClick="{{ aapneKlima }}" title="Åpne" style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:18px">tune</span></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ romKlima }}" as="r" hint-placeholder-count="6">
+            <button onClick="{{ r.tap }}" style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:20px;background:#454545;text-align:left" style-hover="background:#505050">
+              <span style="display:flex;align-items:baseline;gap:8px;width:100%"><span style="flex:1;min-width:0;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.n }}</span><span style="font-size:19px;font-weight:300;font-variant-numeric:tabular-nums" data-noi18n>{{ r.t }}</span><span style="font-size:11px;color:#979797">{{ r.mal }}</span></span>
+              <span style="display:flex;height:6px;width:100%;border-radius:3px;background:#2f2f2f;overflow:hidden"><span style="{{ r.bar }}"></span></span>
+            </button>
+          </sc-for>
+        </div>
+        <span style="flex:1"></span>
+        <button onClick="{{ endre }}" style="height:44px;padding:0 24px;border-radius:22px;align-self:flex-start;font-size:14px;font-weight:600;color:#282828;background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%)" style-hover="filter:brightness(1.06)">Still inn alle</button>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .04s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Varmepumpe</span><span style="font-size:12px;color:#979797">Auto · vifte høy</span></span>
+          <button onClick="{{ aapneKlima }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="ms" style="font-size:20px;color:rgb(242 181 115)">heat_pump</span>
+          <span style="flex:1;display:flex;align-items:baseline;gap:4px"><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>{{ pumpeSett }}</span><span style="font-size:14px;color:#979797" data-noi18n>°C</span></span>
+          <button onClick="{{ pumpeNed }}" title="Ned" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:20px">remove</span></button>
+          <button onClick="{{ pumpeOpp }}" title="Opp" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:20px">add</span></button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ pumpeStat }}" as="k" hint-placeholder-count="3">
+            <span style="display:flex;flex-direction:column;gap:3px;padding:10px;border-radius:16px;background:#454545;min-width:0"><span style="font-size:11px;color:#afafaf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.l }}</span><span style="font-size:14px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums" data-noi18n>{{ k.v }}</span></span>
+          </sc-for>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ pumpeModus }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.tap }}" style="{{ m.style }}">{{ m.n }}</button></sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .08s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Været ute</span><span style="font-size:12px;color:#979797">Lettskyet · føles som 5 °C</span></span>
+          <button onClick="{{ aapneVaer }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="ms" style="font-size:32px;color:rgb(133 190 242)">partly_cloudy_day</span>
+          <span style="display:flex;align-items:baseline;gap:4px"><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>7</span><span style="font-size:15px;color:#979797" data-noi18n>°C</span></span>
+          <span style="flex:1"></span>
+          <span style="display:flex;flex-direction:column;gap:2px;text-align:right"><span style="font-size:12px;color:#979797">Høyest / lavest</span><span style="font-size:13px;font-variant-numeric:tabular-nums" data-noi18n>9° / 3°</span></span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <sc-for list="{{ vaerDetalj }}" as="d" hint-placeholder-count="3">
+            <span title="{{ d.l }}" style="display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:16px;background:#454545;white-space:nowrap"><span class="ms" style="{{ d.iconS }}">{{ d.icon }}</span><span style="font-size:13px;font-weight:500;font-variant-numeric:tabular-nums" data-noi18n>{{ d.v }}</span></span>
+          </sc-for>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:10px 4px 0;border-top:1px solid rgba(250,250,250,0.08)">
+          <sc-for list="{{ vaerTimer }}" as="v" hint-placeholder-count="6">
+            <span title="{{ v.mm }}" style="display:grid;grid-template-rows:14px 20px 16px 14px;justify-items:center;align-items:center;gap:4px;min-width:0">
+              <span style="font-size:11px;color:#979797" data-noi18n>{{ v.t }}</span>
+              <span class="ms" style="{{ v.iconS }}">{{ v.icon }}</span>
+              <span style="font-size:12px;font-weight:500;font-variant-numeric:tabular-nums" data-noi18n>{{ v.g }}</span>
+              <span style="display:flex;align-items:flex-end;height:14px;width:6px"><span style="{{ v.regn }}"></span></span>
+            </span>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .12s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Gulvvarme</span><span style="font-size:12px;color:#979797">3 av 4 soner på</span></span>
+          <button onClick="{{ aapneKlima }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ soner }}" as="z" hint-placeholder-count="4">
+            <button onClick="{{ z.tap }}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;background:#454545;text-align:left" style-hover="background:#505050"><span class="ms" style="{{ z.iconS }}">{{ z.icon }}</span><span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ z.n }}</span><span style="font-size:12px;color:#979797">{{ z.s }}</span></button>
+          </sc-for>
+        </div>
+        <span style="flex:1"></span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#979797"><span class="ms" style="font-size:15px;color:rgb(242 181 115)">bolt</span>0,8 kW nå · snitt gulv 22 °C</span>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .16s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Inne mot ute</span><span style="font-size:12px;color:#979797">Siste 24 timer</span></span>
+        </div>
+        <svg viewBox="0 0 320 70" preserveAspectRatio="none" style="width:100%;flex:1;min-height:76px;overflow:visible">
+          <path d="{{ inneUte.inne }}" fill="none" stroke="rgb(242 133 201)" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+          <path d="{{ inneUte.ute }}" fill="none" stroke="rgb(133 190 242)" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+        </svg>
+        <div style="display:flex;gap:14px;font-size:11px;color:#979797">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;border-radius:2px;background:rgb(242 133 201)"></span>Inne</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;border-radius:2px;background:rgb(133 190 242)"></span>Ute</span>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .2s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Ventilasjon</span><span style="font-size:12px;color:#979797">Normal · filter ok</span></span>
+          <button onClick="{{ luftUt }}" title="Luft ut" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">mode_fan</span></button>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(133 190 242)">mode_fan</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>45</span><span style="font-size:13px;color:#979797" data-noi18n>%</span></span>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:48px"><sc-for list="{{ vent }}" as="b" hint-placeholder-count="20"><span style="{{ b }}"></span></sc-for></div>
+      </article>
+
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ erEnergi }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:minmax(170px,auto);gap:12px;align-content:start">
+
+      <article style="grid-row:span 2;display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">Forbruk i dag</span><span style="font-size:12px;color:#979797">8 % lavere enn i går</span></span>
+          <button onClick="{{ aapneEnergi }}" title="Åpne" style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:18px">chevron_right</span></button>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="display:flex;align-items:flex-start;gap:4px"><span style="font-size:72px;font-weight:200;line-height:0.9;letter-spacing:-0.04em;font-variant-numeric:tabular-nums" data-noi18n>18,4</span><span style="font-size:22px;font-weight:300;color:#c7c7c7" data-noi18n>kWh</span></span>
+          <span style="flex:1"></span>
+          <span style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:#454545;color:rgb(242 133 201)"><span class="ms" style="font-size:20px">bolt</span></span>
+        </div>
+        <span style="font-size:12px;color:#979797">23,80 kr · 1,24 kr/kWh nå</span>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:96px"><sc-for list="{{ doegn }}" as="b" hint-placeholder-count="24"><span style="{{ b }}"></span></sc-for></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#7f7f7f"><span data-noi18n>00</span><span data-noi18n>06</span><span data-noi18n>12</span><span data-noi18n>18</span><span data-noi18n>23</span></div>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onClick="{{ aapneEnergi }}" style="height:44px;padding:0 24px;border-radius:22px;font-size:14px;font-weight:600;color:#282828;background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%)" style-hover="filter:brightness(1.06)">Se timepriser</button>
+          <button onClick="{{ aapneStrom }}" style="height:44px;padding:0 20px;border-radius:22px;font-size:13px;font-weight:500;background:#454545" style-hover="background:#505050">Strømregning</button>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .04s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Strømpris</span><span style="font-size:12px;color:#979797">Billigst kl. 02–05</span></span>
+          <button onClick="{{ aapneStrom }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(242 133 201)">bolt</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>1,24</span><span style="font-size:13px;color:#979797" data-noi18n>kr/kWh</span></span>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:52px"><sc-for list="{{ strom }}" as="b" hint-placeholder-count="24"><span style="{{ b }}"></span></sc-for></div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .08s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Effekt nå</span><span style="font-size:12px;color:#979797">Topptime 4,1 kW</span></span>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(242 181 115)">speed</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>2,4</span><span style="font-size:13px;color:#979797" data-noi18n>kW</span></span>
+        <span style="flex:1"></span>
+        <span style="display:flex;height:8px;border-radius:4px;background:#2f2f2f;overflow:hidden"><span style="width:58%;background:rgb(242 181 115);border-radius:4px"></span></span>
+        <span style="font-size:11px;color:#7f7f7f">58 % av grensen for trinn 2</span>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .12s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Størst forbruk</span><span style="font-size:12px;color:#979797">Siste døgn</span></span>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ topp }}" as="r" hint-placeholder-count="4">
+            <span style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 60px;align-items:center;gap:10px"><span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.n }}</span><span style="display:flex;height:6px;border-radius:3px;background:#2f2f2f;overflow:hidden"><span style="{{ r.bar }}"></span></span><span style="font-size:12px;color:#c7c7c7;text-align:right;font-variant-numeric:tabular-nums" data-noi18n>{{ r.v }}</span></span>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .16s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Solceller</span><span style="font-size:12px;color:#979797">Produsert i dag</span></span>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(102 209 158)">solar_power</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>4,2</span><span style="font-size:13px;color:#979797" data-noi18n>kWh</span></span>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:52px"><sc-for list="{{ sol }}" as="b" hint-placeholder-count="16"><span style="{{ b }}"></span></sc-for></div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .2s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Denne måneden</span><span style="font-size:12px;color:#979797">Oktober</span></span>
+          <button onClick="{{ aapneStrom }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(242 133 201)">receipt_long</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>1 240</span><span style="font-size:13px;color:#979797" data-noi18n>kr</span></span>
+        <span style="flex:1"></span>
+        <span style="font-size:12px;color:#979797">412 kWh · 68 % av budsjettet</span>
+        <span style="display:flex;height:8px;border-radius:4px;background:#2f2f2f;overflow:hidden"><span style="width:68%;background:rgb(242 133 201);border-radius:4px"></span></span>
+      </article>
+
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ erSikkerhet }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:minmax(170px,auto);gap:12px;align-content:start">
+
+      <article style="grid-row:span 2;display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">Alarm</span><span style="font-size:12px;color:#979797">Endret kl. 07:42 av Arild</span></span>
+          <button onClick="{{ aapneSikkerhet }}" title="Åpne" style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:18px">chevron_right</span></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="width:64px;height:64px;flex:none;border-radius:32px;display:grid;place-items:center;background:rgba(102,209,158,0.18);color:rgb(102 209 158)"><span class="ms" style="font-size:32px;font-variation-settings:'FILL' 1">verified_user</span></span>
+          <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:32px;font-weight:300;line-height:1;letter-spacing:-0.02em">Avslått</span><span style="font-size:12px;color:#979797">Alle dører låst</span></span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ alarmModus }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.tap }}" style="{{ m.style }}"><span class="ms" style="font-size:20px">{{ m.icon }}</span><span style="flex:1;text-align:left">{{ m.n }}</span><span class="ms" style="{{ m.markS }}">check</span></button></sc-for>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid rgba(250,250,250,0.08)">
+          <span style="font-size:13px;font-weight:500">Siste hendelser</span>
+          <sc-for list="{{ hendelser }}" as="h" hint-placeholder-count="4">
+            <span style="display:flex;align-items:center;gap:10px"><span class="ms" style="{{ h.iconS }}">{{ h.icon }}</span><span style="flex:1;min-width:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.n }}</span><span style="font-size:11px;color:#7f7f7f" data-noi18n>{{ h.t }}</span></span>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .04s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Dører og vinduer</span><span style="font-size:12px;color:#979797">Ett vindu åpent</span></span>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ aapninger }}" as="d" hint-placeholder-count="4">
+            <button onClick="{{ d.tap }}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;background:#454545;text-align:left" style-hover="background:#505050"><span class="ms" style="{{ d.iconS }}">{{ d.icon }}</span><span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.n }}</span><span style="{{ d.tagS }}">{{ d.s }}</span></button>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .08s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Kameraer</span><span style="font-size:12px;color:#979797">4 tilkoblet</span></span>
+          <button onClick="{{ aapneKamera }}" title="Se live" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">videocam</span></button>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+          <sc-for list="{{ kameraer }}" as="k" hint-placeholder-count="4">
+            <button onClick="{{ k.tap }}" style="display:flex;flex-direction:column;gap:6px;text-align:left;min-width:0" style-hover="filter:brightness(1.15)">
+              <image-slot id="{{ k.slot }}" placeholder="Kamera" style="display:block;width:100%;height:112px;border-radius:14px;overflow:hidden;background:#2f2f2f"></image-slot>
+              <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;min-width:0"><span style="width:6px;height:6px;border-radius:3px;flex:none;background:rgb(102 209 158)"></span><span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.n }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .12s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Røyk og vann</span><span style="font-size:12px;color:#979797">Alt i orden</span></span>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ varslere }}" as="v" hint-placeholder-count="3">
+            <span style="display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:16px;background:#454545"><span class="ms" style="{{ v.iconS }}">{{ v.icon }}</span><span style="font-size:11px;color:#afafaf">{{ v.l }}</span><span style="font-size:13px;font-weight:500">{{ v.v }}</span></span>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .16s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Bevegelse</span><span style="font-size:12px;color:#979797">Siste 24 timer</span></span>
+        </div>
+        <span style="display:flex;align-items:baseline;gap:8px"><span class="ms" style="font-size:20px;color:rgb(133 190 242)">sensors</span><span style="font-size:34px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums" data-noi18n>34</span><span style="font-size:13px;color:#979797">utslag</span></span>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:52px"><sc-for list="{{ bevegelse }}" as="b" hint-placeholder-count="24"><span style="{{ b }}"></span></sc-for></div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .2s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Hvem er hjemme</span><span style="font-size:12px;color:#979797">2 av 4</span></span>
+          <button onClick="{{ aapnePersoner }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ personer }}" as="p" hint-placeholder-count="4">
+            <span style="display:flex;align-items:center;gap:10px"><span style="{{ p.av }}" data-noi18n>{{ p.i }}</span><span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-noi18n>{{ p.n }}</span><span style="font-size:12px;color:#979797">{{ p.s }}</span></span>
+          </sc-for>
+        </div>
+      </article>
+
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ erEnheter }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:minmax(170px,auto);gap:12px;align-content:start">
+
+      <article style="grid-row:span 2;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">Enheter per rom</span><span style="font-size:12px;color:#979797">46 enheter · 9 på</span></span>
+          <button onClick="{{ aapneEnheter }}" title="Åpne" style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:18px">chevron_right</span></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ enheterRom }}" as="r" hint-placeholder-count="6">
+            <button onClick="{{ r.tap }}" style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:18px;background:#454545;text-align:left" style-hover="background:#505050"><span class="ms" style="{{ r.iconS }}">{{ r.icon }}</span><span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.n }}</span><span style="font-size:12px;color:#979797" data-noi18n>{{ r.p }}</span><span style="{{ r.pill }}">{{ r.s }}</span></button>
+          </sc-for>
+        </div>
+        <span style="flex:1"></span>
+        <button onClick="{{ aapneEnheter }}" style="height:44px;padding:0 24px;align-self:flex-start;border-radius:22px;font-size:14px;font-weight:600;color:#282828;background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%)" style-hover="filter:brightness(1.06)">Slå av alt</button>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .04s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Batterinivå</span><span style="font-size:12px;color:#979797">To under 20 %</span></span>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ batteri }}" as="b" hint-placeholder-count="4">
+            <span style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;align-items:center;gap:10px"><span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.n }}</span><span style="display:flex;height:6px;border-radius:3px;background:#2f2f2f;overflow:hidden"><span style="{{ b.bar }}"></span></span><span style="font-size:12px;color:#c7c7c7;text-align:right;font-variant-numeric:tabular-nums" data-noi18n>{{ b.v }}</span></span>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .08s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Tilkobling</span><span style="font-size:12px;color:#979797">Alle nett oppe</span></span>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+          <sc-for list="{{ nett }}" as="n" hint-placeholder-count="3">
+            <span style="display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:16px;background:#454545"><span class="ms" style="{{ n.iconS }}">{{ n.icon }}</span><span style="font-size:11px;color:#afafaf" data-noi18n>{{ n.l }}</span><span style="font-size:13px;font-weight:500" data-noi18n>{{ n.v }}</span></span>
+          </sc-for>
+        </div>
+      </article>
+
+      <article style="display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:30px;background:#3a3a3a;animation:fadein .3s ease .12s backwards">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Oppdateringer</span><span style="font-size:12px;color:#979797">2 tilgjengelige</span></span>
+          <button onClick="{{ aapneEnheter }}" title="Åpne" style="width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:#454545" style-hover="background:#505050"><span class="ms" style="font-size:16px">chevron_right</span></button>
+        </div>
+        <span style="flex:1"></span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ oppdateringer }}" as="o" hint-placeholder-count="2">
+            <button onClick="{{ o.tap }}" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:14px;background:#454545;text-align:left" style-hover="background:#505050"><span class="ms" style="font-size:18px;color:rgb(242 181 115)">system_update_alt</span><span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-noi18n>{{ o.n }}</span><span style="font-size:11px;color:#979797" data-noi18n>{{ o.v }}</span></button>
+          </sc-for>
+        </div>
+      </article>
+
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ erAlt }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;gap:18px;align-content:start">
+      <sc-for list="{{ grupper }}" as="g" hint-placeholder-count="5">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span style="display:flex;align-items:center;gap:8px;padding:0 4px;font-size:13px;font-weight:600;color:#afafaf"><span class="ms" style="font-size:17px">{{ g.icon }}</span>{{ g.n }}</span>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+            <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="6">
+              <button onClick="{{ i.tap }}" title="{{ i.n }}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:20px;background:#3a3a3a;text-align:left;min-width:0" style-hover="background:#454545">
+                <span style="{{ i.iconS }}"><span class="ms" style="font-size:18px">{{ i.icon }}</span></span>
+                <span style="flex:1;min-width:0;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.n }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+
+  </section>
+
+  <sc-if value="{{ sokAapen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ lukkSok }}" style="position:fixed;inset:0;z-index:22;background:rgba(0,0,0,0.55);animation:fadein .2s ease"></div>
+    <div style="position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:23;width:min(620px,calc(100vw - 32px));max-height:72vh;display:flex;flex-direction:column;border-radius:30px;overflow:hidden;background:#2f2f2f;box-shadow:0 24px 70px rgba(0,0,0,0.6);animation:fadein .2s ease">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(250,250,250,0.08)">
+        <span class="ms" style="font-size:22px;color:#979797">search</span>
+        <input ref="{{ sokRef }}" onInput="{{ sokSkriv }}" onKeyDown="{{ sokTast }}" placeholder="Søk etter rom, enhet eller app" style="flex:1;min-width:0;height:36px;border:0;background:none;color:#fafafa;font:inherit;font-size:15px;outline:none" />
+        <button onClick="{{ lukkSok }}" title="Lukk" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center;background:#3a3a3a" style-hover="background:#454545"><span class="ms" style="font-size:20px">close</span></button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ sokTreff }}" as="r" hint-placeholder-count="6">
+          <button onClick="{{ r.tap }}" style="{{ r.style }}"><span style="{{ r.iconS }}"><span class="ms" style="font-size:18px">{{ r.icon }}</span></span><span style="flex:1;min-width:0;font-size:14px;font-weight:500;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.n }}</span><span style="font-size:12px;color:#979797">{{ r.g }}</span></button>
+        </sc-for>
+        <sc-if value="{{ sokTomt }}" hint-placeholder-val="{{ false }}"><span style="padding:24px;text-align:center;font-size:13px;color:#979797">Ingen treff</span></sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ tilpassAapen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ lukkTilpass }}" style="position:fixed;inset:0;z-index:22;background:rgba(0,0,0,0.55);animation:fadein .2s ease"></div>
+    <div style="position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:23;width:min(520px,calc(100vw - 32px));max-height:76vh;display:flex;flex-direction:column;border-radius:30px;overflow:hidden;background:#2f2f2f;box-shadow:0 24px 70px rgba(0,0,0,0.6);animation:fadein .2s ease">
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 16px 14px 20px">
+        <span style="flex:1;font-size:19px;font-weight:600;letter-spacing:-0.02em">Tilpass oversikten</span>
+        <button onClick="{{ lukkTilpass }}" title="Lukk" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:#3a3a3a" style-hover="background:#454545"><span class="ms" style="font-size:22px">close</span></button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:0 12px 16px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:#3a3a3a;margin-bottom:10px">
+          <sc-for list="{{ tilpRader }}" as="r" hint-placeholder-count="5">
+            <button onClick="{{ r.tap }}" style="{{ r.row }}" style-hover="background:#454545"><span class="ms" style="font-size:22px;color:#c7c7c7">{{ r.icon }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">{{ r.n }}</span><span style="font-size:12px;color:#979797">{{ r.sub }}</span></span><span class="ms" style="font-size:20px;color:#7f7f7f">chevron_right</span></button>
+          </sc-for>
+        </div>
+        <span style="padding:2px 14px 6px;font-size:12px;font-weight:600;color:#afafaf">Kort i oversikten</span>
+        <sc-for list="{{ kortValg }}" as="k" hint-placeholder-count="7">
+          <button onClick="{{ k.tap }}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:20px;background:#3a3a3a;text-align:left" style-hover="background:#454545">
+            <span style="flex:1;min-width:0;font-size:14px;font-weight:500">{{ k.n }}</span>
+            <span style="{{ k.track }}"><span style="{{ k.knob }}"><span class="ms" style="{{ k.markS }}">check</span></span></span>
+          </button>
+        </sc-for>
+        <span style="padding:10px 14px 0;font-size:12px;color:#7f7f7f">Valget lagres på denne maskinen.</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ analyseAapen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ lukkAnalyse }}" style="position:fixed;inset:0;z-index:22;background:rgba(0,0,0,0.55);animation:fadein .2s ease"></div>
+    <div style="position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:23;width:min(760px,calc(100vw - 32px));max-height:80vh;display:flex;flex-direction:column;border-radius:32px;overflow:hidden;background:#2f2f2f;box-shadow:0 24px 70px rgba(0,0,0,0.6);animation:fadein .2s ease">
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 16px 14px 20px">
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:19px;font-weight:600;letter-spacing:-0.02em">Analyse</span><span style="font-size:12px;color:#979797">{{ tabNavn }}</span></span>
+        <button onClick="{{ lukkAnalyse }}" title="Lukk" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:#3a3a3a" style-hover="background:#454545"><span class="ms" style="font-size:22px">close</span></button>
+      </div>
+      <div style="padding:0 16px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;border-radius:22px">
+        <sc-for list="{{ perioder }}" as="r" hint-placeholder-count="4"><button onClick="{{ r.tap }}" style="{{ r.style }}">{{ r.n }}</button></sc-for>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{ analyse }}" as="c" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:22px;background:#3a3a3a">
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="flex:1;font-size:13px;color:#afafaf">{{ c.n }}</span><span style="font-size:20px;font-weight:300;font-variant-numeric:tabular-nums" data-noi18n>{{ c.sum }}</span><span style="font-size:11px;color:#979797" data-noi18n>{{ c.u }}</span></div>
+            <div style="display:flex;align-items:flex-end;gap:2px;height:84px"><sc-for list="{{ c.bars }}" as="b" hint-placeholder-count="30"><span style="{{ b }}"></span></sc-for></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#7f7f7f"><span>{{ c.fra }}</span><span>{{ c.snitt }}</span><span>i dag</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ panelAapen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ lukkPanel }}" style="position:fixed;inset:0;z-index:20;background:rgba(0,0,0,0.5);animation:fadein .2s ease"></div>
+    <aside style="{{ panelStil }}">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 12px 8px 20px;background:transparent">
+        <span style="flex:1;min-width:0;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ panelNavn }}</span>
+        <a href="{{ panelSrc }}" target="_blank" rel="noopener" title="Åpne i egen fane" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:rgba(250,250,250,0.1);text-decoration:none" style-hover="background:rgba(250,250,250,0.18)"><span class="ms" style="font-size:20px">open_in_new</span></a>
+        <button onClick="{{ lukkPanel }}" title="Lukk" style="width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:rgba(250,250,250,0.1)" style-hover="background:rgba(250,250,250,0.18)"><span class="ms" style="font-size:22px">close</span></button>
+      </div>
+      <iframe src="{{ panelSrc }}" title="{{ panelNavn }}" onLoad="{{ panelLoad }}" style="flex:1;width:100%;border:0;background:transparent"></iframe>
+    </aside>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;heroBredde&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:480,&quot;min&quot;:300,&quot;max&quot;:760,&quot;step&quot;:10,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+const PINK = 'rgb(242 133 201)', BL = 'rgb(133 190 242)', GR = 'rgb(102 209 158)', OR = 'rgb(242 181 115)', RD = 'rgb(242 133 133)';
+const GRAD = 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)';
+const a = (c, o) => c.charAt(0) === '#' ? 'rgb(' + parseInt(c.slice(1, 3), 16) + ' ' + parseInt(c.slice(3, 5), 16) + ' ' + parseInt(c.slice(5, 7), 16) + ' / ' + o + ')' : c.replace(')', ' / ' + o + ')');
+const hap = k => { try { window.kiHaptic && window.kiHaptic(k || 'light'); } catch (e) {} };
+const series = (n, base, amp, seed) => Array.from({ length: n }, (_, i) => base + Math.sin(i * 0.7 + seed) * amp + Math.sin(i * 0.23 + seed * 2) * amp * 0.6);
+const GRUPPER = [
+  ['Rom', 'door_open', 'rgb(242 133 201)', [['Stue', 'weekend', './Stue dashboard v2.dc.html'], ['Rom', 'grid_view', './Rom v4.dc.html'], ['Romkort', 'dashboard', './Romkort.dc.html'], ['Etasjer', 'stairs', './Etasjevelger.dc.html'], ['Hjem (mobil)', 'home', './Hjem v3.dc.html'], ['Hurtigpanel', 'bolt', './Hurtigpanel.dc.html']]],
+  ['Klima og vær', 'thermostat', 'rgb(133 190 242)', [['Klima', 'thermostat', './Klima v3.dc.html'], ['Varmepumpe', 'heat_pump', './Varmepumpe v3.dc.html'], ['Vær', 'partly_cloudy_day', './Vær v5.dc.html'], ['Søvn', 'bedtime', './Søvn.dc.html'], ['Planter', 'potted_plant', './Planter.dc.html']]],
+  ['Energi', 'bolt', 'rgb(242 181 115)', [['Strøm', 'bolt', './Strøm popup v3.dc.html'], ['Strømpriser', 'show_chart', './Strømpriser.dc.html'], ['Strømregning', 'receipt_long', './Strømregning.dc.html'], ['Nettverk', 'router', './Ruter v3.dc.html'], ['Server', 'dns', './Server v6.dc.html']]],
+  ['Sikkerhet', 'shield', 'rgb(102 209 158)', [['Sikkerhet', 'shield', './Sikkerhet v3.dc.html'], ['Dørlås', 'lock', './Dørlås v2.dc.html'], ['Kamera', 'videocam', './Kamera v2.dc.html'], ['Ringeklokke', 'doorbell', './Ringeklokke.dc.html'], ['Ringeopptak', 'video_library', './Ringeopptak.dc.html'], ['Garasjeport', 'garage', './Garasjeport.dc.html'], ['Personer', 'person', './Person.dc.html']]],
+  ['Bil og hage', 'directions_car', 'rgb(242 133 201)', [['Tesla', 'directions_car', './Tesla v3.dc.html'], ['Gressklipper', 'grass', './Gressklipper.dc.html'], ['Vanning', 'water_drop', './Vanning v4.dc.html'], ['Basseng', 'pool', './Basseng v4 popup.dc.html'], ['Sir Sweeps', 'cleaning_services', './Sir Sweeps v3.dc.html'], ['3D-printer', 'deployed_code', './3D-printer.dc.html']]],
+  ['Hverdag', 'calendar_today', 'rgb(133 190 242)', [['Lys', 'lightbulb', './Lys v5.dc.html'], ['Media', 'play_circle', './Media v4.dc.html'], ['Kalender', 'calendar_today', './Kalender v2.dc.html'], ['Gjøremål', 'checklist', './Gjøremål.dc.html'], ['Søppel', 'delete', './Søppel.dc.html'], ['Innstillinger', 'settings', './Innstillinger v2.dc.html']]]];
+const ROM = ['Hele huset', 'Stue', 'Kjøkken', 'Soverom', 'Bad', 'Kjeller'];
+
+class Component extends DCLogic {
+  state = { rom: 0, tab: 0, modus: 0, pumpe: 0, per: 1, skjult: {}, sokQ: '' };
+  componentDidMount() { try { const v = JSON.parse(localStorage.getItem('ki-pc-kort') || '{}'); const o = JSON.parse(localStorage.getItem('ki-pc-faner') || 'null'), b = +localStorage.getItem('ki-pc-bredde'); this.setState({ skjult: v, ordre: Array.isArray(o) && o.length === 6 ? o : null, bredde: b >= 300 && b <= 760 ? b : undefined }); } catch (e) {} }
+  componentWillUnmount() { clearTimeout(this._pt); try { window.__tabReorder = false; } catch (e) {} }
+  lagreKort(skjult) { this.setState({ skjult }, () => { try { localStorage.setItem('ki-pc-kort', JSON.stringify(skjult)); } catch (e) {} }); }
+  bars(vals, color, w) {
+    const mx = Math.max(...vals), mn = Math.min(...vals), sp = mx - mn || 1;
+    return vals.map((v, i) => ({ flex: 1, minWidth: 0, height: (14 + (v - mn) / sp * 86) + '%', borderRadius: w || 2, background: i === vals.length - 1 ? color : a(color, 0.42) }));
+  }
+  spark(vals, w, h) {
+    const mx = Math.max(...vals), mn = Math.min(...vals), sp = mx - mn || 1;
+    const pts = vals.map((v, i) => [i / (vals.length - 1) * w, h - 6 - (v - mn) / sp * (h - 14)]);
+    let d = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+    for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], cx = (x0 + x1) / 2; d += ' C' + cx.toFixed(1) + ' ' + y0.toFixed(1) + ' ' + cx.toFixed(1) + ' ' + y1.toFixed(1) + ' ' + x1.toFixed(1) + ' ' + y1.toFixed(1); }
+    return { d, fill: d + ' L' + w + ' ' + h + ' L0 ' + h + ' Z' };
+  }
+  rows(list, color, unit) { const mx = Math.max(...list.map(r => r[1])); return list.map(([n, v]) => ({ n, v: String(v).replace('.', ',') + (unit || ''), bar: { width: (v / mx * 100) + '%', height: '100%', borderRadius: 3, background: color } })); }
+  pill(txt, color) { return { padding: '3px 9px', borderRadius: 11, fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap', background: a(color, 0.2), color } }
+  renderVals() {
+    const s = this.state, open = navn => () => { hap('light'); try { window.kiMoreInfo && window.kiMoreInfo({ name: navn }); } catch (e) {} };
+    const rooms = ROM.map((n, i) => { const on = s.rom === i; return { n, tap: () => { hap('selection'); if (on && i > 0) this.setState({ app: { n, f: './Rom v4.dc.html' } }); else this.setState({ rom: i }); },
+      style: { height: 36, padding: '0 16px', borderRadius: 18, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', background: on ? '#fafafa' : 'rgba(250,250,250,0.14)', color: on ? '#282828' : '#fafafa', backdropFilter: 'blur(10px)', transition: 'background .2s' } }; });
+    const TAB = [['Oversikt', 'grid_view'], ['Klima', 'thermostat'], ['Energi', 'bolt'], ['Sikkerhet', 'shield'], ['Enheter', 'devices'], ['Rom og apper', 'apps']];
+    const ordre = s.ordre || [0, 1, 2, 3, 4, 5], dra = s.dra, bredde = s.bredde ?? this.props.heroBredde ?? 480;
+    const tabs = ordre.map((t, pos) => { const [n, icon] = TAB[t], on = s.tab === t, flyt = dra === pos; return { n, icon, i: pos,
+      tap: () => { if (this._supp) { this._supp = false; return; } hap('selection'); this.setState({ tab: t }); },
+      down: e => { this._px = e.clientX; clearTimeout(this._pt); this._pt = setTimeout(() => { this._pt = null; this._supp = true; try { window.__tabReorder = true; } catch (x) {} hap('heavy'); this.setState({ dra: pos }); }, 420); },
+      style: { height: 38, padding: '0 16px', borderRadius: 19, display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', cursor: dra != null ? 'grabbing' : 'pointer',
+        background: on ? GRAD : flyt ? 'rgba(250,250,250,0.14)' : 'transparent', color: on ? '#282828' : '#c7c7c7',
+        boxShadow: flyt ? '0 10px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.4)' : 'none',
+        transform: flyt ? 'scale(1.06)' : 'none', backdropFilter: flyt ? 'blur(6px) saturate(200%)' : 'none', transition: 'background .2s, transform .18s, box-shadow .2s' } }; });
+    const now = new Date(), p2 = n => String(n).padStart(2, '0');
+    const MND = ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'];
+    const hele = s.rom === 0;
+    const aapne = (n, f) => () => { hap(); this.setState({ app: { n, f } }); };
+    const grupper = GRUPPER.map(([n, icon, c, items]) => ({ n, icon, items: items.map(([t, i, f]) => ({ n: t, icon: i, tap: aapne(t, f), iconS: { width: 32, height: 32, flex: 'none', borderRadius: 16, display: 'grid', placeItems: 'center', background: a(c, 0.18), color: c } })) }));
+    const KORT = [['Temperatur i huset', 'temp'], ['Luftfuktighet', 'fukt'], ['Hjemmescore', 'score'], ['Sikkerhet', 'sikk'], ['Strøm i dag', 'stromk'], ['Luftkvalitet', 'luftk'], ['Hvem er hjemme', 'pers']];
+    const skjult = s.skjult || {}, vis = {}; KORT.forEach(([, k]) => { vis[k] = !skjult[k]; });
+    const kortValg = KORT.map(([n, k]) => { const paa = !skjult[k]; return { n, tap: () => { hap('selection'); this.lagreKort(Object.assign({}, skjult, { [k]: paa })); },
+      track: { width: 52, height: 32, flex: 'none', boxSizing: 'border-box', borderRadius: 16, padding: 3, display: 'flex', justifyContent: paa ? 'flex-end' : 'flex-start', background: paa ? GRAD : '#4e4e4e', boxShadow: paa ? 'none' : 'inset 0 0 0 1px rgba(250,250,250,0.12)', transition: 'background .2s' },
+      knob: { width: 26, height: 26, borderRadius: 13, display: 'grid', placeItems: 'center', background: '#fafafa', boxShadow: '0 1px 3px rgba(0,0,0,0.45)', transition: 'all .2s' },
+      markS: { fontSize: 16, color: '#282828', opacity: paa ? 1 : 0, transition: 'opacity .2s' } }; });
+    const flat = []; GRUPPER.forEach(([g, , , items]) => items.forEach(([t, i, f]) => flat.push({ n: t, g, icon: i, f })));
+    const q = (s.sokQ || '').trim().toLowerCase();
+    const trefListe = (q ? flat.filter(x => x.n.toLowerCase().includes(q) || x.g.toLowerCase().includes(q)) : flat).slice(0, 40);
+    const sokTreff = trefListe.map(x => ({ n: x.n, g: x.g, icon: x.icon, tap: () => { hap(); this.setState({ sok: false, sokQ: '', app: { n: x.n, f: x.f } }); },
+      style: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 18, background: 'transparent', width: '100%' },
+      iconS: { width: 32, height: 32, flex: 'none', borderRadius: 16, display: 'grid', placeItems: 'center', background: '#3a3a3a', color: PINK } }));
+    const PER = [['7 dager', 7], ['30 dager', 30], ['90 dager', 90], ['1 år', 52]], pi = s.per ?? 1, nB = PER[pi][1];
+    const ANA = { 0: [['Temperatur', '°C', 21.4, 1.4, PINK, 'snitt'], ['Strømforbruk', 'kWh', 19, 5, OR, 'sum'], ['Hjemmescore', '', 85, 7, GR, 'snitt']],
+      1: [['Temperatur inne', '°C', 21.4, 1.2, PINK, 'snitt'], ['Temperatur ute', '°C', 7, 4, BL, 'snitt'], ['Luftfuktighet', '%', 42, 6, BL, 'snitt']],
+      2: [['Forbruk', 'kWh', 19, 5, PINK, 'sum'], ['Kostnad', 'kr', 24, 7, OR, 'sum'], ['Solceller', 'kWh', 4.2, 2.2, GR, 'sum']],
+      3: [['Bevegelser', '', 34, 12, BL, 'sum'], ['Døråpninger', '', 12, 5, GR, 'sum'], ['Alarm på', 'timer', 9, 4, PINK, 'sum']],
+      4: [['Enheter på', '', 9, 3, PINK, 'snitt'], ['Nettverkstrafikk', 'GB', 6, 2.5, BL, 'sum'], ['Oppetid', '%', 99.4, 0.4, GR, 'snitt']],
+      5: [['Åpnede apper', '', 18, 6, PINK, 'sum'], ['Rombytter', '', 24, 8, BL, 'sum'], ['Hurtigvalg', '', 11, 4, GR, 'sum']] };
+    const nf2 = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+    const analyse = (ANA[s.tab] || ANA[0]).map(([n, u, base, amp, c, kind], k) => { const vals = series(nB, base, amp, k * 1.7 + 0.4).map(v => Math.max(0, v));
+      const sum = vals.reduce((t, v) => t + v, 0);
+      return { n, u, bars: this.bars(vals, c, 2), sum: kind === 'sum' ? nf2(sum) : nf2(sum / nB), fra: PER[pi][0] + ' siden', snitt: 'snitt ' + nf2(sum / nB) + (u ? ' ' + u : '') }; });
+    const perioder = PER.map(([n], i) => { const on = pi === i; return { n, tap: () => { hap('selection'); this.setState({ per: i }); },
+      style: { height: 36, minWidth: 0, borderRadius: 18, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', background: on ? GRAD : '#3a3a3a', color: on ? '#282828' : '#c7c7c7' } }; });
+    const pSett = s.pSett ?? 22;
+    const pumpeN = ['Auto', 'Varme', 'Av'], alarmN = [['Av', 'shield'], ['Hjemme', 'home'], ['Borte', 'luggage']];
+    return {
+      stedNavn: hele ? 'Hjem' : ROM[s.rom], stedSub: hele ? '7 rom · 46 enheter' : 'Mitt hjem', stedIkon: hele ? 'home' : 'door_open',
+      husStat: [['Inne', '21,5 °C', 'device_thermostat', PINK], ['Ute', '7 °C', 'partly_cloudy_day', BL], ['Strøm', '2,4 kW', 'bolt', OR], ['Alarm', 'Av', 'verified_user', GR]]
+        .map(([l, v, icon, c]) => ({ l, v, icon, iconS: { fontSize: 14, color: c } })),
+      rooms, tabs, tabNavn: TAB[s.tab][0],
+      erOversikt: s.tab === 0, erKlima: s.tab === 1, erEnergi: s.tab === 2, erSikkerhet: s.tab === 3, erEnheter: s.tab === 4, erAlt: s.tab === 5,
+      grupper, panelAapen: !!s.app, panelNavn: s.app ? s.app.n : '', panelSrc: s.app ? s.app.f : '', lukkPanel: () => { hap('light'); this.setState({ app: null, panelBg: null }); },
+      panelStil: { position: 'fixed', top: 12, right: 12, bottom: 12, zIndex: 21, width: 'min(460px, calc(100vw - 24px))', display: 'flex', flexDirection: 'column', borderRadius: 32, overflow: 'hidden', background: s.panelBg || '#282828', boxShadow: '0 24px 70px rgba(0,0,0,0.6)', animation: 'fadein .25s ease' },
+      panelLoad: e => { const fr = e.target, skjul = () => { try { const d = fr.contentDocument; if (!d) return false; let n = 0;
+            d.querySelectorAll('[title="Lukk"],[aria-label="Lukk"],[title="Close"]').forEach(b => { if (b.getBoundingClientRect().top < 160) { b.style.display = 'none'; n++; } });
+            const hd = d.querySelector('header'); if (hd) hd.querySelectorAll('button').forEach(b => { const t = (b.textContent || '').trim(); if (t === 'close' || t === 'Lukk') { b.style.display = 'none'; n++; } });
+            const bg = d.body && getComputedStyle(d.body).backgroundColor; if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== this.state.panelBg) this.setState({ panelBg: bg });
+            return n > 0; } catch (x) { return false; } };
+        let i = 0; const t = setInterval(() => { if (skjul() || ++i > 12) clearInterval(t); }, 150); },
+      naa: now.getDate() + '. ' + MND[now.getMonth()] + ' · ' + p2(now.getHours()) + ':' + p2(now.getMinutes()),
+      linje: Object.assign(this.spark(series(26, 21.4, 1.1, 1.2), 320, 90), { ticks: ['14:00', '16:00', '18:00', '20:00', '22:00'] }),
+      fukt: this.bars(series(28, 42, 7, 3.1), BL),
+      score: this.bars(series(20, 84, 9, 0.6), GR, 3),
+      doegn: this.bars(series(24, 0.8, 0.35, 1.8), PINK, 3),
+      strom: this.bars(series(24, 1.2, 0.4, 4.2), PINK, 3),
+      sol: this.bars(series(16, 0.4, 0.3, 2.2), GR, 3),
+      vent: this.bars(series(20, 45, 10, 1.1), BL, 3),
+      bevegelse: this.bars(series(24, 1.6, 1.2, 3.7), BL, 3),
+      luft: this.spark(series(22, 38, 9, 5.5), 220, 60),
+      inneUte: { inne: this.spark(series(24, 21.4, 0.9, 1.2), 320, 70).d, ute: this.spark(series(24, 7, 3.2, 2.9), 320, 70).d },
+      sikkKort: [['Dører', 'Låst', 'lock', GR], ['Vinduer', '1 åpent', 'window', OR], ['Kamera', '4 på', 'videocam', BL]].map(([l, v, icon, c]) => ({ l, v, icon, iconS: { fontSize: 18, color: c } })),
+      personer: [['Arild', 'Hjemme'], ['Maria', 'Hjemme'], ['Noah', 'På skolen'], ['Ida', 'På jobb']].map(([n, st]) => ({ n, s: st, i: n[0],
+        av: { width: 28, height: 28, borderRadius: 14, flex: 'none', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 600, color: '#282828', background: st === 'Hjemme' ? GRAD : '#555' } })),
+      romKlima: [['Stue', '21,5', 'mål 22', 0.72], ['Kjøkken', '22,1', 'mål 22', 0.8], ['Soverom', '19,4', 'mål 19', 0.5], ['Bad', '23,6', 'mål 24', 0.9], ['Kjeller', '17,8', 'mål 18', 0.34], ['Gang', '20,6', 'mål 20', 0.62]]
+        .map(([n, t, mal, f]) => ({ n, t, mal, tap: open(n), bar: { width: (f * 100) + '%', height: '100%', borderRadius: 3, background: GRAD } })),
+      pumpeSett: String(pSett).replace('.', ','),
+      pumpeNed: () => { hap('selection'); this.setState({ pSett: Math.max(16, pSett - 0.5) }); },
+      pumpeOpp: () => { hap('selection'); this.setState({ pSett: Math.min(28, pSett + 0.5) }); },
+      pumpeStat: [['Rom nå', '21,5 °C'], ['Effekt', '1,1 kW'], ['I dag', '6,4 kWh']].map(([l, v]) => ({ l, v })),
+      pumpeModus: pumpeN.map((n, i) => { const on = s.pumpe === i; return { n, tap: () => { hap('selection'); this.setState({ pumpe: i }); },
+        style: { height: 34, padding: '0 14px', borderRadius: 17, fontSize: 12, fontWeight: 500, background: on ? GRAD : '#454545', color: on ? '#282828' : '#e1e1e1' } }; }),
+      vaerDetalj: [['Nedbør', '0,4 mm', 'rainy', BL], ['Fuktighet', '71 %', 'humidity_percentage', BL], ['Vind', '4 m/s', 'air', GR]].map(([l, v, icon, c]) => ({ l, v, icon, iconS: { fontSize: 13, color: c } })),
+      vaerTimer: [['14', 'partly_cloudy_day', '8°', 0], ['16', 'cloud', '7°', 0.1], ['18', 'rainy', '6°', 0.5], ['20', 'rainy', '5°', 0.8], ['22', 'clear_night', '4°', 0.2], ['00', 'clear_night', '3°', 0]]
+        .map(([t, icon, g, r]) => ({ t, icon, g, mm: r ? (Math.round(r * 12) / 10).toString().replace('.', ',') : '', iconS: { fontSize: 18, color: r > 0.3 ? BL : '#c7c7c7' },
+          regn: { width: '100%', height: Math.max(2, r * 100) + '%', borderRadius: 3, background: r ? a(BL, 0.75) : 'transparent' } })),
+      soner: [['Bad', 'På · 24 °C', 'check_circle', GR], ['Gang', 'På · 20 °C', 'check_circle', GR], ['Kjøkken', 'På · 22 °C', 'check_circle', GR], ['Kjeller', 'Av', 'radio_button_unchecked', 'rgb(151 151 151)']]
+        .map(([n, st, icon, c]) => ({ n, s: st, icon, tap: open(n), iconS: { fontSize: 18, color: c } })),
+      topp: this.rows([['Varmepumpe', 6.4], ['Varmtvann', 4.1], ['Elbil', 3.8], ['Tørketrommel', 1.6]], PINK, ' kWh'),
+      alarmModus: alarmN.map(([n, icon], i) => { const on = s.modus === i; return { n, icon, tap: () => { hap('selection'); this.setState({ modus: i }); },
+        style: { display: 'flex', alignItems: 'center', gap: 10, height: 46, padding: '0 14px', borderRadius: 23, fontSize: 13, fontWeight: 500, background: on ? GRAD : '#454545', color: on ? '#282828' : '#e1e1e1', transition: 'background .2s' },
+        markS: { fontSize: 18, opacity: on ? 1 : 0 } }; }),
+      hendelser: [['Inngangsdør låst', '07:42', 'lock', GR], ['Bevegelse i gangen', '07:38', 'sensors', BL], ['Garasjeport lukket', '07:31', 'garage', GR], ['Ringeklokke', 'i går 19:04', 'doorbell', OR]]
+        .map(([n, t, icon, c]) => ({ n, t, icon, iconS: { fontSize: 16, color: c } })),
+      aapninger: [['Inngangsdør', 'Låst', 'lock', GR], ['Terrassedør', 'Låst', 'lock', GR], ['Kjøkkenvindu', 'Åpent', 'window_open', OR], ['Garasjeport', 'Lukket', 'garage', GR]]
+        .map(([n, st, icon, c]) => ({ n, s: st, icon, tap: open(n), iconS: { fontSize: 18, color: c }, tagS: this.pill(st, st === 'Åpent' ? OR : GR) })),
+      kameraer: [['Inngang', 'pc-kam-1'], ['Hage', 'pc-kam-2'], ['Garasje', 'pc-kam-3'], ['Terrasse', 'pc-kam-4']].map(([n, slot]) => ({ n, slot, tap: open(n) })),
+      varslere: [['Røyk', '4 ok', 'detector_smoke', GR], ['Vann', '3 ok', 'water_drop', GR], ['Gass', '1 ok', 'detector_co', GR]].map(([l, v, icon, c]) => ({ l, v, icon, iconS: { fontSize: 18, color: c } })),
+      enheterRom: [['Stue', '12', 'På: 3', 'weekend'], ['Kjøkken', '9', 'På: 2', 'countertops'], ['Soverom', '7', 'På: 1', 'bed'], ['Bad', '5', 'Av', 'bathtub'], ['Kjeller', '8', 'På: 3', 'stairs'], ['Ute', '5', 'Av', 'yard']]
+        .map(([n, p, st, icon]) => ({ n, p, s: st, icon, tap: open(n), iconS: { fontSize: 18, color: st === 'Av' ? 'rgb(151 151 151)' : PINK }, pill: this.pill(st, st === 'Av' ? 'rgb(190 190 190)' : PINK) })),
+      batteri: [['Dørlås', 82], ['Bevegelse gang', 46], ['Vindussensor kjøkken', 18], ['Fjernkontroll stue', 11]].map(([n, v]) => ({ n, v: v + ' %',
+        bar: { width: v + '%', height: '100%', borderRadius: 3, background: v < 20 ? RD : v < 50 ? OR : GR } })),
+      nett: [['Zigbee', '24', 'hub', PINK], ['Z-Wave', '8', 'settings_input_antenna', BL], ['Wi-Fi', '14', 'wifi', GR]].map(([l, v, icon, c]) => ({ l, v, icon, iconS: { fontSize: 18, color: c } })),
+      oppdateringer: [['Home Assistant Core', '2026.10.2'], ['Zigbee-koordinator', '7.4.1']].map(([n, v]) => ({ n, v, tap: open(n) })),
+      heroStil: { flex: '1 1 ' + bredde + 'px', width: bredde, maxWidth: '100%', minHeight: 640, position: 'relative', borderRadius: 36, overflow: 'hidden', background: '#2f2f2f', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 24, boxSizing: 'border-box' },
+      bredde: { down: e => { e.preventDefault(); const x0 = e.clientX, b0 = bredde, el = e.currentTarget;
+          const mv = ev => { const v = Math.max(300, Math.min(760, b0 + ev.clientX - x0)); this.setState({ bredde: v }); };
+          const up = () => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); try { localStorage.setItem('ki-pc-bredde', String(this.state.bredde || b0)); } catch (x) {} hap('light'); };
+          document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up); try { el.setPointerCapture(e.pointerId); } catch (x) {} },
+        reset: () => { hap('light'); this.setState({ bredde: 480 }); try { localStorage.setItem('ki-pc-bredde', '480'); } catch (x) {} },
+      },
+      navNoCtx: e => { if (dra != null) e.preventDefault(); },
+      navMove: e => { if (dra == null) { if (this._pt && Math.abs(e.clientX - this._px) > 8) { clearTimeout(this._pt); this._pt = null; } return; }
+        e.preventDefault(); const el = document.elementFromPoint(e.clientX, e.clientY), b = el && el.closest && el.closest('[data-tab]'); if (!b) return;
+        const to = +b.dataset.tab; if (to === dra) return; const o = ordre.slice(), [m] = o.splice(dra, 1); o.splice(to, 0, m); hap('selection'); this.setState({ ordre: o, dra: to }); },
+      navUp: () => { clearTimeout(this._pt); this._pt = null; if (dra == null) return; try { window.__tabReorder = false; localStorage.setItem('ki-pc-faner', JSON.stringify(ordre)); } catch (x) {} hap('light'); this.setState({ dra: null }); },
+      tilpRader: [['translate', 'Språk · Language', window.kiLang && window.kiLang() === 'en' ? 'English' : 'Norsk', 'lang'],
+        ['desktop_windows', 'Dashbord på PC', 'Oversikt for PC', 'pc'],
+        ['auto_awesome', 'Tilpass alt', 'Veiviser for hele dashbordet', './Onboarding v2.dc.html'],
+        ['dashboard_customize', 'Tilpass Hjem', 'Kort, faner, popups og tekst', './Hjem v3.dc.html'],
+        ['tune', 'Innstillinger', 'Enheter, varsler og integrasjoner', './Innstillinger v2.dc.html']]
+        .map(([icon, n, sub, act], i) => ({ icon, n, sub, row: { display: 'flex', alignItems: 'center', gap: 14, minHeight: 62, padding: '0 16px', width: '100%', boxSizing: 'border-box', textAlign: 'left', background: 'transparent', borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none' },
+          tap: () => { hap('light');
+            if (act === 'lang') { try { window.kiSetLang && window.kiSetLang(window.kiLang() === 'en' ? 'no' : 'en'); } catch (x) {} this.forceUpdate(); return; }
+            if (act === 'pc') { try { localStorage.setItem('ki-pc-oppsett', 'mobil'); } catch (x) {} this.setState({ tilpass: false, app: { n: 'Hjem (mobil)', f: './Hjem v3.dc.html' } }); return; }
+            this.setState({ tilpass: false, app: { n, f: act } }); } })),
+      vis, kortValg, sokTreff, sokTomt: sokTreff.length === 0, analyse, perioder,
+      sokAapen: !!s.sok, tilpassAapen: !!s.tilpass, analyseAapen: !!s.analyse,
+      sokRef: el => { if (el && !this._sokEl) { this._sokEl = el; setTimeout(() => { try { el.focus(); } catch (e) {} }, 30); } if (!el) this._sokEl = null; },
+      sokSkriv: e => this.setState({ sokQ: e.target.value }),
+      sokTast: e => { if (e.key === 'Escape') this.setState({ sok: false, sokQ: '' }); if (e.key === 'Enter' && sokTreff[0]) sokTreff[0].tap(); },
+      lukkSok: () => { hap('light'); this.setState({ sok: false, sokQ: '' }); },
+      lukkTilpass: () => { hap('light'); this.setState({ tilpass: false }); },
+      lukkAnalyse: () => { hap('light'); this.setState({ analyse: false }); },
+      meny: aapne('Innstillinger', './Innstillinger v2.dc.html'), varsler: aapne('Varsler', './Hjem v3.dc.html'), innstillinger: aapne('Innstillinger', './Innstillinger v2.dc.html'), profil: aapne('Personer', './Person.dc.html'),
+      sok: () => { hap(); this.setState({ sok: true, sokQ: '' }); },
+      periode: () => { hap(); this.setState({ analyse: true }); },
+      tilpass: () => { hap(); this.setState({ tilpass: true }); },
+      analyser: () => { hap(); this.setState({ analyse: true }); },
+      oppdater: open('Oppdater'), leggTilRom: aapne('Rom', './Rom v4.dc.html'),
+      aapneKlima: aapne('Klima', './Klima v3.dc.html'), aapneVaer: aapne('Vær', './Vær v5.dc.html'), aapneEnergi: aapne('Strøm', './Strøm popup v3.dc.html'),
+      aapneStrom: aapne('Strømpriser', './Strømpriser.dc.html'), aapneScore: aapne('Hjem (mobil)', './Hjem v3.dc.html'),
+      aapneSikkerhet: aapne('Sikkerhet', './Sikkerhet v3.dc.html'), aapneKamera: aapne('Kamera', './Kamera v2.dc.html'),
+      aapnePersoner: aapne('Personer', './Person.dc.html'), aapneEnheter: aapne('Innstillinger', './Innstillinger v2.dc.html'),
+      endre: aapne('Klima', './Klima v3.dc.html'), kiKjor: aapne('Klima', './Klima v3.dc.html'), luftUt: aapne('Varmepumpe', './Varmepumpe v3.dc.html')
+    };
+  }
+}
+
+</script>
+</body>
+</html>

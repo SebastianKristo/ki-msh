@@ -240,6 +240,63 @@
       <span class="cfft">${M.icon(ICO.database, 14)}Fra Home Assistant-statistikk · ett punkt per dag</span></section>`;
   }
 
+  /* ------------------------------------------------------------ Fiks 63 (prompt v7): «Besøk på kart» (designet: Besokskart.html) */
+  // Natural Earth-projeksjon (d3-geo i src/vendor/geo-no.js → window.KI_GEO), geometri world-atlas@2.0.2/countries-110m.json
+  // (lastes én gang, når kortet vises), uten Antarktis (010). Data: attributtet «land» på toppland-sensoren
+  // ([{ kode: 'NO', besok: 3120 }, …], ISO alpha-2 fra Cloudflare) → ISO numerisk (world-atlas id). XX/T1 (ukjent/Tor) hoppes over.
+  const A2N = {}; 'AD020,AE784,AF004,AG028,AI660,AL008,AM051,AO024,AQ010,AR032,AS016,AT040,AU036,AW533,AX248,AZ031,BA070,BB052,BD050,BE056,BF854,BG100,BH048,BI108,BJ204,BL652,BM060,BN096,BO068,BQ535,BR076,BS044,BT064,BV074,BW072,BY112,BZ084,CA124,CC166,CD180,CF140,CG178,CH756,CI384,CK184,CL152,CM120,CN156,CO170,CR188,CU192,CV132,CW531,CX162,CY196,CZ203,DE276,DJ262,DK208,DM212,DO214,DZ012,EC218,EE233,EG818,EH732,ER232,ES724,ET231,FI246,FJ242,FK238,FM583,FO234,FR250,GA266,GB826,GD308,GE268,GF254,GG831,GH288,GI292,GL304,GM270,GN324,GP312,GQ226,GR300,GS239,GT320,GU316,GW624,GY328,HK344,HM334,HN340,HR191,HT332,HU348,ID360,IE372,IL376,IM833,IN356,IO086,IQ368,IR364,IS352,IT380,JE832,JM388,JO400,JP392,KE404,KG417,KH116,KI296,KM174,KN659,KP408,KR410,KW414,KY136,KZ398,LA418,LB422,LC662,LI438,LK144,LR430,LS426,LT440,LU442,LV428,LY434,MA504,MC492,MD498,ME499,MF663,MG450,MH584,MK807,ML466,MM104,MN496,MO446,MP580,MQ474,MR478,MS500,MT470,MU480,MV462,MW454,MX484,MY458,MZ508,NA516,NC540,NE562,NF574,NG566,NI558,NL528,NO578,NP524,NR520,NU570,NZ554,OM512,PA591,PE604,PF258,PG598,PH608,PK586,PL616,PM666,PN612,PR630,PS275,PT620,PW585,PY600,QA634,RE638,RO642,RS688,RU643,RW646,SA682,SB090,SC690,SD729,SE752,SG702,SH654,SI705,SJ744,SK703,SL694,SM674,SN686,SO706,SR740,SS728,ST678,SV222,SX534,SY760,SZ748,TC796,TD148,TF260,TG768,TH764,TJ762,TK772,TL626,TM795,TN788,TO776,TR792,TT780,TV798,TW158,TZ834,UA804,UG800,UM581,US840,UY858,UZ860,VA336,VC670,VE862,VG092,VI850,VN704,VU548,WF876,WS882,XK983,YE887,YT175,ZA710,ZM894,ZW716'.split(',').forEach((x) => { A2N[x.slice(0, 2)] = x.slice(2); });
+  const N2A = {}; Object.keys(A2N).forEach((k) => { N2A[A2N[k]] = k; });
+  const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
+  const MW = 380, MH = 200; // 1,9 : 1 – SVG skaleres til kortbredden
+  const GEO = { st: 'idle', paths: null, sphere: '' };
+  function geoLoad() {
+    if (GEO.st !== 'idle') return;
+    const G = window.KI_GEO;
+    if (!G) { GEO.st = 'err'; return; }
+    GEO.st = 'loading';
+    fetch(GEO_URL).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((t) => {
+      const feats = G.feature(t, t.objects.countries).features.filter((f) => f.id !== '010');
+      const proj = G.geoNaturalEarth1().fitExtent([[4, 4], [MW - 4, MH - 4]], { type: 'Sphere' }), path = G.geoPath(proj);
+      GEO.sphere = path({ type: 'Sphere' });
+      GEO.paths = feats.map((f) => ({ id: String(f.id || ''), d: path(f) || '', name: (f.properties && f.properties.name) || '' })).filter((x) => x.d);
+      GEO.st = 'ok';
+    }).catch(() => { GEO.st = 'err'; }).then(bump);
+  }
+  // { <numerisk id>: besøk }
+  function mapData(s) {
+    const L = s && s.attributes && s.attributes.land, out = {};
+    const put = (k, v) => { k = String(k || '').toUpperCase(); v = Number(v); if (!k || k === 'XX' || k === 'T1' || !(v > 0)) return; const n = /^\d+$/.test(k) ? k.padStart(3, '0') : A2N[k]; if (n) out[n] = (out[n] || 0) + v; };
+    if (Array.isArray(L)) L.forEach((x) => x && put(x.kode || x.code || x.iso, x.besok != null ? x.besok : x.visits));
+    else if (L && typeof L === 'object') Object.entries(L).forEach(([k, v]) => put(k, v));
+    return out;
+  }
+  const regionName = (n, fb) => { const a = N2A[n]; try { if (a && window.Intl && Intl.DisplayNames) return new Intl.DisplayNames([kiLangTag()], { type: 'region' }).of(a) || fb; } catch (e) { /* */ } return fb || a || n; };
+  const kiLangTag = () => ((window.kiLang ? window.kiLang() : 'no') === 'en' ? 'en-GB' : 'nb');
+  const nf0 = (v) => M.nf(v, 0);
+  function mapHTML(card) {
+    const h = card.hass, I = discover(h, card.config).ids, id = I.land, s = id && h.states[id];
+    if (!s) return '';
+    geoLoad();
+    const D = mapData(s), keys = Object.keys(D), max = Math.max(0, ...keys.map((k) => D[k])), total = keys.reduce((a, k) => a + D[k], 0);
+    const sel = card.ui.cfMap && GEO.paths && GEO.paths.some((p) => p.id === card.ui.cfMap) ? card.ui.cfMap : null;
+    // kvadratrotskala 0,25–1 (d3.scaleSqrt().domain([1, max]).range([0.25, 1]).clamp(true))
+    const op = (v) => { if (max <= 1) return 1; const t = (Math.sqrt(M.clamp(v, 1, max)) - 1) / (Math.sqrt(max) - 1); return 0.25 + 0.75 * t; };
+    let body;
+    if (GEO.st === 'err') body = `<div class="cfmerr">${esc(kiT('Kunne ikke laste kartet', 'Could not load the map'))}</div>`;
+    else if (GEO.st !== 'ok') body = '';
+    else {
+      const ps = GEO.paths.map((p) => { const v = D[p.id], on = p.id === sel; return `<path d="${p.d}" class="cc${v ? ' v' : ''}${on ? ' on' : ''}" data-act="cfmap" data-v="${p.id}" data-haptic="light"${v ? ` style="fill-opacity:${op(v).toFixed(3)}"` : ''}></path>`; });
+      const selP = sel ? GEO.paths.find((p) => p.id === sel) : null; // valgt land tegnes sist (hvit kant over nabolandene)
+      body = `<svg viewBox="0 0 ${MW} ${MH}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d="${GEO.sphere}" class="sea" data-act="cfmap" data-v=""></path><g>${ps.join('')}</g>${selP ? `<path d="${selP.d}" class="cc selo" pointer-events="none"></path>` : ''}</svg>`;
+    }
+    let lbl;
+    if (sel == null) lbl = `<b>${esc(nf0(keys.length) + ' ' + kiT('land', 'countries'))}</b><span>· ${esc(nf0(total) + ' ' + kiT('besøk', 'visits'))}</span>`;
+    else { const v = D[sel] || 0, nm = regionName(sel, (GEO.paths.find((p) => p.id === sel) || {}).name);
+      lbl = `<b>${esc(nm)}</b><span>· ${esc(v ? `${nf0(v)} ${kiT('besøk', 'visits')} · ${M.nf((v / (total || 1)) * 100, 1)} %` : kiT('ingen besøk', 'no visits'))}</span>`; }
+    return `<section class="card cfmapc" data-key="cfmap"><div class="cfhd">${M.icon('mdi:map-outline', 20, 'color:var(--ki-text-1, #c7c7c7)')}<span class="ct grow">Besøk på kart</span><span class="cs">Siste 24 timer</span></div>
+      <div class="cfmap" data-noi18n>${body}${GEO.st === 'ok' ? `<div class="cfml">${lbl}</div><div class="cfmleg"><span>0</span><i></i><span>${esc(nf0(max))}</span></div>` : ''}</div></section>`;
+  }
+
   /* ------------------------------------------------------------ tegning */
   function tileHTML(h, I, [l, u, k, ic, c]) {
     const id = I[k], s = id && h.states[id], v = num(h, id), unit = s && s.attributes && s.attributes.unit_of_measurement;
@@ -291,6 +348,7 @@
         || `<section class="card cfk" data-key="cfk-trafikk"><div class="cfhd">${M.icon(ICO.language, 20, 'color:var(--ki-text-1, #c7c7c7)')}<span class="ct grow">Trafikk</span>${seg}</div><div class="none">–</div></section>`;
     } else cards = (X.cards || []).map((k) => cardHTML(card, k)).join('');
     const lists = (X.lists || []).map((L) => listHTML(card, L)).join('');
+    if (sub === 'besok') cards += mapHTML(card); // Fiks 63: under «Besøkende», over listene
     return cards + lists + histHTML(card, sub) + statusHTML(card, sub);
   }
   function onAction(card, name, el) {
@@ -298,6 +356,7 @@
     if (name === 'cfp') { card.setUI({ cfP: d.v }); return true; }
     if (name === 'cfr') { setRange(+d.v); card.update(); loadStats(card, card._sub('cf')); return true; }
     if (name === 'cfbar') { M.toast(d.msg || '–'); return true; }
+    if (name === 'cfmap') { const v = d.v || null; if (!v && !card.ui.cfMap) return true; card.setUI({ cfMap: v && v !== card.ui.cfMap ? v : null }); return true; }
     return false;
   }
   // Toppkortets målinger: [verdi, entitet]
@@ -308,8 +367,8 @@
     const S = 'var(--ki-surface, #3a3a3a)', S2 = 'var(--ki-surface-2, #404040)', S3 = 'var(--ki-surface-3, #2f2f2f)';
     const T2 = 'var(--ki-text-2, #afafaf)', TM = 'var(--ki-text-mid, #979797)', T1b = 'var(--ki-text-1, #c7c7c7)', T3t = 'var(--ki-text-mid, #7f7f7f)';
     return `
-      .cfk,.cfl2,.cfh{background:${S};border-radius:28px;padding:14px;display:flex;flex-direction:column;gap:12px}
-      .cfl2{gap:10px}.cfh{gap:14px}
+      .cfk,.cfl2,.cfh,.cfmapc{background:${S};border-radius:28px;padding:14px;display:flex;flex-direction:column;gap:12px}
+      .cfl2,.cfmapc{gap:10px}.cfh{gap:14px}
       .cfhd{display:flex;align-items:center;gap:10px;padding:0 2px;min-height:36px;width:100%;text-align:left;box-sizing:border-box}
       .cfl2 .cfhd,.cfh .cfhd{min-height:0}
       .cfhd .ct{font-size:15px;font-weight:600;min-width:0}.cfhd .cs{font-size:12px;color:${TM};white-space:nowrap}
@@ -343,8 +402,20 @@
       .cfft{display:flex;align-items:center;gap:6px;padding:0 2px;font-size:12px;color:${T3t}}
       .cfst{display:flex;align-items:center;gap:6px;padding:2px 8px;font-size:12px;color:${T3t};text-align:left}
       .cfst.ok ha-icon{color:var(--ki-green-text, var(--green, #66d19e))}.cfst.warn{color:var(--ki-orange-text, var(--orange, #f2b573))}
-      .cfst ha-icon{flex:none}`;
+      .cfst ha-icon{flex:none}
+      .cfmap{position:relative;width:100%;aspect-ratio:1.9;border-radius:20px;background:${S2};overflow:hidden}
+      .cfmap svg{display:block;width:100%;height:100%;touch-action:manipulation}
+      .cfmap .sea{fill:${S};cursor:pointer}
+      .cfmap .cc{fill:var(--ki-ctrl, #555);stroke:${S2};stroke-width:.4;cursor:pointer;vector-effect:non-scaling-stroke}
+      .cfmap .cc.v{fill:${PK}}
+      .cfmap .cc.selo{fill:none;stroke:var(--ki-text, #fafafa);stroke-width:1.2}
+      .cfml{position:absolute;left:10px;bottom:8px;display:flex;align-items:baseline;gap:6px;padding:4px 10px;border-radius:12px;background:${M.theme.blackA(0.55)};font-size:12px;color:var(--ki-text-1, #c7c7c7);pointer-events:none;max-width:calc(100% - 120px);min-width:0;box-sizing:border-box}
+      .cfml b{font-weight:600;color:var(--ki-text, #fafafa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+      .cfml span{white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+      .cfmleg{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:4px;font-size:10px;color:${TM};pointer-events:none}
+      .cfmleg i{display:block;width:44px;height:6px;border-radius:3px;background:linear-gradient(90deg,color-mix(in srgb, ${PK} 25%, transparent),${PK})}
+      .cfmerr{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:${TM}}`;
   };
 
-  M.serverCF = { K, SK, ALL, SUBS, CFX, RG, LS_R, discover, status, chip, parseList, body, onAction, loadStats, heroIds, deps, css, rangeI, daySeries, bars, summary, nfv, PRE, UID };
+  M.serverCF = { mapData, A2N, GEO, K, SK, ALL, SUBS, CFX, RG, LS_R, discover, status, chip, parseList, body, onAction, loadStats, heroIds, deps, css, rangeI, daySeries, bars, summary, nfv, PRE, UID };
 })();

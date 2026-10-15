@@ -2,6 +2,47 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 64 · PC-dashbord (prompt v8)
+Designet ligger i `design/PC-dashbord.dc.html`.
+- **Valg:** ny rad «Dashbord på PC» i Tilpass-arket (Hjem). Den bytter `localStorage['ki-pc-oppsett']` mellom `pc` og
+  `mobil` (`MSH.pc`). `msh-hjem-card` viser `msh-pc-card` når valget er `pc` og dashbordflaten er minst 1100 px bred.
+  Navbaren skjules da. Smalere skjermer viser alltid mobilvisningen.
+- **Oppsett** (`src/68-pc.js`):
+  - Helt-panel med bilde (`photo` eller rommets bilde), navn, fire tall og romchips. Trykk på et valgt rom åpner
+    rommet i sidepanelet.
+  - Bredden dras i høyre kant (300–760 px, dobbeltklikk = 480, `ki-pc-bredde`).
+  - Fanerad med flytende glass og hold-og-dra (felles `MSH.tabRow`, `tab_order` speilet i `ki-pc-faner`).
+  - Dato og klokke, varsler (hurtigpanelet) og profil.
+- **Faner:** Oversikt, Klima, Energi, Sikkerhet, Enheter og Rom og apper, med kortene fra designet. Alle tall kommer fra
+  de samme entitetene som mobilkortene (`src/68-pc-data.js`, `MSH.pcData`): rom/klima, vær, strømpris, HAs
+  Energi-oppsett, alarm, personer, kamera og device_class. Mangler noe, vises «–».
+  - Varmepumpe −/+ og modus, alarmmodus og «Slå av alt» (to trykk) styrer HA direkte.
+- **Sidepanel:** popupens eget kort tegnes innebygd i et portalt panel (`embedded`), uten Bubble-header. Det gir ingen
+  dobbel X og ingen fargeskille (`--ki-popup`). «Åpne i egen fane» åpner den vanlige popupen. Popups som ikke finnes,
+  får ingen flis i «Rom og apper».
+- **Søk:** maks 40 treff. Enter åpner første treff, og Esc lukker.
+- **Tilpass oversikten:** Språk, Dashbord på PC, Tilpass alt, Tilpass Hjem og Innstillinger, pluss «Kort i oversikten»
+  (`ki-pc-kort`).
+- **Analyse:** 7 / 30 / 90 dager / 1 år (52 uker) fra `recorder/statistics_during_period`.
+- **Språk:** engelsk i `src/00-a-lang-en-16.js`. Test: `node test/v8-check.mjs`.
+
+## Fiks 63 · Besøkskart for arildkristo.com (prompt v7)
+Designet ligger i `design/Besokskart.html` og `design/Server v6.dc.html`.
+- **«Besøk på kart»** (`src/58c-server-cf.js`): nytt kort på underfanen Besøk, under «Besøkende» og over listene.
+  - Verdenskart i Natural Earth-projeksjon, uten Antarktis, 1,9 : 1.
+  - Geometrien er `world-atlas@2.0.2/countries-110m.json` fra jsDelivr. Den lastes én gang, første gang kortet vises.
+  - d3-geo og topojson-client er bygget inn i `src/vendor/geo-no.js` (`window.KI_GEO`, 22 KB).
+- **Farger:** land med besøk er rosa, med opasitet 0,25–1 på kvadratrotskala. Land uten besøk er grå.
+- **Trykk:** trykk på et land gir hvit kant og «Land · N besøk · X %». Trykk på samme land eller havet gir «N land · N besøk».
+  Forklaringen 0 → maks står nede til høyre.
+- **Data:** attributtet `land` på toppland-sensoren (`[{ kode: 'NO', besok: 3120 }, …]`, ISO alpha-2), oversatt til ISO
+  numerisk med en innebygd tabell. `XX`/`T1` hoppes over.
+  - Landnavn kommer fra `Intl.DisplayNames` og følger språket.
+  - Kan ikke geometrien lastes, vises «Kunne ikke laste kartet».
+- **HA-siden:** REST-spørringen `_land` i `packages/ki_cloudflare.yaml` må gi attributtet `land` (`clientCountryName`,
+  `limit: 250`, `sum { visits }`). State er uendret.
+- **Test:** `node test/v6-check.mjs` del 8. Geometrien leveres fra `node_modules/world-atlas` i testen.
+
 ## Fiks 62 · Server: arildkristo.com (Cloudflare), ikon i fanene og «Tilpass server» (prompt v6)
 Designfilen ligger i `design/Server v6.dc.html`.
 - **1 · arildkristo.com** (`src/58c-server-cf.js`, `MSH.serverCF`): ny vert-fane etter qBittorrent. Den vises bare når

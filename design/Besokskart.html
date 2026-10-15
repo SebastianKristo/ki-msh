@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#404040;color:#fafafa;font-family:"Space Grotesk",system-ui,sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#wrap{position:relative;width:100%;height:100%}
+svg{display:block;width:100%;height:100%}
+#lbl{position:absolute;left:10px;bottom:8px;display:flex;align-items:baseline;gap:6px;padding:4px 10px;border-radius:12px;background:rgba(40,40,40,.82);font-size:12px;color:#c7c7c7;pointer-events:none;max-width:calc(100% - 40px)}
+#lbl b{font-weight:600;color:#fafafa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lbl span{font-variant-numeric:tabular-nums;white-space:nowrap}
+#leg{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:4px;font-size:10px;color:#979797;pointer-events:none}
+#leg i{display:block;width:44px;height:6px;border-radius:3px;background:linear-gradient(90deg,rgba(242,133,201,.25),rgb(242,133,201))}
+#err{position:absolute;inset:0;display:none;place-items:center;font-size:12px;color:#979797}
+</style>
+</head>
+<body>
+<div id="wrap"><svg id="map"></svg><div id="lbl"></div><div id="leg"><span id="l0">0</span><i></i><span id="l1"></span></div><div id="err"></div></div>
+<script>
+// Eksempeldata (ISO 3166-1 numerisk → besøk siste 24 t). I HA: attributt «land» på toppland-sensoren.
+const DATA = { 578: 3120, 840: 980, 752: 410, 276: 220, 528: 140, 826: 92, 208: 85, 246: 41, 250: 36, 124: 30, 724: 22, 392: 12, 356: 9, 76: 7, 36: 6 };
+const NAMES = { 578: ['Norge', 'Norway'], 840: ['USA', 'United States'], 752: ['Sverige', 'Sweden'], 276: ['Tyskland', 'Germany'], 528: ['Nederland', 'Netherlands'], 826: ['Storbritannia', 'United Kingdom'], 208: ['Danmark', 'Denmark'], 246: ['Finland', 'Finland'], 250: ['Frankrike', 'France'], 124: ['Canada', 'Canada'], 724: ['Spania', 'Spain'], 392: ['Japan', 'Japan'], 356: ['India', 'India'], 76: ['Brasil', 'Brazil'], 36: ['Australia', 'Australia'] };
+const en = () => (localStorage.getItem('ki-lang') || 'no') === 'en';
+const T = (no, e) => en() ? e : no;
+const nf = v => String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+const max = Math.max(...Object.values(DATA)), total = Object.values(DATA).reduce((a, b) => a + b, 0);
+const col = d3.scaleSqrt().domain([1, max]).range([0.25, 1]).clamp(true);
+let feats = null, sel = null;
+const svg = d3.select('#map'), lbl = document.getElementById('lbl');
+function label() {
+  const n = sel != null ? (NAMES[sel] ? NAMES[sel][en() ? 1 : 0] : sel.name) : null;
+  if (sel == null) lbl.innerHTML = `<b>${Object.keys(DATA).length} ${T('land', 'countries')}</b><span>· ${nf(total)} ${T('besøk', 'visits')}</span>`;
+  else { const v = DATA[sel.id] || 0; lbl.innerHTML = `<b>${NAMES[sel.id] ? NAMES[sel.id][en() ? 1 : 0] : sel.name}</b><span>· ${v ? nf(v) + ' ' + T('besøk', 'visits') + ' · ' + (v / total * 100).toFixed(1).replace('.', en() ? '.' : ',') + ' %' : T('ingen besøk', 'no visits')}</span>`; }
+  document.getElementById('l1').textContent = nf(max);
+}
+function draw() {
+  if (!feats) return;
+  const w = innerWidth, h = innerHeight;
+  const proj = d3.geoNaturalEarth1().fitExtent([[4, 4], [w - 4, h - 4]], { type: 'Sphere' }), path = d3.geoPath(proj);
+  svg.attr('viewBox', `0 0 ${w} ${h}`).selectAll('*').remove();
+  svg.append('path').attr('d', path({ type: 'Sphere' })).attr('fill', '#3a3a3a');
+  svg.append('g').selectAll('path').data(feats).join('path').attr('d', path)
+    .attr('fill', d => DATA[+d.id] ? `rgba(242,133,201,${col(DATA[+d.id])})` : '#555')
+    .attr('stroke', d => sel && sel.id === +d.id ? '#fafafa' : '#404040').attr('stroke-width', d => sel && sel.id === +d.id ? 1.2 : 0.4)
+    .style('cursor', 'pointer')
+    .on('click', (e, d) => { e.stopPropagation(); sel = sel && sel.id === +d.id ? null : { id: +d.id, name: d.properties.name }; draw(); label(); try { navigator.vibrate && navigator.vibrate(8); } catch (x) {} });
+  svg.on('click', () => { if (sel) { sel = null; draw(); label(); } });
+}
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r => r.json()).then(t => {
+  feats = topojson.feature(t, t.objects.countries).features.filter(f => f.id !== '010');
+  draw(); label();
+}).catch(() => { const e = document.getElementById('err'); e.style.display = 'grid'; e.textContent = T('Kunne ikke laste kartet', 'Could not load the map'); });
+addEventListener('resize', draw);
+addEventListener('storage', e => { if (e.key === 'ki-lang') label(); });
+</script>
+</body>
+</html>
