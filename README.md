@@ -95,6 +95,7 @@ Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md
 - **Tilpass alt:** en veiviser i 13 steg (språk, enhet, servere, header, tema, navbar, faner, rom, Hjem-kort, popups og kiosk),
   der alt endres direkte og vises med en gang.
 - **Ringeopptak:** når det har ringt på, kan du se et kort videoklipp eller bilder fra ringingen fra hurtigpanelet eller Hjem.
+- **PC-dashbord:** velg «Dashbord på PC» i Tilpass for en oversikt over hele huset på store skjermer (≥ 1100 px), med popups i et sidepanel.
 - **Server · nettsted (Cloudflare):** egen fane for arildkristo.com med trafikk, besøk, ytelse og sikkerhet fra Cloudflare
   Analytics (REST-sensorene i `packages/ki_cloudflare.yaml`) og historikk fra Home Assistant-statistikken. Alle vert-fanene
   har ikon, og tannhjulet åpner «Tilpass server» der du velger hva fanene viser og ikon per server.
