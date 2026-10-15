@@ -2,6 +2,23 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 63 · Besøkskart for arildkristo.com (prompt v7)
+Designet ligger i `design/Besokskart.html` og `design/Server v6.dc.html`.
+- **«Besøk på kart»** (`src/58c-server-cf.js`): nytt kort på underfanen Besøk, under «Besøkende» og over listene.
+  - Verdenskart i Natural Earth-projeksjon, uten Antarktis, 1,9 : 1.
+  - Geometrien er `world-atlas@2.0.2/countries-110m.json` fra jsDelivr. Den lastes én gang, første gang kortet vises.
+  - d3-geo og topojson-client er bygget inn i `src/vendor/geo-no.js` (`window.KI_GEO`, 22 KB).
+- **Farger:** land med besøk er rosa, med opasitet 0,25–1 på kvadratrotskala. Land uten besøk er grå.
+- **Trykk:** trykk på et land gir hvit kant og «Land · N besøk · X %». Trykk på samme land eller havet gir «N land · N besøk».
+  Forklaringen 0 → maks står nede til høyre.
+- **Data:** attributtet `land` på toppland-sensoren (`[{ kode: 'NO', besok: 3120 }, …]`, ISO alpha-2), oversatt til ISO
+  numerisk med en innebygd tabell. `XX`/`T1` hoppes over.
+  - Landnavn kommer fra `Intl.DisplayNames` og følger språket.
+  - Kan ikke geometrien lastes, vises «Kunne ikke laste kartet».
+- **HA-siden:** REST-spørringen `_land` i `packages/ki_cloudflare.yaml` må gi attributtet `land` (`clientCountryName`,
+  `limit: 250`, `sum { visits }`). State er uendret.
+- **Test:** `node test/v6-check.mjs` del 8. Geometrien leveres fra `node_modules/world-atlas` i testen.
+
 ## Fiks 62 · Server: arildkristo.com (Cloudflare), ikon i fanene og «Tilpass server» (prompt v6)
 Designfilen ligger i `design/Server v6.dc.html`.
 - **1 · arildkristo.com** (`src/58c-server-cf.js`, `MSH.serverCF`): ny vert-fane etter qBittorrent. Den vises bare når

@@ -1163,7 +1163,7 @@
         case 'qalt': return this._qAlt(d.id);
         // Fiks 62: tannhjulet åpner «Tilpass server» (faner/ikoner) – «Flere innstillinger» der åpner hele Tilpass-arket
         case 'customize': if (!d.section && !d.full) return this._tilpass(); return super.onAction(name, el, ev);
-        case 'cfp': case 'cfr': case 'cfbar': if (M.serverCF) M.serverCF.onAction(this, name, el); return;
+        case 'cfp': case 'cfr': case 'cfbar': case 'cfmap': if (M.serverCF) M.serverCF.onAction(this, name, el); return;
         default: return super.onAction(name, el, ev);
       }
     }

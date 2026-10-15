@@ -483,6 +483,12 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
           </sc-if>
         </div>
       </sc-for>
+      <sc-if value="{{ cfx.map }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#3a3a3a;border-radius:28px;padding:14px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px;padding:0 2px"><span class="ms" style="font-size:20px;color:#c7c7c7">map</span><span style="flex:1;font-size:15px;font-weight:600">Besøk på kart</span><span style="font-size:12px;color:#979797">Siste 24 timer</span></div>
+          <iframe src="./Besokskart.html" title="Besøk på kart" style="display:block;width:100%;aspect-ratio:1.9;border:0;border-radius:20px;background:#404040"></iframe>
+        </div>
+      </sc-if>
       <sc-for list="{{ cfx.lists }}" as="L" hint-placeholder-count="0">
         <div style="background:#3a3a3a;border-radius:28px;padding:14px;display:flex;flex-direction:column;gap:10px">
           <button onClick="{{ L.tap }}" style="display:flex;align-items:center;gap:10px;padding:0 2px;text-align:left"><span class="ms" style="font-size:20px;color:#c7c7c7">{{ L.icon }}</span><span style="flex:1;font-size:15px;font-weight:600">{{ L.title }}</span><span style="font-size:12px;color:#979797">Siste 24 timer</span></button>
@@ -824,7 +830,7 @@ class Component extends DCLogic {
       seg: ['Siste 24 t', 'I dag'].map((label, i) => ({ label, tap: () => { hap('selection'); this.setState({ cfP: i }); }, style: { height: 30, padding: '0 12px', borderRadius: 15, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', background: cfP === i ? 'linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%)' : 'transparent', color: cfP === i ? '#3a3a3a' : '#c7c7c7' } })),
       tiles: (k.tiles || []).map(tile), hasTiles: !!(k.tiles && k.tiles.length), meters: (k.meters || []).map(meter), hasMeters: !!(k.meters && k.meters.length) }));
     const cfLists = (CX.lists || []).map(L => { const mx = Math.max(...L.rows.map(r => r[1])); return { title: L.title, icon: L.icon, tap: ent(L.title, L.eid), rows: L.rows.map(([n, v]) => ({ n, v: nf(v), bar: { width: (v / mx * 100) + '%', height: '100%', borderRadius: 3, background: L.c } })) }; });
-    const stN = CX.st.length, cfx = { cards: cfCards, lists: cfLists, status: 'Cloudflare · ' + stN + (stN === 1 ? ' spørring ok' : ' spørringer ok') + ' · oppdateres hvert 30. min', statusTap: () => { hap('light'); this.tst(CX.st.map(i => CFS[i]).join(' · ') + ' = ok'); } };
+    const stN = CX.st.length, cfx = { cards: cfCards, lists: cfLists, map: si === 1, status: 'Cloudflare · ' + stN + (stN === 1 ? ' spørring ok' : ' spørringer ok') + ' · oppdateres hvert 30. min', statusTap: () => { hap('light'); this.tst(CX.st.map(i => CFS[i]).join(' · ') + ' = ok'); } };
     const RG = [['7 d', 7], ['30 d', 30], ['90 d', 90], ['1 år', 365]], ri = s.cfR ?? (+(localStorage.getItem('ki-cf-periode') ?? 1) || 0), nD = RG[ri][1], bN = nD > 90 ? 52 : nD, per = nD / bN;
     const dNow = new Date(), dl = k => { const x = new Date(dNow); x.setDate(x.getDate() - k); return x.getDate() + '.' + (x.getMonth() + 1) + '.'; };
     const cfh = { ranges: RG.map(([label], i) => ({ label, tap: () => { hap('selection'); this.setState({ cfR: i }); try { localStorage.setItem('ki-cf-periode', String(i)); } catch (e) {} },
