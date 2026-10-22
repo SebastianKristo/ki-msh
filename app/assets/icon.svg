@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4cc3f7"/><stop offset="1" stop-color="#1c86d1"/>
+    </linearGradient>
+    <linearGradient id="star" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd2b0"/><stop offset="1" stop-color="#ff7a52"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- hus -->
+  <path d="M512 214 L790 452 Q806 466 806 488 L806 776 Q806 812 770 812 L254 812 Q218 812 218 776 L218 488 Q218 466 234 452 Z"
+        fill="none" stroke="#fff" stroke-width="56" stroke-linejoin="round"/>
+  <!-- kretstre -->
+  <g fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M512 812 L512 470"/>
+    <path d="M512 700 L388 610 L388 560"/>
+    <path d="M512 640 L636 560 L636 520"/>
+  </g>
+  <g fill="#fff">
+    <circle cx="388" cy="540" r="42"/>
+    <circle cx="636" cy="500" r="42"/>
+  </g>
+  <!-- Glimt-stjerne på toppen av treet -->
+  <path d="M512 330 Q522 414 590 432 Q522 450 512 534 Q502 450 434 432 Q502 414 512 330 Z" fill="url(#star)" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
+  <circle cx="600" cy="372" r="13" fill="#fff"/>
+  <circle cx="426" cy="398" r="9" fill="#fff" opacity=".85"/>
+</svg>

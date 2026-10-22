@@ -1,0 +1,22 @@
+{
+  "appId": "no.kristo.kimsh",
+  "appName": "KI MSH",
+  "webDir": "www",
+  "backgroundColor": "#232323",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#232323"
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true },
+    "StatusBar": { "style": "DARK", "backgroundColor": "#232323", "overlaysWebView": true }
+  }
+}
