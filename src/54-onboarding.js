@@ -675,7 +675,7 @@
         return `<div class="gh" data-key="g-${g}">${esc(gl)}</div><div class="list" data-key="gl-${g}">${rows.map(([x, m]) => rowHtml(x, R, m)).join('')}</div>`;
       }).join('');
       return `<div class="ob" data-key="ta-list">
-        <div class="hd"><span class="h ta">Tilpass alt</span><button class="done" data-a="close">Ferdig</button></div>
+        <div class="hd kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass alt', sub: 'Alle innstillinger på ett sted', done: 'close' })}</div>
         <div class="sr" data-key="sr">${ic('mdi:magnify', 20, 'color:var(--ki-text-3, #7f7f7f)')}<input class="q" data-in="q" data-key="q" placeholder="Søk i innstillinger og hurtigvalg" value="${esc(u.q)}" autocomplete="off">${u.q ? `<button data-a="qx" aria-label="Tøm">${ic('mdi:close-circle', 18, 'color:var(--ki-text-3, #7f7f7f)')}</button>` : ''}</div>
         ${q ? '' : `<div class="rv" data-key="rv"><div class="rvt"><b>Gå gjennom alt</b><i>${done} av ${RV.length} sjekket</i><div class="bar"><span style="width:${RV.length ? Math.round((done / RV.length) * 100) : 0}%"></span></div></div><button class="rvb" data-a="review">${lbl}</button></div>`}
         ${groups || '<p class="lead" style="margin-top:20px">Ingen treff.</p>'}
@@ -832,6 +832,7 @@
     .hd .h.sm{font-size:14px;color:var(--ki-text-mid, #979797);font-weight:500}
     .done{${M.DONE_PILL}flex:none} /* Fiks 26: Ferdig = rosa pille øverst til høyre */
     .hd .h.ta{font-size:22px;font-weight:600;letter-spacing:-0.01em}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .sr{display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;margin:16px 0 12px;border-radius:24px;background:var(--ki-sheet-in,#404040)}
     .sr .q{flex:1;min-width:0;height:100%;border:0;background:none;color:var(--ki-text, #fafafa);font-size:16px;outline:none}
     .rv{display:flex;align-items:center;gap:14px;padding:16px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a)}
@@ -841,7 +842,7 @@
     .bar span{display:block;height:100%;border-radius:2px;background:${PINK};transition:width .3s}
     .bar.big{margin:10px 0 0}
     .rvb{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:var(--ki-on-accent, #2a1720);font-size:15px;font-weight:600;flex:none}
-    .gh{font-size:13px;color:var(--ki-text-mid, #979797);margin:22px 4px 8px}
+    .gh{margin:22px 8px 8px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .okc{width:24px;height:24px;border-radius:12px;display:grid;place-items:center;background:${GREEN};color:var(--ki-on-accent, #232323);flex:none}
     .dic{width:80px;height:80px;border-radius:28px;display:grid;place-items:center;margin-top:20px}
     .qb{padding:12px 14px 14px;border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a)}

@@ -188,7 +188,7 @@ const TP = await p.evaluate(async () => {
   c.shadowRoot.querySelector('.sk-gear').click(); await w(500);
   const R = M.portals().find((x) => x.shadowRoot.querySelector('.sk-sheet')).shadowRoot, q = (s) => R.querySelector(s), qa = (s) => [...R.querySelectorAll(s)];
   const sh = q('.sh').getBoundingClientRect();
-  const out = { top: Math.round(sh.top), bottom: Math.round(sh.bottom), vh: innerHeight, title: q('.sk-sh-tt').textContent, tabs: qa('.sk-sh-tab').map((e) => e.textContent), names: qa('.sk-in').map((e) => e.value), rows: qa('.sk-ent').map((e) => e.querySelector('.sk-ats').textContent + ':' + e.querySelector('.sk-echip').textContent), h: [Math.round(sh.height)] };
+  const out = { top: Math.round(sh.top), bottom: Math.round(sh.bottom), vh: innerHeight, title: q('.sk-sh-hd .tt').textContent, tabs: qa('.sk-sh-tab').map((e) => e.textContent), names: qa('.sk-in').map((e) => e.value), rows: qa('.sk-ent').map((e) => e.querySelector('.sk-ats').textContent + ':' + e.querySelector('.sk-echip').textContent), h: [Math.round(sh.height)] };
   q('.sk-bytt[data-k="light:garasjeport"]').click(); await w(300);
   out.picker = !!q('msh-entity-picker');
   q('msh-entity-picker').dispatchEvent(new CustomEvent('value-changed', { detail: { value: 'none' }, bubbles: true, composed: true })); await w(150);

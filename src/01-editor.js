@@ -406,15 +406,8 @@
     /* Tittelrad: sticky rett under håndtaket (arkets flate fra MSH.sheetVars), med «Lagret»-pillen til høyre (Fiks 11) */
     .ttl{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:5;font-size:18px;font-weight:500;display:flex;align-items:center;gap:10px;min-height:44px;
       margin:-4px calc(-1 * var(--ki-sh-px, 0px)) 0;padding:2px calc(4px + var(--ki-sh-px, 0px)) 6px;background:var(--ki-sheet-bg, transparent);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none)}
-    .ttl .tt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:22px;font-weight:600;letter-spacing:-0.01em}
-    /* Fiks 26 (brukerens valg): «Ferdig» er en rosa pille ØVERST TIL HØYRE i headeren (ingen bunnlinje); Avbryt = liten ×-knapp ved siden av */
-    .ttl .hb{flex:none;width:40px;height:40px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);color:#c7c7c7;display:grid;place-items:center}
-    .ttl .done{flex:none;${M.DONE_PILL}}
-    /* 36.7: header som designet («Tilpass kalender»): tittel 24/600, «Nullstill» #3a3a3a (dekkende) + rosa «Ferdig» */
-    .ttl.v2{gap:8px}.ttl.v2 .tt{font-size:24px;font-weight:600}
-    .ttl .hb.rs{width:auto;padding:0 16px;font-size:14px;font-weight:500;color:var(--ki-text, #fafafa);background:var(--ki-surface, #3a3a3a)}
-    .ttl .done[disabled]{opacity:.7;cursor:progress}
-    @media (max-width:380px){.ttl .tt{font-size:20px}.ttl .done{padding:0 14px}}
+    /* Felles Tilpass-header (MSH.tp, 00-c-tilpass.js): [× Avbryt] tittel/undertittel [↺ Nullstill] [Ferdig] – lik i alle ark */
+    ${M.tp.CSS}
     .ttl .stat{flex:none;height:26px;padding:0 11px;border-radius:13px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, var(--gray000,#232323));opacity:0;transform:translateY(-4px) scale(.94);transition:opacity .2s,transform .25s cubic-bezier(.34,1.4,.64,1);pointer-events:none}
     .ttl .stat.on{opacity:1;transform:none}
     /* 28.9: lagrestatus vises som den felles toast-pillen (MSH.toast) – ikke som egen pille i headeren */
@@ -438,10 +431,10 @@
     ${M.iconTabs.css('.chips.sg.tabs.itabs')}
     .tpane{display:flex;flex-direction:column;gap:10px}
     /* 28.11: i Tilpass-arket står fanelinjen fast rett under den faste headeren (tittel + Ferdig) – bare innholdet scroller */
-    :host([inline]) .wrap>.chips.sg.tabs{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) + 57px);z-index:4;box-shadow:0 0 0 8px var(--ki-sheet-bg,#282828)}
+    :host([inline]) .wrap>.chips.sg.tabs{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) + 65px);z-index:4;box-shadow:0 0 0 8px var(--ki-sheet-bg,#282828)}
     .fsec{display:flex;flex-direction:column;gap:6px;scroll-margin-top:calc(var(--ki-grab-h, 0px) + 56px)}
-    .fsh{display:flex;align-items:baseline;gap:8px;padding:6px 6px 0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f)}
-    .fsh .meta{margin-left:auto;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--ki-text-mid, #979797);white-space:nowrap}
+    .fsh{display:flex;align-items:baseline;gap:8px;padding:8px 8px 2px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
+    .fsh .meta{${M.tp.SEC_META}}
     .fsec>.sec>.in{padding:12px}
     /* 28.10: «Mellomrom» (ki-spacing-editor) – flaten #404040 r24 ligger rett under overskriften (Rom v4) */
     .fsec.ksp>.sec{background:none;box-shadow:none;border:0;border-radius:24px}
@@ -527,7 +520,7 @@
     :host([glass]) .chips.sg .chip{background:transparent;color:var(--ki-text-2, rgba(255,255,255,0.62));border-radius:16px;transition:background .2s,color .2s}
     :host([glass]) .chips.sg .chip.on{${M.GLASS_BUBBLE}}
     :host([glass]) .chip,:host([glass]) .pill{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.1*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
-    :host([glass]) .btn:not(.pri),:host([glass]) .ttl .hb{${M.glassSurface('row')}}
+    :host([glass]) .btn:not(.pri),:host([glass]) .ttl .kt-x,:host([glass]) .ttl .kt-ib{${M.glassSurface('row')}}
     :host([glass]) .ib:hover,:host([glass]) .menu button:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     :host([glass]) .menu{${M.glassSurface('menu')}}
     ${M.glassFallback(':host([glass]) .menu', 'menu')}
@@ -760,11 +753,14 @@
       el.innerHTML = this._saveBtnInner();
     }
     _saveBtnInner() { return this._busy ? '<span class="spin" aria-hidden="true"></span>Lagrer …' : 'Ferdig'; }
+    // Felles header (MSH.tp): «Tilpass <navn>» + undertittel. editorTitle/editorSub på kortklassen overstyrer (streng eller (hass, cfg) → streng).
+    _edTitle(cls) { const t = cls.editorTitle; return typeof t === 'function' ? t(this._hass, this._config) : t || M.tp.title(cls.cardName); }
+    _edSub(cls) { let s; try { s = cls.editorSub; } catch (e) { s = null; } if (typeof s === 'function') s = s(this._hass, this._config); return s == null ? 'Endringer vises live' : s; }
     connectedCallback() { this._glassSync(); if (this._inline) requestAnimationFrame(() => this._fitTitle()); }
     _fitTitle() {
-      const tt = this.shadowRoot && this.shadowRoot.querySelector('.ttl.v2 .tt');
+      const tt = this.shadowRoot && this.shadowRoot.querySelector('.ttl .tt');
       if (!tt || !tt.clientWidth) return;
-      tt.style.fontSize = ''; let fs = 24;
+      tt.style.fontSize = ''; let fs = parseFloat(getComputedStyle(tt).fontSize) || 22;
       while (tt.scrollWidth > tt.clientWidth + 1 && fs > 16) { fs -= 1; tt.style.fontSize = fs + 'px'; }
     }
     // Liquid glass-UTSEENDET: kun i et glassark (MSH.overlay med Liquid Glass-tema → vertens data-glass).
@@ -813,14 +809,14 @@
       try { schema = this.schema; } catch (e) { console.error('[ki-msh] editor-skjema', e); schema = [{ type: 'info', label: 'Kunne ikke laste denne delen' }]; }
       const body = schema.map((f, i) => this._safeField(f, 'r' + i)).join('');
       const html = `<style>${ED_CSS}${M.STEPPER_CSS || ''}.f.stp{padding:0}</style><div class="wrap">
-        ${this._inline ? `<div class="ttl${EH ? ' v2' : ''}"><span class="tt">${esc(cls.editorTitle || (cls.cardName ? 'Tilpass · ' + cls.cardName : 'Tilpass'))}</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span>${EH && EH.reset ? '<button class="hb rs" data-a="hreset">Nullstill</button>' : `<button class="hb" data-a="cancel" title="Avbryt" aria-label="Avbryt">${M.icon('mdi:close', 20)}</button>`}<button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>` : ''}
+        ${this._inline ? `<div class="ttl kt-head">${M.tp.head({ title: this._edTitle(cls), sub: this._edSub(cls), cancel: 'cancel', reset: EH && EH.reset ? 'hreset' : null, done: 'save', busy: this._busy, stat: `<span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span>` })}</div>` : ''}
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
       </div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
       this._glassSync();
-      // 36.7: tittelen (24/600) får plass ved siden av «Nullstill» + «Ferdig» – smal skjerm: krymp til den passer (min 16 px)
-      if (EH) this._fitTitle();
+      // Tittelen får plass ved siden av knappene – smal skjerm: krymp til den passer (min 16 px), deretter ellipsis
+      if (this._inline) this._fitTitle();
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((p) => { p.hass = this._hass; const v = get(this._config, p.dataset.name) || ''; if (p.value !== v) p.value = v; });
       this.shadowRoot.querySelectorAll('ha-selector').forEach((p) => {
         p.hass = this._hass;

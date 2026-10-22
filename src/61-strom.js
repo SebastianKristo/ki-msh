@@ -918,7 +918,7 @@
     @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     .tp{display:flex;flex-direction:column;gap:8px;color:var(--ki-text, #fafafa);font-family:inherit}
     .tph{display:flex;align-items:center;gap:8px;padding:10px 4px 14px}
-    .tph .tt{flex:1;font-size:24px;font-weight:600;letter-spacing:-0.01em}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .tph .rs{height:40px;padding:0 16px;border-radius:20px;background:var(--ki-surface, #3a3a3a);font-size:14px;font-weight:500;transition:transform .15s}
     .tph .dn{${M.DONE_PILL || ''}}
     .tph button:active{transform:scale(.96)}
@@ -927,7 +927,7 @@
     .tpt button.on{flex:1 0 auto;padding:0 16px 0 12px;background:${ACC};color:${INK2}}
     .tpb{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;align-content:start;gap:8px;padding-bottom:48px}
     .hint{font-size:13px;color:var(--ki-text-mid, #979797);padding:2px 8px 4px;line-height:1.4}
-    .lab{font-size:13px;font-weight:500;color:var(--ki-text-mid, #979797);padding:10px 8px 2px}
+    .lab{padding:10px 8px 2px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .info{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:24px;background:rgb(115 185 242 / 0.1);box-shadow:inset 0 0 0 1px rgb(115 185 242 / 0.22)}
     .info span{font-size:13px;line-height:1.45;color:var(--ki-text-1, #c7c7c7)}
     .trw{display:flex;align-items:center;gap:8px;min-height:60px;padding:0 8px 0 0;border-radius:24px;background:var(--ki-surface, #3a3a3a);transition:background .2s,box-shadow .2s,transform .2s}
@@ -1075,7 +1075,7 @@
           ${[['anim', 'Animasjoner', 'mdi:animation', 'Glød i toppkortet, grafer som tegnes og søyler som vokser', c.anim !== false], ['glass', 'Liquid glass', 'mdi:blur', 'Dra over fanelinjer for glass-linse som følger fingeren', ga], ['live', 'Live effekt', 'mdi:access-point', 'Oppdater watt i toppkortet fortløpende', c.live !== false]]
             .map(([k, l, icon, sub, on]) => `<button class="swr big" data-a="sw" data-v="${k}"><span class="swi">${ic(icon, 22)}</span><span class="swn"><b>${l}</b><span>${sub}</span></span>${swH(on)}</button>`).join('')}`;
       }
-      const head = inSheet ? `<div class="tph" data-sheet-head><span class="tt">Tilpass strøm</span><button class="rs" data-a="reset">Nullstill</button><button class="dn" data-a="done">Ferdig</button></div>` : '';
+      const head = inSheet ? `<div class="tph kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass strøm', sub: 'Lagres med en gang', reset: 'reset', done: 'done' })}</div>` : '';
       return `<div class="tp">${head}<div class="tpt" data-glass-drag="x">${tabs.map(([k, l, icon]) => `<button class="${tab === k ? 'on' : ''}" data-a="tptab" data-v="${k}" title="${l}">${ic(icon, 20)}${tab === k ? `<span>${l}</span>` : ''}</button>`).join('')}</div><div class="tpb">${body}</div></div>`;
     },
     bind(root, ctx) {

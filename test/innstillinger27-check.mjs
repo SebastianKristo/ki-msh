@@ -173,11 +173,11 @@ const edOf = (p) => p.evaluate(() => { const find = (root) => { for (const x of 
     out.inline = sh.style.height || '';
     sr.querySelector('[data-a="tab"][data-v="faner"]').click(); await w(200);
     out.stickyTabs = getComputedStyle(sr.querySelector('.wrap>.chips.sg.tabs')).position;
-    out.cancel = getComputedStyle(sr.querySelector('.ttl .hb[data-a="cancel"]')).display;
+    out.cancel = getComputedStyle(sr.querySelector('.ttl [data-a="cancel"]')).display;
     return out;
   });
   // 28.11: høyden er felles for alle Tilpass-ark (MSH.overlay) – Innstillinger har ingen egen høydeoverstyring lenger
-  ok('28.5 Tilpass-arket: samme høyde i alle 4 faner, felles arkhøyde (ingen egen min(660px, …)-overstyring)', H.faner > 300 && ['rader', 'entiteter', 'avansert'].every((k) => Math.abs(H[k] - H.faner) <= 1) && !H.inline && H.stickyTabs === 'sticky' && H.cancel === 'none', H);
+  ok('28.5 Tilpass-arket: samme høyde i alle 4 faner, felles arkhøyde (ingen egen min(660px, …)-overstyring)', H.faner > 300 && ['rader', 'entiteter', 'avansert'].every((k) => Math.abs(H[k] - H.faner) <= 1) && !H.inline && H.stickyTabs === 'sticky' && H.cancel !== 'none', H); // felles Tilpass-header: × Avbryt vises
   // forhåndsvisning
   const pv = () => p.evaluate(() => { const v = window.__ed.shadowRoot.querySelector('.pvw'); return { tabs: [...v.querySelectorAll('.tb')].map((t) => (t.querySelector('ha-icon') ? 'i:' : '') + (t.querySelector('.tl') ? t.querySelector('.tl').textContent.trim() : '')), gear: !!v.querySelector('.gear ha-icon'), pe: getComputedStyle(v.querySelector('.pvb')).pointerEvents, on: (v.querySelector('.tb.on .tl') || {}).textContent, hdr: v.closest('.fsec').querySelector('.fsh').textContent.trim() }; });
   const V0 = await pv();

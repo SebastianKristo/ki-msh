@@ -2095,7 +2095,7 @@ ${VE}`;
       if (!ov) return;
       const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
       const D = ctl.draft, stil = stilOf(D), hid = hiddenOf(D), fxOn = D.hero_fx !== false, L = listOf(D);
-      box.innerHTML = `<div class="hd"><span class="hic">${M.icon('mdi:weather-partly-cloudy', 24)}</span><span class="tt">Tilpass Vær</span><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      box.innerHTML = `<div class="hd kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass vær', sub: 'Stil, steder og effekter', cancel: 'cancel', done: 'done', busy: st.busy })}</div>
         <span class="cap">Stil</span>
         <div class="stl" role="radiogroup" data-glass-drag="x">${STIL.map(([k, l]) => `<button class="sto${stil === k ? ' on' : ''}" role="radio" aria-checked="${stil === k}" ${stil === k ? 'data-active="1"' : ''} data-a="stil" data-k="${k}">${M.icon(STIL_IC[k], 18)}${l}</button>`).join('')}</div>
         <span class="cap">Steder · hold og dra for rekkefølge</span>
@@ -2168,6 +2168,7 @@ ${VE}`;
       const a = el.dataset.a, k = el.dataset.k, D = ctl.draft, L = listOf(D);
       switch (a) {
         case 'done': return ctl.done();
+        case 'cancel': M.haptic('light'); return ctl.cancel();
         case 'stil': return stilOf(D) === k ? undefined : apply({ style: k, stil: undefined }, 'selection');
         case 'rm': { const p = L[Number(k)]; if (L.length < 2 || !p) return undefined; st.adding = false; st.edit = null; return setPlaces(placeOps.remove(D, p.id), 'medium'); } // → exclude
         case 'openadd': { st.adding = !st.adding || st.edit != null; st.edit = null; st.name = ''; st.named = false; st.ent = ''; st.q = ''; M.haptic('light'); draw(); const i = st.adding && box.querySelector('[data-in="name"]'); if (i) i.focus({ preventScroll: true }); return undefined; }
@@ -2206,11 +2207,12 @@ ${VE}`;
     .vaer-sheet{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:10px;padding-top:2px}
     .vaer-sheet>*{flex:none;min-width:0}
     .hd{display:flex;align-items:center;gap:12px;padding:4px 4px 6px}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .hic{width:44px;height:44px;border-radius:22px;background:var(--ki-pill-bg, #e1e1e1);color:var(--ki-pill-fg, #2f2f2f);display:grid;place-items:center;flex:none}
     .tt{flex:1;min-width:0;font-size:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ok{height:44px;padding:0 20px;border-radius:22px;background:${PINKG};color:var(--ki-on-accent, #3a3a3a);font-size:15px;font-weight:600;flex:none}
     .ok:active,.nb:active,.more:active,.x:active,.addb:active{transform:scale(.95)}
-    .cap{font-size:12px;color:var(--ki-text-mid, #979797);padding:8px 6px 0}
+    .cap{padding:8px 8px 2px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .stl{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:24px;background:var(--ki-surface-3, #3a3a3a);position:relative;touch-action:pan-y}
     .sto{height:44px;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;background:transparent;color:var(--ki-text, #fafafa);transition:background .2s,color .2s}
     .sto.on{background:${PINKG};color:var(--ki-on-accent, #3a3a3a)}

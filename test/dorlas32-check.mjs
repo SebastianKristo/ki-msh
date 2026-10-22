@@ -239,7 +239,7 @@ const TP = await p.evaluate(async () => {
   c.shadowRoot.querySelector('.sk-gear').click(); await w(500);
   const pr = M.portals().find((x) => x.shadowRoot.querySelector('.sk-sheet')), R = pr.shadowRoot, q = (s) => R.querySelector(s), qa = (s) => [...R.querySelectorAll(s)];
   const sh = q('.sh').getBoundingClientRect();
-  const out = { top: Math.round(sh.top), bottom: Math.round(sh.bottom), vh: innerHeight, title: q('.sk-sh-tt').textContent, done: q('.sk-ok').textContent, tabs: qa('.sk-sh-tab').map((e) => e.textContent) };
+  const out = { top: Math.round(sh.top), bottom: Math.round(sh.bottom), vh: innerHeight, title: q('.sk-sh-hd .tt').textContent, done: q('.sk-sh-hd .kt-done').textContent, tabs: qa('.sk-sh-tab').map((e) => e.textContent) };
   out.locks = qa('.sk-sec .sk-in').map((e) => e.value);
   out.chips = qa('.sk-echip').map((e) => e.textContent);
   out.h = [Math.round(sh.height)];

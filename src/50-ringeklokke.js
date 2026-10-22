@@ -726,8 +726,7 @@
     const draw = () => {
       if (!ov) return;
       const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
-      box.innerHTML = `<div class="hd"><span class="col grow" style="gap:2px;min-width:0"><span class="tt">Tilpass ringeklokke</span><span class="st">Endringer vises straks · lagres ved Ferdig</span></span>
-          <button class="nb" data-a="cancel">Avbryt</button><button class="nb" data-a="reset">Tilbakestill</button><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      box.innerHTML = `<div class="hd kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass ringeklokke', sub: 'Endringer vises live', cancel: 'cancel', reset: 'reset', done: 'done', busy: st.busy })}</div>
         <div class="tabs" role="tablist" data-glass-drag="x">${TABS.map(([k, l, icn]) => `<button class="tab ${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="tab" data-k="${k}">${M.icon(icn, 18)}<span>${esc(l)}</span></button>`).join('')}</div>
         <div class="pane" data-tab="${st.tab}">${tabHTML()}</div>`;
       if (M.tabPress) M.tabPress(box.querySelector('.tabs')); // Fiks 47 E: felles trykk-logikk
@@ -773,6 +772,7 @@
   const SHEET_CSS = `
     .rk-sheet{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:10px;padding-top:4px}
     .hd{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:0 4px 4px}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .hd>.col{flex:1 1 170px}
     .tt{font-size:22px;font-weight:600;white-space:nowrap}
     .st,.rs{font-size:12px;color:var(--ki-g-t2,var(--ki-text-mid, var(--gray700,#979797)))}
@@ -785,7 +785,7 @@
     .tab.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
     .pane{display:flex;flex-direction:column;gap:12px;padding-top:4px}
     .fl{display:flex;flex-direction:column;gap:6px}
-    .cap{font-size:13px;color:var(--ki-g-t2,var(--ki-text-mid, var(--gray700,#979797)));padding:0 6px}
+    .cap{padding:0 8px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .sel{height:48px;border-radius:24px;border:0;padding:0 16px;background:var(--ki-g-row,var(--ki-surface, var(--gray200,#3a3a3a)));color:var(--ki-text, #fafafa);font:inherit;font-size:14px;width:100%;min-width:0;outline:none}
     .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-g-seg,var(--ki-surface-3, var(--gray100,#2f2f2f)))}
     .seg button{flex:1;height:38px;border-radius:19px;font-size:13px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf))}

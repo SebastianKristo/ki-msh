@@ -1283,8 +1283,7 @@
 
     // ---------- skall: håndtak (full ⇄ halv), header, faner, innhold
     const shell = () => `<button class="hdl" data-a="height" aria-label="${st.full ? 'Halv høyde – se endringene bak' : 'Full høyde'}" aria-pressed="${!st.full}"><span></span></button>
-      <div class="hdr" data-sheet-head><span class="ttl"><span class="tt">Tilpass lys</span><span class="ts">Endringer vises live bak arket</span></span>
-        <button class="hb" data-a="reset">Nullstill</button><button class="nd5" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      <div class="hdr kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass lys', sub: 'Endringer vises live', cancel: 'cancel', reset: 'reset', done: 'done', busy: st.busy })}</div>
       <div class="etw"><div class="et" role="tablist">${ETABS.map(([k, l, ic]) => `<button class="${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="page" data-p="${k}" title="${esc(l)}">${M.icon(ic, 20)}${k === st.tab ? `<span>${esc(l)}</span>` : ''}</button>`).join('')}</div></div>
       <div class="scr" data-tab="${st.tab}"></div>`;
     const draw = (keep) => {
@@ -1381,6 +1380,7 @@
       const a = el.dataset.a, k = el.dataset.k;
       switch (a) {
         case 'done': return ctl.done().then((r) => { if (r && r.unchanged) M.haptic('success'); });
+        case 'cancel': M.haptic('light'); return ctl.cancel();
         case 'reset': M.haptic('medium'); return upd((d) => { Object.keys(d).forEach((x) => { if (x !== 'type' && x !== 'card_id') delete d[x]; }); });
         case 'height': M.haptic('selection'); return setFull(!st.full);
         case 'page': M.haptic('selection'); return go(el.dataset.p);
@@ -1550,6 +1550,7 @@
     .hdl{display:flex;justify-content:center;align-items:center;width:100%;padding:10px 0 2px;flex:none;border:0;background:none;cursor:pointer}
     .hdl span{width:40px;height:5px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))}
     .hdr{display:flex;align-items:center;gap:8px;padding:10px 20px 12px;flex:none}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .hdr .ttl{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .hdr .tt{font-size:24px;font-weight:600;letter-spacing:-0.01em;line-height:1.2;color:var(--ki-text, #fafafa)}
     .hdr .ts{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
@@ -1582,7 +1583,7 @@
     .chv ha-icon{transition:transform .25s}
     .chv.open ha-icon{transform:rotate(180deg)}
     .flr{display:flex;flex-direction:column;gap:8px}
-    .capf{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:6px 6px 0}
+    .capf{padding:8px 8px 2px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .hint{font-size:12px;line-height:1.45;color:var(--ki-text-mid, var(--gray700,#979797));padding:0 6px}
     .rin{flex:1;min-width:0;height:40px;border-radius:12px;border:0;outline:none;padding:0 10px;background:var(--ki-popup, #282828);color:var(--ki-text, #fafafa);font:inherit;font-size:14px;font-weight:500;box-sizing:border-box;-webkit-user-select:text;user-select:text}
     .rin::placeholder{color:var(--ki-text-3, var(--gray600,#7f7f7f))}

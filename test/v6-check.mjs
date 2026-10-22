@@ -220,7 +220,7 @@ const tabs = (p) => p.evaluate(() => __A('.trow .tb').map((x) => x.dataset.v));
   const ctx = await b.newContext({ viewport: { width: 412, height: 900 }, hasTouch: true });
   let { p, errs } = await page(null, { ctx });
   await click(p, '.trow .gear', 700);
-  let X = await p.evaluate(() => { const o = MSH.portals().pop(), r = o.shadowRoot; return { title: __t(r.querySelector('.tt')), modes: [...r.querySelectorAll('.md .ml')].map(__t), on: __t(r.querySelector('.md.on .ml')), hosts: [...r.querySelectorAll('.hb .hn')].map(__t), x: !!r.querySelector('.x'), bg: getComputedStyle(r.querySelector('.bg')).backgroundColor, top: Math.round(r.querySelector('.sh').getBoundingClientRect().top) }; });
+  let X = await p.evaluate(() => { const o = MSH.portals().pop(), r = o.shadowRoot; return { title: __t(r.querySelector('.tt')), modes: [...r.querySelectorAll('.md .ml')].map(__t), on: __t(r.querySelector('.md.on .ml')), hosts: [...r.querySelectorAll('.hb .hn')].map(__t), x: !!r.querySelector('.kt-done'), bg: getComputedStyle(r.querySelector('.bg')).backgroundColor, top: Math.round(r.querySelector('.sh').getBoundingClientRect().top) }; });
   ok('6 tannhjulet åpner «Tilpass server» øverst med mørk bakgrunn: Faner viser (3 valg) + Ikon per server', X.title === 'Tilpass server' && X.modes.join() === 'Ikon og navn,Navn på valgt fane,Bare ikoner' && X.on === 'Ikon og navn' && X.hosts.includes('arildkristo.com') && X.x && X.top < 120, X);
   const mode = async (v) => { await p.evaluate((v) => MSH.portals().pop().shadowRoot.querySelector(`.md[data-v="${v}"]`).click(), v); await sleep(400); return p.evaluate(() => __A('.trow .tb').map((t) => ({ v: t.dataset.v, on: t.classList.contains('on'), name: !!t.querySelector('.tbn'), io: t.classList.contains('io'), title: t.title, mw: getComputedStyle(t).minWidth, pad: getComputedStyle(t).padding }))); };
   let T = await mode('ikon');
@@ -245,8 +245,8 @@ const tabs = (p) => p.evaluate(() => __A('.trow .tb').map((x) => x.dataset.v));
   X = await p.evaluate(() => ({ ic: __c.config.host_icons, reset: !!MSH.portals().pop().shadowRoot.querySelector('.rs[data-v="net"]') }));
   ok('6 «Tilbakestill» gir standardikonet tilbake', !X.ic && !X.reset, X);
   await p.evaluate(() => MSH.portals().pop().shadowRoot.querySelector('.io[data-v="cloud"]').click()); await sleep(400);
-  // lukk med ✕
-  await p.evaluate(() => MSH.portals().pop().shadowRoot.querySelector('.x').click()); await sleep(400);
+  // lukk med «Ferdig» (felles Tilpass-header, MSH.tp – lagres med en gang)
+  await p.evaluate(() => MSH.portals().pop().shadowRoot.querySelector('.kt-done').click()); await sleep(400);
   X = await p.evaluate(() => MSH.portals().filter((o) => o.isConnected && o.shadowRoot.querySelector('.tt')).length);
   ok('6 ✕ lukker arket', X === 0, X);
   // «Flere innstillinger» → hele Tilpass-arket

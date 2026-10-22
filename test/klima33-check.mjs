@@ -1,7 +1,7 @@
 // Fiks 33.7 + 35.8 · Klima (#klima) mot ekte Bubble Card, mobil 390 px, mørk OG lys modus (uavhengig av dato/klokkeslett).
 //  · «Tilpass klima» (fasit Klima v3 layOpen): 22 px mellom seksjonene, 8 px overskrift–kort, 8 px mellom kortene i én
 //    seksjon (Faner: innstillingskort + fanelista), hjelpeteksten 8 px under kortet, kort r24, rader ≥ 60 px med 1 px
-//    skillelinje, overskrift 12 px/500 uppercase .08em, toppkort-stil-rutenettet gap 6 px
+//    skillelinje, overskrift = felles MSH.tp.SEC (13/600, ingen versaler), toppkort-stil-rutenettet gap 6 px
 //  · Fanestil Fylt / Kontur / Linje (layout.tab_look): spor --ki-surface (+ inset 1px .14 for Kontur), Linje = transparent
 //    spor med bunnlinje og rosa understrek på aktiv fane; lagres via arket (Ferdig) og i GUI-editoren (schema)
 //  · tannhjulet har samme høyde som sporet og er vertikalt sentrert mot fanelinja (alle stiler × Faner viser)
@@ -123,7 +123,7 @@ ok('33.7 · fire seksjoner med 22 px mellom (gap 22, padding 4/28)', sheet.n ===
 ok('33.7 · 8 px overskrift–kort og mellom alle kort/hjelpetekst i hver seksjon (aldri 0)', Object.values(sheet.inner).every((l) => l.length && l.every(([, d]) => d === 8)), sheet.inner);
 ok('33.7 · Faner: innstillingskortet og fanelista har 8 px mellom', sheet.fanerGap === 8, sheet.fanerGap);
 ok('33.7 · hjelpeteksten står 8 px under fanelista, padding 0 6px', sheet.note.gap === 8 && sheet.note.pad === '6px', sheet.note);
-ok('33.7 · overskrift 12 px/500 uppercase .08em, padding 0 6px', sheet.cap.fs === '12px' && sheet.cap.fw === '500' && sheet.cap.tt === 'uppercase' && Math.abs(parseFloat(sheet.cap.ls) - 0.96) < 0.01 && sheet.cap.pad === '6px 6px', sheet.cap);
+ok('overskrift = felles seksjonstittel (MSH.tp.SEC): 13 px/600, ingen versaler, padding 8px sidelengs', sheet.cap.fs === '13px' && sheet.cap.fw === '600' && sheet.cap.tt === 'none' && /^(0|normal|0px)$/.test(String(sheet.cap.ls)) && sheet.cap.pad === '8px 8px', sheet.cap);
 ok('33.7 · kort r24, rader ≥ 60 px med 1 px skillelinje rgba(255,255,255,.06)', sheet.grp.r === '24px' && sheet.rowMinH === '60px' && sheet.minRow >= 60 && /^1px rgba\(255, 255, 255, 0\.06\)/.test(sheet.line), { grp: sheet.grp, minRow: sheet.minRow, line: sheet.line });
 ok('33.7 · toppkort-stil-rutenettet gap 6 px', sheet.hsgGap === '6px', sheet.hsgGap);
 ok('35.8 · arket: Fanestil Fylt/Kontur/Linje + Faner viser', sheet.looks.join() === 'Fylt,Kontur,Linje' && sheet.shows.join() === 'Ikon + tekst,Tekst,Ikon', { looks: sheet.looks, shows: sheet.shows });

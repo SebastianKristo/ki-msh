@@ -9,7 +9,7 @@
 //   36.7 «Tilpass kalender»: portalt ut av popupen, helt dekkende --ki-popup (#282828 / lys #f0f0f0), ingen blur/opasitet
 //        (også med Liquid Glass på), radius 38 38 0 0, høyde = dashbordflaten − 52, maks 440 sentrert nederst, bakteppe
 //        rgba(0,0,0,.5) + blur(4px) over dashbordflaten (ikke HA-sidebaren), trykk lukker; header: håndtak 40×5, «Tilpass
-//        kalender» 24/600, «Nullstill» #3a3a3a + rosa «Ferdig», ingen X; Mellomrom = dekkende kort #3a3a3a r24, forvalg #404040.
+//        kalender» (felles MSH.tp-header: × Avbryt, ↺ Nullstill, rosa «Ferdig»); Mellomrom = dekkende kort #3a3a3a r24, forvalg #404040.
 //   node test/kalender36-check.mjs
 import { createRequire } from 'node:module';
 import { readdirSync, mkdirSync, existsSync, unlinkSync } from 'node:fs';
@@ -222,7 +222,8 @@ for (const theme of ['dark', 'light']) {
     ok(T(`36.7 [${tag}] radius 38 38 0 0, høyde = dashbordflaten − 52, maks 440 sentrert nederst`), G.rad === '38px 38px 0px 0px' && G.top === 52 && G.h === G.vh - 52 && G.bottom === G.vh && G.w === Math.min(440, G.D.w) && Math.abs(G.cx - (G.D.l + G.D.w / 2)) <= 1, G);
     const scrimA = theme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.2)';
     ok(T(`36.7 [${tag}] bakteppe ${scrimA} + blur(4px) over hele dashbordflaten`), G.scrim === scrimA && /blur\(4px\)/.test(G.sbf) && G.sl === G.D.l && G.sw === G.D.w && G.sh2 === G.vh, G);
-    ok(T(`36.7 [${tag}] header: håndtak 40×5, «Tilpass kalender» 24/600 (krympes til den får plass), «Nullstill» dekkende + rosa «Ferdig», ingen X`), G.title === 'Tilpass kalender' && parseFloat(G.tfs) >= 16 && parseFloat(G.tfs) <= 24 && G.tfit && G.tfw === '600' && G.grab && G.grab[0] === 40 && G.grab[1] === 5 && G.btn.length === 2 && G.btn[0].t === 'Nullstill' && opaque(G.btn[0].bg) && G.btn[0].bg !== 'rgba(0, 0, 0, 0)' && G.btn[1].t === 'Ferdig' && /gradient/.test(G.btn[1].img) && !G.btn.some((b) => b.a === 'cancel'), G);
+    // Felles Tilpass-design (MSH.tp): × Avbryt · tittel · ↺ Nullstill (dekkende) · rosa Ferdig
+    ok(T(`36.7 [${tag}] header: håndtak 40×5, «Tilpass kalender» 16–24/600 (krympes til den får plass), × Avbryt, ↺ Nullstill dekkende + rosa «Ferdig»`), G.title === 'Tilpass kalender' && parseFloat(G.tfs) >= 16 && parseFloat(G.tfs) <= 24 && G.tfit && G.tfw === '600' && G.grab && G.grab[0] === 40 && G.grab[1] === 5 && G.btn.length === 3 && G.btn[0].a === 'cancel' && G.btn[1].a === 'hreset' && opaque(G.btn[1].bg) && G.btn[1].bg !== 'rgba(0, 0, 0, 0)' && G.btn[2].t === 'Ferdig' && /gradient/.test(G.btn[2].img), G);
     // seksjonskort/rader og Mellomrom
     const S = await page.evaluate(async () => {
       const P = MSH.portals().filter((p) => p.isConnected && p.classList.contains('on')), host = P[P.length - 1], E = host.shadowRoot.querySelector('msh-editor').shadowRoot;

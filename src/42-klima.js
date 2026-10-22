@@ -1064,7 +1064,7 @@
       // 33.7 · fasit Klima v3 layOpen: seksjoner med 22 px mellom (.secs), overskrift + kort 8 px (.sec), 8 px mellom kort
       const look = LOOKS.some(([k]) => k === L.tab_look) ? L.tab_look : 'fylt';
       const segRow = (label, icon, a, opts, cur) => `<div class="r col2"><span class="rh">${M.icon(icon, 20)}<span class="rl">${esc(label)}</span></span><div class="seg g${opts.length}" data-glass-drag="x">${opts.map(([v, l]) => `<button class="${v === cur ? 'on' : ''}" data-a="${a}" data-v="${v}" aria-selected="${v === cur}">${esc(l)}</button>`).join('')}</div></div>`;
-      box.innerHTML = `<div class="nav main"><button class="nb" data-a="reset">Tilbakestill</button><span class="nt">Tilpass klima</span><button class="nd press" data-a="done" ${st.busy ? 'disabled' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      box.innerHTML = `<div class="nav main kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass klima', sub: 'Endringer vises live', cancel: 'cancel', reset: 'reset', done: 'done', busy: st.busy })}</div>
         <div class="secs">
         ${st.reset ? '<p class="note top">Tilbakestilt til standardoppsett i utkastet – trykk Ferdig for å lagre.</p>' : ''}
         <section class="sec" data-sec="visning"><span class="cap">Visning</span>
@@ -1153,6 +1153,7 @@
       const T = tabDefs(), all = T.map((t) => t.id);
       switch (a) {
         case 'done': return done();
+        case 'cancel': M.haptic('light'); return ctl.cancel();
         case 'reset': st.reset = true; return upd((d) => { delete d.layout; delete d.remember_tab; delete d.tab_order; delete d.hidden_tabs; delete d.start_tab; delete d.hero_style; delete d.gap; delete d.pad_top; delete d.pad_bottom; }, 'warning');
         case 'hero': return upd((d) => { if (el.dataset.v === 'ring') delete d.hero_style; else d.hero_style = el.dataset.v; }, 'selection');
         case 'sp': return upd((d) => { const f = SPACING_FIELDS.find((x) => x.name === k), v = Number(el.dataset.v); if (!f) return; if (v === f.default) delete d[k]; else d[k] = v; }, 'selection');
@@ -1200,6 +1201,7 @@
     .nt{font-size:16px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ki-text,#fafafa)}
     .nd{justify-self:end;${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille i alle Tilpass-ark */ /* Fiks 26 (brukerens valg): hovedsiden får samme header som de andre Tilpass-arkene – tittel 22/600 til venstre, knappene til høyre */
     .nav.main{display:flex}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .nav.main .nt{order:-1;flex:1;min-width:0;text-align:left;font-size:22px;letter-spacing:-0.01em}
     .nav.main .nb{flex:none;height:40px;padding:0 14px;border-radius:20px;background:var(--ki-sheet-grp,#3a3a3a);font-size:14px}
     .nd:disabled{opacity:.6}
@@ -1207,7 +1209,7 @@
     .secs{display:flex;flex-direction:column;gap:22px;padding:4px 0 28px;min-width:0}
     .sec{display:flex;flex-direction:column;gap:8px;min-width:0}
     .sec>*{margin:0}
-    .cap{display:block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-2,#afafaf);padding:0 6px}
+    .cap{display:block;padding:0 8px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .grp{background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);border-radius:24px;overflow:hidden}
     .grp>*+*{border-top:1px solid var(--ki-line,rgba(255,255,255,0.06))}
     .r{display:flex;align-items:center;gap:10px;min-height:60px;padding:6px 8px 6px 16px;width:100%;text-align:left;box-sizing:border-box}

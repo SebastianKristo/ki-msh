@@ -85,7 +85,7 @@ async function boot(cfg, dark = true) {
     const S = L()._sheet; if (!S) return null;
     const host = S.ov.host, sh0 = S.ov.root.querySelector('.sh'), cs = getComputedStyle(sh0), bg = S.ov.root.querySelector('.bg');
     const inPopup = !!host.closest('.bubble-pop-up') || deepAll('.bubble-pop-up').some((p) => p.contains(host));
-    const hdr = S.ov.root.querySelector('.hdr'), tt = hdr.querySelector('.tt'), ts = hdr.querySelector('.ts');
+    const hdr = S.ov.root.querySelector('.hdr'), tt = hdr.querySelector('.tt'), ts = hdr.querySelector('.kt-sub');
     const rst = S.ov.root.querySelector('[data-a="reset"]'), done = S.ov.root.querySelector('[data-a="done"]');
     const tabs = [...S.ov.root.querySelectorAll('.et [data-a="page"]')];
     return {
@@ -94,7 +94,7 @@ async function boot(cfg, dark = true) {
       h: Math.round(sh0.getBoundingClientRect().height), hostH: Math.round(host.getBoundingClientRect().height), scrim: bg ? getComputedStyle(bg).display : 'none',
       geo: (() => { const a = sh0.getBoundingClientRect(), b = host.getBoundingClientRect(); return { top: Math.round(a.top - b.top), bot: Math.round(b.bottom - a.bottom), w: Math.round(a.width), cx: Math.round(a.left + a.width / 2 - (b.left + b.width / 2)), full: sh0.classList.contains('full'), half: sh0.classList.contains('half'), anim: getComputedStyle(sh0).transitionProperty }; })(),
       title: tt.textContent.trim(), tfs: getComputedStyle(tt).fontSize, tfw: getComputedStyle(tt).fontWeight, sub: ts.textContent.trim(),
-      rst: [rst.textContent.trim(), getComputedStyle(rst).backgroundColor], done: [done.textContent.trim(), getComputedStyle(done).backgroundImage.slice(0, 15)],
+      rst: [rst.textContent.trim() || rst.getAttribute('aria-label'), getComputedStyle(rst).backgroundColor], cancel: !!hdr.querySelector('[data-a="cancel"]'), done: [done.textContent.trim(), getComputedStyle(done).backgroundImage.slice(0, 15)],
       tabs: tabs.map((b) => [b.dataset.p, b.classList.contains('on'), b.textContent.trim()]),
       onBg: getComputedStyle(tabs.find((b) => b.classList.contains('on'))).backgroundImage.slice(0, 15),
       draftOk: S.ov.body.querySelector('.lys-sheet') && JSON.stringify(S.ov.body.querySelector('.lys-sheet')._config) === JSON.stringify(L()._sheet.st.draft),
@@ -105,7 +105,8 @@ async function boot(cfg, dark = true) {
     ok('arket: helt dekkende #282828, ingen backdrop-filter, radius 38 38 0', sh.bg === 'rgb(40, 40, 40)' && sh.bf === 'none' && sh.r === '38px 38px 0px', sh);
     ok('38.2 · arket åpner i FULL høyde (dashbordflaten − 52 px), bunnforankret, maks 440 px sentrert, glir inn (transform)', sh.geo.full && !sh.geo.half && Math.abs(sh.h - (sh.hostH - 52)) <= 2 && sh.geo.top === 52 && sh.geo.bot === 0 && sh.geo.w <= 440 && Math.abs(sh.geo.cx) <= 1 && /transform/.test(sh.geo.anim), { h: sh.h, H: sh.hostH, geo: sh.geo });
     ok('arket: ingen bakteppe, verten slipper trykk gjennom', sh.scrim === 'none' && sh.hostPE === 'none', sh);
-    ok('header: «Tilpass lys» 24/600 + «Endringer vises live bak arket», Nullstill #3a3a3a + rosa Ferdig', sh.title === 'Tilpass lys' && sh.tfs === '24px' && sh.tfw === '600' && sh.sub === 'Endringer vises live bak arket' && sh.rst[0] === 'Nullstill' && sh.rst[1] === 'rgb(58, 58, 58)' && sh.done[0] === 'Ferdig' && /gradient/.test(sh.done[1]), sh);
+    // Felles Tilpass-design (MSH.tp): × Avbryt · «Tilpass lys» 22/600 + «Endringer vises live» · ↺ Nullstill #3a3a3a · rosa Ferdig
+    ok('header: × Avbryt, «Tilpass lys» 22/600 + «Endringer vises live», ↺ Nullstill #3a3a3a + rosa Ferdig', sh.cancel && sh.title === 'Tilpass lys' && sh.tfs === '22px' && sh.tfw === '600' && sh.sub === 'Endringer vises live' && sh.rst[0] === 'Nullstill' && sh.rst[1] === 'rgb(58, 58, 58)' && sh.done[0] === 'Ferdig' && /gradient/.test(sh.done[1]), sh);
     ok('faner i arket: Faner · Rom · Scener · Utelys · Design · Visning, aktiv viser navn (rosa)', JSON.stringify(sh.tabs.map((t) => t[0])) === JSON.stringify(['tabs', 'rooms', 'scenes', 'out', 'design', 'vis']) && sh.tabs[0][1] && sh.tabs[0][2] === 'Faner' && sh.tabs.slice(1).every((t) => !t[2]) && /gradient/.test(sh.onBg), sh.tabs);
     ok('utkastet ligger på .lys-sheet._config (samme config som GUI-editoren)', sh.draftOk);
   }

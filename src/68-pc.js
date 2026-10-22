@@ -590,7 +590,7 @@
         const rows = [['mdi:translate', 'Språk · Language', en() ? 'English' : 'Norsk', 'lang'], ['mdi:monitor', 'Dashbord på PC', kiT('Oversikt for PC', 'Overview for PC'), 'pc'],
           ['mdi:auto-fix', 'Tilpass alt', kiT('Veiviser for hele dashbordet', 'Wizard for the whole dashboard'), 'alt'], ['mdi:view-dashboard-edit-outline', 'Tilpass Hjem', kiT('Kort, faner, popups og tekst', 'Cards, tabs, popups and text'), 'home'],
           ['mdi:tune-variant', 'Innstillinger', kiT('Enheter, varsler og integrasjoner', 'Devices, notifications and integrations'), 'settings']];
-        ov.body.innerHTML = `<div class="dh"><span class="dt">Tilpass oversikten</span><button class="x" data-ta="close" title="Lukk" aria-label="Lukk">${M.icon('mdi:close', 22)}</button></div><div class="db">
+        ov.body.innerHTML = `<div class="dh kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass oversikten', sub: 'Snarveier til alle Tilpass-menyene', done: 'close', act: 'ta' })}</div><div class="db">
           <div class="menu">${rows.map(([ic, n, sub, k]) => `<button class="mr" data-ta="${k}">${M.icon(ic, 22, 'color:var(--ki-text-1, #c7c7c7)')}<span class="mx"><b${k === 'lang' ? ' data-noi18n' : ''}>${esc(n)}</b><i${k === 'lang' ? ' data-noi18n' : ''}>${esc(sub)}</i></span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, #7f7f7f)')}</button>`).join('')}</div>
           <span class="lbl">Kort i oversikten</span>
           ${KORT.map(([k, n]) => `<button class="kr" data-ta="kort" data-k="${k}" role="switch" aria-checked="${!hid[k]}"><span>${esc(n)}</span><span class="trk${hid[k] ? '' : ' on'}"><span class="knb">${M.icon('mdi:check', 16)}</span></span></button>`).join('')}
@@ -617,6 +617,7 @@
         :host(.on) .sh{transform:translate3d(-50%,0,0);opacity:1}
         .body{display:flex;flex-direction:column;min-height:0;flex:1}
         .dh{display:flex;align-items:center;gap:12px;padding:16px 16px 14px 20px;flex:none}
+        ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
         .dt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:19px;font-weight:600;letter-spacing:-0.02em}
         .dt i{font-style:normal;font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797);letter-spacing:0}
         .x{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa);flex:none}

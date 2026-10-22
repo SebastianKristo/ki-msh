@@ -2,6 +2,18 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Felles Tilpass-design
+Alle «Tilpass …»-arkene har nå samme oppbygning (`src/00-c-tilpass.js`, `MSH.tp`).
+- **Header:** `[× Avbryt]  Tilpass <navn> / undertittel  [↺ Nullstill]  [Ferdig]` i navbar, header, Hjem, rom og alle
+  kortenes editorer, lys, kamera, klima, vær, ringeklokke, kiosk, Tilpass alt, Tesla, strøm, varmepumpe, dørlås,
+  garasje, server og PC-oversikten. Titlene skrives likt («Tilpass navbar», ikke «Tilpass · Navbar») og kuttes ikke
+  lenger («Tilpass · Hjem · he…»). Undertittelen sier hva arket gjelder, eller om endringer vises live / lagres straks.
+- **Avbryt** (×) finnes i alle ark med utkast og forkaster endringene. Ark som lagrer straks har bare «Ferdig».
+- **Nullstill** er en rund ikonknapp på samme plass i alle ark som har den.
+- **Seksjonstitler** er like overalt: setning, 13/600, sekundærtekst (ingen VERSALER).
+- **Navbar:** knappene ligger i én gruppeflate med skillelinjer, som listene i de andre arkene.
+- Skjermbilder før/etter: `docs/images/tilpass/`, ta nye med `node test/tilpass-shots.mjs`.
+
 ## Fiks 64 · PC-dashbord (prompt v8)
 Designet ligger i `design/PC-dashbord.dc.html`.
 - **Valg:** ny rad «Dashbord på PC» i Tilpass-arket (Hjem). Den bytter `localStorage['ki-pc-oppsett']` mellom `pc` og

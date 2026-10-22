@@ -806,6 +806,7 @@
     input{cursor:text;outline:none}
     .ted{flex:1;min-height:0;display:flex;flex-direction:column}
     .th{flex:none;display:flex;align-items:center;gap:8px;padding:2px 20px 14px}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .tt{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .done{flex:none;${M.DONE_PILL}color:var(--ki-on-accent, #3a3a3a)}
     .done[disabled]{opacity:.7;cursor:progress}
@@ -898,7 +899,7 @@
       let body = '';
       try { body = this['_p_' + cur](); } catch (e) { console.error('[ki-msh] Tilpass Tesla', e); body = `<div class="sec pad"><span class="ft">Feil: ${esc(e.message)}</span></div>`; }
       const html = `<style>${TED_CSS}</style><div class="ted">
-        <div class="th"><span class="tt">Tilpass Tesla</span><span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span><button class="done" data-a="save" ${this._busy ? 'disabled aria-busy' : ''}>${this._saveBtnInner()}</button></div>
+        <div class="th kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass Tesla', sub: 'Endringer vises live', cancel: 'cancel', done: 'save', busy: this._busy, stat: `<span class="stat ${this.statusKind || ''}${this._statOn ? ' on' : ''}" role="status" aria-live="polite">${esc(this.status || '')}</span>` })}</div>
         <div class="tbw"><div class="etabs" role="tablist" data-glass-drag="x">${ED_TABS.map(([k, l]) => `<button class="${k === cur ? 'on' : ''}" role="tab" aria-selected="${k === cur}" data-a="tetab" data-v="${k}">${l}</button>`).join('')}</div></div>
         <div class="tsc" data-key="tsc-${cur}">${body}</div></div>`;
       if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; } else M.morph(this.shadowRoot, html);

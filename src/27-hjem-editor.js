@@ -147,12 +147,11 @@
     .ed{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:14px;font-family:${M.FONT};-webkit-user-select:none;user-select:none}
     input,textarea{-webkit-user-select:text;user-select:text}
     .hd{display:flex;align-items:center;gap:8px;padding:0 4px}
-    .hd .t{flex:1;font-size:22px;font-weight:600;letter-spacing:-0.01em} /* Fiks 26: lik header i alle Tilpass-ark */
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     /* 28.11: headeren (tittel + Ferdig) og fanelinjen står fast øverst i arket – bare innholdet under scroller */
     .ed>.hd{position:sticky;top:calc(var(--ki-grab-h, 25px) - var(--ki-sh-pt, 22px) - 1px);z-index:6;margin:-6px calc(-1 * var(--ki-sh-px, 16px)) 0;padding:6px calc(4px + var(--ki-sh-px, 16px)) 6px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur, none);backdrop-filter:var(--ki-sheet-blur, none)}
-    .ed>.seg.itabs{position:sticky;top:calc(var(--ki-grab-h, 25px) - var(--ki-sh-pt, 22px) + 51px);z-index:5;box-shadow:0 0 0 8px var(--ki-sheet-bg,#282828)}
+    .ed>.seg.itabs{position:sticky;top:calc(var(--ki-grab-h, 25px) - var(--ki-sh-pt, 22px) + 63px);z-index:5;box-shadow:0 0 0 8px var(--ki-sheet-bg,#282828)}
     .hd .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .hd>button{flex:none;white-space:nowrap}
-    @media (max-width:380px){.hd .t{font-size:20px} .hd .b40{padding:0 12px} .hd .done{padding:0 14px}} /* 360 px: «Ferdig» skal ikke kuttes */
     .b40{height:40px;padding:0 16px;border-radius:20px;background:var(--ki-surface, var(--gray200,#3a3a3a));font-size:14px;font-weight:500}
     .done{height:40px;padding:0 18px;border-radius:20px;background:${PINK};color:var(--ki-on-accent, #2f2f2f);font-size:14px;font-weight:600}
     .seg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
@@ -629,7 +628,7 @@
       } catch (e) { console.error('[ki-msh] Tilpass Hjem', e); inner = `<div class="hint">Feil: ${esc(e.message)}</div>`; }
       const secs = [['kort', 'Kort', 'mdi:view-dashboard'], ['faner', 'Faner', 'mdi:tab'], ['pop', 'Popups', 'mdi:dock-window'], ['tekst', 'Tekst', 'mdi:text']];
       const html = `<div class="ed" data-key="ed">
-        <div class="hd"><span class="t">Tilpass</span><button class="b40 press" data-a="cancel">Avbryt</button><button class="b40 press" data-a="reset">Nullstill</button><button class="done press" data-a="done" ${this._busy ? 'disabled aria-busy' : ''}>${this._busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+        <div class="hd kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass Hjem', sub: 'Kort, faner, popups og tekst', cancel: 'cancel', reset: 'reset', done: 'done', busy: this._busy })}</div>
         ${M.i18n ? `<div data-key="lrow">${M.i18n.rowHTML('data-a="kilang"')}</div>` : ''}
         ${M.openTilpassAlt ? `<button class="press" data-a="tall" data-key="tall" style="display:flex;align-items:center;gap:8px;justify-self:start;height:32px;padding:0 12px;border-radius:16px;background:var(--ki-sheet-in,#404040);color:var(--ki-text, #fafafa);font-size:13px;font-weight:500">${ic('mdi:tune', 16)}Tilpass alt ›</button>` : ''}
         <div class="seg itabs" role="tablist" data-key="secs">${secs.map(([id, l, ic]) => M.iconTabs.btn({ label: l, icon: ic }, u.sec === id, `data-a="sec" data-v="${id}" data-h="selection" data-key="sec-${id}"`, u.sec === id ? 'on-pk' : '')).join('')}</div>

@@ -78,21 +78,21 @@ const S1 = await p.evaluate(() => {
   const E = window.__ed(), ER = E && E.shadowRoot, cs = window.__cs;
   if (!sh || !ER) return { open: false };
   const r = sh.getBoundingClientRect(), g = R.querySelector('.grab').getBoundingClientRect();
-  const tt = ER.querySelector('.ttl .tt'), rs = ER.querySelector('.ttl .hb.rs'), dn = ER.querySelector('.ttl .done');
+  const tt = ER.querySelector('.ttl .tt'), rs = ER.querySelector('.ttl [data-a="hreset"]'), dn = ER.querySelector('.ttl .done');
   const bar = ER.querySelector('.mmt'), btns = [...bar.querySelectorAll('.itab')];
   const lbl = (bt) => { const l = bt.querySelector('.itl'); return { t: bt.title, sel: bt.getAttribute('aria-selected'), op: +cs(l).opacity, w: Math.round(l.getBoundingClientRect().width), ic: !!bt.querySelector('ha-icon'), bg: cs(bt).backgroundImage, fg: cs(bt).color }; };
   return {
     open: true, top: Math.round(r.top - dash.top), w: Math.round(r.width), dashW: Math.round(dash.width), rad: cs(sh).borderTopLeftRadius, h: Math.round(r.height), dashH: Math.round(dash.height),
     grab: [Math.round(g.width), Math.round(g.height)],
-    v2: tt.parentElement.classList.contains('v2'), title: tt.textContent.trim(), tfs: cs(tt).fontSize, tfw: cs(tt).fontWeight,
-    reset: rs && rs.textContent.trim(), resetBg: rs && cs(rs).backgroundColor, done: dn && dn.textContent.trim(), doneBg: dn && cs(dn).backgroundImage, doneFg: dn && cs(dn).color,
+    v2: !!tt.closest('.kt-head'), cancel: !!ER.querySelector('.ttl [data-a="cancel"]'), title: tt.textContent.trim(), tfs: cs(tt).fontSize, tfw: cs(tt).fontWeight,
+    reset: rs && (rs.textContent.trim() || rs.getAttribute('aria-label')), resetBg: rs && cs(rs).backgroundColor, done: dn && dn.textContent.trim(), doneBg: dn && cs(dn).backgroundImage, doneFg: dn && cs(dn).color,
     bar: { bg: cs(bar).backgroundColor, pad: cs(bar).paddingTop, rad: cs(bar).borderTopLeftRadius, tabs: btns.map(lbl) },
     hap: window.__hap.slice(),
   };
 });
 ok('arket åpnes fra tannhjulet (portalt Tilpass-ark)', S1.open, S1);
 ok('arket: felles størrelse – top 52 mot dashbordflaten, maks 440 bred, radius 38, til bunnen, håndtak 40×5', S1.top === 52 && S1.w === Math.min(440, S1.dashW) && S1.rad === '38px' && Math.abs(S1.h - (S1.dashH - 52)) <= 2 && S1.grab.join() === '40,5', S1);
-ok('header: «Tilpass media» 24/600 (felles _fitTitle krymper på smal skjerm), «Nullstill» #3a3a3a, «Ferdig» rosa gradient med mørk tekst', S1.title === 'Tilpass media' && S1.v2 && parseFloat(S1.tfs) <= 24 && parseFloat(S1.tfs) >= 16 && S1.tfw === '600' && S1.reset === 'Nullstill' && S1.resetBg === 'rgb(58, 58, 58)' && S1.done === 'Ferdig' && /linear-gradient/.test(S1.doneBg) && S1.doneFg !== 'rgb(255, 255, 255)', S1);
+ok('header (felles MSH.tp): × Avbryt, «Tilpass media» ≤ 24/600 (_fitTitle krymper på smal skjerm), ↺ Nullstill #3a3a3a, «Ferdig» rosa gradient med mørk tekst', S1.title === 'Tilpass media' && S1.v2 && S1.cancel && parseFloat(S1.tfs) <= 24 && parseFloat(S1.tfs) >= 16 && S1.tfw === '600' && S1.reset === 'Nullstill' && S1.resetBg === 'rgb(58, 58, 58)' && S1.done === 'Ferdig' && /linear-gradient/.test(S1.doneBg) && S1.doneFg !== 'rgb(255, 255, 255)', S1);
 const T1 = S1.bar && S1.bar.tabs;
 ok('ikonfaner Faner · TV · Musikk: #3a3a3a r24 pad 4, alle med ikon, bare aktiv (Faner) viser navnet', T1 && T1.map((t) => t.t).join() === 'Faner,TV,Musikk' && T1.every((t) => t.ic) && T1[0].sel === 'true' && T1[0].op === 1 && T1[0].w > 20 && T1.slice(1).every((t) => t.sel === 'false' && t.op === 0) && /linear-gradient/.test(T1[0].bg) && S1.bar.bg === 'rgb(58, 58, 58)' && S1.bar.pad === '4px' && S1.bar.rad === '24px', S1.bar);
 ok('haptic: én ved trykk på tannhjulet', S1.hap.length === 1, S1.hap);
@@ -237,12 +237,12 @@ const S7 = await p.evaluate(async () => {
   // Nullstill i TV-fanen: bare TV
   ER.querySelector('.mmt [data-t="tv"]').click(); await wait2(250);
   window.__hap.length = 0;
-  ER.querySelector('.ttl .hb.rs').click(); await wait2(250);
+  ER.querySelector('.ttl [data-a="hreset"]').click(); await wait2(250);
   o.hapReset = window.__hap.slice();
   o.afterTv = { order: JSON.parse(JSON.stringify(E._config.order || null)), hidden: JSON.parse(JSON.stringify(E._config.hidden || null)), tabs: E._config.tabs };
   // Nullstill i Faner: standard fanedesign
   ER.querySelector('.mmt [data-t="faner"]').click(); await wait2(250);
-  ER.querySelector('.ttl .hb.rs').click(); await wait2(250);
+  ER.querySelector('.ttl [data-a="hreset"]').click(); await wait2(250);
   o.afterFaner = { tabs: E._config.tabs, st: E._config.start_tab, order: JSON.parse(JSON.stringify(E._config.order || null)), on: [...ER.querySelectorAll('.mso.on')].map((x) => x.textContent.trim()), pv: ER.querySelector('.mtpv .seg').className };
   o.liveCls = window.__M().shadowRoot.querySelector('.seg').className;
   return o;

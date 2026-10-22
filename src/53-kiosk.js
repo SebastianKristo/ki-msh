@@ -108,7 +108,8 @@
     .hd{position:sticky;top:calc(var(--ki-grab-h, 0px) - var(--ki-sh-pt, 0px) - 1px);z-index:5;display:flex;align-items:center;gap:10px;min-height:52px;margin:-4px calc(-1 * var(--ki-sh-px, 0px)) 4px;padding:2px calc(4px + var(--ki-sh-px, 0px)) 6px;background:var(--ki-sheet-bg,#282828);-webkit-backdrop-filter:var(--ki-sheet-blur,none);backdrop-filter:var(--ki-sheet-blur,none)}
     .hd .t{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .hd .done{flex:none;${M.DONE_PILL}}
-    .h{display:flex;align-items:center;gap:8px;min-height:32px;padding:10px 8px 2px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-3, var(--gray600,#7f7f7f))}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
+    .h{display:flex;align-items:center;gap:8px;min-height:32px;padding:10px 8px 2px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .h .sp{flex:1}
     .h .cp{height:28px;padding:0 12px;border-radius:14px;background:var(--ki-sheet-grp,#3a3a3a);color:var(--ki-text, #fafafa);font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;display:inline-flex;align-items:center;gap:5px}
     .grp{border-radius:24px;background:var(--ki-sheet-grp,#3a3a3a);box-shadow:var(--ki-sheet-grp-sh,none);overflow:hidden}
@@ -163,7 +164,7 @@
       const entSel = customElements.get('ha-selector') ? `<ha-selector data-nomorph data-key="entsel" class="entsel"></ha-selector>`
         : M.entityPicker ? M.entityPicker.html({ key: 'entsel', value: ent, domains: ['input_boolean'], placeholder: DEF_ENT, attrs: 'class="entsel"' })
           : `<input class="ent" data-key="ent" value="${esc(ent)}" placeholder="${DEF_ENT}">`;
-      return `<div class="hd" data-key="hd"><span class="t">Tilpass kiosk-modus</span><button class="done press" data-a="close">Ferdig</button></div>
+      return `<div class="hd kt-head" data-key="hd" data-sheet-head>${M.tp.head({ title: 'Tilpass kiosk-modus', sub: 'Lagres med en gang', done: 'close' })}</div>
         <div class="grp" data-key="gstat"><div class="top" data-key="top"><div class="ic ${on ? 'on' : ''}">${M.icon('mdi:fullscreen', 24)}</div><div class="tt"><b>Kiosk-modus er ${on ? 'på' : 'av'}</b><span>${esc(ent)} · påvirker ${n} valg</span></div>${sw(on, 'master')}</div>
           <div class="entf" data-key="entf"><span class="lab">Bryter-entitet</span>${entSel}</div></div>
         <div class="h" data-key="hg">Grupper</div>

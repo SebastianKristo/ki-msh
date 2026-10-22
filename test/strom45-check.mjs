@@ -131,7 +131,7 @@ const T1 = await p.evaluate(() => {
   window.__tp = P;
   if (!P) return { open: false, n: window.MSH.portals().length, hash: location.hash };
   const r = P.shadowRoot, sh = r.querySelector('.sh');
-  return { open: !!P, title: r.querySelector('.tt').textContent, btns: [...r.querySelectorAll('.tph button')].map((x) => x.textContent.trim()), tabs: [...r.querySelectorAll('.tpt button')].map((x) => x.title), h: Math.round(sh.getBoundingClientRect().height), vh: innerHeight, rows: r.querySelectorAll('.trw').length };
+  return { open: !!P, title: r.querySelector('.tt').textContent, btns: [...r.querySelectorAll('.tph button')].map((x) => x.textContent.trim() || x.getAttribute('aria-label')), tabs: [...r.querySelectorAll('.tpt button')].map((x) => x.title), h: Math.round(sh.getBoundingClientRect().height), vh: innerHeight, rows: r.querySelectorAll('.trw').length };
 });
 ok('Tilpass strøm: tittel, Nullstill + Ferdig, fanene Faner/Entiteter/Kurser/Visning, full høyde', T1.open && T1.title === 'Tilpass strøm' && T1.btns.join() === 'Nullstill,Ferdig' && T1.tabs.join() === 'Faner,Entiteter,Kurser,Visning' && T1.h >= T1.vh - 60 && T1.rows === 3, T1);
 await p.evaluate(() => window.__tp.shadowRoot.querySelector('.gz').click()); await wait(450);

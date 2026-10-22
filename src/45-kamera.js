@@ -777,6 +777,7 @@
     :host{display:block;color:var(--ki-text, var(--white,#fafafa));font-family:${M.FONT}}
     .w{display:flex;flex-direction:column;gap:10px}
     .hd{display:flex;align-items:center;gap:12px;padding:0 4px}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .hic{width:48px;height:48px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none}
     .htx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .htx b{font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -917,7 +918,7 @@
           <div class="spc-ch">${presets.map(([pv, pl]) => `<button class="spp ${v === pv ? 'on' : ''}" data-a="sp" data-k="${k}" data-v="${pv}">${esc(pl)}</button>`).join('')}</div></div>`;
       const add = this._q != null ? this._addList(ord) : `<button class="add" data-a="addopen">${M.icon('mdi:plus', 20)}Legg til kamera</button>`;
       const html = `<style>${M.BASE_CSS}${ED_CSS}</style><div class="w">
-        <div class="hd"><span class="htx"><b>Tilpass kameraer</b><i>${esc(sub)}</i></span><button class="hb" data-a="reset">Nullstill</button><button class="done" data-a="done">Ferdig</button></div>
+        <div class="hd kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass kameraer', sub, cancel: 'cancel', reset: 'reset', done: 'done' })}</div>
         <div class="scope" data-nomorph></div>
         <div class="s"><div class="st"><span>Profil</span><span class="sm">${eff ? (eff === 'popup' ? 'Popup' : 'Dashbord') + (prof === 'auto' ? ' (auto)' : '') : ''}</span></div>
           <div class="sg">${PROFILES.map(([k, l]) => `<button class="${prof === k ? 'on' : ''}" data-a="prof" data-v="${k}">${l}</button>`).join('')}</div></div>
@@ -1036,6 +1037,7 @@
           return;
         }
         case 'done': return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
+        case 'cancel': M.haptic('light'); return this.dispatchEvent(new CustomEvent('msh-cancel'));
         default:
       }
     }

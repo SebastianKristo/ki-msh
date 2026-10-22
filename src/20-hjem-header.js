@@ -1444,6 +1444,8 @@
 
   class HjemHeader extends M.Card {
     static get cardName() { return 'Hjem · header'; }
+    static get editorTitle() { return 'Tilpass header'; }
+    static get editorSub() { return 'Hilsen, personer og soner'; }
     static get defaults() {
       return { mode: 'hilsen', ...HIL_DEF, greeting: '👋 {name}!', size: 'M', badge: 'icon', show_name: false, show_place: false, ring_me: false, weather_tap: true, weather_hash: '#vaer', g_font: 4.5, g_avatar: 50, g_badge: 20, g_gap: -8, pic_size: 60, persons_size: 46, title_size: 36, prose_gap: 16 };
     }
