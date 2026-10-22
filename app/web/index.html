@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="color-scheme" content="dark">
+<title>KI MSH</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="vendor/mdi/css/materialdesignicons.min.css">
+<style>
+:root{--bg:#232323;--surface:#2f2f2f;--surface-2:#3a3a3a;--text:#fafafa;--text-2:#afafaf;--text-3:#979797;--text-lo:#7f7f7f;--pink:#f285c9;--red:#f28073;--green:#66d19e;--on-accent:#2a1720}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Space Grotesk',system-ui,sans-serif;overscroll-behavior:none}
+body{display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 12px) 20px calc(env(safe-area-inset-bottom) + 20px)}
+@keyframes ob-spin{to{transform:rotate(360deg)}}
+@keyframes ob-ping{0%{transform:scale(.4);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+@keyframes ob-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#app{flex:1;min-height:0;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:14px;height:56px;flex:none}
+.ibtn{width:44px;height:44px;flex:none;border:0;border-radius:22px;background:var(--surface);color:var(--text);font-size:24px;display:flex;align-items:center;justify-content:center}
+.bar{flex:1;display:flex;gap:6px}.bar span{flex:1;height:4px;border-radius:2px;background:var(--surface-2);transition:background .3s}.bar span.on{background:var(--pink)}
+.steptxt{font-size:13px;color:var(--text-3);width:34px;text-align:right}
+.step{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:10px;padding-top:18px;animation:ob-in .35s both}
+.step::-webkit-scrollbar{display:none}
+.center{align-items:center;justify-content:center;text-align:center;gap:18px;padding:0 6px}
+h1{font-size:30px;font-weight:500;letter-spacing:-.02em;margin:0}
+.big{font-size:34px;line-height:1.15}
+.lead{font-size:15px;color:var(--text-2);line-height:1.45;margin:0 0 10px}
+.primary{height:56px;border:0;border-radius:28px;background:linear-gradient(145deg,#f285c9 -10%,#f5cdc6 100%);color:var(--on-accent);font:600 17px 'Space Grotesk',system-ui,sans-serif;flex:none;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:12px}
+.primary:disabled{background:var(--surface-2);color:var(--text-lo)}
+.ghost{height:48px;border:0;border-radius:24px;background:none;color:var(--text-2);font:500 15px 'Space Grotesk',system-ui,sans-serif;width:100%}
+.row{min-height:76px;border:0;border-radius:38px;background:var(--surface);color:var(--text);display:flex;align-items:center;gap:14px;padding:0 20px 0 10px;text-align:left;font-family:inherit;width:100%}
+.row.sel{box-shadow:inset 0 0 0 2px var(--pink)}
+.ic{width:56px;height:56px;flex:none;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:28px}
+.ic.ha{background:var(--green);color:#1d3a2c}
+.rt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.rt b{font-size:16px;font-weight:500}.rt small{font-size:13px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-size:11px;font-weight:600;height:24px;padding:0 9px;border-radius:12px;background:rgba(102,209,158,.16);color:var(--green);display:flex;align-items:center}
+input{height:56px;border:0;border-radius:28px;background:var(--surface);color:var(--text);font:15px 'Space Grotesk',system-ui,sans-serif;padding:0 22px;outline:none;width:100%}
+input:focus{box-shadow:inset 0 0 0 2px var(--pink)}
+label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
+.err{font-size:13px;color:var(--red);padding:0 10px;display:flex;gap:6px;align-items:center}
+.radar{height:150px;display:flex;align-items:center;justify-content:center;position:relative}
+.radar i{position:absolute;width:110px;height:110px;border-radius:50%;border:2px solid var(--pink);animation:ob-ping 1.8s infinite}
+.radar i:nth-child(2){animation-delay:.6s}.radar i:nth-child(3){animation-delay:1.2s}
+.radar span{width:56px;height:56px;border-radius:50%;background:var(--green);color:#1d3a2c;display:flex;align-items:center;justify-content:center;font-size:30px;z-index:1}
+.spin{width:44px;height:44px;border-radius:50%;background:conic-gradient(from 0deg,#b23a2a,#e8794a,#7a5ad6,#3fbf9a,#b23a2a);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));animation:ob-spin 1.4s linear infinite}
+.chip{height:56px;border-radius:28px;background:var(--surface);display:flex;align-items:center;gap:12px;padding:0 8px 0 6px}
+.chip .ic{width:44px;height:44px;font-size:22px}
+.chip button{height:36px;padding:0 14px;border:0;border-radius:18px;background:var(--surface-2);color:var(--text);font:500 13px 'Space Grotesk',system-ui,sans-serif}
+.foot{text-align:center;font-size:12px;color:var(--text-lo);margin-top:14px;flex:none}
+.pw{position:relative}.pw button{position:absolute;right:6px;top:6px;width:44px;height:44px;border:0;border-radius:22px;background:none;color:var(--text-2);font-size:22px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="native.js"></script>
+<script>
+(function () {
+  const LS = 'ki-app';
+  const load = () => { try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch (e) { return {}; } };
+  const save = (v) => { try { localStorage.setItem(LS, JSON.stringify(v)); } catch (e) { /* */ } };
+  const app = document.getElementById('app');
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const hap = (t) => window.kiHaptic && window.kiHaptic(t);
+
+  const CANDIDATES = ['http://homeassistant.local:8123', 'http://homeassistant:8123'];
+  const st = { step: 0, scanning: true, servers: [], sel: null, manual: false, url: '', urlErr: '', path: '/', user: '', pass: '', mfa: '', flow: null, showPass: false, busy: false, err: '' };
+  const STEPS = ['welcome', 'server', 'login', 'done'];
+
+  const normUrl = (u) => { u = (u || '').trim().replace(/\/+$/, ''); if (!u) return ''; if (!/^https?:\/\//i.test(u)) u = (/\.ui\.nabu\.casa$|^[^:]+\.[a-z]{2,}$/i.test(u) ? 'https://' : 'http://') + u; return u; };
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);
+
+  // Er dette en Home Assistant? /auth/providers svarer uten innlogging.
+  async function probe(url) {
+    const r = await withTimeout(fetch(url + '/auth/providers', { headers: { Accept: 'application/json' } }), 5000);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const providers = Array.isArray(j) ? j : (j.providers || []);
+    let name = 'Home Assistant';
+    try { const m = await withTimeout(fetch(url + '/manifest.json'), 3000); if (m.ok) { const mj = await m.json(); if (mj && mj.name) name = mj.name; } } catch (e) { /* */ }
+    return { url, name, providers };
+  }
+
+  async function scan() {
+    st.scanning = true; st.servers = []; render();
+    const prev = load().url;
+    const list = [...new Set([prev, ...CANDIDATES].filter(Boolean))];
+    const found = await Promise.all(list.map((u) => probe(u).catch(() => null)));
+    st.servers = found.filter(Boolean);
+    if (st.servers.length && !st.sel) st.sel = st.servers[0].url;
+    if (!st.servers.length) st.manual = true;
+    st.scanning = false; render();
+  }
+
+  async function connect() {
+    const url = st.manual ? normUrl(st.url) : st.sel;
+    if (!url) { st.urlErr = 'Skriv inn adressen til Home Assistant'; return render(); }
+    st.busy = true; st.urlErr = ''; render();
+    try { st.server = await probe(url); st.step = 2; st.err = ''; hap('success'); }
+    catch (e) { st.urlErr = 'Fant ingen Home Assistant på ' + url + '. Sjekk adressen og at telefonen er på samme nett.'; hap('failure'); }
+    st.busy = false; render();
+  }
+
+  // Innlogging med HAs login_flow (samme API som HAs egen innloggingsside). Koden gis videre til
+  // HA-frontenden via ?auth_callback=1, som henter og lagrer tokenet selv.
+  async function login() {
+    const url = st.server.url, clientId = url + '/', redirect = url + '/?auth_callback=1';
+    st.busy = true; st.err = ''; render();
+    const post = (p, body) => fetch(url + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
+    try {
+      if (!st.flow) {
+        const prov = (st.server.providers || []).find((p) => p.type === 'homeassistant') || (st.server.providers || [])[0] || { type: 'homeassistant', id: null };
+        st.flow = await post('/auth/login_flow', { client_id: clientId, handler: [prov.type, prov.id], redirect_uri: redirect });
+      }
+      let res;
+      if (st.flow.step_id === 'mfa') res = await post('/auth/login_flow/' + st.flow.flow_id, { client_id: clientId, code: st.mfa.trim() });
+      else res = await post('/auth/login_flow/' + st.flow.flow_id, { client_id: clientId, username: st.user.trim(), password: st.pass });
+      if (res.type === 'create_entry') return finish(res.result);
+      if (res.type === 'form') {
+        st.flow = res;
+        if (res.step_id === 'mfa') { st.err = res.errors && res.errors.base ? 'Feil kode. Prøv igjen.' : ''; }
+        else st.err = res.errors && res.errors.base === 'invalid_auth' ? 'Feil brukernavn eller passord.' : 'Innloggingen ble ikke godtatt.';
+      } else { st.flow = null; st.err = 'Innloggingen ble avbrutt. Prøv igjen.'; }
+      hap(st.err ? 'failure' : 'light');
+    } catch (e) { st.flow = null; st.err = 'Kunne ikke logge inn: ' + e.message; hap('failure'); }
+    st.busy = false; render();
+  }
+
+  function finish(code) {
+    const url = st.server.url;
+    const path = '/' + (st.path || '').replace(/^\/+/, '');
+    save({ url, name: st.server.name, path, user: st.user.trim() });
+    st.step = 3; render(); hap('success');
+    const state = btoa(JSON.stringify({ hassUrl: url, clientId: url + '/' }));
+    setTimeout(() => { location.href = url + path + (path.includes('?') ? '&' : '?') + 'auth_callback=1&code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state) + '&storeToken=true'; }, 900);
+  }
+
+  function openSaved() { const s = load(); location.href = s.url + (s.path || '/'); }
+
+  const top = () => {
+    const n = st.step;
+    return '<div class="top"><button class="ibtn" data-a="back" aria-label="Tilbake"><i class="mdi mdi-chevron-left"></i></button><div class="bar">' +
+      [1, 2, 3].map((i) => '<span class="' + (i <= n ? 'on' : '') + '"></span>').join('') + '</div><span class="steptxt">' + n + '/3</span></div>';
+  };
+
+  function render() {
+    const s = STEPS[st.step]; let h = '';
+    if (s === 'welcome') {
+      const saved = load();
+      h = '<div class="step center"><img src="icon.svg" alt="KI MSH" style="width:112px;height:112px;border-radius:28px">' +
+        '<div class="big" style="font-weight:500;letter-spacing:-.02em">Velkommen hjem</div>' +
+        '<div class="lead" style="max-width:300px">Koble telefonen til Home Assistant for å bruke KI MSH-dashbordet med lys, klima, alarm og resten av huset.</div></div>' +
+        (saved.url ? '<button class="primary" data-a="open"><i class="mdi mdi-home-assistant"></i>Åpne ' + esc(saved.name || 'Home Assistant') + '</button><button class="ghost" data-a="next">Koble til en annen server</button>'
+          : '<button class="primary" data-a="next">Kom i gang</button>') +
+        '<button class="ghost" data-a="demo">Prøv demo uten server</button>' +
+        '<div class="foot">Home Assistant 2024.11 eller nyere</div>';
+    } else if (s === 'server') {
+      h = top() + '<div class="step"><h1>Velg server</h1><p class="lead">' +
+        (st.scanning ? 'Søker etter Home Assistant på nettverket …' : st.servers.length ? 'Fant ' + st.servers.length + (st.servers.length === 1 ? ' server' : ' servere') + '. Velg én, eller skriv inn adressen selv.' : 'Fant ingen server automatisk. Skriv inn adressen.') + '</p>' +
+        (st.scanning ? '<div class="radar"><i></i><i></i><i></i><span><i class="mdi mdi-home-assistant"></i></span></div>' : '') +
+        st.servers.map((v) => '<button class="row ' + (!st.manual && st.sel === v.url ? 'sel' : '') + '" data-a="pick" data-u="' + esc(v.url) + '"><span class="ic ha"><i class="mdi mdi-home-assistant"></i></span><span class="rt"><b>' + esc(v.name) + '</b><small>' + esc(v.url.replace(/^https?:\/\//, '')) + '</small></span><span class="tag">Funnet</span></button>').join('') +
+        (st.scanning ? '' : '<button class="row ' + (st.manual ? 'sel' : '') + '" data-a="manual"><span class="ic"><i class="mdi mdi-link-variant"></i></span><span class="rt"><b>Skriv inn adresse</b><small>Ekstern URL, Nabu Casa eller IP</small></span></button>') +
+        (st.manual ? '<input id="url" value="' + esc(st.url) + '" placeholder="https://homeassistant.local:8123" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url">' : '') +
+        '<label>Dashbord (valgfritt)</label><input id="path" value="' + esc(st.path) + '" placeholder="/ki-msh" autocapitalize="off" autocorrect="off" spellcheck="false">' +
+        (st.urlErr ? '<div class="err"><i class="mdi mdi-alert-circle-outline"></i>' + esc(st.urlErr) + '</div>' : '') +
+        '</div><button class="primary" data-a="connect" ' + (st.scanning || st.busy ? 'disabled' : '') + '>' + (st.busy ? '<span class="spin" style="width:22px;height:22px"></span>' : '') + 'Koble til</button>';
+    } else if (s === 'login') {
+      const mfa = st.flow && st.flow.step_id === 'mfa';
+      h = top() + '<div class="step"><div class="chip"><span class="ic ha"><i class="mdi mdi-home-assistant"></i></span><span class="rt"><b style="font-size:14px">' + esc(st.server.name) + '</b><small>' + esc(st.server.url.replace(/^https?:\/\//, '')) + '</small></span><button data-a="back">Bytt</button></div>' +
+        '<h1 style="margin-top:14px">' + (mfa ? 'Bekreft' : 'Logg inn') + '</h1><p class="lead">' + (mfa ? 'Skriv inn koden fra autentiseringsappen.' : 'Bruk Home Assistant-brukeren din.') + '</p>' +
+        (mfa ? '<input id="mfa" value="' + esc(st.mfa) + '" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">'
+          : '<label>Brukernavn</label><input id="user" value="' + esc(st.user) + '" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username">' +
+            '<label>Passord</label><div class="pw"><input id="pass" type="' + (st.showPass ? 'text' : 'password') + '" value="' + esc(st.pass) + '" placeholder="••••••••" autocomplete="current-password"><button data-a="show" aria-label="Vis passord"><i class="mdi ' + (st.showPass ? 'mdi-eye-off-outline' : 'mdi-eye-outline') + '"></i></button></div>') +
+        (st.err ? '<div class="err"><i class="mdi mdi-alert-circle-outline"></i>' + esc(st.err) + '</div>' : '') +
+        '</div><button class="primary" data-a="login" ' + (st.busy ? 'disabled' : '') + '>' + (st.busy ? '<span class="spin" style="width:22px;height:22px"></span>' : '') + (mfa ? 'Bekreft' : 'Logg inn') + '</button>' +
+        '<button class="ghost" data-a="weblogin">Logg inn på Home Assistant-siden i stedet</button>';
+    } else {
+      h = '<div class="step center"><div class="spin"></div><h1>Klar!</h1><p class="lead">Åpner dashbordet …</p></div>';
+    }
+    app.innerHTML = h;
+  }
+
+  const sync = () => { ['url', 'path', 'user', 'pass', 'mfa'].forEach((k) => { const el = document.getElementById(k); if (el) st[k] = el.value; }); };
+  app.addEventListener('input', sync);
+  app.addEventListener('keydown', (e) => { if (e.key !== 'Enter') return; sync(); if (STEPS[st.step] === 'server') connect(); else if (STEPS[st.step] === 'login') login(); });
+  app.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-a]'); if (!b) return; sync(); hap('light');
+    const a = b.dataset.a;
+    if (a === 'next') { st.step = 1; render(); scan(); }
+    else if (a === 'back') { st.step = Math.max(0, st.step - 1); st.flow = null; st.err = ''; render(); if (st.step === 1) scan(); }
+    else if (a === 'open') openSaved();
+    else if (a === 'demo') location.href = 'demo/ki/runtime.html' + (window.kiNative.platform === 'android' ? '?android' : '');
+    else if (a === 'pick') { st.sel = b.dataset.u; st.manual = false; st.urlErr = ''; render(); }
+    else if (a === 'manual') { st.manual = true; render(); const el = document.getElementById('url'); el && el.focus(); }
+    else if (a === 'connect') connect();
+    else if (a === 'show') { st.showPass = !st.showPass; render(); }
+    else if (a === 'login') login();
+    else if (a === 'weblogin') { const path = '/' + (st.path || '').replace(/^\/+/, ''); save({ url: st.server.url, name: st.server.name, path }); location.href = st.server.url + path; }
+  });
+
+  // Lagret server: rett inn i dashbordet, med et kort vindu for å bytte server.
+  const saved = load();
+  if (saved.url && !/[?&]setup/.test(location.search)) {
+    app.innerHTML = '<div class="step center"><div class="spin"></div><p class="lead">Kobler til ' + esc(saved.name || 'Home Assistant') + ' …</p></div><button class="ghost" id="switch">Bytt server</button>';
+    const t = setTimeout(openSaved, 1200);
+    document.getElementById('switch').onclick = () => { clearTimeout(t); render(); };
+  } else render();
+})();
+</script>
+</body>
+</html>

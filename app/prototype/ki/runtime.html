@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KI MSH · demo</title>
+<script src="native.js"></script>
+<style>
+:root{--red:#f28073;--orange:#f2b573;--yellow:#f2d26f;--lime:#b8e674;--green:#66d19e;--blue:#73b9f2;--light-blue:#c8ddfa;--purple:#ad99e6;--pink:#f285c9;--brown:#8c794d;--white:#fafafa;--black:#232323;--gray000:#232323;--gray100:#2f2f2f;--gray200:#3a3a3a;--gray300:#404040;--gray400:#545454;--gray500:#696969;--gray600:#7f7f7f;--gray700:#979797;--gray800:#afafaf;--gray900:#c7c7c7;--gray1000:#e1e1e1;
+--primary-background-color:#232323;--card-background-color:#282828;--ha-card-background:#282828;--primary-text-color:#fafafa;--secondary-text-color:#afafaf;--divider-color:#3a3a3a}
+html,body{margin:0;background:#232323;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;scrollbar-width:none}
+html::-webkit-scrollbar{display:none}
+@media (prefers-reduced-motion:reduce){#boot i{animation-duration:4s}}
+#sidebar{display:none}
+#dash{min-height:100vh}
+#boot{position:fixed;inset:0;display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center;font:500 13px 'Space Grotesk',system-ui,sans-serif;color:#7f7f7f;z-index:2147483640;background:#232323;transition:opacity .45s ease}
+#boot i{width:44px;height:44px;border-radius:50%;background:conic-gradient(from 0deg,#b23a2a,#e8794a,#7a5ad6,#3fbf9a,#b23a2a);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));animation:bootspin 1.4s linear infinite}
+@keyframes bootspin{to{transform:rotate(360deg)}}
+#dash{opacity:0;transition:opacity .45s ease}#dash.on{opacity:1}
+</style>
+<script>
+// Android: samme webvisning, men 00-b-perf.js slår av blur/evige animasjoner (som i Companion-appen på Android)
+if (/android/.test(location.search)) { try { Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36 Home Assistant/2024.10' }); } catch (e) {} }
+
+// MDI-ikoner (ekte stier fra @mdi/js) – samme ha-icon som test/docs-shots.mjs
+window.__MDI = {}; const ICONS = new Set();
+fetch('../vendor/mdi.js').then(r => r.text()).then(t => {
+  for (const m of t.matchAll(/export var mdi(\w+) = "([^"]+)"/g)) window.__MDI[m[1].replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Za-z])([0-9])/g, '$1-$2').toLowerCase()] = m[2];
+  ICONS.forEach(i => i.isConnected && i._r());
+}).catch(() => {});
+customElements.define('ha-icon', class extends HTMLElement {
+  static get observedAttributes() { return ['icon']; }
+  connectedCallback() { ICONS.add(this); this._r(); } disconnectedCallback() { ICONS.delete(this); } attributeChangedCallback() { this._r(); }
+  set icon(v) { this.setAttribute('icon', v || ''); } get icon() { return this.getAttribute('icon') || ''; }
+  _r() {
+    if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
+    const i = this.getAttribute('icon') || ''; this.setAttribute('data-ok', /^[a-z]+:[a-z0-9-]+$/.test(i) ? '1' : '0');
+    const n = i.replace(/^(mdi|hass):/, ''), d = window.__MDI[n] || '';
+    this.shadowRoot.innerHTML = '<style>:host{display:inline-flex;align-items:center;justify-content:center;position:relative;vertical-align:middle;fill:currentcolor;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}svg{width:100%;height:100%;pointer-events:none;display:block}</style><svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" aria-hidden="true"><path d="' + d + '"></path></svg>';
+  }
+});
+customElements.define('ha-card', class extends HTMLElement {});
+// Telefon: ingen synlige rullefelt (WKWebView/Android WebView viser bare overlegg) – også inni shadow DOM
+(function () {
+  const css = '*{scrollbar-width:none!important}*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}';
+  let sheet = null; try { sheet = new CSSStyleSheet(); sheet.replaceSync(css); } catch (e) {}
+  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  const orig = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function (init) {
+    const sr = orig.call(this, init);
+    try { if (sheet) sr.adoptedStyleSheets = [...sr.adoptedStyleSheets, sheet]; else { const s = document.createElement('style'); s.textContent = css; sr.appendChild(s); } } catch (e) {}
+    return sr;
+  };
+})();
+customElements.define('hui-card', class extends HTMLElement {
+  set config(c) { this._c = c; this._mk(); } get config() { return this._c; }
+  set hass(h) { this._h = h; if (this._el) this._el.hass = h; } get hass() { return this._h; }
+  load() { this._mk(); }
+  _mk() { if (!this._c || this._el) return; const el = document.createElement(this._c.type.replace('custom:', '')); try { el.setConfig(this._c); } catch (e) { console.error(e); } if (this._h) el.hass = this._h; this._el = el; this.appendChild(el); this.style.display = 'block'; }
+});
+</script>
+</head><body><div id="boot"><i></i><span id="bootT">Kobler til Home Assistant …</span></div><div id="sidebar"></div><div id="dash"></div>
+<script>
+(async function () {
+  const SRC = ["vendor/geo-no.js","00-a-i18n.js","00-a-lang-en-01.js","00-a-lang-en-02.js","00-a-lang-en-03.js","00-a-lang-en-04.js","00-a-lang-en-05.js","00-a-lang-en-06.js","00-a-lang-en-07.js","00-a-lang-en-08.js","00-a-lang-en-09.js","00-a-lang-en-10.js","00-a-lang-en-11.js","00-a-lang-en-12.js","00-a-lang-en-13.js","00-a-lang-en-14.js","00-a-lang-en-15.js","00-a-lang-en-16.js","00-a-theme.js","00-b-perf.js","00-base.js","00-c-tilpass-ui.js","01-editor.js","01-store.js","02-popups.js","02-yaml.js","03-editors.js","03-templates.js","04-strategy.js","05-segment.js","05-start-tab.js","05-tab-bar.js","05-tab-reorder.js","06-appliance-icons.js","06-arr-media.js","06-server.js","06-station-art.js","06-varsling-kilde.js","07-sikring.js","07-universal.js","08-light-row.js","09-icon-picker.js","09-pickers.js","09-tap-picker.js","10-navbar.js","11-hurtigpanel.js","12-gjoremal.js","13-person.js","15-strompris-kilde.js","20-hjem-header.js","21-hjem-prosa.js","22-hjem-soppel.js","23-hjem-gjoremal.js","24-hjem-faner.js","25-hjem.js","26-hjem-strompris.js","27-hjem-editor.js","28-popup-editor.js","29-strompris-editor.js","30-rom-klima.js","31-rom.js","32-romkort.js","33-kombinert.js","40-basseng.js","41-vanning.js","42-klima-blokker.js","42-klima.js","43-lys.js","44-media.js","45-kamera.js","46-sikkerhet.js","47-ruter.js","48-vaer.js","49-las.js","50-ringeklokke.js","50b-ringeopptak.js","51-kart.js","52-energi-hus.js","52-energi.js","53-kiosk.js","54-onboarding.js","54b-tilpass-v2.js","55-kalender.js","56-tesla.js","57-stovsuger.js","58-server.js","58b-server-unifi.js","58c-server-cf.js","59-avfall.js","60-innstillinger.js","60-strom-regning.js","61-strom.js","61-varmepumpe.js","62-garasje.js","62-strom-kurser.js","63-strom-sider.js","64-stue.js","65-planter.js","66-sovn.js","67-printer.js","68-pc-data.js","68-pc.js","99-ui-persist.js"];
+  const MOCK = ["05-registry.js","12-gjoremal.js","13-person.js","20-hjem.js","21-prosa.js","22-soppel.js","24-hjem.js","26-strompris.js","31-kirom-scener.js","31-rom-16.js","31-rom.js","35-rom-format.js","40-basseng.js","41-vanning.js","42-klima-hero.js","42-klima.js","42-klimaz-blokker.js","43-lys.js","43-utelys.js","44-media.js","45-kamera.js","46-sikkerhet.js","47-ruter.js","48-vaer.js","49-las.js","50-ringeklokke.js","51-kart.js","52-energi.js","55-kalender.js","56-tesla.js","57-stovsuger.js","58-server.js","59-avfall.js","60-innstillinger.js","61-strom.js","61-varmepumpe.js","62-garasje.js","64-stue.js","65-v4-popups.js","91-vanning-stat.js"];
+  const boot = document.getElementById('boot');
+  window.kiNote = (t) => { let n = document.getElementById('ki-note'); if (!n) { n = document.createElement('div'); n.id = 'ki-note'; n.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2147483600;max-width:88%;padding:12px 18px;border-radius:24px;background:#fafafa;color:#232323;font:500 14px "Space Grotesk",system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);transition:opacity .3s;text-align:center'; document.body.appendChild(n); } n.textContent = t; n.style.opacity = 1; clearTimeout(n._t); n._t = setTimeout(() => { n.style.opacity = 0; }, 2200); };
+  const load = (src, mod) => new Promise((ok) => { const s = document.createElement('script'); if (mod) s.type = 'module'; s.src = src; s.async = false; s.onload = ok; s.onerror = () => { console.error('kunne ikke laste', src); ok(); }; document.body.appendChild(s); });
+  // Ekte Leaflet før mockene (test/mock/51-kart.js lager bare en stubb når window.L mangler)
+  const lc = document.createElement('link'); lc.rel = 'stylesheet'; lc.href = '../vendor/leaflet/leaflet.css'; document.head.appendChild(lc);
+  await load('../vendor/leaflet/leaflet.js');
+  await load('../test/mock-hass.js');
+  await Promise.all(MOCK.map((f) => load('../test/mock/' + f)));
+  // docs-shots: emoji-avatarer, tre personer, ingen ekte navn
+  window.__docsData = function (hass) {
+    const S = hass.states, E = hass.entities || {};
+    const seg = (k) => new RegExp('(^|[._])' + k + '(?=[._]|$)');
+    const ren = (from, to) => {
+      Object.keys(S).forEach((id) => { if (!seg(from).test(id)) return; const nid = id.replace(seg(from), '$1' + to); S[nid] = S[id]; delete S[id]; S[nid].entity_id = nid; if (E[id]) { E[nid] = { ...E[id], entity_id: nid }; delete E[id]; } });
+      const Cap = from[0].toUpperCase() + from.slice(1), ToCap = to[0].toUpperCase() + to.slice(1);
+      const sub = (v) => typeof v === 'string' ? v.replace(new RegExp('\\b' + Cap + '\\b', 'g'), ToCap).replace(new RegExp('(^|[._\\s])' + from + '(?=[._\\s]|$)', 'g'), '$1' + to) : Array.isArray(v) ? v.map(sub) : v;
+      Object.values(S).forEach((st) => { const a = st.attributes || {}; Object.keys(a).forEach((k) => { a[k] = sub(a[k]); }); });
+    };
+    Object.keys(S).forEach((id) => { if (seg('emma').test(id)) { delete S[id]; delete E[id]; } });
+    ren('cybele', 'kari'); ren('rune', 'ola');
+    const set = (id, state, attrs) => { if (S[id]) { if (state !== undefined) S[id].state = state; Object.assign(S[id].attributes, attrs || {}); } };
+    set('person.kari', 'home'); set('input_boolean.kari_sover', 'off'); set('binary_sensor.kari_sover', 'off');
+    set('person.ola', 'Reise'); set('input_boolean.ola_hjemme', 'off');
+    const avatar = (emoji, c1, c2) => { const c = document.createElement('canvas'); c.width = c.height = 192; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 192, 192); gr.addColorStop(0, c1); gr.addColorStop(1, c2); g.fillStyle = gr; g.fillRect(0, 0, 192, 192); g.font = '118px "Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(emoji, 96, 108); return c.toDataURL('image/png'); };
+    set('person.kari', undefined, { entity_picture: avatar('👩🏼', '#f285c9', '#ad99e6') });
+    set('person.ola', undefined, { entity_picture: avatar('👨🏻', '#73b9f2', '#66d19e') });
+    set('person.sebastian', undefined, { entity_picture: avatar('🧑🏽', '#f2b573', '#f28073') });
+    set('input_select.vaskemaskin_status', 'Av');
+    Object.values(S).forEach((st) => { const a = st.attributes || {}; if (a.integrasjon !== 'ki_planter') return; if (a.type === 'sted') { st.state = '0'; a.trenger_vann = []; a.trenger_vann_tekst = ''; } else if (a.type === 'plante') st.state = 'off'; });
+  };
+  (document.getElementById('bootT') || boot).textContent = 'laster kortene …';
+  await Promise.all(SRC.map((f) => load('../src/' + f)));
+  await load('more-info.js');
+  await load('ha-settings.js');
+  await load('glimt.js');
+  await load('vaer.js');
+  // Navigering ut av dashbordet (f.eks. /config/…): i appen åpnes HAs egne sider – her vises bare en melding
+  if (window.MSH) {
+    const nav0 = window.MSH.navigate;
+    window.MSH.navigate = (p) => { if (!p) return; if (p[0] === '#') return nav0(p); if (/^\/(config|profile)/.test(p) && window.kiSettingsFor) return window.kiSettingsFor(p); kiNote('Åpner ' + p + ' i Home Assistant'); };
+  }
+  (document.getElementById('bootT') || boot).textContent = 'laster Bubble Card …';
+  // Appen: ikke heng hvis CDN er utilgjengelig (popupene trenger Bubble Card, resten av dashbordet ikke)
+  await Promise.race([load('https://cdn.jsdelivr.net/gh/Clooos/Bubble-Card@main/dist/bubble-card.js', true), new Promise((q) => setTimeout(q, 8000))]);
+  for (let i = 0; i < 150 && !customElements.get('bubble-card'); i++) await new Promise((q) => setTimeout(q, 100));
+
+  let H = window.mockHass();
+  window.__docsData(H);
+  H.themes = { ...(H.themes || {}), darkMode: true };
+  // ki-store (frontend/get_user_data) i localStorage, så «Tilpass»-valg overlever omlasting
+  const LS = 'ki-proto-userdata';
+  const udata = () => { try { return JSON.parse(localStorage.getItem(LS)) || null; } catch (e) { return null; } };
+  const ws0 = H.callWS;
+  const callWS = (m) => {
+    if (m && m.type === 'frontend/get_user_data') { const all = udata() || {}; const v = all[m.key]; return Promise.resolve({ value: v !== undefined ? v : (m.key === 'ki_dashboard' ? { cards: { 'ki-home-header': { mode: 'stor', per_screen: { phone: { size: 26 } } } } } : null) }); }
+    if (m && m.type === 'frontend/set_user_data') { const all = udata() || {}; all[m.key] = m.value; try { localStorage.setItem(LS, JSON.stringify(all)); } catch (e) {} return Promise.resolve({}); }
+    return ws0(m);
+  };
+  // Tjenestekall endrer tilstanden og sender ny hass til alle kort (som HA gjør)
+  const S = H.states;
+  const upd = (id, state, attrs) => { const o = S[id]; if (!o) return; S[id] = { ...o, state: state != null ? String(state) : o.state, attributes: { ...o.attributes, ...(attrs || {}) }, last_changed: new Date().toISOString(), last_updated: new Date().toISOString() }; };
+  const ids = (d) => { const e = d && (d.entity_id || (d.target && d.target.entity_id)); return e ? (Array.isArray(e) ? e : [e]) : []; };
+  const callService = (domain, service, data) => {
+    data = data || {};
+    ids(data).forEach((id) => {
+      const o = S[id]; if (!o) return; const dom = id.split('.')[0];
+      if (service === 'toggle') return upd(id, o.state === 'on' || o.state === 'open' || o.state === 'playing' ? (dom === 'cover' ? 'closed' : 'off') : (dom === 'cover' ? 'open' : 'on'));
+      if (service === 'turn_on') { const a = {}; if (data.rgb_color) { a.rgb_color = data.rgb_color; a.color_temp_kelvin = undefined; } if (data.color_temp_kelvin) { a.color_temp_kelvin = data.color_temp_kelvin; a.rgb_color = undefined; } if (data.brightness_pct != null) a.brightness = Math.round(data.brightness_pct * 2.55); if (data.brightness != null) a.brightness = data.brightness; if (data.percentage != null) a.percentage = data.percentage; if (dom === 'light' && a.brightness == null && !o.attributes.brightness) a.brightness = 200; return upd(id, a.brightness === 0 ? 'off' : 'on', a); }
+      if (service === 'turn_off') return upd(id, 'off');
+      if (service === 'lock') return upd(id, 'locked'); if (service === 'unlock') return upd(id, 'unlocked'); if (service === 'open' && dom === 'lock') return upd(id, 'open');
+      if (service === 'open_cover') return upd(id, 'open', { current_position: 100 }); if (service === 'close_cover') return upd(id, 'closed', { current_position: 0 });
+      if (service === 'set_cover_position') return upd(id, data.position > 0 ? 'open' : 'closed', { current_position: data.position });
+      if (service === 'set_temperature') return upd(id, null, { temperature: data.temperature });
+      if (service === 'set_hvac_mode') return upd(id, data.hvac_mode);
+      if (service === 'set_percentage') return upd(id, data.percentage > 0 ? 'on' : 'off', { percentage: data.percentage });
+      if (service === 'media_play_pause') return upd(id, o.state === 'playing' ? 'paused' : 'playing');
+      if (service === 'media_play') return upd(id, 'playing'); if (service === 'media_pause') return upd(id, 'paused');
+      if (service === 'volume_set') return upd(id, null, { volume_level: data.volume_level });
+      if (service === 'volume_mute') return upd(id, null, { is_volume_muted: data.is_volume_muted });
+      if (service === 'select_source') return upd(id, null, { source: data.source });
+      if (service === 'media_next_track' || service === 'media_previous_track' || service === 'stop_cover') return;
+      if (service === 'set_preset_mode') return upd(id, null, { preset_mode: data.preset_mode });
+      if (service === 'set_fan_mode') return upd(id, null, { fan_mode: data.fan_mode });
+      if (/^alarm_arm/.test(service)) return upd(id, service.replace('alarm_', 'armed_').replace('armed_arm_', 'armed_'));
+      if (service === 'alarm_disarm') return upd(id, 'disarmed');
+      if (service === 'select_option') return upd(id, data.option);
+      if (service === 'set_value') return upd(id, data.value);
+      if (service === 'open_valve') return upd(id, 'open'); if (service === 'close_valve') return upd(id, 'closed');
+      if (service === 'start') return upd(id, 'cleaning'); if (service === 'return_to_base') return upd(id, 'returning');
+    });
+    push();
+    return Promise.resolve();
+  };
+  const mk = () => ({ ...H, states: { ...S }, callService, callWS });
+  let hass = mk();
+  window.__H = hass;
+  const S0 = customElements.get('ll-strategy-dashboard-ki-dashboard');
+  const dash = await S0.generate({}, hass);
+  const stack = dash.views[0].cards[0];
+  const root = document.getElementById('dash');
+  const els = [];
+  for (const c of stack.cards) { const el = document.createElement(c.type.replace('custom:', '')); try { el.setConfig(c); } catch (e) { console.error(c.type, e); } el.hass = hass; root.appendChild(el); els.push(el); }
+  let pend = 0;
+  function push() { if (pend) return; pend = requestAnimationFrame(() => { pend = 0; hass = mk(); window.__H = hass; els.forEach((el) => { try { el.hass = hass; } catch (e) { console.error(e); } }); window.dispatchEvent(new Event('ki-hass')); }); }
+  const reveal = () => { root.classList.add('on'); boot.style.opacity = 0; setTimeout(() => boot.remove(), 460); };
+  (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((q) => setTimeout(q, 1500))]) : Promise.resolve()).then(() => setTimeout(reveal, 350));
+  window.parent && window.parent.postMessage({ kiReady: true, pops: stack.cards.filter((c) => c.card_type === 'pop-up').map((c) => ({ hash: c.hash, name: c.name })) }, '*');
+  window.addEventListener('message', (e) => { if (e.data && typeof e.data.kiHash === 'string') location.hash = e.data.kiHash; });
+})();
+</script>
+</body></html>

@@ -1,0 +1,27 @@
+{
+  "name": "ki-msh-app",
+  "version": "1.5.1",
+  "private": true,
+  "description": "KI MSH som app for iOS og Android (Capacitor-skall rundt Home Assistant)",
+  "scripts": {
+    "build": "node scripts/build-www.mjs",
+    "sync": "npm run build && npx cap sync",
+    "android": "npm run sync && cd android && ./gradlew assembleDebug",
+    "ios": "npm run sync && npx cap open ios",
+    "serve": "npm run build && npx --yes http-server www -p 5173 -c-1"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/status-bar": "^8.0.4",
+    "@mdi/font": "^7.4.47",
+    "@mdi/js": "^7.4.47",
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3"
+  }
+}

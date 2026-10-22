@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">KI MSH</string>
+    <string name="title_activity_main">KI MSH</string>
+    <string name="package_name">no.kristo.kimsh</string>
+    <string name="custom_url_scheme">no.kristo.kimsh</string>
+</resources>
