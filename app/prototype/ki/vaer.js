@@ -9,10 +9,16 @@
       f.addEventListener('load', () => {
         let doc; try { doc = f.contentDocument; } catch (e) { return; }
         if (!doc) return;
-        const st = doc.createElement('style'); st.textContent = 'html,body{overscroll-behavior:none}'; doc.head.appendChild(st);
+        // Værappen er laget for en fast ramme: html/body og omslagene må ha skjermhøyde, ellers vokser roten til hele innholdet
+        // (dokumentet ruller i stedet for innerlisten, ✕ og kart/steder ruller bort, detaljark åpner nederst, fx-lerretet blir 2–3 skjermer høyt)
+        const st = doc.createElement('style'); st.textContent = 'html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}'; doc.head.appendChild(st);
+        this.inset(doc);
         const fix = () => {
-          doc.querySelectorAll('div').forEach((d) => { if (!d.__ki && d.children.length >= 2 && /^\s*09:41/.test(d.textContent || '') && (d.textContent || '').length < 40) { d.__ki = 1; d.style.display = 'none'; } });
-          doc.querySelectorAll('button[aria-label="Lukk"]').forEach((b) => { if (b.__ki) return; b.__ki = 1; b.addEventListener('click', (e) => { const sheetOpen = b.closest('[role="dialog"]') || (b.getBoundingClientRect().top > 120); if (!sheetOpen) this.close(); }); });
+          const root = doc.querySelector('[style*="--vsky"]');
+          if (root && !root.__ki) { root.__ki = 1; root.style.minHeight = '0'; for (let e = root; e && e !== doc.documentElement; e = e.parentElement) e.style.height = '100%'; }
+          // bare selve statuslinjen («09:41» + «●●● ▮») – ikke toppfeltet rundt, som også har ✕
+          doc.querySelectorAll('div').forEach((d) => { if (!d.__ki && d.children.length === 2 && (d.children[0].textContent || '').trim() === '09:41') { d.__ki = 1; d.style.display = 'none'; } });
+          doc.querySelectorAll('button[aria-label="Lukk"]').forEach((b) => { if (b.__ki) return; b.__ki = 1; b.addEventListener('click', (e) => { const sheetOpen = b.closest('[role="dialog"]') || (b.getBoundingClientRect().top > (parseFloat(getComputedStyle(doc.documentElement).getPropertyValue('--ki-sat')) || 0) + 40); if (!sheetOpen) this.close(); }); });
         };
         fix();
         try { new MutationObserver(fix).observe(doc.body, { childList: true, subtree: true }); } catch (e) {}
@@ -24,6 +30,14 @@
       const chk = () => { if (location.hash === '#vaer') this.open(); else if (this.isOpen) this.hide(); };
       window.addEventListener('hashchange', chk); window.addEventListener('location-changed', chk); chk();
       window.addEventListener('message', (e) => { if (e.data && e.data.kiVaerClose) this.close(); });
+      window.addEventListener('resize', () => { try { this.inset(); } catch (e) {} });
+    },
+    // Trygg sone fra appen (env() er 0 inni iframe på iOS) → --ki-sat/--ki-sab i værappen
+    inset(doc) {
+      doc = doc || (this._f && this._f.contentDocument); if (!doc) return;
+      const pr = document.createElement('div'); pr.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+      document.body.appendChild(pr); const cs = getComputedStyle(pr); const t = cs.paddingTop, b = cs.paddingBottom; pr.remove();
+      doc.documentElement.style.setProperty('--ki-sat', t); doc.documentElement.style.setProperty('--ki-sab', b);
     },
     open() {
       if (this.isOpen) return;
