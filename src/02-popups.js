@@ -320,4 +320,39 @@
       setRoomLook(lc, cfg.area, cfg.color || (cfg.look && (cfg.look.col || cfg.look.color)), cfg.icon);
     }
   };
+  /* Trykk på dashbordet over en åpen popup (der Hjem-siden synes øverst) lukker popupen. Bubble Cards egen «klikk utenfor»
+   * lytter på click, men WebKit (iOS-appen/Safari) sender ikke click for trykk på flater uten egen klikk-lytter, så den slår
+   * ikke alltid inn. Her brukes pointer-hendelser. Trykket spises, så det ikke også treffer kortene under (personbildene
+   * i headeren, hold → more-info). Navbar, editorer og mer info-arket regnes aldri som «over popupen». */
+  (function tapAbove() {
+    let pop = null, popHash = '', down = null, eat = 0;
+    const openPop = () => {
+      if (!location.hash) return null;
+      if (!(pop && popHash === location.hash && pop.isConnected && pop.classList.contains('is-popup-opened'))) { pop = M.openPopupEl ? M.openPopupEl() : null; popHash = location.hash; }
+      return pop && M.popupSettled(pop) ? pop : null;
+    };
+    const skip = (e) => e.composedPath().some((n) => n.localName === 'msh-navbar-card' || n.id === 'ki-overlay-root' || (n.classList && (n.classList.contains('ki-more-info') || n.classList.contains('bubble-pop-up'))));
+    const swallow = (e) => { e.stopPropagation(); if (e.cancelable && e.type !== 'pointerdown' && e.type !== 'touchstart') e.preventDefault(); };
+    window.addEventListener('pointerdown', (e) => {
+      down = null;
+      const p = openPop();
+      if (!p || e.button > 0 || skip(e)) return;
+      const r = p.getBoundingClientRect();
+      if (r.height < 40 || e.clientY >= r.top - 1 || e.clientX < r.left - 1 || e.clientX > r.right + 1) return;
+      down = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+      swallow(e);
+    }, true);
+    window.addEventListener('pointerup', (e) => {
+      const d = down; down = null;
+      if (!d || e.pointerId !== d.id) return;
+      swallow(e);
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 14 || Date.now() - d.t > 800) return;
+      eat = Date.now();
+      M.haptic('light');
+      M.closePopup();
+    }, true);
+    window.addEventListener('pointercancel', () => { down = null; }, true);
+    // touchstart passiv (ingen preventDefault der – holder scrollingen rask); resten kan avbrytes
+    ['touchstart', 'touchend', 'mousedown', 'mouseup', 'click'].forEach((t) => window.addEventListener(t, (e) => { if (down || Date.now() - eat < 450) swallow(e); }, { capture: true, passive: t === 'touchstart' }));
+  })();
 })();
