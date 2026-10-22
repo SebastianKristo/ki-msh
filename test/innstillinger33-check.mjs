@@ -60,7 +60,7 @@ for (const vp of [{ n: '390', w: 390, h: 844 }, { n: 'PC', w: 1400, h: 900, sb: 
   for (const cfg of [{}, { dashbord: true }]) {
     const p = await popup(vp, cfg);
     const r = await inspect(p);
-    ok(`A · ${vp.n}${cfg.dashbord ? ' (gammel dashbord: true)' : ''}: popupen slutter etter brytersettene (… faner → bryterlista)`, r.kids[r.kids.length - 1] === 'pane' && r.rows > 0 && !r.settings, r.kids);
+    ok(`A · ${vp.n}${cfg.dashbord ? ' (gammel dashbord: true)' : ''}: popupen slutter etter brytersettene (… faner → bryterlista)`, r.kids.filter((k) => !/^ha[hg]$/.test(k)).pop() === 'pane' /* Fiks 65: Home Assistant-snarveiene (hah/hag) kommer etter brytersettene */ && r.rows > 0 && !r.settings, r.kids);
     ok(`A · ${vp.n}${cfg.dashbord ? ' (gammel dashbord: true)' : ''}: ingen DASHBORD/Utseende/Enheter/fottekst`, !BANNED.test(r.txt), (r.txt.match(BANNED) || [])[0]);
     await p.close();
   }

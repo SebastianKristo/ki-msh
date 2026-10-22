@@ -985,7 +985,23 @@
       // (Liquid Glass) og Enheter + fotteksten er fjernet fra visningen. Funksjonene finnes fortsatt: Tilpass-arkene via
       // navbarens «Mer» → «Tilpass» (24.5), Liquid Glass i «Tilpass navbar», eget oppsett per enhet i Kamera/Person-
       // arkene (msh-scope-bar). Lagringen (ki-store, enhetsoverstyringer) er urørt. `dashbord` i gammel config ignoreres.
-      return `<div class="wrap">${top}${tabs}<div class="pane" data-key="pane-${esc(t)}">${this._list(t)}</div></div>`;
+      return `<div class="wrap">${top}${tabs}<div class="pane" data-key="pane-${esc(t)}">${this._list(t)}</div>${this._haSec()}</div>`;
+    }
+    // Fiks 65 · Home Assistant-innstillingene i appen (MSH.ha, 69-ha-config.js): snarveier nederst i #settings (bare for
+    // administratorer; ha_meny: false skjuler). Oppdateringer viser antall tilgjengelige.
+    _haSec() {
+      const h = this.hass, u = (h && h.user) || {};
+      if (!M.ha || this.config.ha_meny === false || u.is_admin === false) return '';
+      const n = (p) => Object.keys((h && h.states) || {}).filter((id) => id.startsWith(p + '.')).length;
+      const ups = Object.keys((h && h.states) || {}).filter((id) => id.startsWith('update.') && h.states[id].state === 'on').length;
+      const tile = (pg, icon, label, sub, badge) => `<button class="hat press" data-act="ha" data-v="${pg}" ${this._hp('light')}><span class="hai">${M.icon(icon, 22)}</span><b>${esc(label)}</b><i>${esc(sub)}</i>${badge ? `<span class="hab">${badge}</span>` : ''}</button>`;
+      return `<div class="hah" data-key="ha-h">Home Assistant</div><div class="hag" data-key="ha-g">
+        ${tile('list:automation', 'mdi:robot', 'Automasjoner', String(n('automation')))}
+        ${tile('list:scene', 'mdi:palette', 'Scener', String(n('scene')))}
+        ${tile('list:script', 'mdi:script-text', 'Skript', String(n('script')))}
+        ${tile('updates', 'mdi:update', 'Oppdateringer', ups ? `${ups} nye` : 'Oppdatert', ups)}
+        ${tile('backups', 'mdi:cloud-upload-outline', 'Backup', 'Lag og gjenopprett')}
+        ${tile('hub', 'mdi:cog', 'Alle innstillinger', 'System, logger …')}</div>`;
     }
     _pickBtn() { return `<button class="pick press" data-act="customize" data-section="entiteter" ${this._hp('light')}>${M.icon('mdi:plus', 16)}Velg entitet</button>`; }
     // Nattmodus av: to kort side om side (164 px)
@@ -1068,6 +1084,7 @@
         case 'tg': return d.id ? this._flip(d.id, 'toggle') : undefined; // 29.2: optimistisk + tilbakerulling (27.6)
         case 'pickint': { const ui = this.customize('faner'); if (ui && ui.editor) { EXPF.set(cid(ui.editor), keyOf(d.v)); if (ui.editor._render) ui.editor._render(); } return undefined; }
         case 'qclr': return this.setUI({ q: '' });
+        case 'ha': { const [pg, kind] = String(d.v || 'hub').split(':'); return M.ha && M.ha.open(pg, kind ? { kind } : {}); }
         case 'all': {
           const c = this.config, h = this.hass;
           const L = tabRows(h, c, this.tab).filter((r) => h.states[r.id] && !M.unavailable(h.states[r.id])).map((r) => r.id);
@@ -1092,6 +1109,13 @@
       return `
         :host{display:block;width:100%}
         .wrap,.pane{display:flex;flex-direction:column;gap:var(--msh-gap,8px);min-width:0}
+        .hah{font-size:13px;font-weight:500;color:var(--ki-text-mid, #979797);padding:12px 8px 0}
+        .hag{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+        .hat{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:96px;padding:14px 12px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));text-align:left;box-sizing:border-box;transition:transform .2s cubic-bezier(.3,1.4,.6,1)}
+        .hat:active{transform:scale(.95)}
+        .hai{width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040))}
+        .hat b{font-size:14px;font-weight:600;line-height:1.2}.hat i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);margin-top:-4px}
+        .hab{position:absolute;top:10px;right:10px;min-width:22px;height:22px;padding:0 7px;box-sizing:border-box;border-radius:11px;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--pink,#f285c9);color:var(--ki-on-accent, #2a1720)}
         @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes smoke{0%{transform:translate(0,0) scale(.6);opacity:0}25%{opacity:.55}100%{transform:translate(-10px,-34px) scale(1.6);opacity:0}}
