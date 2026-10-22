@@ -2045,6 +2045,7 @@
     walk(document, 0);
     return hit;
   }
+  MSH.openPopupEl = openPopupEl;
   function scrollerOf(pop) {
     if (!pop) return null;
     const c = pop.querySelector('.bubble-pop-up-container');
