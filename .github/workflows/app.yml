@@ -7,6 +7,9 @@ on:
   pull_request:
     paths: ['app/**', 'src/**', 'test/mock/**', 'test/mock-hass.js', '.github/workflows/app.yml']
   workflow_dispatch:
+  # Ny release: bygg appene og legg APK og iOS-filer ved releasen
+  release:
+    types: [published]
 
 jobs:
   android:
@@ -52,6 +55,13 @@ jobs:
         with:
           name: ki-msh-android-apk
           path: ki-msh.apk
+      - name: Legg APK ved releasen
+        if: github.event_name == 'release'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: cp ki-msh.apk ki-msh-android.apk && gh release upload "$TAG" ki-msh-android.apk --clobber -R "$GITHUB_REPOSITORY"
       - name: Publiser oppdatering til appen (grenen android-oppdatering)
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && env.HAS_KEY == 'true'
         working-directory: .
@@ -71,6 +81,8 @@ jobs:
 
   ios:
     runs-on: macos-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: app
@@ -105,3 +117,10 @@ jobs:
           path: |
             ki-msh-ios-simulator.zip
             ki-msh-ios-unsigned.ipa
+      - name: Legg iOS-filene ved releasen
+        if: github.event_name == 'release'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" ki-msh-ios-unsigned.ipa ki-msh-ios-simulator.zip --clobber -R "$GITHUB_REPOSITORY"
