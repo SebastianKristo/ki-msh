@@ -837,6 +837,7 @@
     :host(.on) .sh{transform:translate3d(0,0,0)}
     .body{gap:14px}
     .tph{display:flex;align-items:center;gap:10px;padding:0 4px}.tt{flex:1;font-size:20px;font-weight:600;letter-spacing:-0.02em}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .x{width:44px;height:44px;border-radius:22px;background:var(--ki-surface-2, #404040);display:grid;place-items:center;color:var(--ki-text, #fafafa)}
     .grp{display:flex;flex-direction:column;gap:8px}.gl{padding:0 4px;font-size:13px;color:var(--ki-text-2, #afafaf)}
     .mds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
@@ -1337,7 +1338,7 @@
           return `<div class="hr${on ? ' open' : ''}" data-key="tph-${k}"><button class="hb" data-sa="toggle" data-v="${k}" aria-expanded="${on}"><span class="hi">${M.icon(icMdi(cur), 20)}</span><span class="hn"${k === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[k][1])}</span>${changed ? `<span class="rs" data-sa="reset" data-v="${k}" role="button">Tilbakestill</span>` : ''}${M.icon('mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
             ${on ? `<div class="ig">${IC_OPTS.map((ic) => `<button class="io${ic === cur ? ' on' : ''}" data-sa="icon" data-k="${k}" data-v="${ic}" title="${ic}" aria-pressed="${ic === cur}">${M.icon(icMdi(ic), 20)}</button>`).join('')}</div>` : ''}</div>`;
         }).join('');
-        M.morph(ov.body, `<div class="tph"><span class="tt">Tilpass server</span><button class="x" data-sa="close" aria-label="Lukk" title="Lukk">${M.icon('mdi:close', 22)}</button></div>
+        M.morph(ov.body, `<div class="tph kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass server', sub: 'Lagres med en gang', done: 'close', act: 'sa' })}</div>
           <div class="grp"><span class="gl">Faner viser</span><div class="mds">${modes}</div></div>
           <div class="grp"><span class="gl">Ikon per server</span><div class="hl">${hosts}</div></div>
           <button class="more" data-sa="full">${M.icon('mdi:tune', 20)}<span>Flere innstillinger</span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-mid, #979797)')}</button>`);

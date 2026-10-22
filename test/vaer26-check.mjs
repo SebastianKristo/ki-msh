@@ -180,7 +180,7 @@ const Sh = await p.evaluate(async () => {
   window.__c.shadowRoot.querySelector('.ctl-slot > .msh-vaer-ctl').shadowRoot.querySelector('.tn').click();
   await w(400);
   const R = window.__c._sheet.ov.root, box = R.querySelector('.vaer-sheet');
-  const hd = box.querySelector('.hd'), okb = hd.querySelector('.ok'), tt = hd.querySelector('.tt');
+  const hd = box.querySelector('.hd'), okb = hd.querySelector('.kt-done'), tt = hd.querySelector('.tt');
   const okR = okb.getBoundingClientRect(), ttR = tt.getBoundingClientRect(), hdR = hd.getBoundingClientRect();
   const caps = [...box.querySelectorAll('.cap')].map((e) => e.textContent), okBg = getComputedStyle(okb).backgroundImage;
   const sw = box.querySelector('.tsw.on'), swBg = sw && getComputedStyle(sw).backgroundImage;
@@ -202,7 +202,7 @@ const Sh = await p.evaluate(async () => {
   return { caps, tt: tt.textContent, okTop: Math.abs(okR.top - ttR.top) < 20 && okR.right > ttR.right && okR.top - hdR.top < 30, okBg, swBg, liveK, places, afterRm, exRm,
     cfg: { style: c._rawConfig.style, stil: c._rawConfig.stil, sections: c._rawConfig.sections, places: c._rawConfig.places, exclude: c._rawConfig.exclude }, attr: window.__pop.getAttribute('data-ki-vaer'), layer: !!window.__pop.querySelector(':scope > .msh-vaer-scene'), closed: !c._sheet };
 });
-ok('26.25 Tilpass Vær: Stil · Steder · Seksjoner · Fliser', Sh.tt === 'Tilpass Vær' && ['Stil', 'Steder', 'Seksjoner', 'Fliser'].every((x) => Sh.caps.some((c) => c.startsWith(x))) && Sh.places.join('|') === 'Hjem|Hytta|Jobb Oslo' && Sh.afterRm === 'Hjem|Jobb Oslo' && Sh.exRm === 'weather.hytta', Sh);
+ok('26.25 Tilpass Vær: Stil · Steder · Seksjoner · Fliser', Sh.tt === 'Tilpass vær' && ['Stil', 'Steder', 'Seksjoner', 'Fliser'].every((x) => Sh.caps.some((c) => c.startsWith(x))) && Sh.places.join('|') === 'Hjem|Hytta|Jobb Oslo' && Sh.afterRm === 'Hjem|Jobb Oslo' && Sh.exRm === 'weather.hytta', Sh);
 ok('Ferdig = rosa pille øverst til høyre, rosa brytere', Sh.okTop && /gradient/.test(Sh.okBg) && /gradient/.test(Sh.swBg || ''), Sh);
 ok('26.24 stilbytte live (utkast) → Klassisk', /klassisk/.test(Sh.liveK), Sh.liveK);
 ok('28.1 Ferdig lagrer style/sections/places i kortets config', Sh.closed && Sh.cfg.style === 'klassisk' && Sh.cfg.stil === undefined && Sh.cfg.sections && Sh.cfg.sections.days === false && Sh.cfg.places && Sh.cfg.places.some((x) => x.id === 'weather.hytta') && !Sh.cfg.exclude, Sh);

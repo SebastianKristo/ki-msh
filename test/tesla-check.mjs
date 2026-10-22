@@ -175,7 +175,7 @@ const E1 = await p.evaluate(async () => {
   const portal = window.MSH.portals().pop(), ed = portal && portal.shadowRoot.querySelector('msh-tesla-editor');
   return ed ? { title: ed.shadowRoot.querySelector('.th .tt').textContent, tabs: [...ed.shadowRoot.querySelectorAll('[data-a="tetab"]')].map((t) => t.textContent.trim()), x: !!ed.shadowRoot.querySelector('[data-a="cancel"]'), inPop: !!portal.closest('.pop') } : null;
 });
-ok('Tannhjul → «Tilpass Tesla» (portalt) med tekstfanene Bil/Faner/Entiteter/Avansert, ingen ×', E1 && E1.title === 'Tilpass Tesla' && E1.tabs.join('|') === 'Bil|Faner|Entiteter|Avansert' && !E1.x && !E1.inPop, E1);
+ok('Tannhjul → «Tilpass Tesla» (portalt) med tekstfanene Bil/Faner/Entiteter/Avansert, × Avbryt (felles MSH.tp-header)', E1 && E1.title === 'Tilpass Tesla' && E1.tabs.join('|') === 'Bil|Faner|Entiteter|Avansert' && E1.x && !E1.inPop, E1);
 const E2 = await p.evaluate(async (ED) => {
   const ed = eval(ED), R = ed.shadowRoot;
   R.querySelector('[data-a="tpaint"][data-v="#a3161f"]').click(); await new Promise((q) => setTimeout(q, 250));

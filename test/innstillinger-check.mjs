@@ -141,9 +141,9 @@ const E = await p3.evaluate(() => {
     vis: [...sr.querySelectorAll('[data-name="tab_labels"]')].map((x) => x.textContent.trim()),
   };
 });
-ok('tittel «Tilpass Innstillinger» 22/600 (20 under 380 px) + rosa «Ferdig»-pille øverst til høyre', E.title === 'Tilpass Innstillinger' && /^(22px|20px)\/600$/.test(E.tsize) && E.done === 'Ferdig' && E.doneRight && E.doneTop && /242, 133, 201|f285c9/i.test(E.doneBg), E);
+ok('tittel «Tilpass Innstillinger» 16–22/600 (krympes til den får plass ved siden av × / Ferdig) + rosa «Ferdig»-pille øverst til høyre', E.title === 'Tilpass Innstillinger' && /^(1[6-9]|2[0-2])px\/600$/.test(E.tsize) && E.done === 'Ferdig' && E.doneRight && E.doneTop && /242, 133, 201|f285c9/i.test(E.doneBg), E);
 ok('tekstfaner i segmentrad: Faner · Rader · Entiteter · Avansert, ingen ikoner, #3a3a3a r24 pad 4, 12 px', E.tabs.join() === 'Faner,Rader,Entiteter,Avansert' && E.tabIcons === 0 && E.seg.join() === 'rgb(58, 58, 58),24px,4px,12px', E);
-ok('én flate: «Faner · dra for rekkefølge» 12 px versaler #7f7f7f INNI flaten (#3a3a3a r24), skillelinjer', /Faner · dra for rekkefølge/i.test(E.hdr) && E.hdrSize === '12px' && E.hdrCol === 'rgb(127, 127, 127)' && E.hdrIn && E.box[0] === 'rgb(58, 58, 58)' && E.box[1] === '24px' && E.div === 'rgba(255, 255, 255, 0.06)', E);
+ok('én flate: «Faner · dra for rekkefølge» = felles seksjonstittel (MSH.tp.SEC: 13 px #afafaf, ingen versaler) INNI flaten (#3a3a3a r24), skillelinjer', /Faner · dra for rekkefølge/i.test(E.hdr) && E.hdrSize === '13px' && E.hdrCol === 'rgb(175, 175, 175)' && E.hdrIn && E.box[0] === 'rgb(58, 58, 58)' && E.box[1] === '24px' && E.div === 'rgba(255, 255, 255, 0.06)', E);
 ok('rad: ikon #afafaf, navnefelt i raden (#282828 r12 40 px), rosa bryter, ingen «Dra for rekkefølge»-hjelpetekst', E.ic === 'rgb(175, 175, 175)' && E.inp.join() === 'rgb(40, 40, 40),12px,40px' && E.sw && !E.help.some((x) => /Dra for rekkefølge/.test(x)), E);
 ok('«Faner viser»: Ikon + tekst · Tekst · Ikoner', E.vis.join() === 'Ikon + tekst,Tekst,Ikoner', E);
 await shot(p3, '3-tilpass-faner');

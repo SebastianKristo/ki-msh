@@ -2,6 +2,24 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 66 · Felles kontroller i Tilpass-arkene
+- Én slider overalt (`MSH.tp.range`): 6 px spor, rosa fyll fram til verdien, hvit knott – erstatter native `accent-color`-slidere (ulikt utseende på iOS/Android) og de egne variantene i kamera, strømpris, lys, klima, navbar, Hjem og fanehøyde.
+- Forvalg under slidere er små, stille snarvalg (rosa tone når valgt) i stedet for en ekstra rad med store piller; valg-chips er like overalt (34 px, valgt = rosa).
+- Felles editor: felt i en gruppe har ingen egen flate (ingen boks i boks), skillelinjer mellom feltene, etiketter 14/500, hjelpetekst 12 px med bedre kontrast, tekstfelt 16 px (ingen zoom på iOS) med rosa fokusring.
+- Radlister er én gruppe med skillelinjer: Rom-seksjoner, Kort på Hjem, faner i Lys og Strøm, kameraer. Pilknapper/øye uten egne mørke piller.
+- «Mellomrom» (ki-spacing-editor) og «Fanehøyde»: slider først, så forvalg; radene skilt med linjer.
+
+## Fiks 66 · Felles Tilpass-design
+Alle «Tilpass …»-arkene har nå samme oppbygning (`src/00-c-tilpass.js`, `MSH.tp`).
+- **Header:** `[× Avbryt]  Tilpass <navn> / undertittel  [↺ Nullstill]  [Ferdig]` i navbar, header, Hjem, rom og alle
+  kortenes editorer, lys, kamera, klima, vær, ringeklokke, kiosk, Tilpass alt, Tesla, strøm, varmepumpe, dørlås,
+  garasje, server og PC-oversikten. Titlene skrives likt («Tilpass navbar», ikke «Tilpass · Navbar») og kuttes ikke
+  lenger («Tilpass · Hjem · he…»). Undertittelen sier hva arket gjelder, eller om endringer vises live / lagres straks.
+- **Avbryt** (×) finnes i alle ark med utkast og forkaster endringene. Ark som lagrer straks har bare «Ferdig».
+- **Nullstill** er en rund ikonknapp på samme plass i alle ark som har den.
+- **Seksjonstitler** er like overalt: setning, 13/600, sekundærtekst (ingen VERSALER).
+- **Navbar:** knappene ligger i én gruppeflate med skillelinjer, som listene i de andre arkene.
+- Skjermbilder før/etter: `docs/images/tilpass/`, ta nye med `node test/tilpass-shots.mjs`.
 ## Fiks 65 · Home Assistant-innstillinger i appen
 Målet er at appen kan erstatte Home Assistant-appen for det meste av innstillingene.
 - **Hvor:** nederst i Innstillinger (`#settings`, seks snarveier, bare for administratorer, `ha_meny: false` skjuler) og

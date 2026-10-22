@@ -527,7 +527,7 @@
     customize(focus) {
       const area = M.roomArea(this);
       const cb = area && M.combinedOfCard ? M.combinedOfCard(this.hass, { ...this.config, area }) : null;
-      return M.openEditor(this, { cardClass: { schema: buildSchema(area), cardName: cb ? cb.name : area ? M.areaName(this.hass, area) : 'Rom' }, focus, areaCtx: area });
+      return M.openEditor(this, { cardClass: { schema: buildSchema(area), cardName: cb ? cb.name : area ? M.areaName(this.hass, area) : 'Rom', editorSub: cb ? 'Kombinert rom' : 'Rom' }, focus, areaCtx: area });
     }
 
     /* ------------ hjelpere */

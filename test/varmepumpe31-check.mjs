@@ -215,11 +215,11 @@ await p.evaluate(() => window.__c.shadowRoot.querySelector('.gear').click()); aw
 const sheet = () => p.evaluate(() => {
   const port = window.MSH.portals().pop(); if (!port) return null;
   const R = port.shadowRoot, sh = R.querySelector('.sh'), b = sh.getBoundingClientRect(), fix = R.querySelector('.fix'), scr = R.querySelector('.scr');
-  return { top: Math.round(b.top), bottom: Math.round(b.bottom), h: Math.round(b.height), vh: innerHeight, tp: port.dataset.tpSheet, title: R.querySelector('.tt').textContent, ok: R.querySelector('.ok').textContent,
+  return { top: Math.round(b.top), bottom: Math.round(b.bottom), h: Math.round(b.height), vh: innerHeight, tp: port.dataset.tpSheet, title: R.querySelector('.tt').textContent, ok: R.querySelector('.kt-done').textContent,
     tabs: [...R.querySelectorAll('.et')].map((e) => e.textContent), on: (R.querySelector('.et.on') || {}).textContent, pv: R.querySelector('.pv .cap').textContent, pvq: [...R.querySelectorAll('.pq')].map((e) => e.textContent.trim()), pvt: [...R.querySelectorAll('.pt')].map((e) => e.textContent.trim()),
     fixTop: Math.round(fix.getBoundingClientRect().top), scrOv: getComputedStyle(scr).overflowY, scrDisp: getComputedStyle(scr).display, scrH: scr.scrollHeight, scrC: scr.clientHeight,
     rows: [...R.querySelectorAll('[data-row]')].map((e) => e.dataset.row + (e.classList.contains('off') ? ':av' : '')), names: [...R.querySelectorAll('.nm')].map((e) => e.value), handles: [...R.querySelectorAll('[data-drag]')].map((e) => getComputedStyle(e).touchAction), caps: [...R.querySelectorAll('.scr .cap')].map((e) => e.textContent), segs: [...R.querySelectorAll('.sgb')].map((e) => e.textContent + (e.classList.contains('on') ? '*' : '')),
-    okBg: getComputedStyle(R.querySelector('.ok')).backgroundImage };
+    okBg: getComputedStyle(R.querySelector('.kt-done')).backgroundImage };
 });
 let SH = await sheet();
 ok('C · arket: tilpass-geometri (52 px fra toppen, til bunnen – Fiks 40), «Tilpass varmepumpe» + Ferdig (rosa pille)', SH && SH.tp === '1' && SH.top === 52 && SH.bottom === SH.vh && SH.title === 'Tilpass varmepumpe' && SH.ok === 'Ferdig' && /linear-gradient\(145deg, rgb\(242, 133, 201\) -10%, rgb\(245, 205, 198\) 100%\)/.test(SH.okBg), SH);

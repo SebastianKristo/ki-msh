@@ -890,11 +890,12 @@
       if (!ov) return;
       const scr = box.querySelector('.scr'), top = scr ? scr.scrollTop : 0, D = ctl.draft;
       box.innerHTML = `<div class="fix">
-          <div class="hd"><span class="tt">Tilpass varmepumpe</span><button class="ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+          <div class="hd kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass varmepumpe', sub: 'Endringer vises live', cancel: 'cancel', done: 'done', busy: st.busy })}</div>
           ${preview(D)}
           <div class="etabs" role="tablist" data-glass-drag="x">${[['q', 'Knapper'], ['t', 'Faner'], ['e', 'Entiteter'], ['v', 'Visning']].map(([k, l]) => `<button class="et${st.tab === k ? ' on' : ''}" role="tab" aria-selected="${st.tab === k}" data-a="etab" data-k="${k}">${l}</button>`).join('')}</div>
         </div>
         <div class="scr" data-tab="${st.tab}"><div class="in">${content(D)}</div></div>`;
+      M.tp.fill(box);
       const n = box.querySelector('.scr');
       if (n && st.keep !== false) n.scrollTop = top;
       st.keep = true;
@@ -959,6 +960,7 @@
       const a = el.dataset.a, k = el.dataset.k, D = ctl.draft, h = hass();
       switch (a) {
         case 'done': return ctl.done();
+        case 'cancel': M.haptic('light'); return ctl.cancel();
         case 'etab': if (st.tab !== k) { st.tab = k; st.open = null; st.keep = false; M.haptic('selection'); draw(); } return undefined;
         case 'bvis': { const H = btnHidden(D); if (H.has(k)) H.delete(k); else H.add(k); return apply({ buttons_hidden: btnOrder(D).filter((x) => H.has(x)) }, 'selection'); }
         case 'tvis': {
@@ -996,10 +998,11 @@
     .vps{flex:1;min-height:0;display:flex;flex-direction:column}
     .fix{flex:none;display:flex;flex-direction:column;gap:10px;padding:0 0 10px}
     .hd{display:flex;align-items:center;gap:8px;padding:2px 6px 4px}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .tt{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .ok{height:40px;padding:0 18px;border-radius:20px;background:${PINK_BTN};color:var(--ki-on-accent, #3a3a3a);font-size:14px;font-weight:600;flex:none}
     .ok:active,.reset:active,.autob:active{transform:scale(.95)}
-    .cap{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--ki-text-3, #7f7f7f)}
+    .cap{${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .pv{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
     .pvi{padding:10px;border-radius:18px;background:#303030;display:flex;flex-direction:column;gap:8px}
     .pvq{display:grid;gap:6px}

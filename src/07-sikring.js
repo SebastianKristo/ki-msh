@@ -296,7 +296,7 @@
       if (!ov || !box) return;
       const sh = ov.root.querySelector('.sh'), top = sh ? sh.scrollTop : 0;
       const tabs = typeof o.tabs === 'function' ? o.tabs() : o.tabs;
-      M.morph(box, `<div class="sk-sh-hd"><span class="sk-sh-tt">${esc(o.title)}</span><button class="sk-ok" data-a="done" ${st.busy ? 'disabled aria-busy="true"' : ''}>${st.busy ? 'Lagrer …' : 'Ferdig'}</button></div>
+      M.morph(box, `<div class="sk-sh-hd kt-head" data-sheet-head>${M.tp.head({ title: o.title, sub: o.sub || 'Endringer vises live', cancel: 'cancel', done: 'done', busy: st.busy })}</div>
         <div class="sk-sh-tabs" role="tablist" data-glass-drag="x" style="grid-template-columns:repeat(${tabs.length},minmax(0,1fr))">${tabs.map(([k, l]) => `<button class="sk-sh-tab ${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="tab" data-k="${k}">${esc(l)}</button>`).join('')}</div>
         <div class="sk-sh-pane" data-tab="${st.tab}">${o.body(st.tab, D(), api)}</div>`);
       if (M.tabPress) M.tabPress(box.querySelector('.sk-sh-tabs')); // Fiks 47 E: felles trykk-logikk
@@ -313,6 +313,7 @@
       if (!el || el.disabled) return;
       const k = el.dataset.a;
       if (k === 'done') { M.haptic('success'); return ctl.done(); }
+      if (k === 'cancel') { M.haptic('light'); return ctl.cancel(); }
       if (k === 'tab') { if (el.dataset.k !== st.tab) { st.tab = el.dataset.k; st.pick = null; M.haptic('selection'); draw(); } return undefined; }
       if (k === 'bytt') { st.pick = st.pick === el.dataset.k ? null : el.dataset.k; M.haptic('light'); return draw(); }
       return o.click ? o.click(k, el, api) : undefined;
@@ -438,6 +439,7 @@
     input{font:inherit}
     .sk-sheet{display:flex;flex-direction:column;gap:0;min-height:100%}
     .sk-sh-hd{display:flex;align-items:center;gap:8px;padding:2px 6px 14px}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .sk-sh-tt{flex:1;min-width:0;font-size:22px;font-weight:600;letter-spacing:-0.02em}
     .sk-ok{${M.DONE_PILL}}
     .sk-ok:disabled{opacity:.6}

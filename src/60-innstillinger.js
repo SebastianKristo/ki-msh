@@ -343,7 +343,7 @@
     .chips.sg.tsub .chip.on{background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}
     /* designet: én flate (#3a3a3a r24) per seksjon med overskriften INNI, rader flatt med skillelinjer */
     .fsec{gap:0;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
-    .fsec>.fsh{padding:14px 16px 6px;font-size:12px;font-weight:500}
+    .fsec>.fsh{padding:14px 16px 6px} /* felles seksjonstittel (MSH.tp.SEC, 01-editor) */
     .fsec>.sec{border-radius:24px;background:transparent;box-shadow:none;border:0}
     .fsec>.sec>.in{padding:0 16px}
     .fsec .sec .f{background:transparent;padding:10px 0;border-radius:0}

@@ -183,20 +183,22 @@
 
   /* ---------------------------------------------------------------- 33.4 · editorfeltet (felles) */
   const ED_CSS = `
-    .mth{display:flex;flex-direction:column;gap:10px;min-width:0}
+    .mth{display:flex;flex-direction:column;gap:8px;min-width:0}
     .mth-hd{display:flex;align-items:baseline;gap:8px;padding:0 2px}
-    .mth-l{flex:1;font-size:13px;font-weight:500;color:var(--ki-text, #fafafa)}
-    .mth-v{font-size:13px;color:var(--ki-text-2, #afafaf);font-variant-numeric:tabular-nums;white-space:nowrap}
+    .mth-l{flex:1;${M.tp.LABEL}}
+    .mth-v{${M.tp.VAL}}
     .mth-pv{padding:10px;border-radius:20px;background:var(--ki-popup, #282828);box-shadow:inset 0 0 0 1px ${WA(0.05)};overflow:hidden;pointer-events:none}
     .mth-pv .mtb-t{min-width:0}
     .mth-ch{display:flex;flex-wrap:wrap;gap:6px}
-    .mth-c{height:34px;padding:0 12px;border:0;border-radius:17px;font:inherit;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, #e1e1e1);-webkit-tap-highlight-color:transparent}
-    .mth-c.on{background:${PINK};color:var(--ki-on-accent, #2a1720)}
-    .mth-c small{font-size:11px;font-weight:400;opacity:.8;margin-left:4px}
+    /* Fiks 66: forvalgene er de felles stille snarvalgene (MSH.tp.SNAP) under slideren */
+    .mth-c{${M.tp.SNAP}font-family:inherit;-webkit-tap-highlight-color:transparent}
+    .mth-c.on{${M.tp.SNAP_ON}}
+    .mth-c small{font-size:11px;font-weight:400;opacity:.75;margin-left:4px}
     .mth-sl{display:flex;align-items:center;gap:10px;min-width:0}
     .mth-sl span{font-size:12px;color:var(--ki-text-3, #7f7f7f);font-variant-numeric:tabular-nums}
-    .mth-r{flex:1;min-width:0;height:28px;margin:0;accent-color:var(--pink,#f285c9);touch-action:pan-y;cursor:pointer}
-    .mth-h{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 2px;line-height:1.4}
+    ${M.tp.range('.mth-r')}
+    .mth-r{flex:1;min-width:0;touch-action:pan-y}
+    .mth-h{${M.tp.SUB}padding:0 2px}
   `;
   const STYLE = `<style>${CSS}${ED_CSS}</style>`;
   const DEF_ITEMS = ['Oversikt', 'Detaljer', 'Logg'];
@@ -230,8 +232,8 @@
     return `${STYLE}<div class="mth" data-key="mth-${esc(name)}" data-mth-field="${esc(name)}">
       <div class="mth-hd"><span class="mth-l">${esc(label)}</span><span class="mth-v" data-mth-val>${eff} px</span></div>
       ${o.preview === false ? '' : `<div class="mth-pv" data-mth-pv aria-hidden="true">${preview(eff, o)}</div>`}
-      <div class="mth-ch" role="group" aria-label="${esc(label)}">${chips}</div>
       ${slider}
+      <div class="mth-ch" role="group" aria-label="${esc(label)}">${chips}</div>
       ${help ? `<div class="mth-h">${esc(help)}</div>` : ''}
     </div>`;
   }

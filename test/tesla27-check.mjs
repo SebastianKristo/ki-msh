@@ -120,7 +120,7 @@ const S0 = await e.evaluate(async () => {
     grab: [Math.round(grab.getBoundingClientRect().width), Math.round(grab.getBoundingClientRect().height), cs(grab).backgroundColor],
     tabs: { cols: cs(et).gridTemplateColumns.split(' ').length, bg: cs(et).backgroundColor, r: cs(et).borderRadius, p: cs(et).padding, txt: [...et.querySelectorAll('button')].map((b) => b.textContent.trim()), icons: et.querySelectorAll('ha-icon').length, h: Math.round(et.querySelector('button').getBoundingClientRect().height), gd: !!et.__gd } };
 });
-ok('Arket: «Tilpass Tesla» 22/600, rosa Ferdig 40 px r20 øverst til høyre, ingen ×', S0.tt === 'Tilpass Tesla' && S0.tfs === '22px' && S0.tfw === '600' && S0.done.t === 'Ferdig' && S0.done.h === 40 && S0.done.r === '20px' && /gradient/.test(S0.done.bgi) && S0.done.right && !S0.x, S0);
+ok('Arket: «Tilpass Tesla» 22/600, rosa Ferdig 40 px r20 øverst til høyre, × Avbryt (felles MSH.tp-header)', S0.tt === 'Tilpass Tesla' && S0.tfs === '22px' && S0.tfw === '600' && S0.done.t === 'Ferdig' && S0.done.h === 40 && S0.done.r === '20px' && /gradient/.test(S0.done.bgi) && S0.done.right && S0.x, S0);
 ok('Arket: håndtak 40×5 #545454', S0.grab[0] === 40 && S0.grab[1] === 5, S0.grab);
 ok('Arket: tekstfaner Bil · Faner · Entiteter · Avansert (4 kolonner, #3a3a3a r24 p4, 40 px, ingen ikoner, Liquid Glass-drag)', S0.tabs.cols === 4 && S0.tabs.bg === 'rgb(58, 58, 58)' && S0.tabs.r === '24px' && S0.tabs.p === '4px' && S0.tabs.txt.join('|') === 'Bil|Faner|Entiteter|Avansert' && S0.tabs.icons === 0 && S0.tabs.h === 40 && S0.tabs.gd, S0.tabs);
 const H = {};

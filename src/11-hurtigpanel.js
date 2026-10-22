@@ -407,7 +407,8 @@
     .seg{display:flex;gap:4px;background:var(--ki-surface-3, #2c2c2c);border-radius:22px;padding:4px}
     .seg button{flex:1;height:36px;border-radius:18px;font-size:13px;font-weight:600;color:var(--ki-text-2, #afafaf)}
     .seg button.on{background:${PINK};color:${ON_PINK}}
-    .set input[type=range]{width:100%;accent-color:var(--pink, #f285c9);height:28px;touch-action:none}
+    ${M.tp.range('.set input[type=range]')}
+    .set input[type=range]{touch-action:none}
     .hn{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;font-size:14px;text-align:left;width:100%}
     .tgl{position:relative;width:46px;height:28px;border-radius:14px;flex:none;background:var(--ki-ctrl, #545454);transition:background .2s}
     .tgl.on{background:${M.C.accent}}

@@ -110,7 +110,7 @@ for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true],
     const ko = MSH.kioskSheet({ hass: window.H }); await wait(400);
     const ksh = ko.root.querySelector('.sh');
     res.kiosk = pill(ko.root.querySelector('.hd [data-a="close"]'), ksh);
-    res.kioskTitle = ko.root.querySelector('.hd .t').textContent;
+    res.kioskTitle = ko.root.querySelector('.hd .tt').textContent;
     res.kioskBottom = [...ko.root.querySelectorAll('button')].filter((x) => /Ferdig/.test(x.textContent)).length;
     res.kioskSec = [...ko.root.querySelectorAll('.h')].map((x) => { const cs = getComputedStyle(x); return x.textContent.trim().split('\n')[0] + '|' + cs.fontSize + '|' + cs.textTransform + '|' + cs.color; });
     res.kioskGrp = [...ko.root.querySelectorAll('.grp')].map((g) => { const cs = getComputedStyle(g); return cs.backgroundColor + '|' + cs.borderRadius; });
@@ -134,11 +134,12 @@ for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true],
   });
   const topRight = (x) => x && x.txt === 'Ferdig' && x.top < 80 && x.right < 40 && x.h === 40 && PINK_RE.test(x.bg);
   ok(`${vpName} Ferdig i felles editor: rosa pille øverst til høyre, ingen bunnlinje`, topRight(fer.common) && !fer.commonActions, fer.common);
-  ok(`${vpName} Felles editor: tittel 22/600 til venstre`, fer.commonTitle.fs === '22px' && fer.commonTitle.fw === '600' && fer.commonTitle.left < 40, fer.commonTitle);
+  // Felles Tilpass-design (MSH.tp): × Avbryt (40 px) til venstre, så tittelen
+  ok(`${vpName} Felles editor: tittel 22/600 rett etter ×`, fer.commonTitle.fs === '22px' && fer.commonTitle.fw === '600' && fer.commonTitle.left < 90, fer.commonTitle);
   ok(`${vpName} Ferdig forblir øverst når arket scrolles (sticky)`, fer.commonScrolled && fer.commonScrolled.top < 80, fer.commonScrolled);
   ok(`${vpName} Felles bryter (.sw) er rosa`, /242,\s*133,\s*201/.test(fer.sw || ''), fer.sw);
   ok(`${vpName} 26.17 Tilpass kiosk-modus: tittel + rosa Ferdig øverst, ingen Ferdig nederst`, topRight(fer.kiosk) && fer.kioskTitle === 'Tilpass kiosk-modus' && fer.kioskBottom === 1, fer);
-  ok(`${vpName} 26.17 seksjonsoverskrifter 12 px versaler #7f7f7f (GRUPPER, ENHETER, YAML · KIOSK_MODE)`, fer.kioskSec.length === 3 && fer.kioskSec.every((s) => /\|12px\|uppercase\|rgb\(127, 127, 127\)/.test(s)) && /YAML/.test(fer.kioskSec[2]), fer.kioskSec);
+  ok(`${vpName} seksjonsoverskrifter = felles MSH.tp.SEC: 13 px, ingen versaler, #afafaf (Grupper, Enheter, YAML · kiosk_mode)`, fer.kioskSec.length === 3 && fer.kioskSec.every((s) => /\|13px\|none\|rgb\(175, 175, 175\)/.test(s)) && /YAML/.test(fer.kioskSec[2]), fer.kioskSec);
   ok(`${vpName} 26.17 én #3a3a3a-flate (r24) per seksjon, status + entitet i samme flate`, fer.kioskGrp.length === 4 && fer.kioskGrp.every((g) => g === 'rgb(58, 58, 58)|24px') && fer.kioskTopInGrp, fer.kioskGrp);
   ok(`${vpName} 26.17 YAML: Kopier-pille ved overskriften, koden brytes (pre-wrap)`, fer.kioskCopy && fer.kioskPre === 'pre-wrap', fer.kioskPre);
   ok(`${vpName} 26.17 kiosk-bryteren er rosa`, /242,\s*133,\s*201/.test(fer.kioskSw || ''), fer.kioskSw);

@@ -918,7 +918,7 @@
     @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     .tp{display:flex;flex-direction:column;gap:8px;color:var(--ki-text, #fafafa);font-family:inherit}
     .tph{display:flex;align-items:center;gap:8px;padding:10px 4px 14px}
-    .tph .tt{flex:1;font-size:24px;font-weight:600;letter-spacing:-0.01em}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .tph .rs{height:40px;padding:0 16px;border-radius:20px;background:var(--ki-surface, #3a3a3a);font-size:14px;font-weight:500;transition:transform .15s}
     .tph .dn{${M.DONE_PILL || ''}}
     .tph button:active{transform:scale(.96)}
@@ -926,19 +926,23 @@
     .tpt button{flex:0 0 52px;height:44px;padding:0;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;background:transparent;color:var(--ki-text-2, #afafaf);transition:flex .25s,background .25s;white-space:nowrap}
     .tpt button.on{flex:1 0 auto;padding:0 16px 0 12px;background:${ACC};color:${INK2}}
     .tpb{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;align-content:start;gap:8px;padding-bottom:48px}
-    .hint{font-size:13px;color:var(--ki-text-mid, #979797);padding:2px 8px 4px;line-height:1.4}
-    .lab{font-size:13px;font-weight:500;color:var(--ki-text-mid, #979797);padding:10px 8px 2px}
+    .hint{${M.tp.SUB}padding:2px 8px 4px}
+    .lab{padding:10px 8px 2px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .info{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:24px;background:rgb(115 185 242 / 0.1);box-shadow:inset 0 0 0 1px rgb(115 185 242 / 0.22)}
     .info span{font-size:13px;line-height:1.45;color:var(--ki-text-1, #c7c7c7)}
-    .trw{display:flex;align-items:center;gap:8px;min-height:60px;padding:0 8px 0 0;border-radius:24px;background:var(--ki-surface, #3a3a3a);transition:background .2s,box-shadow .2s,transform .2s}
+    /* Fiks 66: fanelisten = én gruppe med skillelinjer (ikke ett kort per rad) */
+    .tpl{${M.tp.GROUP}display:flex;flex-direction:column}
+    .trw{display:flex;align-items:center;gap:8px;min-height:56px;padding:0 8px 0 0;border-radius:0;background:none;transition:background .2s,box-shadow .2s,transform .2s}
+    .tpl>*+.trw{${M.tp.ROW_SEP}}
+    .trw.dg{border-radius:24px}
     .trw.hd{opacity:.55}.trw.dg{background:var(--ki-surface-2, #4a4a4a);box-shadow:0 10px 24px ${KA(0.4)};transform:scale(1.02)}
     .drg{width:40px;height:52px;flex:none;display:grid;place-items:center;color:var(--ki-text-3, #7f7f7f);touch-action:none;cursor:grab}
     .trw .tl{flex:1;align-self:stretch;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;cursor:pointer;min-width:0}
-    .trw .tl small{font-size:12px;font-weight:400;color:var(--ki-text-3, #7f7f7f)}
+    .trw .tl small{${M.tp.SUB}}
     .stp{height:20px;padding:0 8px;border-radius:10px;background:rgba(242,133,201,.16);color:var(--ki-pink-text, rgb(242 133 201));font-size:10px;font-weight:600;display:flex;align-items:center}
     .chv{width:40px;height:44px;flex:none;display:grid;place-items:center;color:var(--ki-text-mid, #979797)}.chv ha-icon{transition:transform .25s}.chv.up ha-icon{transform:rotate(180deg)}
     .eye{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:var(--ki-text-3, #7f7f7f)}.eye.on{color:var(--ki-text-1, #e1e1e1)}.eye.s{width:40px;height:40px}
-    .subs{display:flex;flex-direction:column;gap:6px;padding:0 0 6px 24px;animation:fade .2s ease}
+    .subs{display:flex;flex-direction:column;gap:6px;padding:0 8px 8px 32px;animation:fade .2s ease}
     .sbr{display:flex;align-items:center;gap:8px;min-height:52px;padding:0 6px 0 0;border-radius:20px;background:var(--ki-surface-3, #333)}.sbr.hd{opacity:.55}
     .sbr .si{width:40px;text-align:center;flex:none;color:var(--ki-text-3, #7f7f7f);display:flex;justify-content:center}.sbr .sl{flex:1;min-width:0;font-size:14px;font-weight:500}
     .er{border-radius:24px;background:var(--ki-surface, #3a3a3a);overflow:hidden;transition:background .2s}.er.op{background:var(--ki-surface-2, #404040)}
@@ -999,7 +1003,7 @@
       if (tab === 'faner') {
         const order = st.drag ? st.drag.order : orderOf(c), V = visTabs(c), startK = (() => { const s = startOf(c); return V.includes(s) ? s : V[0]; })();
         body = `<span class="hint">Dra for å flytte · øyet skjuler · pilen viser seksjonene. Du kan også holde inne på faner og kort i popupen og dra.</span>
-          <div style="display:flex;flex-direction:column;gap:6px" data-tplist>${order.map((k) => {
+          <div class="tpl" data-tplist>${order.map((k) => {
             const hd = !!h[k], op = st.open === k, subs = SECS[k], icon = TABDEF.find((t) => t[0] === k)[1];
             return `<div class="trw${hd ? ' hd' : ''}${st.drag && st.drag.k === k ? ' dg' : ''}" data-tk="${k}" data-key="tr-${k}"><span class="drg" data-tdrag="${k}">${ic('mdi:drag', 22)}</span>${ic(icon, 22, `color:${hd ? 'var(--ki-text-3, #7f7f7f)' : 'var(--ki-text-1, #e1e1e1)'};width:24px`)}
               <span class="tl" data-a="open" data-v="${k}">${k}<small>${subs.filter((x) => !h[x[0]]).length}/${subs.length} seksjoner</small>${startK === k ? '<span class="stp">Start</span>' : ''}</span>
@@ -1075,7 +1079,7 @@
           ${[['anim', 'Animasjoner', 'mdi:animation', 'Glød i toppkortet, grafer som tegnes og søyler som vokser', c.anim !== false], ['glass', 'Liquid glass', 'mdi:blur', 'Dra over fanelinjer for glass-linse som følger fingeren', ga], ['live', 'Live effekt', 'mdi:access-point', 'Oppdater watt i toppkortet fortløpende', c.live !== false]]
             .map(([k, l, icon, sub, on]) => `<button class="swr big" data-a="sw" data-v="${k}"><span class="swi">${ic(icon, 22)}</span><span class="swn"><b>${l}</b><span>${sub}</span></span>${swH(on)}</button>`).join('')}`;
       }
-      const head = inSheet ? `<div class="tph" data-sheet-head><span class="tt">Tilpass strøm</span><button class="rs" data-a="reset">Nullstill</button><button class="dn" data-a="done">Ferdig</button></div>` : '';
+      const head = inSheet ? `<div class="tph kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass strøm', sub: 'Lagres med en gang', reset: 'reset', done: 'done' })}</div>` : '';
       return `<div class="tp">${head}<div class="tpt" data-glass-drag="x">${tabs.map(([k, l, icon]) => `<button class="${tab === k ? 'on' : ''}" data-a="tptab" data-v="${k}" title="${l}">${ic(icon, 20)}${tab === k ? `<span>${l}</span>` : ''}</button>`).join('')}</div><div class="tpb">${body}</div></div>`;
     },
     bind(root, ctx) {

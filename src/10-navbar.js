@@ -564,6 +564,8 @@
   /* ------------------------------------------------------------ kortet */
   class Navbar extends M.Card {
     static get cardName() { return 'Navbar'; }
+    static get editorTitle() { return 'Tilpass navbar'; }
+    static get editorSub() { return 'Knapper, merker og stil'; }
     static get defaults() { return { show_names: false, menu_names: true, shrink: true, width: 'std', style: 'white', layout: 'auto', reserve_space: true, toasts: true, admin_tools: true }; }
     static get schema() {
       return [
@@ -2222,24 +2224,31 @@
   if (!Base || customElements.get('msh-navbar-editor')) return;
   const ED_CSS = `
     .nbx{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
-    .nbx .gt{font-size:13px;color:var(--ki-text-mid, #979797);padding:6px 6px 0}
+    .nbx .gt{padding:8px 8px 2px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
+    /* Felles Tilpass-design: knappene ligger i ÉN gruppeflate med skillelinjer (som listene i de andre arkene) */
+    .ngrp{${M.tp.GROUP}display:flex;flex-direction:column;overflow:hidden}
+    .ngrp>.nrow{border-radius:0;background:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+    .ngrp>*+.nrow{border-top:1px solid var(--ki-sheet-line, rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1))))}
+    .ngrp>.ned{margin:0 8px 8px;background:var(--ki-sheet-in, var(--ki-surface-2, #404040));box-shadow:none}
+    .ngrp .nghint{padding:14px 16px;${M.tp.SUB}font-size:13px}
     .nrow{display:flex;align-items:center;gap:6px;height:56px;padding:0 6px 0 16px;border-radius:28px;background:var(--ki-surface, #3a3a3a);min-width:0}
     .nrow .lb{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .b36{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center}
-    .ud{display:flex;flex:none;border-radius:18px;background:var(--ki-bg, #232323);padding:2px}
-    .ud button{width:32px;height:32px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text, #fafafa)}
-    .ud button.off{opacity:.2;pointer-events:none}
+    /* Fiks 66: piler uten egen mørk pille – samme stille ikonknapper som resten av raden */
+    .ud{display:flex;flex:none;border-radius:18px;background:none;padding:0}
+    .ud button{width:32px;height:36px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text-1, #e1e1e1)}
+    .ud button.off{opacity:.25;pointer-events:none}
     .ned{display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:22px;background:var(--ki-surface, #3a3a3a)}
     .fl{display:flex;flex-direction:column;gap:6px}
-    .cap{font-size:12px;color:var(--ki-text-mid, #979797)}
+    .cap{font-size:13px;font-weight:500;color:var(--ki-text-1, #e1e1e1)}
     .i44{height:44px;border-radius:14px;padding:0 14px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:15px;width:100%;min-width:0}
     .icp{width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:var(--ki-bg, #232323)}
     msh-icon-field{--msh-if-bg:var(--ki-bg, #232323);--msh-if-ic:var(--ki-surface, #3a3a3a)} msh-tap-picker{--msh-tp-bg:var(--ki-bg, #232323)}
     :host([glass]) msh-icon-field{--msh-if-bg:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))));--msh-if-ic:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)))} :host([glass]) msh-tap-picker{--msh-tp-bg:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.25*var(--ki-ka-k,1))))}
     .ln{display:flex;gap:8px;align-items:center}
     .sug{display:flex;gap:6px;flex-wrap:wrap;max-height:124px;overflow-y:auto;scrollbar-width:none}
-    .chp{height:32px;padding:0 8px;border-radius:16px;flex:none;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa)}
-    .chp.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .chp{${M.tp.CHIP}padding:0 10px;flex:none}
+    .chp.on{${M.tp.CHIP_ON}}
     .bdg{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .bh{display:flex;align-items:center;gap:8px}
     .bh .t{flex:1;font-size:13px;font-weight:500}
@@ -2259,8 +2268,8 @@
     .i34{flex:1;min-width:0;height:34px;border-radius:10px;padding:0 10px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:13px;text-align:center}
     .i36{height:36px;border-radius:10px;padding:0 10px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:13px;width:100%}
     .rule .inp{height:36px;border-radius:10px;background:var(--ki-bg, #232323);font-size:12px}
-    .hint{font-size:11px;color:var(--ki-text-3, #7f7f7f);line-height:1.4}
-    .hint b{color:#c7c7c7;font-weight:600}
+    .hint{${M.tp.SUB}}
+    .hint b{color:var(--ki-text-1, #c7c7c7);font-weight:600}
     .ol{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .s44{height:44px;width:100%;border-radius:14px;padding:0 12px;background:var(--ki-bg, #232323);color:var(--ki-text, #fafafa);font-size:14px;color-scheme:dark;cursor:pointer}
     .dlb{height:44px;border-radius:22px;background:${M.alpha(C.red, 0.2)};color:${M.theme ? M.theme.accentText(C.red) : C.red};display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:500}
@@ -2277,7 +2286,8 @@
     .wseg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
     .nbbot{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:var(--ki-surface, #3a3a3a)}
     .nbbot .ln{display:flex;align-items:center;gap:10px}
-    .nbbot input[type=range]{flex:1;min-width:0;accent-color:#f285c9;touch-action:none;cursor:pointer}
+    ${M.tp.range('.nbbot input[type=range]')}
+    .nbbot input[type=range]{flex:1;min-width:0;touch-action:none}
     .nbbot .nbbv{flex:none;min-width:48px;text-align:right;font-size:13px;color:var(--ki-text, #fafafa);font-variant-numeric:tabular-nums}
     .nbbot .rsb{flex:none;height:36px;padding:0 14px;border-radius:18px}
     :host([glass]) .nbbot{${M.glassSurface('row')}}
@@ -2465,7 +2475,7 @@
         </div>`;
         return html;
       };
-      const group = (key, title) => `<span class="gt">${title}</span>${N[key].map((id, i, l) => row(key, id, i, l)).join('') || '<span class="hint" style="padding:0 6px">Ingen knapper</span>'}`;
+      const group = (key, title) => `<span class="gt">${title}</span><div class="ngrp" data-key="g_${key}">${N[key].map((id, i, l) => row(key, id, i, l)).join('') || '<span class="nghint">Ingen knapper</span>'}</div>`;
       const style = c.style || 'white';
       const pvIcons = N.bar.filter((id) => !N.hidden.has(id)).map((id) => catOf(N, id)[0]).concat(['more_horiz']);
       // Fiks 20.6: knappene øverst · «Plassering og oppførsel» (schema-seksjonen, med Visning/Bredde/Avstand – _nbPlace) · så Stil og Mini-spiller

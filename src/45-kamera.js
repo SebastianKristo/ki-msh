@@ -777,6 +777,7 @@
     :host{display:block;color:var(--ki-text, var(--white,#fafafa));font-family:${M.FONT}}
     .w{display:flex;flex-direction:column;gap:10px}
     .hd{display:flex;align-items:center;gap:12px;padding:0 4px}
+    ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
     .hic{width:48px;height:48px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));display:grid;place-items:center;flex:none}
     .htx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .htx b{font-size:22px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -787,6 +788,7 @@
     .scope:empty{display:none} .scope{padding:0 4px}
     .s{display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .st{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 4px}
+    .s ki-spacing-editor{--ki-sp-bg:transparent;--ki-sp-ring:none;margin:-6px -12px 0} /* Fiks 66: ingen boks i boks */
     .st>span:first-child{font-size:16px;font-weight:500}
     .sm{font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
     .sg{display:flex;padding:4px;gap:4px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040))}
@@ -806,11 +808,8 @@
     .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
     .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--ki-text-2, var(--gray800,#afafaf))}
     .ts button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
-    input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;margin:0;background:transparent;touch-action:pan-y;cursor:pointer}
-    input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))}
-    input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454))}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 2px 6px ${BA(0.4)}}
-    input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:11px;background:var(--ki-knob, #fafafa)}
+    ${M.tp.range('input[type=range]')} /* Fiks 66: felles slider */
+    input[type=range]{touch-action:pan-y}
     .pills{display:flex;gap:6px;flex-wrap:wrap}
     .spc{display:flex;flex-direction:column;gap:16px;padding:14px 16px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040))}
     .spr{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
@@ -818,10 +817,9 @@
     .spt>ha-icon{color:var(--ki-text-2, var(--gray800,#afafaf));flex:none}
     .spl{flex:1;min-width:0;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .spv{flex:none;font-size:13px;color:var(--ki-text-2, var(--gray800,#afafaf));font-variant-numeric:tabular-nums}
-    .spr input[type=range]{accent-color:rgb(242 133 201)}
     .spc-ch{display:flex;flex-wrap:wrap;gap:6px}
-    .spp{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text, var(--white,#fafafa))}
-    .spp.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
+    .spp{${M.tp.SNAP}}
+    .spp.on{${M.tp.SNAP_ON}}
     .nm{position:relative;display:flex;align-items:center;height:30px;border-radius:10px;background:var(--ki-surface, #282828);min-width:0;cursor:text}
     .nm input{flex:1;min-width:0;height:30px;padding:0 28px 0 10px;border:0;outline:none;background:transparent;color:var(--ki-text, var(--white,#fafafa));font:inherit;font-size:15px;font-weight:500;text-overflow:ellipsis}
     .nm input::placeholder{color:var(--ki-text, var(--white,#fafafa));opacity:1}
@@ -829,21 +827,24 @@
     .nm>ha-icon{position:absolute;right:8px;color:var(--ki-text-3, var(--gray600,#7f7f7f));pointer-events:none}
     .pill{height:30px;padding:0 12px;border-radius:15px;font-size:13px;font-weight:500;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text, var(--white,#fafafa))}
     .pill.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
-    .cr{display:flex;align-items:center;gap:10px;padding:8px;border-radius:24px;background:var(--ki-surface-2, #2c2c2c);transition:opacity .2s}
+    /* Fiks 66: kameralisten = rader i gruppen med skillelinjer (ikke kort i kort), runde knapper uten egen flate */
+    .cr{display:flex;align-items:center;gap:10px;padding:8px 0;border-radius:0;background:none;transition:opacity .2s}
+    .cr+.cr{${M.tp.ROW_SEP}}
     .cr.off{opacity:.55}
     .cth{position:relative;width:76px;height:48px;border-radius:14px;overflow:hidden;flex:none;background:var(--gray300,#404040);display:grid;place-items:center;color:var(--gray500,#696969)} /* ki-hex-ok: kamerabilde/plassholder (mørk øy) */
     .cth img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     .cn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
     .cn b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .cn i{font-style:normal;font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .cb{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa))}
-    .cb[disabled]{background:var(--ki-surface-2, #2c2c2c);color:var(--ki-text-lo, var(--gray400,#545454));pointer-events:none}
+    .cb{width:36px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:none;color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
+    .cb:active{background:${WA(0.08)}}
+    .cb[disabled]{opacity:.3;pointer-events:none}
     .add{height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500;background:var(--ki-surface-2, var(--gray300,#404040))}
     .srch{height:42px;padding:0 14px;border-radius:14px;background:var(--ki-surface-2, var(--gray300,#404040));font-size:14px;width:100%;outline:none;border:0;color:inherit;font-family:inherit}
     .res{display:flex;flex-direction:column;gap:2px;max-height:280px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
     .rr{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 10px;border-radius:12px;text-align:left;width:100%}
     .rr:hover{background:${WA(0.06)}}
-    .note{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:4px 6px 0}
+    .note{${M.tp.SUB}padding:4px 6px 0}
     .more{height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--ki-text-2, var(--gray800,#afafaf))}
     .stat{font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797));text-align:center}.stat.ok{color:var(--ki-green-text, rgb(102 209 158))}.stat.err{color:var(--ki-red-text, var(--red,#f28073))}
     .act{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -917,7 +918,7 @@
           <div class="spc-ch">${presets.map(([pv, pl]) => `<button class="spp ${v === pv ? 'on' : ''}" data-a="sp" data-k="${k}" data-v="${pv}">${esc(pl)}</button>`).join('')}</div></div>`;
       const add = this._q != null ? this._addList(ord) : `<button class="add" data-a="addopen">${M.icon('mdi:plus', 20)}Legg til kamera</button>`;
       const html = `<style>${M.BASE_CSS}${ED_CSS}</style><div class="w">
-        <div class="hd"><span class="htx"><b>Tilpass kameraer</b><i>${esc(sub)}</i></span><button class="hb" data-a="reset">Nullstill</button><button class="done" data-a="done">Ferdig</button></div>
+        <div class="hd kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass kameraer', sub, cancel: 'cancel', reset: 'reset', done: 'done' })}</div>
         <div class="scope" data-nomorph></div>
         <div class="s"><div class="st"><span>Profil</span><span class="sm">${eff ? (eff === 'popup' ? 'Popup' : 'Dashbord') + (prof === 'auto' ? ' (auto)' : '') : ''}</span></div>
           <div class="sg">${PROFILES.map(([k, l]) => `<button class="${prof === k ? 'on' : ''}" data-a="prof" data-v="${k}">${l}</button>`).join('')}</div></div>
@@ -1036,6 +1037,7 @@
           return;
         }
         case 'done': return this.dispatchEvent(new CustomEvent('msh-save', { detail: { config: this._config } }));
+        case 'cancel': M.haptic('light'); return this.dispatchEvent(new CustomEvent('msh-cancel'));
         default:
       }
     }
