@@ -1,5 +1,6 @@
 // Skjermbilder av «Tilpass …»-arkene (felles design, MSH.tp i src/00-c-tilpass.js) i iPhone-størrelse, mørk og lys modus.
 //   node test/tilpass-shots.mjs [utmappe] [filter]   → <utmappe>/<ark>-dark.png / -light.png (standard test/.build/tilpass)
+//   TALL=2400 node test/tilpass-shots.mjs …          → høyere vindu, viser mer av innholdet
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -51,7 +52,7 @@ const SHOTS = [
 const errs = [];
 for (const theme of ['dark', 'light']) for (const [name, d] of SHOTS) {
   if (only && !name.includes(only)) continue;
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: +(process.env.TALL || 844) }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   page.on('pageerror', (e) => errs.push(`${name}: ${e.message}`)); page.on('console', (m) => { if (m.type() === 'error') errs.push(name + ': ' + m.text().slice(0, 200)); });
   await page.goto('file://' + HARNESS);
   await page.addScriptTag({ content: 'window.__MDI = ' + JSON.stringify(mdiMap) + ';' });

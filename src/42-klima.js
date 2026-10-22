@@ -1091,6 +1091,7 @@
         ${M.spacingEditorHTML ? M.spacingEditorHTML(SPACING_FIELDS, d, 'ksp-klima') : `<div class="grp">${spRows}</div>`}
         <p class="note">Endringene vises live bak arket. Luften i bunnen kommer i tillegg til navbaren.</p></section>
         </div>`;
+      M.tp.fill(box);
       const bs = box.querySelector('.bseg'), on = bs && bs.querySelector('.on');
       if (bs && M.glassTap) { M.glassTap(bs); box.querySelectorAll('.seg').forEach((x) => M.glassTap(x)); }
       if (on && bs && st.scrollSeg !== st.btab) { st.scrollSeg = st.btab; bs.scrollLeft = Math.max(0, on.offsetLeft - bs.clientWidth / 2 + on.offsetWidth / 2); }
@@ -1250,7 +1251,8 @@
     .r.sp{flex-direction:column;align-items:stretch;gap:8px;padding:12px 12px 12px 16px}
     .spl{display:flex;align-items:center;gap:10px}
     .spv{flex:none;font-size:13px;font-weight:600;color:var(--ki-text,#fafafa);font-variant-numeric:tabular-nums}
-    .r.sp input[type=range]{width:100%;margin:0;accent-color:rgb(242 133 201);touch-action:pan-y;height:28px}
+    ${M.tp.range('.r.sp input[type=range]')}
+    .r.sp input[type=range]{touch-action:pan-y}
     .spp{display:flex;flex-wrap:wrap;gap:6px}
     .spp button{height:30px;padding:0 12px;border-radius:15px;background:var(--ki-sheet-seg,#282828);font-size:12px;font-weight:500;color:var(--ki-g-t2,var(--ki-text-2,#afafaf))}
     .spp button.on{background:${PINK};color:${INK}}

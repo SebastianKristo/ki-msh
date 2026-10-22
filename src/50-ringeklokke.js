@@ -729,6 +729,7 @@
       box.innerHTML = `<div class="hd kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass ringeklokke', sub: 'Endringer vises live', cancel: 'cancel', reset: 'reset', done: 'done', busy: st.busy })}</div>
         <div class="tabs" role="tablist" data-glass-drag="x">${TABS.map(([k, l, icn]) => `<button class="tab ${k === st.tab ? 'on' : ''}" role="tab" aria-selected="${k === st.tab}" data-a="tab" data-k="${k}">${M.icon(icn, 18)}<span>${esc(l)}</span></button>`).join('')}</div>
         <div class="pane" data-tab="${st.tab}">${tabHTML()}</div>`;
+      M.tp.fill(box);
       if (M.tabPress) M.tabPress(box.querySelector('.tabs')); // Fiks 47 E: felles trykk-logikk
       if (sh) sh.scrollTop = top;
     };

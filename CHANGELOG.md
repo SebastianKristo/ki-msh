@@ -2,6 +2,13 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Felles kontroller i Tilpass-arkene (Fiks 65)
+- Én slider overalt (`MSH.tp.range`): 6 px spor, rosa fyll fram til verdien, hvit knott – erstatter native `accent-color`-slidere (ulikt utseende på iOS/Android) og de egne variantene i kamera, strømpris, lys, klima, navbar, Hjem og fanehøyde.
+- Forvalg under slidere er små, stille snarvalg (rosa tone når valgt) i stedet for en ekstra rad med store piller; valg-chips er like overalt (34 px, valgt = rosa).
+- Felles editor: felt i en gruppe har ingen egen flate (ingen boks i boks), skillelinjer mellom feltene, etiketter 14/500, hjelpetekst 12 px med bedre kontrast, tekstfelt 16 px (ingen zoom på iOS) med rosa fokusring.
+- Radlister er én gruppe med skillelinjer: Rom-seksjoner, Kort på Hjem, faner i Lys og Strøm, kameraer. Pilknapper/øye uten egne mørke piller.
+- «Mellomrom» (ki-spacing-editor) og «Fanehøyde»: slider først, så forvalg; radene skilt med linjer.
+
 ## Felles Tilpass-design
 Alle «Tilpass …»-arkene har nå samme oppbygning (`src/00-c-tilpass.js`, `MSH.tp`).
 - **Header:** `[× Avbryt]  Tilpass <navn> / undertittel  [↺ Nullstill]  [Ferdig]` i navbar, header, Hjem, rom og alle

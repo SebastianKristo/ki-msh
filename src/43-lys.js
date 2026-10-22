@@ -1133,8 +1133,8 @@
       const d = st.draft, defs = tabDefs(A, d), by = Object.fromEntries(defs.map((x) => [x[0], x])), hid = new Set(V.hideTabs(d));
       const keys = M.mshOrder(defs.map((x) => x[0]), d.tab_order, []), vis = keys.filter((k) => !hid.has(k));
       const start = M.startTab ? `<section class="card pad stc">${M.startTab.editorHTML(d, vis.map((k) => ({ key: k, label: by[k][1], icon: by[k][3] })), { label: 'Startfane', help: 'Fanen popupen åpner på. «Sist brukte» åpner fanen du var på sist.' })}</section>` : '';
-      return `${start}${keys.map((k) => `<div class="card row${hid.has(k) ? ' off' : ''}" data-row="tab" data-id="${esc(k)}" data-grp="tabs" data-key="tr-${esc(k)}">
-          ${handle('tab', k, 'tabs')}<span class="rib">${M.icon(by[k][3], 18)}</span><span class="rn">${esc(by[k][1])}</span>${M.startTab ? M.startTab.pill(d, k, vis) : ''}${eye('teye', k, hid.has(k))}</div>`).join('')}
+      return `${start}<div class="rgrp">${keys.map((k) => `<div class="card row${hid.has(k) ? ' off' : ''}" data-row="tab" data-id="${esc(k)}" data-grp="tabs" data-key="tr-${esc(k)}">
+          ${handle('tab', k, 'tabs')}<span class="rib">${M.icon(by[k][3], 18)}</span><span class="rn">${esc(by[k][1])}</span>${M.startTab ? M.startTab.pill(d, k, vis) : ''}${eye('teye', k, hid.has(k))}</div>`).join('')}</div>
         <span class="hint">Dra i håndtaket for rekkefølge, øyet skjuler. Minst én fane må være synlig.</span>`;
     };
     // ---------- Rom: per etasje, navn, «N lys», øye; utvidet: lysene (håndtak, farge, gruppe, flytt, øye) + gruppe
@@ -1294,6 +1294,7 @@
       const scr = box.querySelector('.scr');
       scr.innerHTML = (PAGES[st.tab] || pageTabs)(A);
       if (ban) scr.insertBefore(ban, scr.firstChild);
+      M.tp.fill(box);
       if (same && keep !== false) scr.scrollTop = top;
     };
     const go = (t) => { if (!PAGES[t]) return; st.tab = t; st.room = null; st.sc = null; st.adding = false; draw(false); };
@@ -1641,12 +1642,19 @@
     .slb{display:flex;flex-direction:column;gap:8px;padding:12px 0 8px}
     .vh+.slb,.sgr+.slb,.slb+.slb{border-top:1px solid ${WA(0.06)}}
     .slh{display:flex;align-items:center;gap:8px}
-    .slh span{flex:1;font-size:14px}
-    .slh b{font-size:12px;font-weight:400;color:var(--ki-text-mid, var(--gray700,#979797));font-variant-numeric:tabular-nums}
-    .rg5{width:100%;height:24px;margin:0;accent-color:var(--pink, #f285c9);touch-action:none;cursor:pointer}
+    .slh span{flex:1;${M.tp.LABEL}}
+    .slh b{${M.tp.VAL}}
+    ${M.tp.range('.rg5')}
+    .rg5{touch-action:none}
     .pre{display:flex;gap:6px;flex-wrap:wrap}
-    .mini{height:32px;padding:0 12px;border-radius:16px;border:0;font-size:12px;font-weight:500;white-space:nowrap;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text-1, var(--gray1000,#e1e1e1));cursor:pointer}
-    .mini.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
+    .mini{${M.tp.SNAP}font-family:inherit}
+    .mini.on{${M.tp.SNAP_ON}}
+    .mini:active{transform:scale(.95)}
+    /* Fiks 65: fanelisten er én gruppe med skillelinjer (ikke ett kort per rad) */
+    .rgrp{${M.tp.GROUP}display:flex;flex-direction:column}
+    .rgrp>.card{background:none;box-shadow:none;border-radius:0}
+    .rgrp>.card+.card{${M.tp.ROW_SEP}}
+    .rgrp>.card>.row,.rgrp>.card.row{min-height:56px}
     .sep{height:1px;background:${WA(0.06)};flex:none}
     .swrow{display:flex;align-items:center;gap:12px;min-height:60px;width:100%;text-align:left;border:0;background:none;padding:0;cursor:pointer}
     .swrow+.swrow{border-top:1px solid ${WA(0.06)}}
@@ -1660,7 +1668,6 @@
     .sg5 button.on{background:${PINK};color:var(--ki-on-accent, #2f2f2f)}
     .fc{gap:10px;padding-bottom:4px}
     .fc .sgr{border-top:0}
-    .stc .mst-c{height:36px;padding:0 14px}
     .pg{display:flex;flex-direction:column}
     .pg .cap:first-child{padding-top:6px}
     /* 36.7: aldri gjennomsiktig i arket – også med Liquid Glass-temaet */

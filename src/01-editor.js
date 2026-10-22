@@ -440,20 +440,34 @@
     .fsec.ksp>.sec{background:none;box-shadow:none;border:0;border-radius:24px}
     .fsec.ksp>.sec>.in{padding:0}
     .sec>.in>ki-spacing-editor{margin:0}
+    /* Fiks 65: «Mellomrom»-rader inni en vanlig gruppe (f.eks. «Avstand til prosa») = ingen boks i boks, samme innrykk som feltene */
+    .in ki-spacing-editor{--ki-sp-bg:transparent;--ki-sp-ring:none;margin:0 -12px}
+    .fsec.ksp>.sec>.in>ki-spacing-editor{margin:0}
     /* 36.7: flat «Mellomrom» (fane i Tilpass-arket) = helt dekkende seksjonskort #3a3a3a r24 + inset .05, forvalg #404040 */
     .fsec.ksp ki-spacing-editor{--ki-sp-bg:var(--ki-surface, #3a3a3a);--ki-sp-ring:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.05*var(--ki-wa-k,1)),var(--ki-wa-max,1)));--ki-sp-p:var(--ki-surface-2, #404040)}
-    .f{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:var(--ki-surface-2, #404040)}
-    .f label{font-size:12px;color:var(--ki-text-2, #afafaf)}
-    .f .help{font-size:11px;color:var(--ki-text-3, #7f7f7f)}
-    .inp{height:40px;padding:0 12px;border-radius:12px;background:var(--ki-surface-3, #2f2f2f);font-size:14px;width:100%}
+    .f{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:var(--ki-surface-2, #404040)}
+    .f label{font-size:13px;font-weight:500;color:var(--ki-text-1, #e1e1e1)}
+    .f .help{${M.tp.SUB}}
+    /* Fiks 65 · felles kontroller: felt i en gruppe har ingen egen flate (ingen boks i boks) – skillelinje mellom feltene */
+    .sec .in{gap:0}
+    .sec .in>*+*{margin-top:8px}
+    .sec .in>.f{background:none;border-radius:0;padding:12px 4px}
+    .sec .in>.f+.f{margin-top:0;${M.tp.ROW_SEP}}
+    .sec .in>.f:first-child{padding-top:6px}
+    .sec .in>.f:last-child{padding-bottom:4px}
+    .lb{flex:1;min-width:0;${M.tp.LABEL}}
+    .inp{height:44px;padding:0 14px;border-radius:14px;background:var(--ki-surface-3, #2f2f2f);font-size:16px;width:100%}
+    .inp:focus{box-shadow:inset 0 0 0 1.5px rgb(242 133 201/.7)}
     .inp::placeholder{color:var(--ki-text-3, #7f7f7f)}
     .line{display:flex;align-items:center;gap:8px}
     .sw{position:relative;width:46px;height:28px;border-radius:14px;background:var(--ki-ctrl, #545454);flex:none;transition:background .2s}
     .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
     .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: brytere er rosa overalt */
     .chips{display:flex;flex-wrap:wrap;gap:6px}
-    .chip{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-surface-3, #2f2f2f);font-size:12px;font-weight:500;color:var(--ki-text-2, #afafaf);display:inline-flex;align-items:center;gap:6px}
-    .chip.on{background:var(--ki-pill-bg, #fafafa);color:var(--ki-pill-fg, #282828)}
+    .chip{${M.tp.CHIP}}
+    .chip.on{${M.tp.CHIP_ON}}
+    .chips:not(.tabs):not(.tsub) .chip:active,.pill:active{transform:scale(.95)}
+    .chips.sg.tabs .chip,.chips.sg.tsub .chip{transition:none} /* fanene: Liquid Glass-linsen eier animasjonen */
     .sws{display:flex;flex-wrap:wrap;gap:6px}
     .dot{width:26px;height:26px;border-radius:13px;box-shadow:inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.12*var(--ki-wa-k,1)),var(--ki-wa-max,1)));flex:none}
     .dot.on{box-shadow:0 0 0 2px var(--ki-popup, #282828),0 0 0 4px var(--ki-text, #fafafa)}
@@ -489,8 +503,12 @@
     .btn.pri[disabled]{opacity:.7;cursor:progress}
     .spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(42,23,32,0.25);border-top-color:#2a1720;animation:edspin .8s linear infinite;flex:none}
     @keyframes edspin{to{transform:rotate(360deg)}}
-    .small{font-size:12px;color:var(--ki-text-mid, #979797)}
-    .ordrow{display:flex;align-items:center;gap:6px;height:44px;padding:0 4px 0 12px;border-radius:12px;background:var(--ki-surface-3, #2f2f2f)}
+    .small{${M.tp.SUB}}
+    .ordrow{display:flex;align-items:center;gap:4px;min-height:52px;padding:0 0 0 4px;border-radius:0;background:none}
+    .ordrow+.ordrow{${M.tp.ROW_SEP}}
+    .sec .in>.ordrow+.ordrow,.sec .in>.ordrow+.f{margin-top:0}
+    .sec .in>.ordrow+.f{${M.tp.ROW_SEP}}
+    .ordrow .sw{margin-right:4px}
     ha-icon-picker,ha-selector{display:block}
     .sec>summary .meta{margin-left:auto;font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797);white-space:nowrap}
     .sec>summary .meta+.chev{margin-left:8px}
@@ -498,17 +516,17 @@
     /* slider med snarvalg – egen pekerstyrt slider (Fiks 11): tar bare over ved bevisst vannrett drag (> 6 px og mer
        vannrett enn loddrett), trykk på sporet endrer ingenting, loddrett bevegelse scroller arket (touch-action: pan-y).
        Den skjulte <input type=range> gir tastatur/skjermleser (piltaster) og samme input/change-hendelser. */
-    .rg .rv{font-size:13px;color:var(--ki-text, #fafafa);font-variant-numeric:tabular-nums}
+    .rg .rv{${M.tp.VAL}}
     .sl{position:relative;height:32px;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
     .sl.drag{cursor:grabbing}
     .sl .tr{position:absolute;left:11px;right:11px;top:13px;height:6px;border-radius:3px;background:var(--ki-ctrl, #545454);overflow:hidden}
-    .sl .fi{position:absolute;left:0;top:0;bottom:0;width:var(--p,0%);background:var(--ki-text-2, #afafaf)}
-    .sl .th{position:absolute;top:5px;left:calc((100% - 22px) * var(--f, 0));width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.4*var(--ki-ka-k,1))));transition:transform .15s}
+    .sl .fi{position:absolute;left:0;top:0;bottom:0;width:var(--p,0%);background:var(--ki-range-fill, ${M.tp.PINK})}
+    .sl .th{position:absolute;top:5px;left:calc((100% - 22px) * var(--f, 0));width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 4px rgb(0 0 0/.35);transition:transform .15s}
     .sl.drag .th{transform:scale(1.15)}
     .sl input[type=range]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;pointer-events:none}
     .sl:focus-within .th{box-shadow:0 0 0 3px rgba(242,133,201,.55),0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(.4*var(--ki-ka-k,1))))}
-    .pill{height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:500;background:var(--ki-ctrl, #545454);color:var(--ki-text, #fafafa)}
-    .pill.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:var(--ki-on-accent, #3a3a3a)}
+    .pill{${M.tp.SNAP}}
+    .pill.on{${M.tp.SNAP_ON}}
     /* Liquid glass (navbar-stil glass, attributtet settes når editoren ligger i et glassark fra MSH.overlay):
        rader/grupper = glassSurface('row'), felt/segmentspor rgba(0,0,0,.25), aktivt segment = glassboble, tekst #fafafa / .62.
        Ferdig-knappen (rosa gradient) er uendret. Standard-profilen bruker reglene over. */
@@ -537,23 +555,27 @@
   // Bruk: M.spacingEditorHTML(fields, cfg) → <ki-spacing-editor rows="…">. Sender 'ki-spacing-change' { name, value,
   // commit } (bubbles + composed; commit=false under drag, true ved slipp/chip) – msh-editor (og arkene som arver den,
   // f.eks. Tilpass Tesla) lytter og lagrer i utkastet.
+  // Fiks 65 (felles kontroller): radene står i én gruppe med skillelinjer, slideren er den felles MSH.tp.range og
+  // forvalgene er små, stille snarvalg (MSH.tp.SNAP – valgt = rosa tone) på én linje – ikke en ny rad med store piller.
   const SP_CSS = `:host{display:block;width:100%;min-width:0;box-sizing:border-box;font-family:${M.FONT};color:var(--ki-text, #fafafa)}
     *{box-sizing:border-box}
-    .box{display:flex;flex-direction:column;gap:16px;width:100%;min-width:0;padding:14px 16px;border-radius:24px;background:var(--ki-sp-bg, var(--ki-surface-2, var(--gray300,#404040)));box-shadow:var(--ki-sp-ring, none);opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none}
-    .r{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0}
+    .box{display:flex;flex-direction:column;width:100%;min-width:0;padding:0 16px;border-radius:24px;background:var(--ki-sp-bg, var(--ki-surface-2, var(--gray300,#404040)));box-shadow:var(--ki-sp-ring, none);opacity:1;-webkit-backdrop-filter:none;backdrop-filter:none}
+    .r{display:flex;flex-direction:column;gap:6px;width:100%;min-width:0;padding:14px 0 12px}
+    .r+.r{${M.tp.ROW_SEP}}
     .t{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-width:0}
-    .l{display:flex;align-items:center;gap:8px;flex:1;min-width:0;font-size:14px;font-weight:500;line-height:1.25}
+    .l{display:flex;align-items:center;gap:10px;flex:1;min-width:0;${M.tp.LABEL}}
     .l ha-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px;color:var(--ki-text-2, #afafaf);display:inline-flex}
     .lt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .v{flex:none;font-size:13px;color:var(--ki-text-2, #afafaf);font-variant-numeric:tabular-nums;white-space:nowrap}
+    .v{flex:none;${M.tp.VAL}}
     .ks{position:relative;width:100%;min-width:0;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
     .ks.drag{cursor:grabbing}
-    .ks input{display:block;width:100%;accent-color:rgb(242 133 201);pointer-events:none;cursor:inherit}
+    ${M.tp.range('.ks input')}
+    .ks input{pointer-events:none;cursor:inherit}
     .c{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
-    .p{height:30px;padding:0 12px;border-radius:15px;border:0;margin:0;font:500 12px ${M.FONT};white-space:nowrap;background:var(--ki-sp-p, var(--ki-ctrl, #545454));color:var(--ki-text, #fafafa);cursor:pointer;transition:transform .12s}
+    .p{${M.tp.SNAP}font-family:${M.FONT}}
     .p:active{transform:scale(.95)}
-    .p.on{background:linear-gradient(145deg, rgb(242 133 201) -10%, rgb(245 205 198) 100%);color:var(--ki-on-accent, #3a3a3a)}
-    .h{font-size:11px;color:var(--ki-text-3, #7f7f7f)}`;
+    .p.on{${M.tp.SNAP_ON}}
+    .h{${M.tp.SUB}}`;
   class KiSpacing extends HTMLElement {
     static get observedAttributes() { return ['rows']; }
     constructor() {
@@ -624,6 +646,7 @@
       if (vt.textContent !== txt) vt.textContent = txt;
       const inp = el.querySelector('input');
       if (Number(inp.value) !== v) inp.value = String(v);
+      M.tp.fill(inp);
       el.querySelectorAll('.p').forEach((p) => { const on = Number(p.dataset.spv) === v; p.classList.toggle('on', on); p.setAttribute('aria-pressed', String(on)); });
     }
     _sig() { return JSON.stringify(this._rows.map((r) => [r.name, r.label, r.icon, r.min, r.max, r.step, r.help, r.presets])); }
@@ -638,6 +661,7 @@
           ${(r.presets || []).length ? `<div class="c">${r.presets.map(([pv, pl]) => `<button type="button" class="p${Number(pv) === v ? ' on' : ''}" aria-pressed="${Number(pv) === v}" data-spn="${esc(r.name)}" data-spv="${Number(pv)}">${esc(pl)}</button>`).join('')}</div>` : ''}
           ${r.help ? `<span class="h">${esc(r.help)}</span>` : ''}</div>`;
       }).join('')}</div>`;
+      M.tp.fill(this.shadowRoot);
     }
   }
   if (!customElements.get('ki-spacing-editor')) customElements.define('ki-spacing-editor', KiSpacing);
@@ -813,7 +837,7 @@
         ${body || '<div class="small">Ingen innstillinger.</div>'}
         ${!this._inline && M.store && M.isPerDevice && M.isPerDevice(this._config, null) ? '<div class="small">Enheter kan ha eget oppsett i dashbordet («Tilpass …» → Denne enheten). Her endres felles oppsett.</div>' : ''}
       </div>`;
-      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); } else M.morph(this.shadowRoot, html);
+      if (!this._did) { this.shadowRoot.innerHTML = html; this._did = true; if (M.bindSteppers) M.bindSteppers(this.shadowRoot, this); M.tp.fill(this.shadowRoot); } else M.morph(this.shadowRoot, html);
       this._glassSync();
       // Tittelen får plass ved siden av knappene – smal skjerm: krymp til den passer (min 16 px), deretter ellipsis
       if (this._inline) this._fitTitle();
@@ -872,10 +896,10 @@
           if (f.get && f.set) { // verdi utenfor kort-configen (f.eks. ki-store ui.glass_anim, Fiks 17.18): f.get(hass, cfg) / f.set(v, hass, cfg)
             (this._btns = this._btns || {})[key] = f;
             const on2 = !!f.get(h, c);
-            return `<div class="f"><div class="line"><span style="flex:1;font-size:13px">${esc(f.label)}</span><button class="sw ${on2 ? 'on' : ''}" role="switch" aria-checked="${on2}" data-a="boolfn" data-k="${esc(key)}" data-v="${on2 ? 0 : 1}"></button></div>${help}</div>`;
+            return `<div class="f"><div class="line"><span class="lb">${esc(f.label)}</span><button class="sw ${on2 ? 'on' : ''}" role="switch" aria-checked="${on2}" data-a="boolfn" data-k="${esc(key)}" data-v="${on2 ? 0 : 1}"></button></div>${help}</div>`;
           }
           const on = val != null ? !!val : !!f.default;
-          return `<div class="f"><div class="line"><span style="flex:1;font-size:13px">${esc(f.label)}</span><button class="sw ${on ? 'on' : ''}" role="switch" data-a="bool" data-name="${esc(f.name)}" data-v="${on ? 0 : 1}"></button></div>${help}</div>`;
+          return `<div class="f"><div class="line"><span class="lb">${esc(f.label)}</span><button class="sw ${on ? 'on' : ''}" role="switch" data-a="bool" data-name="${esc(f.name)}" data-v="${on ? 0 : 1}"></button></div>${help}</div>`;
         }
         case 'select': {
           const cur = val != null ? String(val) : f.default != null ? String(f.default) : '';
@@ -895,7 +919,7 @@
           const pills = (f.presets || []).map(([v, l]) => `<button class="pill ${Number(v) === cur ? 'on' : ''}" data-a="sel" data-num="1" data-name="${esc(f.name)}" data-v="${v}">${esc(l)}</button>`).join('');
           const v = cur != null ? cur : f.min, fr = f.max > f.min ? M.clamp((v - f.min) / (f.max - f.min), 0, 1) : 0;
           const drag = this._sl && this._sl.taken && this._sl.name === f.name;
-          return `<div class="f rg"><div class="line">${f.icon ? M.icon(f.icon, 20, 'color:var(--ki-text-2, #afafaf)') : ''}<span style="flex:1;font-size:13px">${esc(f.label)}</span><span class="rv">${cur != null ? cur : '–'} ${esc(f.unit || 'px')}</span></div>
+          return `<div class="f rg"><div class="line">${f.icon ? M.icon(f.icon, 20, 'color:var(--ki-text-2, #afafaf)') : ''}<span class="lb">${esc(f.label)}</span><span class="rv">${cur != null ? cur : '–'} ${esc(f.unit || 'px')}</span></div>
             <div class="sl${drag ? ' drag' : ''}" data-key="sl-${esc(f.name)}" data-name="${esc(f.name)}" data-v="${v}" data-min="${f.min}" data-max="${f.max}" data-step="${f.step || 1}" style="--f:${fr.toFixed(4)};--p:${(fr * 100).toFixed(2)}%"><div class="tr"><div class="fi"></div></div><div class="th"></div>
               <input type="range" aria-label="${esc(f.label || f.name)}" data-name="${esc(f.name)}" data-num="1" data-range="1" min="${f.min}" max="${f.max}" step="${f.step || 1}" value="${v}"></div>
             ${pills ? `<div class="chips">${pills}</div>` : ''}${help}</div>`;
@@ -1110,10 +1134,10 @@
       const stVis = f.start ? (f.start.visible ? (() => { try { return f.start.visible(c) || []; } catch (e) { return []; } })() : order.filter((k) => !hid.has(k))) : [];
       const stPill = (k) => (f.start && M.startTab ? M.startTab.pill(c, k, stVis, f.start.legacy) : '');
       const after = (f.after || []).map((x, j) => (x.type === 'boolean' && x.on != null
-        ? (() => { const on = get(c, x.name) === x.on; return `<div class="f"><div class="line"><span style="flex:1;font-size:13px">${esc(x.label)}</span><button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-a="sel" data-name="${esc(x.name)}" data-v="${esc(on ? x.off : x.on)}"></button></div>${x.help ? `<div class="small">${esc(x.help)}</div>` : ''}</div>`; })()
+        ? (() => { const on = get(c, x.name) === x.on; return `<div class="f"><div class="line"><span class="lb">${esc(x.label)}</span><button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-a="sel" data-name="${esc(x.name)}" data-v="${esc(on ? x.off : x.on)}"></button></div>${x.help ? `<div class="small">${esc(x.help)}</div>` : ''}</div>`; })()
         : this._field(x, 'ord_' + f.name + '_' + j))).join('');
       const inner = `${f.openName ? '<div class="small" style="padding:0 6px">Bryteren = «Åpen ved start»: seksjonen er utvidet hver gang popupen åpnes. Øye = vis/skjul, piler = rekkefølge.</div>' : ''}
-        ${order.map((k, i) => `<div class="ordrow ${hid.has(k) ? 'off' : ''}" style="${hid.has(k) ? 'opacity:.5' : ''}"><span style="flex:1;font-size:13px">${esc(lab[k])}</span>${stPill(k)}${opn(k)}
+        ${order.map((k, i) => `<div class="ordrow ${hid.has(k) ? 'off' : ''}" style="${hid.has(k) ? 'opacity:.5' : ''}"><span class="lb">${esc(lab[k])}</span>${stPill(k)}${opn(k)}
           <button class="ib" data-a="mv" data-name="${esc(f.name)}" data-ord="${esc(order.join(','))}" data-i="${i}" data-d="-1" ${i ? '' : 'disabled style="opacity:.3"'}>${M.icon('mdi:chevron-up', 20)}</button>
           <button class="ib" data-a="mv" data-name="${esc(f.name)}" data-ord="${esc(order.join(','))}" data-i="${i}" data-d="1" ${i < order.length - 1 ? '' : 'disabled style="opacity:.3"'}>${M.icon('mdi:chevron-down', 20)}</button>
           <button class="ib" data-a="hid" data-name="${esc(f.hiddenName)}" data-v="${esc(k)}">${M.icon(hid.has(k) ? 'mdi:eye-off' : 'mdi:eye', 18)}</button></div>`).join('')}

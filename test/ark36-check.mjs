@@ -73,7 +73,7 @@ for (const pop of popups) {
       const box = ks && ks.shadowRoot.querySelector('.box'), bcs = box && getComputedStyle(box);
       const title = (deepAll(host.shadowRoot).find((e) => e.classList && (e.classList.contains('tt') || e.matches('h1,h2,.title,.ttl b,.hd b')) && vis(e)) || {}).textContent;
       return { card: card.localName, title: (title || '').trim().slice(0, 40), bg: cs.backgroundColor, img: cs.backgroundImage, bf: cs.backdropFilter, op, inPop, glassHost: host.hasAttribute('data-glass'), bad: bad.slice(0, 8), nBad: bad.length,
-        sp: box ? { bg: bcs.backgroundColor, bf: bcs.backdropFilter, op: bcs.opacity } : null };
+        sp: box ? { bg: bcs.backgroundColor, under: (() => { let n = ks.parentNode; while (n) { if (n.nodeType === 1) { const b = getComputedStyle(n).backgroundColor; if (b !== 'rgba(0, 0, 0, 0)') return b; } n = n.parentNode || n.host; } return null; })(), bf: bcs.backdropFilter, op: bcs.opacity } : null };
     }, { pop, theme });
     const tag = `${pop.name} ${pop.hash} (${theme})`;
     if (r.err) ok(`${tag}: ${r.err}`, false, r);
@@ -82,7 +82,7 @@ for (const pop of popups) {
       sheets++;
       ok(`${tag} «${r.title}»: arket helt dekkende (${r.bg}), ingen blur/opasitet, portalt`, tr1(r.bg) === 1 && (r.bf === 'none' || !r.bf) && r.op === 1 && !r.inPop && !r.glassHost, r);
       ok(`${tag}: ingen gjennomsiktige seksjonskort/rader, ingen backdrop-filter i arket`, !r.nBad, r.bad);
-      if (r.sp) ok(`${tag}: «Mellomrom» dekkende (${r.sp.bg})`, tr1(r.sp.bg) === 1 && r.sp.bf === 'none' && r.sp.op === '1', r.sp);
+      if (r.sp) ok(`${tag}: «Mellomrom» dekkende (${r.sp.bg}; Fiks 65: gjennomsiktig inni en dekkende gruppe er lov)`, (tr1(r.sp.bg) === 1 || (r.sp.bg === 'rgba(0, 0, 0, 0)' && r.sp.under && tr1(r.sp.under) === 1)) && r.sp.bf === 'none' && r.sp.op === '1', r.sp);
     }
     await page.close();
   }

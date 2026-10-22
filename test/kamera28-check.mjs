@@ -137,7 +137,7 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
     return out;
   }, deep('msh-kamera-editor'));
   ok(`${T}: Tilpass kameraer: navnefelt (#282828, r10, 30 px, blyant-ikon), placeholder = standardnavn`, !E.none && E.val === 'Inngang' && E.ph === 'Veranda' && E.phVal === '' && E.bg === 'rgb(40, 40, 40)' && E.rad === '10px' && E.h === 30 && /pencil|edit/.test(E.icon || ''), E);
-  ok(`${T}: padT-rad som Rom v4 (#404040 r24, etikett på én linje, slider full bredde, chips under, Standard −10)`, E.row && E.row.ws === 'nowrap' && E.row.lbH <= 22 && E.row.slW >= E.row.rowW - 2 && E.row.slTop && E.row.chTop && E.row.val === '20 px' && E.row.chips.join('|') === 'Inntil −20|Standard −10|Tett 6|Luftig 44' && E.row.spcBg === 'rgb(64, 64, 64)' && E.row.spcRad === '24px', E.row);
+  ok(`${T}: padT-rad som Rom v4 (r24 – Fiks 65: inni Utseende-gruppen uten egen flate, etikett på én linje, slider full bredde, chips under, Standard −10)`, E.row && E.row.ws === 'nowrap' && E.row.lbH <= 22 && E.row.slW >= E.row.rowW - 2 && E.row.slTop && E.row.chTop && E.row.val === '20 px' && E.row.chips.join('|') === 'Inntil −20|Standard −10|Tett 6|Luftig 44' && (E.row.spcBg === 'rgb(64, 64, 64)' || E.row.spcBg === 'rgba(0, 0, 0, 0)') && E.row.spcRad === '24px', E.row);
   ok(`${T}: nytt navn → live forhåndsvisning + names i config; tomt felt fjerner nøkkelen`, E.live === 'Terrasse' && E.after && E.after['camera.veranda'] === 'Terrasse' && E.cleared && !('camera.inngang' in E.cleared) && E.cleared['camera.veranda'] === 'Terrasse', E);
   ok(`${T}: padT-chip setter padT, Ferdig lagrer names`, E.padT === 44 && E.saved && E.saved['camera.veranda'] === 'Terrasse', E);
   if (shots) await p.screenshot({ path: `${shots}/kamera28-${T}-tilpass.png` });

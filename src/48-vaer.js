@@ -2117,6 +2117,7 @@ ${VE}`;
         <div class="tbox"><span class="tnote">Hold inne en flis og dra for å endre rekkefølgen.</span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>${M.icon('mdi:restart', 18)}Tilbakestill rekkefølge</button></div>
         <button class="more" data-a="sensors">${M.icon('mdi:thermometer', 18)}Føles som og sikt</button>
         <button class="more" data-a="more">${M.icon('mdi:cog-outline', 18)}Entiteter og prognose</button>`;
+      M.tp.fill(box);
       const seg = box.querySelector('.stl');
       if (seg && M.glassDrag) M.glassDrag(seg, { axis: 'x', touchAction: 'pan-y' });
       if (sh) sh.scrollTop = top;

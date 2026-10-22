@@ -235,14 +235,14 @@ for (const theme of ['dark', 'light']) {
       out.visning = scan();
       const ks = E.querySelector('ki-spacing-editor'), box = ks && ks.shadowRoot.querySelector('.box'), bcs = box && getComputedStyle(box);
       const ps = ks ? [...ks.shadowRoot.querySelectorAll('.p')] : [];
-      out.sp = box && { bg: bcs.backgroundColor, rad: bcs.borderRadius, sh: bcs.boxShadow, bf: bcs.backdropFilter, op: bcs.opacity, off: [...new Set(ps.filter((p) => !p.classList.contains('on')).map((p) => getComputedStyle(p).backgroundColor))], on: ps.filter((p) => p.classList.contains('on')).map((p) => getComputedStyle(p).backgroundImage.slice(0, 16)), wrapBg: getComputedStyle(ks.closest('.sec') || ks).backgroundColor };
+      out.sp = box && { bg: bcs.backgroundColor, rad: bcs.borderRadius, sh: bcs.boxShadow, bf: bcs.backdropFilter, op: bcs.opacity, off: [...new Set(ps.filter((p) => !p.classList.contains('on')).map((p) => getComputedStyle(p).backgroundColor))], on: ps.filter((p) => p.classList.contains('on')).map((p) => getComputedStyle(p).backgroundColor), wrapBg: getComputedStyle(ks.closest('.sec') || ks).backgroundColor };
       out.labels = [...E.querySelectorAll('label')].map((l) => l.textContent);
       out.dv = [...E.querySelectorAll('[data-op="dv"]')].map((b) => [b.dataset.v, b.classList.contains('on')]);
       return out;
     });
     const surf = theme === 'dark' ? 'rgb(58, 58, 58)' : 'rgb(255, 255, 255)', surf2 = theme === 'dark' ? 'rgb(64, 64, 64)' : 'rgb(235, 235, 235)';
     ok(T(`36.7 [${tag}] Faner/Visning: ingen backdrop-filter, opasitet < 1 eller gjennomsiktige seksjonskort/rader`), !S.faner.length && !S.visning.length, { f: S.faner.slice(0, 6), v: S.visning.slice(0, 6) });
-    ok(T(`36.7 [${tag}] Mellomrom = dekkende kort ${surf} r24 inset, forvalg ${surf2}, aktiv rosa`), S.sp && S.sp.bg === surf && S.sp.rad === '24px' && /inset/.test(S.sp.sh) && S.sp.bf === 'none' && S.sp.op === '1' && S.sp.off.length === 1 && S.sp.off[0] === surf2 && S.sp.on.length && S.sp.on.every((x) => /gradient/.test(x)), S.sp);
+    ok(T(`36.7/65 [${tag}] Mellomrom = dekkende kort ${surf} r24 inset, forvalg stille (gjennomsiktig), aktiv rosa tone`), S.sp && S.sp.bg === surf && S.sp.rad === '24px' && /inset/.test(S.sp.sh) && S.sp.bf === 'none' && S.sp.op === '1' && S.sp.off.length === 1 && S.sp.off[0] === 'rgba(0, 0, 0, 0)' && S.sp.on.length && S.sp.on.every((x) => /242, 133, 201|0\.94902 0\.52\d* 0\.788/.test(x)), S.sp);
     ok(T(`36.6 [${tag}] Tilpass → Visning: Startvisning (Liste/Måned) med aktivt valg`), S.labels.includes('Startvisning') && S.dv.length === 2 && S.dv.filter((x) => x[1]).length === 1, S);
     // trykk på bakteppet lukker
     await page.evaluate(() => { const P = MSH.portals().filter((p) => p.isConnected && p.classList.contains('on')); P[P.length - 1].shadowRoot.querySelector('.bg').click(); });

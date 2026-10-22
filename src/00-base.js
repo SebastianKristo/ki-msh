@@ -2018,6 +2018,7 @@
     const tpl = document.createElement('template');
     tpl.innerHTML = html;
     patchChildren(target, tpl.content);
+    if (MSH.tp) MSH.tp.fill(target); // Fiks 65: rosa fyll på sliderne (--kt-p) – morph fjerner inline-stil som ikke står i malen
   };
 
   /* ------------------------------------------------------------ config-lagring */

@@ -895,6 +895,7 @@
           <div class="etabs" role="tablist" data-glass-drag="x">${[['q', 'Knapper'], ['t', 'Faner'], ['e', 'Entiteter'], ['v', 'Visning']].map(([k, l]) => `<button class="et${st.tab === k ? ' on' : ''}" role="tab" aria-selected="${st.tab === k}" data-a="etab" data-k="${k}">${l}</button>`).join('')}</div>
         </div>
         <div class="scr" data-tab="${st.tab}"><div class="in">${content(D)}</div></div>`;
+      M.tp.fill(box);
       const n = box.querySelector('.scr');
       if (n && st.keep !== false) n.scrollTop = top;
       st.keep = true;
