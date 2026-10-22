@@ -190,7 +190,7 @@
     .mth-pv{padding:10px;border-radius:20px;background:var(--ki-popup, #282828);box-shadow:inset 0 0 0 1px ${WA(0.05)};overflow:hidden;pointer-events:none}
     .mth-pv .mtb-t{min-width:0}
     .mth-ch{display:flex;flex-wrap:wrap;gap:6px}
-    /* Fiks 65: forvalgene er de felles stille snarvalgene (MSH.tp.SNAP) under slideren */
+    /* Fiks 66: forvalgene er de felles stille snarvalgene (MSH.tp.SNAP) under slideren */
     .mth-c{${M.tp.SNAP}font-family:inherit;-webkit-tap-highlight-color:transparent}
     .mth-c.on{${M.tp.SNAP_ON}}
     .mth-c small{font-size:11px;font-weight:400;opacity:.75;margin-left:4px}

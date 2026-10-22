@@ -1650,7 +1650,7 @@
     .mini{${M.tp.SNAP}font-family:inherit}
     .mini.on{${M.tp.SNAP_ON}}
     .mini:active{transform:scale(.95)}
-    /* Fiks 65: fanelisten er én gruppe med skillelinjer (ikke ett kort per rad) */
+    /* Fiks 66: fanelisten er én gruppe med skillelinjer (ikke ett kort per rad) */
     .rgrp{${M.tp.GROUP}display:flex;flex-direction:column}
     .rgrp>.card{background:none;box-shadow:none;border-radius:0}
     .rgrp>.card+.card{${M.tp.ROW_SEP}}

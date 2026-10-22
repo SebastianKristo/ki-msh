@@ -2018,7 +2018,7 @@
     const tpl = document.createElement('template');
     tpl.innerHTML = html;
     patchChildren(target, tpl.content);
-    if (MSH.tp) MSH.tp.fill(target); // Fiks 65: rosa fyll på sliderne (--kt-p) – morph fjerner inline-stil som ikke står i malen
+    if (MSH.tp) MSH.tp.fill(target); // Fiks 66: rosa fyll på sliderne (--kt-p) – morph fjerner inline-stil som ikke står i malen
   };
 
   /* ------------------------------------------------------------ config-lagring */
@@ -2046,6 +2046,7 @@
     walk(document, 0);
     return hit;
   }
+  MSH.openPopupEl = openPopupEl;
   function scrollerOf(pop) {
     if (!pop) return null;
     const c = pop.querySelector('.bubble-pop-up-container');

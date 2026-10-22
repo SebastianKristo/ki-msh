@@ -82,7 +82,7 @@ for (const pop of popups) {
       sheets++;
       ok(`${tag} «${r.title}»: arket helt dekkende (${r.bg}), ingen blur/opasitet, portalt`, tr1(r.bg) === 1 && (r.bf === 'none' || !r.bf) && r.op === 1 && !r.inPop && !r.glassHost, r);
       ok(`${tag}: ingen gjennomsiktige seksjonskort/rader, ingen backdrop-filter i arket`, !r.nBad, r.bad);
-      if (r.sp) ok(`${tag}: «Mellomrom» dekkende (${r.sp.bg}; Fiks 65: gjennomsiktig inni en dekkende gruppe er lov)`, (tr1(r.sp.bg) === 1 || (r.sp.bg === 'rgba(0, 0, 0, 0)' && r.sp.under && tr1(r.sp.under) === 1)) && r.sp.bf === 'none' && r.sp.op === '1', r.sp);
+      if (r.sp) ok(`${tag}: «Mellomrom» dekkende (${r.sp.bg}; Fiks 66: gjennomsiktig inni en dekkende gruppe er lov)`, (tr1(r.sp.bg) === 1 || (r.sp.bg === 'rgba(0, 0, 0, 0)' && r.sp.under && tr1(r.sp.under) === 1)) && r.sp.bf === 'none' && r.sp.op === '1', r.sp);
     }
     await page.close();
   }

@@ -54,6 +54,8 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
 <body>
 <div id="app"></div>
 <script src="native.js"></script>
+<script src="update.js"></script>
+<script src="live-hass.js"></script>
 <script>
 (function () {
   const LS = 'ki-app';
@@ -126,16 +128,22 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
     st.busy = false; render();
   }
 
-  function finish(code) {
+  // Koden byttes mot token her i appen; dashbordet (samme som demoen) kjører så mot din Home Assistant
+  async function finish(code) {
     const url = st.server.url;
     const path = '/' + (st.path || '').replace(/^\/+/, '');
+    try { await window.kiLiveHass.exchangeCode(url, url + '/', code); }
+    catch (e) { st.flow = null; st.busy = false; st.err = 'Kunne ikke hente tilgang: ' + e.message; hap('failure'); return render(); }
     save({ url, name: st.server.name, path, user: st.user.trim() });
     st.step = 3; render(); hap('success');
-    const state = btoa(JSON.stringify({ hassUrl: url, clientId: url + '/' }));
-    setTimeout(() => { location.href = url + path + (path.includes('?') ? '&' : '?') + 'auth_callback=1&code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state) + '&storeToken=true'; }, 900);
+    setTimeout(openSaved, 700);
   }
 
-  function openSaved() { const s = load(); location.href = s.url + (s.path || '/'); }
+  const DASH = () => 'demo/ki/runtime.html?live' + (window.kiNative.platform === 'android' ? '&android' : '');
+  function openSaved() {
+    if (window.kiLiveHass.hasAuth()) { location.href = DASH(); return; }
+    const s = load(); st.step = 1; st.manual = true; st.url = s.url || ''; st.path = s.path || '/'; render(); scan();
+  }
 
   const top = () => {
     const n = st.step;
@@ -153,7 +161,7 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
         (saved.url ? '<button class="primary" data-a="open"><i class="mdi mdi-home-assistant"></i>Åpne ' + esc(saved.name || 'Home Assistant') + '</button><button class="ghost" data-a="next">Koble til en annen server</button>'
           : '<button class="primary" data-a="next">Kom i gang</button>') +
         '<button class="ghost" data-a="demo">Prøv demo uten server</button>' +
-        '<div class="foot">Home Assistant 2024.11 eller nyere</div>';
+        '<div class="foot">Home Assistant 2024.11 eller nyere' + (window.kiUpdate && window.kiUpdate.android ? '<br><span id="ver"></span> · <button data-a="update" style="border:0;background:none;color:var(--text-2);font:inherit;text-decoration:underline;padding:6px 0">Se etter oppdatering</button>' : '') + '</div>';
     } else if (s === 'server') {
       h = top() + '<div class="step"><h1>Velg server</h1><p class="lead">' +
         (st.scanning ? 'Søker etter Home Assistant på nettverket …' : st.servers.length ? 'Fant ' + st.servers.length + (st.servers.length === 1 ? ' server' : ' servere') + '. Velg én, eller skriv inn adressen selv.' : 'Fant ingen server automatisk. Skriv inn adressen.') + '</p>' +
@@ -173,11 +181,13 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
             '<label>Passord</label><div class="pw"><input id="pass" type="' + (st.showPass ? 'text' : 'password') + '" value="' + esc(st.pass) + '" placeholder="••••••••" autocomplete="current-password"><button data-a="show" aria-label="Vis passord"><i class="mdi ' + (st.showPass ? 'mdi-eye-off-outline' : 'mdi-eye-outline') + '"></i></button></div>') +
         (st.err ? '<div class="err"><i class="mdi mdi-alert-circle-outline"></i>' + esc(st.err) + '</div>' : '') +
         '</div><button class="primary" data-a="login" ' + (st.busy ? 'disabled' : '') + '>' + (st.busy ? '<span class="spin" style="width:22px;height:22px"></span>' : '') + (mfa ? 'Bekreft' : 'Logg inn') + '</button>' +
-        '<button class="ghost" data-a="weblogin">Logg inn på Home Assistant-siden i stedet</button>';
+        '';
     } else {
       h = '<div class="step center"><div class="spin"></div><h1>Klar!</h1><p class="lead">Åpner dashbordet …</p></div>';
     }
     app.innerHTML = h;
+    const ver = document.getElementById('ver');
+    if (ver) window.kiUpdate.info().then((i) => { if (i) ver.textContent = 'Versjon ' + i.versionName; });
   }
 
   const sync = () => { ['url', 'path', 'user', 'pass', 'mfa'].forEach((k) => { const el = document.getElementById(k); if (el) st[k] = el.value; }); };
@@ -193,18 +203,22 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
     else if (a === 'pick') { st.sel = b.dataset.u; st.manual = false; st.urlErr = ''; render(); }
     else if (a === 'manual') { st.manual = true; render(); const el = document.getElementById('url'); el && el.focus(); }
     else if (a === 'connect') connect();
+    else if (a === 'update') window.kiUpdate.check(8000, { manual: true });
     else if (a === 'show') { st.showPass = !st.showPass; render(); }
     else if (a === 'login') login();
-    else if (a === 'weblogin') { const path = '/' + (st.path || '').replace(/^\/+/, ''); save({ url: st.server.url, name: st.server.name, path }); location.href = st.server.url + path; }
   });
 
   // Lagret server: rett inn i dashbordet, med et kort vindu for å bytte server.
   const saved = load();
-  if (saved.url && !/[?&]setup/.test(location.search)) {
+  if (/[?&]expired/.test(location.search)) { st.step = 1; st.manual = true; st.url = saved.url || ''; st.path = saved.path || '/'; st.urlErr = 'Innloggingen er utløpt. Logg inn på nytt.'; render(); scan(); }
+  else if (saved.url && window.kiLiveHass.hasAuth() && !/[?&]setup/.test(location.search)) {
     app.innerHTML = '<div class="step center"><div class="spin"></div><p class="lead">Kobler til ' + esc(saved.name || 'Home Assistant') + ' …</p></div><button class="ghost" id="switch">Bytt server</button>';
-    const t = setTimeout(openSaved, 1200);
-    document.getElementById('switch').onclick = () => { clearTimeout(t); render(); };
-  } else render();
+    // Ny Android-versjon? Da vises oppdateringsarket i stedet for å gå rett inn («Senere» går videre).
+    let stop = false;
+    const upd = window.kiUpdate ? window.kiUpdate.check(2500) : Promise.resolve(null);
+    const t = setTimeout(async () => { if (await upd) { document.addEventListener('ki-update-later', () => { if (!stop) openSaved(); }, { once: true }); return; } if (!stop) openSaved(); }, 1200);
+    document.getElementById('switch').onclick = () => { stop = true; clearTimeout(t); render(); };
+  } else { render(); if (window.kiUpdate) window.kiUpdate.check(4000); }
 })();
 </script>
 </body>

@@ -788,7 +788,7 @@
     .scope:empty{display:none} .scope{padding:0 4px}
     .s{display:flex;flex-direction:column;gap:10px;padding:14px 12px;border-radius:28px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     .st{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 4px}
-    .s ki-spacing-editor{--ki-sp-bg:transparent;--ki-sp-ring:none;margin:-6px -12px 0} /* Fiks 65: ingen boks i boks */
+    .s ki-spacing-editor{--ki-sp-bg:transparent;--ki-sp-ring:none;margin:-6px -12px 0} /* Fiks 66: ingen boks i boks */
     .st>span:first-child{font-size:16px;font-weight:500}
     .sm{font-size:14px;color:var(--ki-text-mid, var(--gray700,#979797));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
     .sg{display:flex;padding:4px;gap:4px;border-radius:22px;background:var(--ki-surface-2, var(--gray300,#404040))}
@@ -808,7 +808,7 @@
     .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
     .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--ki-text-2, var(--gray800,#afafaf))}
     .ts button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
-    ${M.tp.range('input[type=range]')} /* Fiks 65: felles slider */
+    ${M.tp.range('input[type=range]')} /* Fiks 66: felles slider */
     input[type=range]{touch-action:pan-y}
     .pills{display:flex;gap:6px;flex-wrap:wrap}
     .spc{display:flex;flex-direction:column;gap:16px;padding:14px 16px;border-radius:24px;background:var(--ki-surface-2, var(--gray300,#404040))}
@@ -827,7 +827,7 @@
     .nm>ha-icon{position:absolute;right:8px;color:var(--ki-text-3, var(--gray600,#7f7f7f));pointer-events:none}
     .pill{height:30px;padding:0 12px;border-radius:15px;font-size:13px;font-weight:500;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text, var(--white,#fafafa))}
     .pill.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}
-    /* Fiks 65: kameralisten = rader i gruppen med skillelinjer (ikke kort i kort), runde knapper uten egen flate */
+    /* Fiks 66: kameralisten = rader i gruppen med skillelinjer (ikke kort i kort), runde knapper uten egen flate */
     .cr{display:flex;align-items:center;gap:10px;padding:8px 0;border-radius:0;background:none;transition:opacity .2s}
     .cr+.cr{${M.tp.ROW_SEP}}
     .cr.off{opacity:.55}

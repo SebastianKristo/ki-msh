@@ -8,7 +8,7 @@
  *   cent (entitet for betingelsen, tom = samme som boblen), hidden, svc/target/data },
  *   tap = «Ved trykk» i HA-format (Fiks 15.6, src/09-tap-picker.js): { action: navigate, navigation_path: '#tesla' }
  *     (popup / egen hash / dashbord-sti) · { action: url, url_path } · { action: more-info } · { action: lock-sheet }
- *     (hurtigark for dørlåsen) · { action: none }. Standard som før: vær → #vaer, lys → #lys, hendelser → more-info.
+ *     (hurtigark for dørlåsen) · { action: none }. Standard som før: vær → #vaer, lys → #lys, hendelser → #kalender (gammel more-info uten entitet går også dit når popupen finnes).
  *     Bakoverkompatibelt: uten tap leses de gamle nøklene link ('#x' / 'lock') og act: 'more'.
  *   act = «Utfør også» (tjeneste: lås, alarm, lys, egendefinert …) – kjøres i tillegg til tap.
  *   prose_font_size (valgfri overstyring i em av kortets 14 px, 1,4–2,8; tom = automatisk clamp(22px, 7,4cqi, 34px)
@@ -58,6 +58,7 @@
     if (l) return { action: 'navigate', navigation_path: /^(#|\/|https?:)/.test(l) ? l : '#' + l };
     if (p.act === 'more') return { action: 'more-info' };
     if (p.src === 'watt' && !p.act) return { action: 'navigate', navigation_path: '#energi' }; // 21.1: effekt-boblen åpner Energi
+    if (p.src === 'events' && !p.act) return { action: 'navigate', navigation_path: '#kalender' }; // hendelser-boblen åpner Kalender
     return null;
   }
   M.prosaTapOf = tapOf;
@@ -215,7 +216,7 @@
     else if (P) pr('.');
     else if (W) row('p3', 'Vi bruker', 'watt', '.');
     else if (L) row('p4', 'Det er', 'lights', 'på.', { icon: '✨', ...nav('#lys') });
-    if (S.events) row('p5', 'Vi har', 'events', 'i dag.', { icon: '⏰', tap: { action: 'more-info' } });
+    if (S.events) row('p5', 'Vi har', 'events', 'i dag.', { icon: '⏰', ...nav('#kalender') });
     return out;
   }
   // Fiks 18.1 · én vær/pris: lagrede setninger (prose[] fra før 17.9, eller lagret av editoren) med kilde vær/strømpris
@@ -623,6 +624,13 @@
   };
   const previewHTML = (h, c, o) => M.prosaPreviewHTML(h, c, o);
 
+  // Finnes en Bubble-popup med denne hashen i dashbordet? Ingen popups funnet (ennå) → prøv likevel.
+  function popupFinnes(hash) {
+    const hashes = new Set();
+    const walk = (r, d) => { if (d > 14 || !r || !r.querySelectorAll) return; r.querySelectorAll('*').forEach((e) => { if (e.localName === 'bubble-card') { const c = e.config || e._config; if (c && c.card_type === 'pop-up' && c.hash) hashes.add(String(c.hash)); } if (e.shadowRoot) walk(e.shadowRoot, d + 1); }); };
+    walk(document, 0);
+    return !hashes.size || hashes.has(hash);
+  }
   // Utfør handling for en setning (runAct i designet).
   function runAct(card, p, id) {
     const h = card.hass, E = ents(h, card.config), a = p.act || '', T = tapOf(p);
@@ -663,6 +671,7 @@
     // Ved trykk (tap): popup / egen hash / sti / URL / more-info / dørlås-ark
     if (T) {
       if (T.action === 'lock-sheet') M.hjemLockSheet(card, E.lock);
+      else if (T.action === 'more-info' && p.src === 'events' && !T.entity && popupFinnes(card.config.kalender_hash || '#kalender')) M.openPopup(card.config.kalender_hash || '#kalender'); // hendelser → Kalender-popupen (også lagrede setninger med gammel more-info)
       else if (T.action === 'more-info') M.moreInfo(card, T.entity || id || E.weather);
       else if (M.tap) M.tap.run(card, T);
     }

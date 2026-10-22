@@ -216,12 +216,19 @@
       document.body.appendChild(this.host);
       this.root.innerHTML = `<style>${CSS}</style><button class="bub" aria-label="Spør Glimt">${mark(28)}<span class="t">Glimt <i>· lokal</i></span></button><div class="ch"></div><div class="toast hid"></div>`;
       this.bub = this.root.querySelector('.bub'); this.ch = this.root.querySelector('.ch'); this.tst = this.root.querySelector('.toast');
-      this.bub.addEventListener('click', () => { haptic(8); this.open(); });
-      const vis = () => { const ti = this.bub.querySelector('.t i'); if (ti) ti.textContent = '· ' + (CFG.provider === 'claude' && AI() ? 'sky' : 'lokal'); const open = !!location.hash || (window.kiSettings && window.kiSettings.host.hasAttribute('open')) || this.isOpen; this.bub.classList.toggle('hid', open || !CFG.bubble); };
+      this.bub.addEventListener('click', (e) => { if (this._lp) { this._lp = 0; e.preventDefault(); return; } haptic(8); this.open(); });
+      // Hold inne på boblen → skjul Glimt-knappen (slås på igjen i Innstillinger → Glimt-knappen på Hjem)
+      let lpT = 0; const lpEnd = () => clearTimeout(lpT);
+      this.bub.addEventListener('pointerdown', () => { this._lp = 0; clearTimeout(lpT); lpT = setTimeout(() => { this._lp = 1; haptic(12); this.setBubble(false); this.toast('Glimt skjult.', 'Slå på igjen i Innstillinger.'); }, 600); });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => this.bub.addEventListener(ev, lpEnd));
+      this.bub.addEventListener('contextmenu', (e) => e.preventDefault());
+      const vis = () => { const ti = this.bub.querySelector('.t i'); if (ti) ti.textContent = '· ' + (CFG.provider === 'claude' && AI() ? 'sky' : 'lokal'); const open = !!location.hash || (window.kiSettings && window.kiSettings.host.hasAttribute('open')) || this.isOpen; this.bub.classList.toggle('hid', open || CFG.bubble === false || CFG.provider === 'off'); };
       window.addEventListener('hashchange', vis); window.addEventListener('location-changed', vis); window.addEventListener('ki-sheet', vis);
       try { new MutationObserver(vis).observe(window.kiSettings ? window.kiSettings.host : document.body, { attributes: true, attributeFilter: ['open'] }); } catch (e) {}
       this._vis = vis; vis();
     },
+    reloadCfg() { reloadCfg(); this._vis && this._vis(); },
+    setBubble(on) { CFG.bubble = !!on; saveCfg(); this._vis && this._vis(); },
     open(prefill) { reloadCfg(); this.isOpen = true; this._vis && this._vis(); this.render(); requestAnimationFrame(() => this.ch.classList.add('open')); if (prefill) setTimeout(() => this.send(prefill), 250); },
     close() { this.ch.classList.remove('open'); this.isOpen = false; setTimeout(() => this._vis && this._vis(), 0); if (this.pendingHash) { const h = this.pendingHash; this.pendingHash = null; setTimeout(() => { location.hash = h; }, 350); } },
     toast(title, text) { this.tst.innerHTML = `${mark(24, 'ferdig')}<span><b>${esc(title)}</b> ${esc(text)}</span>`; this.tst.classList.remove('hid'); clearTimeout(this._tt); this._tt = setTimeout(() => this.tst.classList.add('hid'), 2600); },

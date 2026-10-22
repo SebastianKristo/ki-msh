@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>KI MSH · demo</title>
 <script src="native.js"></script>
 <style>
@@ -59,6 +59,8 @@ customElements.define('hui-card', class extends HTMLElement {
 </head><body><div id="boot"><i></i><span id="bootT">Kobler til Home Assistant …</span></div><div id="sidebar"></div><div id="dash"></div>
 <script>
 (async function () {
+  // ?live = ekte Home Assistant (token fra onboarding), ellers demo med testdataene
+  const LIVE = /[?&]live\b/.test(location.search);
   const SRC = ["vendor/geo-no.js","00-a-i18n.js","00-a-lang-en-01.js","00-a-lang-en-02.js","00-a-lang-en-03.js","00-a-lang-en-04.js","00-a-lang-en-05.js","00-a-lang-en-06.js","00-a-lang-en-07.js","00-a-lang-en-08.js","00-a-lang-en-09.js","00-a-lang-en-10.js","00-a-lang-en-11.js","00-a-lang-en-12.js","00-a-lang-en-13.js","00-a-lang-en-14.js","00-a-lang-en-15.js","00-a-lang-en-16.js","00-a-theme.js","00-b-perf.js","00-base.js","00-c-tilpass-ui.js","01-editor.js","01-store.js","02-popups.js","02-yaml.js","03-editors.js","03-templates.js","04-strategy.js","05-segment.js","05-start-tab.js","05-tab-bar.js","05-tab-reorder.js","06-appliance-icons.js","06-arr-media.js","06-server.js","06-station-art.js","06-varsling-kilde.js","07-sikring.js","07-universal.js","08-light-row.js","09-icon-picker.js","09-pickers.js","09-tap-picker.js","10-navbar.js","11-hurtigpanel.js","12-gjoremal.js","13-person.js","15-strompris-kilde.js","20-hjem-header.js","21-hjem-prosa.js","22-hjem-soppel.js","23-hjem-gjoremal.js","24-hjem-faner.js","25-hjem.js","26-hjem-strompris.js","27-hjem-editor.js","28-popup-editor.js","29-strompris-editor.js","30-rom-klima.js","31-rom.js","32-romkort.js","33-kombinert.js","40-basseng.js","41-vanning.js","42-klima-blokker.js","42-klima.js","43-lys.js","44-media.js","45-kamera.js","46-sikkerhet.js","47-ruter.js","48-vaer.js","49-las.js","50-ringeklokke.js","50b-ringeopptak.js","51-kart.js","52-energi-hus.js","52-energi.js","53-kiosk.js","54-onboarding.js","54b-tilpass-v2.js","55-kalender.js","56-tesla.js","57-stovsuger.js","58-server.js","58b-server-unifi.js","58c-server-cf.js","59-avfall.js","60-innstillinger.js","60-strom-regning.js","61-strom.js","61-varmepumpe.js","62-garasje.js","62-strom-kurser.js","63-strom-sider.js","64-stue.js","65-planter.js","66-sovn.js","67-printer.js","68-pc-data.js","68-pc.js","99-ui-persist.js"];
   const MOCK = ["05-registry.js","12-gjoremal.js","13-person.js","20-hjem.js","21-prosa.js","22-soppel.js","24-hjem.js","26-strompris.js","31-kirom-scener.js","31-rom-16.js","31-rom.js","35-rom-format.js","40-basseng.js","41-vanning.js","42-klima-hero.js","42-klima.js","42-klimaz-blokker.js","43-lys.js","43-utelys.js","44-media.js","45-kamera.js","46-sikkerhet.js","47-ruter.js","48-vaer.js","49-las.js","50-ringeklokke.js","51-kart.js","52-energi.js","55-kalender.js","56-tesla.js","57-stovsuger.js","58-server.js","59-avfall.js","60-innstillinger.js","61-strom.js","61-varmepumpe.js","62-garasje.js","64-stue.js","65-v4-popups.js","91-vanning-stat.js"];
   const boot = document.getElementById('boot');
@@ -67,8 +69,21 @@ customElements.define('hui-card', class extends HTMLElement {
   // Ekte Leaflet før mockene (test/mock/51-kart.js lager bare en stubb når window.L mangler)
   const lc = document.createElement('link'); lc.rel = 'stylesheet'; lc.href = '../vendor/leaflet/leaflet.css'; document.head.appendChild(lc);
   await load('../vendor/leaflet/leaflet.js');
-  await load('../test/mock-hass.js');
-  await Promise.all(MOCK.map((f) => load('../test/mock/' + f)));
+  if (LIVE) {
+    await load('live-hass.js');
+    (document.getElementById('bootT') || boot).textContent = 'Kobler til Home Assistant …';
+    try {
+      window.__live = await window.kiLiveHass.connect(() => window.__kiPush && window.__kiPush());
+    } catch (e) {
+      // Utløpt/ugyldig innlogging → tilbake til onboarding; nettverksfeil → vis feilen med «Prøv igjen»
+      if (e instanceof window.kiLiveHass.InvalidAuth) { window.kiLiveHass.clearAuth(); location.href = '../../index.html?setup&expired'; return; }
+      boot.innerHTML = '<span style="max-width:300px;text-align:center;line-height:1.5">' + String(e.message || e).replace(/</g, '&lt;') + '</span><button onclick="location.reload()" style="height:48px;padding:0 24px;border:0;border-radius:24px;background:#f285c9;color:#2a1720;font:600 15px \'Space Grotesk\',sans-serif">Prøv igjen</button><button onclick="location.href=\'../../index.html?setup\'" style="height:40px;border:0;background:none;color:#afafaf;font:500 14px \'Space Grotesk\',sans-serif">Bytt server</button>';
+      return;
+    }
+  } else {
+    await load('../test/mock-hass.js');
+    await Promise.all(MOCK.map((f) => load('../test/mock/' + f)));
+  }
   // docs-shots: emoji-avatarer, tre personer, ingen ekte navn
   window.__docsData = function (hass) {
     const S = hass.states, E = hass.entities || {};
@@ -94,46 +109,76 @@ customElements.define('hui-card', class extends HTMLElement {
   (document.getElementById('bootT') || boot).textContent = 'laster kortene …';
   await Promise.all(SRC.map((f) => load('../src/' + f)));
   await load('more-info.js');
-  await load('ha-settings.js');
+  if (!LIVE) await load('ha-settings.js');
   await load('glimt.js');
   await load('vaer.js');
   // Navigering ut av dashbordet (f.eks. /config/…): i appen åpnes HAs egne sider – her vises bare en melding
   if (window.MSH) {
     const nav0 = window.MSH.navigate;
-    window.MSH.navigate = (p) => { if (!p) return; if (p[0] === '#') return nav0(p); if (/^\/(config|profile)/.test(p) && window.kiSettingsFor) return window.kiSettingsFor(p); kiNote('Åpner ' + p + ' i Home Assistant'); };
+    window.MSH.navigate = (p) => {
+      if (!p) return; if (p[0] === '#') return nav0(p);
+      if (LIVE) { location.href = window.__live.hassUrl + p; return; } // HAs egne sider (innstillinger o.l.) åpnes i HA
+      if (/^\/(config|profile)/.test(p) && window.kiSettingsFor) return window.kiSettingsFor(p); kiNote('Åpner ' + p + ' i Home Assistant');
+    };
   }
   (document.getElementById('bootT') || boot).textContent = 'laster Bubble Card …';
   // Appen: ikke heng hvis CDN er utilgjengelig (popupene trenger Bubble Card, resten av dashbordet ikke)
   await Promise.race([load('https://cdn.jsdelivr.net/gh/Clooos/Bubble-Card@main/dist/bubble-card.js', true), new Promise((q) => setTimeout(q, 8000))]);
   for (let i = 0; i < 150 && !customElements.get('bubble-card'); i++) await new Promise((q) => setTimeout(q, 100));
 
-  let H = window.mockHass();
-  window.__docsData(H);
+  let H = LIVE ? window.__live.current() : window.mockHass();
+  if (!LIVE) window.__docsData(H);
+  // Mer info-arkene: litt rikere attributter i demoen, så alle kontrollene vises (lys med farge/temperatur/effekter, vifte, klima, media …)
+  if (!LIVE) (function (S) {
+    const x = (id, st, at) => { if (S[id]) { if (st != null) S[id].state = st; Object.assign(S[id].attributes, at); } };
+    x('light.stue_tak', null, { supported_color_modes: ['color_temp', 'hs'], color_mode: 'color_temp', color_temp_kelvin: 2900, min_color_temp_kelvin: 2000, max_color_temp_kelvin: 6500, effect_list: ['none', 'Stearinlys', 'Regnbue', 'Pust', 'Disko'], effect: 'none' });
+    x('light.stue_led', null, { supported_color_modes: ['hs', 'color_temp'], color_mode: 'hs', hs_color: [25, 65], effect_list: ['none', 'Regnbue', 'Pust'], effect: 'none' });
+    x('fan.stue_vifte', null, { percentage_step: 10, oscillating: false, direction: 'forward', preset_modes: ['auto', 'sleep', 'breeze'], preset_mode: null, supported_features: 15 });
+    x('climate.stue', null, { preset_modes: ['comfort', 'eco', 'away', 'boost'], preset_mode: 'comfort', fan_modes: ['auto', 'low', 'medium', 'high'], fan_mode: 'auto', current_humidity: 41 });
+    x('media_player.stue_sonos', null, { media_duration: 337, media_position: 64, media_position_updated_at: new Date().toISOString(), media_album_name: 'Kind of Blue', shuffle: false, repeat: 'off', source_list: ['Spotify', 'Radio', 'TV', 'Linjeinngang'], source: 'Spotify', sound_mode_list: ['Musikk', 'Film', 'Tale'], sound_mode: 'Musikk', is_volume_muted: false });
+    x('cover.stue_gardin', null, { current_tilt_position: 40, supported_features: 255 });
+    x('vacuum.sir_sweeps', null, { fan_speed_list: ['Quiet', 'Balanced', 'Turbo', 'Max'], fan_speed: 'Balanced', status: 'Rengjør stua' });
+  })(H.states);
   H.themes = { ...(H.themes || {}), darkMode: true };
   // ki-store (frontend/get_user_data) i localStorage, så «Tilpass»-valg overlever omlasting
   const LS = 'ki-proto-userdata';
   const udata = () => { try { return JSON.parse(localStorage.getItem(LS)) || null; } catch (e) { return null; } };
   const ws0 = H.callWS;
-  const callWS = (m) => {
+  const callWS = LIVE ? ws0 : (m) => {
     if (m && m.type === 'frontend/get_user_data') { const all = udata() || {}; const v = all[m.key]; return Promise.resolve({ value: v !== undefined ? v : (m.key === 'ki_dashboard' ? { cards: { 'ki-home-header': { mode: 'stor', per_screen: { phone: { size: 26 } } } } } : null) }); }
     if (m && m.type === 'frontend/set_user_data') { const all = udata() || {}; all[m.key] = m.value; try { localStorage.setItem(LS, JSON.stringify(all)); } catch (e) {} return Promise.resolve({}); }
+    if (m && m.type === 'history/history_during_period') return ws0(m).then((r) => {
+      (m.entity_ids || []).forEach((id) => {
+        if (r[id] && r[id].length) return; const o = S[id]; if (!o) return;
+        const now = Date.now() / 1000, alt = { on: 'off', off: 'on', open: 'closed', closed: 'open', locked: 'unlocked', unlocked: 'locked', home: 'not_home', not_home: 'home', playing: 'paused', paused: 'playing' }[o.state];
+        if (!alt) { r[id] = [{ s: o.state, lu: now - 86400 }]; return; }
+        let st = o.state; const L = [];
+        for (let i = 0, t = now - 600; i < 9 && t > now - 86400; i++, t -= 3600 * (1 + ((i * 7) % 5))) { L.unshift({ s: st, lu: t }); st = st === o.state ? alt : o.state; }
+        r[id] = L;
+      });
+      return r;
+    });
     return ws0(m);
   };
   // Tjenestekall endrer tilstanden og sender ny hass til alle kort (som HA gjør)
   const S = H.states;
   const upd = (id, state, attrs) => { const o = S[id]; if (!o) return; S[id] = { ...o, state: state != null ? String(state) : o.state, attributes: { ...o.attributes, ...(attrs || {}) }, last_changed: new Date().toISOString(), last_updated: new Date().toISOString() }; };
   const ids = (d) => { const e = d && (d.entity_id || (d.target && d.target.entity_id)); return e ? (Array.isArray(e) ? e : [e]) : []; };
-  const callService = (domain, service, data) => {
+  const callService = LIVE ? H.callService : (domain, service, data) => {
     data = data || {};
     ids(data).forEach((id) => {
       const o = S[id]; if (!o) return; const dom = id.split('.')[0];
       if (service === 'toggle') return upd(id, o.state === 'on' || o.state === 'open' || o.state === 'playing' ? (dom === 'cover' ? 'closed' : 'off') : (dom === 'cover' ? 'open' : 'on'));
+      if (service === 'turn_on' && data.hs_color) return upd(id, 'on', { hs_color: data.hs_color, color_mode: 'hs', rgb_color: undefined, color_temp_kelvin: undefined });
+      if (service === 'turn_on' && data.color_temp_kelvin) return upd(id, 'on', { color_temp_kelvin: data.color_temp_kelvin, color_mode: 'color_temp', hs_color: undefined, rgb_color: undefined });
+      if (service === 'turn_on' && data.effect) return upd(id, 'on', { effect: data.effect });
+      if (service === 'turn_on' && data.activity) return upd(id, 'on', { current_activity: data.activity });
       if (service === 'turn_on') { const a = {}; if (data.rgb_color) { a.rgb_color = data.rgb_color; a.color_temp_kelvin = undefined; } if (data.color_temp_kelvin) { a.color_temp_kelvin = data.color_temp_kelvin; a.rgb_color = undefined; } if (data.brightness_pct != null) a.brightness = Math.round(data.brightness_pct * 2.55); if (data.brightness != null) a.brightness = data.brightness; if (data.percentage != null) a.percentage = data.percentage; if (dom === 'light' && a.brightness == null && !o.attributes.brightness) a.brightness = 200; return upd(id, a.brightness === 0 ? 'off' : 'on', a); }
       if (service === 'turn_off') return upd(id, 'off');
       if (service === 'lock') return upd(id, 'locked'); if (service === 'unlock') return upd(id, 'unlocked'); if (service === 'open' && dom === 'lock') return upd(id, 'open');
       if (service === 'open_cover') return upd(id, 'open', { current_position: 100 }); if (service === 'close_cover') return upd(id, 'closed', { current_position: 0 });
       if (service === 'set_cover_position') return upd(id, data.position > 0 ? 'open' : 'closed', { current_position: data.position });
-      if (service === 'set_temperature') return upd(id, null, { temperature: data.temperature });
+      if (service === 'set_temperature') return upd(id, null, data.temperature != null ? { temperature: data.temperature } : { target_temp_low: data.target_temp_low, target_temp_high: data.target_temp_high });
       if (service === 'set_hvac_mode') return upd(id, data.hvac_mode);
       if (service === 'set_percentage') return upd(id, data.percentage > 0 ? 'on' : 'off', { percentage: data.percentage });
       if (service === 'media_play_pause') return upd(id, o.state === 'playing' ? 'paused' : 'playing');
@@ -147,24 +192,52 @@ customElements.define('hui-card', class extends HTMLElement {
       if (/^alarm_arm/.test(service)) return upd(id, service.replace('alarm_', 'armed_').replace('armed_arm_', 'armed_'));
       if (service === 'alarm_disarm') return upd(id, 'disarmed');
       if (service === 'select_option') return upd(id, data.option);
-      if (service === 'set_value') return upd(id, data.value);
+      if (service === 'oscillate') return upd(id, null, { oscillating: data.oscillating });
+      if (service === 'set_direction') return upd(id, null, { direction: data.direction });
+      if (service === 'set_humidity') return upd(id, null, dom === 'climate' ? { target_humidity: data.humidity } : { humidity: data.humidity });
+      if (service === 'set_mode') return upd(id, null, { mode: data.mode });
+      if (service === 'set_swing_mode') return upd(id, null, { swing_mode: data.swing_mode });
+      if (service === 'set_operation_mode') return upd(id, data.operation_mode, { operation_mode: data.operation_mode });
+      if (service === 'set_fan_speed') return upd(id, null, { fan_speed: data.fan_speed });
+      if (service === 'set_cover_tilt_position') return upd(id, null, { current_tilt_position: data.tilt_position });
+      if (service === 'open_cover_tilt') return upd(id, null, { current_tilt_position: 100 }); if (service === 'close_cover_tilt') return upd(id, null, { current_tilt_position: 0 });
+      if (service === 'set_valve_position') return upd(id, data.position > 0 ? 'open' : 'closed', { current_position: data.position });
+      if (service === 'media_seek') return upd(id, null, { media_position: data.seek_position, media_position_updated_at: new Date().toISOString() });
+      if (service === 'shuffle_set') return upd(id, null, { shuffle: data.shuffle }); if (service === 'repeat_set') return upd(id, null, { repeat: data.repeat });
+      if (service === 'select_sound_mode') return upd(id, null, { sound_mode: data.sound_mode });
+      if (service === 'increment' || service === 'decrement') return upd(id, Number(o.state) + (service === 'increment' ? 1 : -1) * (o.attributes.step || 1));
+      if (service === 'reset' && dom === 'counter') return upd(id, o.attributes.initial || 0);
+      if (dom === 'timer' && service === 'start') return upd(id, 'active', { finishes_at: new Date(Date.now() + 1000 * (Number(String(o.attributes.remaining || o.attributes.duration || '0:05:00').split(':').reduce((q, v) => q * 60 + Number(v), 0)))).toISOString() });
+      if (dom === 'timer' && service === 'pause') return upd(id, 'paused', { remaining: Math.round((new Date(o.attributes.finishes_at) - Date.now()) / 1000) });
+      if (dom === 'timer' && (service === 'cancel' || service === 'finish')) return upd(id, 'idle', { remaining: o.attributes.duration });
+      if (service === 'install') return upd(id, 'off', { installed_version: o.attributes.latest_version });
+      if (service === 'trigger') return upd(id, null, { last_triggered: new Date().toISOString() });
+      if (service === 'press') return upd(id, new Date().toISOString());
+      if (service === 'set_datetime') return upd(id, data.datetime || data.date || data.time);
+      if (dom === 'vacuum' && (service === 'pause' || service === 'stop')) return upd(id, 'idle');
+      if (dom === 'lawn_mower') return upd(id, { start_mowing: 'mowing', pause: 'paused', dock: 'docked' }[service] || o.state);
+      if (service === 'set_value') return upd(id, data.value != null ? data.value : data.date || data.time || data.datetime);
       if (service === 'open_valve') return upd(id, 'open'); if (service === 'close_valve') return upd(id, 'closed');
       if (service === 'start') return upd(id, 'cleaning'); if (service === 'return_to_base') return upd(id, 'returning');
     });
     push();
     return Promise.resolve();
   };
-  const mk = () => ({ ...H, states: { ...S }, callService, callWS });
+  const mk = () => (LIVE ? window.__live.current() : { ...H, states: { ...S }, callService, callWS });
   let hass = mk();
   window.__H = hass;
   const S0 = customElements.get('ll-strategy-dashboard-ki-dashboard');
-  const dash = await S0.generate({}, hass);
+  // Ekte HA: bruk strategi-oppsettet fra dashbordet i HA hvis det finnes (samme valg som i nettleseren)
+  let scfg = {};
+  if (LIVE) { try { const path = (JSON.parse(localStorage.getItem('ki-app')) || {}).path; const lc = await callWS({ type: 'lovelace/config', url_path: path && path !== '/' ? path.replace(/^\/+/, '').split('/')[0] : null }); if (lc && lc.strategy && /ki-dashboard/.test(lc.strategy.type)) scfg = lc.strategy; } catch (e) { /* standardoppsett */ } }
+  const dash = await S0.generate(scfg, hass);
   const stack = dash.views[0].cards[0];
   const root = document.getElementById('dash');
   const els = [];
   for (const c of stack.cards) { const el = document.createElement(c.type.replace('custom:', '')); try { el.setConfig(c); } catch (e) { console.error(c.type, e); } el.hass = hass; root.appendChild(el); els.push(el); }
   let pend = 0;
   function push() { if (pend) return; pend = requestAnimationFrame(() => { pend = 0; hass = mk(); window.__H = hass; els.forEach((el) => { try { el.hass = hass; } catch (e) { console.error(e); } }); window.dispatchEvent(new Event('ki-hass')); }); }
+  window.__kiPush = push;
   const reveal = () => { root.classList.add('on'); boot.style.opacity = 0; setTimeout(() => boot.remove(), 460); };
   (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((q) => setTimeout(q, 1500))]) : Promise.resolve()).then(() => setTimeout(reveal, 350));
   window.parent && window.parent.postMessage({ kiReady: true, pops: stack.cards.filter((c) => c.card_type === 'pop-up').map((c) => ({ hash: c.hash, name: c.name })) }, '*');

@@ -930,7 +930,7 @@
     .lab{padding:10px 8px 2px;${M.tp.SEC}} /* felles seksjonstittel (MSH.tp.SEC) */
     .info{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:24px;background:rgb(115 185 242 / 0.1);box-shadow:inset 0 0 0 1px rgb(115 185 242 / 0.22)}
     .info span{font-size:13px;line-height:1.45;color:var(--ki-text-1, #c7c7c7)}
-    /* Fiks 65: fanelisten = én gruppe med skillelinjer (ikke ett kort per rad) */
+    /* Fiks 66: fanelisten = én gruppe med skillelinjer (ikke ett kort per rad) */
     .tpl{${M.tp.GROUP}display:flex;flex-direction:column}
     .trw{display:flex;align-items:center;gap:8px;min-height:56px;padding:0 8px 0 0;border-radius:0;background:none;transition:background .2s,box-shadow .2s,transform .2s}
     .tpl>*+.trw{${M.tp.ROW_SEP}}

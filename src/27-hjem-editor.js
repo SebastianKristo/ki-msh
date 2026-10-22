@@ -261,7 +261,7 @@
     .box.t6{gap:6px;padding:12px}
     .c34{height:34px;padding:0 8px 0 10px;border-radius:17px;background:var(--ki-ctrl, #545454);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap}
     .o34{height:34px;padding:0 12px;border-radius:17px;font-size:13px;font-weight:500;white-space:nowrap;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text-2, #afafaf)}
-    /* Fiks 65: radlister = rader i gruppen med skillelinjer (ikke kort i kort); åpen rad får indre flate */
+    /* Fiks 66: radlister = rader i gruppen med skillelinjer (ikke kort i kort); åpen rad får indre flate */
     .tr{display:flex;align-items:center;gap:4px;padding:0 4px 0 6px;border-radius:0;background:none}
     .tr+.tr{${M.tp.ROW_SEP}}
     .tr.open{background:var(--ki-surface-2, var(--gray300,#404040));border-radius:18px;box-shadow:none}
@@ -341,7 +341,7 @@
     .bsr{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:14px;background:var(--ki-surface-3, var(--gray100,#2f2f2f))}
     .bsr input{flex:1;min-width:0;height:100%;background:transparent;color:var(--ki-text, #fafafa);font-size:13px}
     .bsg{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 8px;border-radius:12px;width:100%;text-align:left}
-    ${M.tp.range('input[type=range]')} /* Fiks 65: felles slider */
+    ${M.tp.range('input[type=range]')} /* Fiks 66: felles slider */
     .big52{height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));width:100%}
     .tset{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a))}
     /* Fiks 31.4 · Fanestil: forhåndsvisning (boks #232323 r18) med valgt stil live (CSS fra 24-hjem-faner.js, prefiks hts-/mtb-) */

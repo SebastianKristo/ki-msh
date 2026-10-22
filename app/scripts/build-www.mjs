@@ -1,6 +1,7 @@
 // Bygger www/ for Capacitor: appens egne sider (web/) + demo-modus med hele src/ og testdataene,
 // lagt ut som i prototypen (demo/ki/runtime.html laster ../src/ og ../test/mock/).
 import { cpSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import { buildSync } from 'esbuild';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,6 +28,11 @@ cpSync(join(nm, '@mdi', 'font', 'css'), join(www, 'vendor', 'mdi', 'css'), { rec
 cpSync(join(nm, '@mdi', 'font', 'fonts'), join(www, 'vendor', 'mdi', 'fonts'), { recursive: true });
 cpSync(join(nm, '@mdi', 'js', 'mdi.js'), join(demo, 'vendor', 'mdi.js'));
 cpSync(join(nm, 'leaflet', 'dist'), join(demo, 'vendor', 'leaflet'), { recursive: true });
+
+// Ekte HA-tilkobling (home-assistant-js-websocket) som ett skript: brukes av onboarding og dashbordet
+for (const out of [join(www, 'live-hass.js'), join(demo, 'ki', 'live-hass.js')]) {
+  buildSync({ entryPoints: [join(app, 'web', 'live-hass.js')], bundle: true, format: 'iife', globalName: 'kiLiveHass', target: 'es2020', minify: true, outfile: out, logLevel: 'warning' });
+}
 
 for (const f of ['index.html', 'demo/ki/runtime.html', 'demo/src/04-strategy.js']) {
   if (!existsSync(join(www, f))) { console.error('mangler', f); process.exit(1); }

@@ -440,7 +440,7 @@
     .fsec.ksp>.sec{background:none;box-shadow:none;border:0;border-radius:24px}
     .fsec.ksp>.sec>.in{padding:0}
     .sec>.in>ki-spacing-editor{margin:0}
-    /* Fiks 65: «Mellomrom»-rader inni en vanlig gruppe (f.eks. «Avstand til prosa») = ingen boks i boks, samme innrykk som feltene */
+    /* Fiks 66: «Mellomrom»-rader inni en vanlig gruppe (f.eks. «Avstand til prosa») = ingen boks i boks, samme innrykk som feltene */
     .in ki-spacing-editor{--ki-sp-bg:transparent;--ki-sp-ring:none;margin:0 -12px}
     .fsec.ksp>.sec>.in>ki-spacing-editor{margin:0}
     /* 36.7: flat «Mellomrom» (fane i Tilpass-arket) = helt dekkende seksjonskort #3a3a3a r24 + inset .05, forvalg #404040 */
@@ -448,7 +448,7 @@
     .f{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:var(--ki-surface-2, #404040)}
     .f label{font-size:13px;font-weight:500;color:var(--ki-text-1, #e1e1e1)}
     .f .help{${M.tp.SUB}}
-    /* Fiks 65 · felles kontroller: felt i en gruppe har ingen egen flate (ingen boks i boks) – skillelinje mellom feltene */
+    /* Fiks 66 · felles kontroller: felt i en gruppe har ingen egen flate (ingen boks i boks) – skillelinje mellom feltene */
     .sec .in{gap:0}
     .sec .in>*+*{margin-top:8px}
     .sec .in>.f{background:none;border-radius:0;padding:12px 4px}
@@ -555,7 +555,7 @@
   // Bruk: M.spacingEditorHTML(fields, cfg) → <ki-spacing-editor rows="…">. Sender 'ki-spacing-change' { name, value,
   // commit } (bubbles + composed; commit=false under drag, true ved slipp/chip) – msh-editor (og arkene som arver den,
   // f.eks. Tilpass Tesla) lytter og lagrer i utkastet.
-  // Fiks 65 (felles kontroller): radene står i én gruppe med skillelinjer, slideren er den felles MSH.tp.range og
+  // Fiks 66 (felles kontroller): radene står i én gruppe med skillelinjer, slideren er den felles MSH.tp.range og
   // forvalgene er små, stille snarvalg (MSH.tp.SNAP – valgt = rosa tone) på én linje – ikke en ny rad med store piller.
   const SP_CSS = `:host{display:block;width:100%;min-width:0;box-sizing:border-box;font-family:${M.FONT};color:var(--ki-text, #fafafa)}
     *{box-sizing:border-box}

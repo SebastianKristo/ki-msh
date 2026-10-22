@@ -862,6 +862,7 @@
         ['kiosk', 'mdi:fullscreen', 'Kiosk-modus', () => (kioskOn() ? 'På' : 'Av'), !!M.kioskSheet],
         // Fiks 35 (oppfølging 33.3): enhetsoversikten (gi nytt navn / nullstill / slett) lå før nederst i Innstillinger
         ['devices', 'mdi:devices', 'Enheter', () => { const n = M.store && M.store.devices ? M.store.devices().filter((d) => d.own > 0).length : 0; return n ? `${n} ${n === 1 ? 'enhet' : 'enheter'} med eget oppsett` : 'Gi nytt navn, nullstill eller slett'; }, !!(M.store && customElements.get('msh-settings-card'))],
+        ['ha', 'mdi:home-assistant', 'Home Assistant', 'Automasjoner, scener, oppdateringer og backup', !!M.ha && ((this._hass || M.lastHass || {}).user || {}).is_admin !== false], // Fiks 65
       ].filter((r) => r[4]);
       const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
         <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f);flex:none')}</button>`).join('')}</div>`;
@@ -891,6 +892,7 @@
         if (k === 'kiosk') return M.kioskSheet && M.kioskSheet(this);
         if (k === 'pc') { const to = M.pc.mode() === 'pc' ? 'mobil' : 'pc'; M.pc.set(to); if (to === 'pc' && !M.pc.wide()) M.toast(kiT('PC-dashbordet vises når skjermen er minst 1100 px bred', 'The PC dashboard shows when the screen is at least 1100 px wide')); return; }
         if (k === 'devices') return this._devicesSheet();
+        if (k === 'ha') return M.ha && M.ha.open();
         return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: k } }));
       });
       this._tpSheet = ov;
@@ -2232,7 +2234,7 @@
     .nrow{display:flex;align-items:center;gap:6px;height:56px;padding:0 6px 0 16px;border-radius:28px;background:var(--ki-surface, #3a3a3a);min-width:0}
     .nrow .lb{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .b36{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center}
-    /* Fiks 65: piler uten egen mørk pille – samme stille ikonknapper som resten av raden */
+    /* Fiks 66: piler uten egen mørk pille – samme stille ikonknapper som resten av raden */
     .ud{display:flex;flex:none;border-radius:18px;background:none;padding:0}
     .ud button{width:32px;height:36px;border-radius:16px;display:grid;place-items:center;color:var(--ki-text-1, #e1e1e1)}
     .ud button.off{opacity:.25;pointer-events:none}
