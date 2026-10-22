@@ -215,6 +215,7 @@
         <div class="grp">
           ${this.row({ icon: 'mdi:server-network', c: C.purple, t: 'Servere', s: `${srv.name} · ${srv.url.replace(/^https?:\/\//, '')}`, attrs: 'data-a="go" data-p="servers"' })}
           ${this.row({ icon: 'mdi:creation', c: '#e8794a', t: 'Glimt AI', s: (() => { try { const c = JSON.parse(localStorage.getItem('ki-proto-glimt') || '{}'); return c.provider === 'ollama' ? 'Ollama · ' + (c.ollamaModel || 'qwen2.5:7b') + ' · lokalt' : c.provider === 'off' ? 'Av' : 'Claude · sky'; } catch (e) { return 'Assistent, modell og tillatelser'; } })(), attrs: 'data-a="glimt"' })}
+          ${this.row({ icon: 'mdi:star-four-points-outline', t: 'Glimt-knappen på Hjem', s: 'Vis «Glimt»-boblen over minispilleren', tgl: (() => { try { return JSON.parse(localStorage.getItem('ki-proto-glimt') || '{}').bubble !== false; } catch (e) { return true; } })(), attrs: 'data-a="glimtbub"' })}
           ${this.row({ icon: 'mdi:cellphone-cog', c: C.teal, t: 'Denne enheten', s: AND ? 'Pixel 8 · mobile_app_pixel_8' : 'Sebastians iPhone · mobile_app_sebastians_iphone', attrs: 'data-a="go" data-p="device"' })}
         </div>
         <div class="grp">${this.row({ icon: 'mdi:information-outline', t: 'Om', s: `Home Assistant ${srv.ver} · KI MSH ${window.KI_MSH_VERSION || ''}`, attrs: 'data-a="go" data-p="about"' })}</div>`);
@@ -437,6 +438,7 @@
           case 'pop': if (c.p === 'auto') { this.ui.draft = null; this.ui.ytxt = null; this.ui.yerr = ''; this.ui.amode = 'gui'; } if (c.p === 'addint') { this.ui.flow = null; } return this.pop();
           case 'go': if (d.p === 'auto') { this.ui.draft = null; this.ui.ytxt = null; this.ui.yerr = ''; this.ui.amode = 'gui'; this.ui.ob = null; this.ui.am = null; } return this.push(d.p, d.x);
           case 'toast': return this.toast(d.v);
+          case 'glimtbub': { let c = {}; try { c = JSON.parse(localStorage.getItem('ki-proto-glimt') || '{}'); } catch (e) {} c.bubble = c.bubble === false; try { localStorage.setItem('ki-proto-glimt', JSON.stringify(c)); } catch (e) {} if (window.kiGlimt && window.kiGlimt.reloadCfg) window.kiGlimt.reloadCfg(); return this.render(); }
           case 'glimt': this.close(); return setTimeout(() => { if (window.kiGlimt) { window.kiGlimt.view = 'set'; window.kiGlimt.open(); } }, 300);
           case 'prof': D.profile[d.k] = d.v; save(); if (d.k === 'theme') this.toast(d.v === 'light' ? 'Lyst tema velges i dashbordet (Tilpass alt → Tema)' : 'Tema lagret'); return this.render();
           case 'ptgl': D.profile[d.k] = !D.profile[d.k]; save(); return this.render();
