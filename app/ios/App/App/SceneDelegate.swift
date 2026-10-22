@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import WebKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
@@ -23,9 +24,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 }
 
-/// Legger webvisningen innenfor safe area (under statuslinjen og over hjem-indikatoren), slik Android gjør.
-/// Uten dette tegnes siden helt ut i kantene på iPhone, så header havner i statuslinjen og navbaren
-/// ved hjem-indikatoren – både i demoen og i Home Assistant, som ikke alltid gir env(safe-area-inset-*).
+/// Webvisningen starter under statuslinjen (header havner ikke i statuslinjen), men går helt ned i bunnen,
+/// så dashbordet synes bak og under navbaren. Navbaren løfter seg selv over hjem-indikatoren med
+/// env(safe-area-inset-bottom); det krever viewport-fit=cover, som legges til på alle sider (også HA).
 class KiHostViewController: UIViewController {
     let bridgeViewController = CAPBridgeViewController()
 
@@ -39,12 +40,26 @@ class KiHostViewController: UIViewController {
         let safe = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
             web.topAnchor.constraint(equalTo: safe.topAnchor),
-            web.bottomAnchor.constraint(equalTo: safe.bottomAnchor),
+            web.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             web.leadingAnchor.constraint(equalTo: safe.leadingAnchor),
             web.trailingAnchor.constraint(equalTo: safe.trailingAnchor),
         ])
         bridgeViewController.didMove(toParent: self)
+        bridgeViewController.webView?.configuration.userContentController.addUserScript(
+            WKUserScript(source: Self.viewportFitCover, injectionTime: .atDocumentStart, forMainFrameOnly: true))
     }
+
+    static let viewportFitCover = """
+    (function () {
+      function fix() {
+        var m = document.querySelector('meta[name=viewport]');
+        if (!m) { m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width, initial-scale=1'; (document.head || document.documentElement).appendChild(m); }
+        if (!/viewport-fit/.test(m.content)) m.content += ', viewport-fit=cover';
+      }
+      if (document.head) fix();
+      document.addEventListener('DOMContentLoaded', fix);
+    })();
+    """
 
     // Statuslinje, rotasjon og hjem-indikator styres fortsatt av Capacitor (StatusBar-pluginen)
     override var childForStatusBarStyle: UIViewController? { bridgeViewController }
