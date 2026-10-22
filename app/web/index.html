@@ -54,6 +54,7 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
 <body>
 <div id="app"></div>
 <script src="native.js"></script>
+<script src="update.js"></script>
 <script>
 (function () {
   const LS = 'ki-app';
@@ -153,7 +154,7 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
         (saved.url ? '<button class="primary" data-a="open"><i class="mdi mdi-home-assistant"></i>Åpne ' + esc(saved.name || 'Home Assistant') + '</button><button class="ghost" data-a="next">Koble til en annen server</button>'
           : '<button class="primary" data-a="next">Kom i gang</button>') +
         '<button class="ghost" data-a="demo">Prøv demo uten server</button>' +
-        '<div class="foot">Home Assistant 2024.11 eller nyere</div>';
+        '<div class="foot">Home Assistant 2024.11 eller nyere' + (window.kiUpdate && window.kiUpdate.android ? '<br><span id="ver"></span> · <button data-a="update" style="border:0;background:none;color:var(--text-2);font:inherit;text-decoration:underline;padding:6px 0">Se etter oppdatering</button>' : '') + '</div>';
     } else if (s === 'server') {
       h = top() + '<div class="step"><h1>Velg server</h1><p class="lead">' +
         (st.scanning ? 'Søker etter Home Assistant på nettverket …' : st.servers.length ? 'Fant ' + st.servers.length + (st.servers.length === 1 ? ' server' : ' servere') + '. Velg én, eller skriv inn adressen selv.' : 'Fant ingen server automatisk. Skriv inn adressen.') + '</p>' +
@@ -178,6 +179,8 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
       h = '<div class="step center"><div class="spin"></div><h1>Klar!</h1><p class="lead">Åpner dashbordet …</p></div>';
     }
     app.innerHTML = h;
+    const ver = document.getElementById('ver');
+    if (ver) window.kiUpdate.info().then((i) => { if (i) ver.textContent = 'Versjon ' + i.versionName; });
   }
 
   const sync = () => { ['url', 'path', 'user', 'pass', 'mfa'].forEach((k) => { const el = document.getElementById(k); if (el) st[k] = el.value; }); };
@@ -193,6 +196,7 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
     else if (a === 'pick') { st.sel = b.dataset.u; st.manual = false; st.urlErr = ''; render(); }
     else if (a === 'manual') { st.manual = true; render(); const el = document.getElementById('url'); el && el.focus(); }
     else if (a === 'connect') connect();
+    else if (a === 'update') window.kiUpdate.check(8000, { manual: true });
     else if (a === 'show') { st.showPass = !st.showPass; render(); }
     else if (a === 'login') login();
     else if (a === 'weblogin') { const path = '/' + (st.path || '').replace(/^\/+/, ''); save({ url: st.server.url, name: st.server.name, path }); location.href = st.server.url + path; }
@@ -202,9 +206,12 @@ label{font-size:13px;color:var(--text-3);padding:0 10px;margin-top:4px}
   const saved = load();
   if (saved.url && !/[?&]setup/.test(location.search)) {
     app.innerHTML = '<div class="step center"><div class="spin"></div><p class="lead">Kobler til ' + esc(saved.name || 'Home Assistant') + ' …</p></div><button class="ghost" id="switch">Bytt server</button>';
-    const t = setTimeout(openSaved, 1200);
-    document.getElementById('switch').onclick = () => { clearTimeout(t); render(); };
-  } else render();
+    // Ny Android-versjon? Da vises oppdateringsarket i stedet for å gå rett inn («Senere» går videre).
+    let stop = false;
+    const upd = window.kiUpdate ? window.kiUpdate.check(2500) : Promise.resolve(null);
+    const t = setTimeout(async () => { if (await upd) { document.addEventListener('ki-update-later', () => { if (!stop) openSaved(); }, { once: true }); return; } if (!stop) openSaved(); }, 1200);
+    document.getElementById('switch').onclick = () => { stop = true; clearTimeout(t); render(); };
+  } else { render(); if (window.kiUpdate) window.kiUpdate.check(4000); }
 })();
 </script>
 </body>

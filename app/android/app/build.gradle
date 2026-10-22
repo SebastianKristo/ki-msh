@@ -7,8 +7,9 @@ android {
         applicationId "no.kristo.kimsh"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Settes av GitHub Actions (KI_VERSION_CODE = kjørenummer), så appen kan se etter nyere versjoner
+        versionCode((System.getenv("KI_VERSION_CODE") ?: "1").toInteger())
+        versionName System.getenv("KI_VERSION_NAME") ?: "1.0-lokal"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +17,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            // Fast nøkkel fra repo-secrets, så nye versjoner kan installeres over den gamle
+            def ks = System.getenv("KI_KEYSTORE")
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv("KI_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KI_KEY_ALIAS") ?: "kimsh"
+                keyPassword System.getenv("KI_KEYSTORE_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (System.getenv("KI_KEYSTORE")) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
