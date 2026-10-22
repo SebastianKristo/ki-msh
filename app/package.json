@@ -19,9 +19,11 @@
     "@capacitor/status-bar": "^8.0.4",
     "@mdi/font": "^7.4.47",
     "@mdi/js": "^7.4.47",
+    "home-assistant-js-websocket": "^9.7.1",
     "leaflet": "^1.9.4"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.3"
+    "@capacitor/cli": "^8.5.3",
+    "esbuild": "^0.28.2"
   }
 }

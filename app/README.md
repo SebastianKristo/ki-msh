@@ -6,9 +6,12 @@ Et Capacitor-skall rundt Home Assistant med KI MSH-dashbordet, bygget fra protot
 ## Hva appen gjør
 - **Onboarding** (`web/index.html`): Velkommen → Velg server → Logg inn → Klar.
   - Søker etter `homeassistant.local:8123` og `homeassistant:8123`, eller du skriver inn adressen (lokal IP, ekstern URL, Nabu Casa).
-  - Valgfri dashbordsti, f.eks. `/ki-msh`.
-  - Innlogging i appen via HAs `login_flow` (støtter tofaktorkode). Koden gis til HA-frontenden med `?auth_callback=1`, som henter og lagrer tokenet selv. Alternativt kan du logge inn på HAs egen side.
-  - Neste oppstart åpner dashbordet direkte (med «Bytt server» i 1,2 s).
+  - Innlogging i appen via HAs `login_flow` (støtter tofaktorkode). Koden byttes mot token (`/auth/token`), som lagres i appen og fornyes automatisk.
+  - Valgfri dashbordsti, f.eks. `/ki-msh`: har det dashbordet strategien `custom:ki-dashboard`, brukes valgene derfra.
+- **Ekte dashbord, ikke webspeiling**: appen kjører det innebygde KI MSH-dashbordet (samme som demoen) mot din Home Assistant
+  over websocket (`web/live-hass.js`, home-assistant-js-websocket): states, register, brukerdata («Tilpass»-valg synkes via HA),
+  tjenestekall, historikk og kalendere. Lenker til HAs egne sider (f.eks. `/config`) åpnes i HA.
+  - Neste oppstart går rett til dashbordet. Utløpt innlogging sender deg tilbake til innlogging.
 - **Demo uten server**: hele `src/` kjørt uendret med testdataene i `test/mock/`, som i prototypen (`prototype/ki/runtime.html`).
 - Native haptikk i onboarding og demo (HA-eventet `haptic` → Capacitor Haptics).
 
@@ -51,5 +54,5 @@ npx cap sync           # kopierer www/ inn i android/ og ios/
 - `android/`, `ios/` – native prosjekter
 
 ## Kjent begrensning
-Når appen viser din ekte Home Assistant, kjører siden fra HA-serveren. Da har den ikke Capacitor-broen, så haptikk og
-varsler der går via vanlig webvisning (som i nettleseren), ikke via Companion-appens integrasjon.
+Bubble Card lastes fra jsDelivr ved oppstart, så popupene krever nett første gang. Egne ikonsett fra HA
+(`hue:`, `phu:` …) vises ikke – bare `mdi:`. Varsler (push) og sensorer fra telefonen er ikke med.
