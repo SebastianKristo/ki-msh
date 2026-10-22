@@ -860,6 +860,7 @@
         ['kiosk', 'mdi:fullscreen', 'Kiosk-modus', () => (kioskOn() ? 'På' : 'Av'), !!M.kioskSheet],
         // Fiks 35 (oppfølging 33.3): enhetsoversikten (gi nytt navn / nullstill / slett) lå før nederst i Innstillinger
         ['devices', 'mdi:devices', 'Enheter', () => { const n = M.store && M.store.devices ? M.store.devices().filter((d) => d.own > 0).length : 0; return n ? `${n} ${n === 1 ? 'enhet' : 'enheter'} med eget oppsett` : 'Gi nytt navn, nullstill eller slett'; }, !!(M.store && customElements.get('msh-settings-card'))],
+        ['ha', 'mdi:home-assistant', 'Home Assistant', 'Automasjoner, scener, oppdateringer og backup', !!M.ha && ((this._hass || M.lastHass || {}).user || {}).is_admin !== false], // Fiks 65
       ].filter((r) => r[4]);
       const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
         <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f);flex:none')}</button>`).join('')}</div>`;
@@ -889,6 +890,7 @@
         if (k === 'kiosk') return M.kioskSheet && M.kioskSheet(this);
         if (k === 'pc') { const to = M.pc.mode() === 'pc' ? 'mobil' : 'pc'; M.pc.set(to); if (to === 'pc' && !M.pc.wide()) M.toast(kiT('PC-dashbordet vises når skjermen er minst 1100 px bred', 'The PC dashboard shows when the screen is at least 1100 px wide')); return; }
         if (k === 'devices') return this._devicesSheet();
+        if (k === 'ha') return M.ha && M.ha.open();
         return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: k } }));
       });
       this._tpSheet = ov;

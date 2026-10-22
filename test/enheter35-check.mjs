@@ -77,7 +77,7 @@ for (const dark of [true, false]) {
     return out;
   }, dark);
   ok(`${tag}: ki-store lastet`, r.store, r);
-  ok(`${tag}: «Enheter»-rad i Tilpass-arket (sist, 64 px)`, r.rows[r.rows.length - 1] === 'devices' && r.row && r.row.t === 'Enheter' && r.row.h === 64 && /2 enheter med eget oppsett/.test(r.row.sub), { rows: r.rows, row: r.row });
+  ok(`${tag}: «Enheter»-rad i Tilpass-arket (sist, 64 px)`, r.rows.filter((x) => x !== 'ha')[r.rows.filter((x) => x !== 'ha').length - 1] === 'devices' && r.row && r.row.t === 'Enheter' && r.row.h === 64 && /2 enheter med eget oppsett/.test(r.row.sub), { rows: r.rows, row: r.row });
   ok(`${tag}: trykk lukker Tilpass og åpner «Enheter»-arket`, !r.tpOpen && r.dv && r.title === 'Enheter' && /Ferdig/.test(r.done || '') && r.hap.includes('light'), r);
   ok(`${tag}: enhetsoversikten (samme som før i Innstillinger), uten resten av Innstillinger`, r.names && r.names.some((x) => /iPad kjøkken/.test(x)) && r.noOther, { names: r.names, noOther: r.noOther });
   ok(`${tag}: knapper gi nytt navn / nullstill / slett`, ['devren', 'devreset', 'devdel'].every((x) => (r.btns || []).includes(x)), r.btns);

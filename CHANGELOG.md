@@ -2,6 +2,25 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Fiks 65 · Home Assistant-innstillinger i appen
+Målet er at appen kan erstatte Home Assistant-appen for det meste av innstillingene.
+- **Hvor:** nederst i Innstillinger (`#settings`, seks snarveier, bare for administratorer, `ha_meny: false` skjuler) og
+  som raden «Home Assistant» i Mer → Tilpass. Alt åpnes i ett helhøyt ark med egen sidestabel (`MSH.ha.open(side)`,
+  `src/69-ha-config.js`). Sider appen ikke har egen versjon av åpner HAs side.
+- **Automasjoner, scener og skript** (`src/69c-ha-auto.js`): lister gruppert i mapper (HAs kategorier), områder eller
+  etiketter, med søk, etikettfilter, av/på, kjør, dupliser, slett og «Siste kjøringer» (spor med alle steg).
+  Mappe, etiketter og område settes i entitetsregisteret, som i HA. Egne sider for mapper og etiketter.
+- **Editor** (`src/69b-ha-blocks.js`): utløsere, betingelser og handlinger som kort med lesbar oppsummering. Skjema for
+  alle vanlige typer, nøstede blokker (hvis/så/ellers, velg, gjenta, parallelt, sekvens, og/eller/ikke, vent på utløser),
+  tjenestefelt med glidebrytere fra HAs egne felt, test av betingelser og handlinger, YAML per blokk og for hele
+  automasjonen. Leser gammelt format (`platform:`/`service:`) og lagrer nytt (eldre HA får gamle nøkler).
+- **Scener** (`src/69d-ha-scene.js`): legg til entiteter, «Hent» nåværende tilstand per entitet eller alle, prøv scenen
+  (`scene.apply`) og lagre.
+- **Oppdateringer, backup og system** (`src/69e-ha-system.js`): installer med backup først, utgivelsesnotater, hopp over,
+  «Ta backup og oppdater alt» (Core sist). Backup: lag, last ned, gjenopprett, slett og automatisk plan, oppbevaring,
+  innhold og steder. Reparasjoner, logger, start på nytt (sjekker konfigurasjonen først), last inn YAML, generelt og om.
+- **Språk:** engelsk i `src/00-a-lang-en-17.js`. Test: `node test/ha65-check.mjs [skjermbildemappe]`.
+
 ## Fiks 64 · PC-dashbord (prompt v8)
 Designet ligger i `design/PC-dashbord.dc.html`.
 - **Valg:** ny rad «Dashbord på PC» i Tilpass-arket (Hjem). Den bytter `localStorage['ki-pc-oppsett']` mellom `pc` og
