@@ -1,25 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3a3a3a"></stop><stop offset="1" stop-color="#1c1c1c"></stop>
+      <stop offset="0" stop-color="#4cc3f7"/><stop offset="1" stop-color="#1c86d1"/>
     </linearGradient>
-    <linearGradient id="pk" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f7a8da"></stop><stop offset="1" stop-color="#f285c9"></stop>
+    <linearGradient id="star" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd2b0"/><stop offset="1" stop-color="#ff7a52"/>
     </linearGradient>
   </defs>
-  <rect width="256" height="256" rx="56" fill="url(#bg)"></rect>
-  
-  <path d="M56 104 L128 48 L200 104" fill="none" stroke="#fafafa" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"></path>
-  
-  <rect x="68" y="100" width="54" height="46" rx="14" fill="#f2b573"></rect>
-  <rect x="134" y="100" width="54" height="46" rx="14" fill="#73b9f2"></rect>
-  <rect x="68" y="156" width="54" height="46" rx="14" fill="#66d19e"></rect>
-  <rect x="134" y="156" width="54" height="46" rx="14" fill="url(#pk)"></rect>
-  
-  <rect x="72" y="214" width="112" height="16" rx="8" fill="#fafafa" opacity=".92"></rect>
-  <circle cx="96" cy="222" r="3.5" fill="#f285c9"></circle>
-  <circle cx="120" cy="222" r="3.5" fill="#696969"></circle>
-  <circle cx="144" cy="222" r="3.5" fill="#696969"></circle>
-  <circle cx="168" cy="222" r="3.5" fill="#696969"></circle>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <!-- hus -->
+  <path d="M512 214 L790 452 Q806 466 806 488 L806 776 Q806 812 770 812 L254 812 Q218 812 218 776 L218 488 Q218 466 234 452 Z"
+        fill="none" stroke="#fff" stroke-width="56" stroke-linejoin="round"/>
+  <!-- kretstre -->
+  <g fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M512 812 L512 470"/>
+    <path d="M512 700 L388 610 L388 560"/>
+    <path d="M512 640 L636 560 L636 520"/>
+  </g>
+  <g fill="#fff">
+    <circle cx="388" cy="540" r="42"/>
+    <circle cx="636" cy="500" r="42"/>
+  </g>
+  <!-- Glimt-stjerne på toppen av treet -->
+  <path d="M512 330 Q522 414 590 432 Q522 450 512 534 Q502 450 434 432 Q502 414 512 330 Z" fill="url(#star)" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
+  <circle cx="600" cy="372" r="13" fill="#fff"/>
+  <circle cx="426" cy="398" r="9" fill="#fff" opacity=".85"/>
 </svg>
