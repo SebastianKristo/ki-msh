@@ -138,6 +138,8 @@ await click('[data-a="back"]');
 
 /* ---------- ny automasjon */
 await click('[data-a="new"]');
+await wait(300);
+await click('[data-a="blank"]'); // «Lag ny» (69f): maler, eller tom
 await wait(400);
 ok('Ny: editor åpner med utløser-seksjonen', /Legg til utløser/.test(await txt()));
 await inputSet('[data-f="::alias"]', 'Test ny');

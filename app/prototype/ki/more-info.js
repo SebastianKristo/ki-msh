@@ -241,6 +241,58 @@
   .bat .b i{display:block;height:100%;border-radius:4px;transition:width .6s var(--ease)}
   `;
 
+  const CSS2 = `
+  .hd .gear{width:44px;height:44px;border-radius:22px;background:var(--ki-surface,#3a3a3a);display:grid;place-items:center;--mdc-icon-size:21px;flex:none;transition:background .2s,transform .2s cubic-bezier(.34,1.45,.64,1)}
+  .hd .gear.on{background:linear-gradient(145deg,#f285c9 -10%,#f5cdc6 100%);color:#2a1720}
+  .hd .gear:active{transform:scale(.92)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px}
+  .stat{border-radius:22px;background:var(--ki-surface,#3a3a3a);padding:12px 12px 11px;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .stat span{font-size:11.5px;color:var(--ki-text-mid,#979797);display:flex;align-items:center;gap:5px;--mdc-icon-size:14px;white-space:nowrap}
+  .stat b{font-size:20px;font-weight:500;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat b small{font-size:12px;color:var(--ki-text-2,#afafaf);font-weight:400;margin-left:2px}
+  .rels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .rel{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 10px;border-radius:22px;background:var(--ki-surface,#3a3a3a);text-align:left;min-width:0;transition:transform .2s cubic-bezier(.34,1.45,.64,1),background .15s}
+  .rel:active{transform:scale(.96);background:var(--ki-surface-2,#404040)}
+  .rel .ri{width:36px;height:36px;border-radius:18px;flex:none;display:grid;place-items:center;--mdc-icon-size:19px;background:color-mix(in srgb,var(--rc,#73b9f2) 22%,transparent);color:var(--rc,#73b9f2)}
+  .rel .rt{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .rel .rt b{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rel .rt i{font-style:normal;font-size:11.5px;color:var(--ki-text-mid,#979797);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mhero{position:relative;border-radius:30px;overflow:hidden;padding:18px;display:flex;gap:16px;align-items:center;background:var(--ki-surface,#3a3a3a)}
+  .mhero .bgimg{position:absolute;inset:-30px;background:center/cover;filter:blur(30px) saturate(1.6) brightness(.55);transform:scale(1.2);opacity:.9}
+  .mhero>*{position:relative}
+  .mhero .cov{width:112px;height:112px;border-radius:22px;flex:none;overflow:hidden;background:var(--ki-surface-2,#404040);display:grid;place-items:center;--mdc-icon-size:44px;color:var(--ki-text-2,#afafaf);box-shadow:0 14px 30px rgb(0 0 0/.35);transition:transform .5s cubic-bezier(.34,1.3,.64,1)}
+  .mhero .cov.pz{transform:scale(.9)}
+  .mhero .cov img{width:100%;height:100%;object-fit:cover}
+  .mhero .mi2{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .mhero .mi2 b{font-size:20px;font-weight:600;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .mhero .mi2 span{font-size:13.5px;color:var(--ki-text-2,#c7c7c7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mhero .mi2 em{font-style:normal;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--pink,#f285c9)}
+  .vsteps{display:flex;gap:6px}
+  .grpm{display:flex;flex-wrap:wrap;gap:6px}
+  .setf{display:flex;flex-direction:column;gap:6px}
+  .setf>span{font-size:13px;color:var(--ki-text-mid,#979797);padding:0 8px}
+  .setf input{height:52px;border:0;outline:none;border-radius:26px;background:var(--ki-surface,#3a3a3a);color:var(--ki-text,#fafafa);font:15px inherit;font-family:inherit;padding:0 20px;width:100%;box-sizing:border-box}
+  .setf input:focus{box-shadow:inset 0 0 0 1.5px var(--pink,#f285c9)}
+  .setf input.mono{font-family:ui-monospace,Menlo,monospace;font-size:13.5px}
+  .icrow{display:flex;gap:8px;align-items:center}
+  .icprev{width:52px;height:52px;border-radius:26px;flex:none;display:grid;place-items:center;background:var(--ki-surface,#3a3a3a);--mdc-icon-size:24px}
+  .icsug{display:flex;gap:6px;flex-wrap:wrap}
+  .icsug button{width:44px;height:44px;border-radius:22px;background:var(--ki-surface,#3a3a3a);display:grid;place-items:center;--mdc-icon-size:21px}
+  .icsug button.on{background:linear-gradient(145deg,#f285c9 -10%,#f5cdc6 100%);color:#2a1720}
+  .setrow{display:flex;align-items:center;gap:12px;min-height:58px;padding:6px 16px;border-top:1px solid rgb(255 255 255/.06)}
+  .setrow:first-child{border-top:0}
+  .setrow b{flex:1;font-size:15px;font-weight:500}.setrow i{display:block;font-style:normal;font-size:12px;color:var(--ki-text-mid,#979797);font-weight:400}
+  .sw2{width:50px;height:30px;border-radius:15px;background:var(--ki-ctrl,#545454);position:relative;flex:none;transition:background .2s}
+  .sw2::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fff;transition:left .28s cubic-bezier(.34,1.45,.64,1);box-shadow:0 1px 4px rgb(0 0 0/.3)}
+  .sw2.on{background:var(--pink,#f285c9)}.sw2.on::after{left:23px}
+  .savebar{display:flex;gap:8px;margin-top:6px}
+  .savebar .btn{flex:1}
+  .glowbg,.glow::before,.glow::after{display:none!important}
+  .glow{filter:none!important;box-shadow:none!important;background:none!important}
+  .big.lit,.ic.on,.hd .ic{box-shadow:none!important;filter:none!important}
+  .dial path.arc[filter],.dial path[filter]{display:none!important}
+  .sl .fill,.cb.pri{box-shadow:none!important}
+  `;
   /* ---------- morph: oppdater eksisterende DOM mot ny HTML (beholder elementer → CSS-overganger virker) ---------- */
   function morph(from, to) {
     const a = Array.from(from.childNodes), b = Array.from(to.childNodes);
@@ -266,7 +318,7 @@
     constructor() {
       this.host = document.createElement('div'); this.host.className = 'ki-more-info';
       this.shadowRoot = this.host.attachShadow({ mode: 'open' });
-      this.shadowRoot.innerHTML = `<style>${CSS}</style><div id="root"></div>`;
+      this.shadowRoot.innerHTML = `<style>${CSS}</style><style>${CSS2}</style><div id="root"></div>`;
       this.root = this.shadowRoot.getElementById('root');
       const lf = document.querySelector('link[href*="leaflet.css"]');
       if (lf) this.shadowRoot.insertBefore(lf.cloneNode(), this.root);
@@ -488,6 +540,9 @@
       if (a.fan_modes && a.fan_modes.length) html += `<div class="lbl">Vifte</div>${this.chips(a.fan_modes.map((m) => [m, PRESET[m] || cap(m), 'mdi:fan']), a.fan_mode, 'svcv', ' data-d="climate" data-s="set_fan_mode" data-f="fan_mode"')}`;
       if (a.swing_modes && a.swing_modes.length) html += `<div class="lbl">Luftretning</div>${this.chips(a.swing_modes.map((m) => [m, PRESET[m] || cap(m), 'mdi:arrow-oscillating']), a.swing_mode, 'svcv', ' data-d="climate" data-s="set_swing_mode" data-f="swing_mode"')}`;
       if (a.target_humidity != null) html += `<div class="lbl">Ønsket fukt</div>${this.sl({ k: 'chum', v: a.target_humidity, min: a.min_humidity || 30, max: a.max_humidity || 99, dir: 'h', col: C.blue, icon: 'mdi:water-percent', label: 'Fukt' })}`;
+      const diff = a.temperature != null && a.current_temperature != null ? a.temperature - a.current_temperature : null;
+      html = this.stats([['mdi:thermometer', 'Nå', a.current_temperature != null ? nf(a.current_temperature, 1) : '–', '°'], a.current_humidity != null ? ['mdi:water-percent', 'Fukt', a.current_humidity, '%'] : null, ['mdi:target', 'Mål', a.temperature != null ? nf(a.temperature, 1) : a.target_temp_low != null ? nf(a.target_temp_low, 0) + '–' + nf(a.target_temp_high, 0) : '–', '°'], diff != null ? ['mdi:swap-vertical', s.state === 'off' ? 'Av' : Math.abs(diff) < 0.3 ? 'Holder' : diff > 0 ? 'Opp' : 'Ned', (diff > 0 ? '+' : '') + nf(diff, 1), '°'] : null]) + html;
+      html += this.relHtml(this.related(s, ['temperature', 'humidity', 'carbon_dioxide', 'power', 'energy', 'battery', 'window', 'door']), 'Sensorer i rommet');
       return html;
     }
     c_water_heater(s, a) {
@@ -543,13 +598,15 @@
       const pl = s.state === 'playing', off = s.state === 'off' || s.state === 'standby', vol = Math.round((a.volume_level || 0) * 100), src = a.source_list || [];
       const pic = a.entity_picture_local || a.entity_picture;
       const pos = this.mediaPos(a, s);
-      let html = `<div class="glowbg" style="--gc:${C.pink};--go:${pl ? 0.18 : 0}"></div><div class="art${pl ? '' : ' pz'}">${pic ? `<img src="${esc(pic)}" alt="">` : `<ha-icon icon="${this.icon(s)}"></ha-icon>`}</div>
-        <div class="mt"><b>${esc(a.media_title || (off ? 'Av' : ST[s.state] || s.state))}</b><span>${pl ? '<span class="eq" style="margin-right:6px;color:' + C.pink + '"><i></i><i></i><i></i></span>' : ''}${esc([a.media_artist || a.app_name, a.media_album_name].filter(Boolean).join(' · '))}</span></div>`;
+      let html = `<div class="mhero">${pic ? `<span class="bgimg" style="background-image:url('${esc(pic)}')"></span>` : ''}<span class="cov${pl ? '' : ' pz'}">${pic ? `<img src="${esc(pic)}" alt="">` : `<ha-icon icon="${this.icon(s)}"></ha-icon>`}</span><span class="mi2"><em>${pl ? '<span class="eq" style="margin-right:6px"><i></i><i></i><i></i></span>' : ''}${esc(off ? 'Av' : a.app_name || ST[s.state] || s.state)}</em><b data-noi18n>${esc(a.media_title || (off ? 'Ingenting spilles' : a.source || 'Klar'))}</b><span data-noi18n>${esc([a.media_artist || a.media_series_title, a.media_album_name || (a.media_season ? 'S' + a.media_season + ' E' + (a.media_episode || '') : '')].filter(Boolean).join(' · '))}</span></span></div>`;
       if (pos != null) html += `<div class="prog"><div class="bar" data-seek="${a.media_duration}"><i style="width:${((pos / a.media_duration) * 100).toFixed(2)}%"></i></div><div class="t"><span>${dur(pos)}</span><span>−${dur(a.media_duration - pos)}</span></div></div>`;
       html += `<div class="row">${a.shuffle != null ? `<button class="cb sm${a.shuffle ? ' on' : ''}" data-a="svc" data-d="media_player" data-s="shuffle_set" data-p="${J({ shuffle: !a.shuffle })}"><ha-icon icon="mdi:shuffle-variant"></ha-icon></button>` : ''}${this.svc('media_player', 'media_previous_track', {}, '', 'mdi:skip-previous', 'cb')}<button class="cb pri" data-a="svc" data-d="media_player" data-s="media_play_pause" data-p="{}"><ha-icon icon="${pl ? 'mdi:pause' : 'mdi:play'}"></ha-icon></button>${this.svc('media_player', 'media_next_track', {}, '', 'mdi:skip-next', 'cb')}${a.repeat != null ? `<button class="cb sm${a.repeat !== 'off' ? ' on' : ''}" data-a="svc" data-d="media_player" data-s="repeat_set" data-p="${J({ repeat: a.repeat === 'off' ? 'all' : a.repeat === 'all' ? 'one' : 'off' })}"><ha-icon icon="${a.repeat === 'one' ? 'mdi:repeat-once' : 'mdi:repeat'}"></ha-icon></button>` : ''}</div>`;
       html += `<div class="row" style="flex-wrap:nowrap;gap:8px"><button class="cb sm" data-a="svc" data-d="media_player" data-s="volume_mute" data-p="${J({ is_volume_muted: !a.is_volume_muted })}"><ha-icon icon="${a.is_volume_muted ? 'mdi:volume-off' : vol < 35 ? 'mdi:volume-low' : 'mdi:volume-high'}"></ha-icon></button><div style="flex:1">${this.sl({ k: 'vol', v: a.is_volume_muted ? 0 : vol, dir: 'h', col: C.pink, icon: 'mdi:volume-high', label: 'Volum', fmt: 'vol', live: 1 })}</div></div>`;
+      html += `<div class="vsteps">${[['-', 'mdi:volume-minus', 'volume_down'], ['+', 'mdi:volume-plus', 'volume_up']].map(([k, ic, sv]) => `<button class="chip" style="flex:1;justify-content:center" data-a="svc" data-d="media_player" data-s="${sv}" data-p="{}"><ha-icon icon="${ic}"></ha-icon>${k === '-' ? 'Lavere' : 'Høyere'}</button>`).join('')}<button class="chip" style="flex:1;justify-content:center" data-a="browse"><ha-icon icon="mdi:play-box-multiple-outline"></ha-icon>Bla i media</button></div>`;
+      if (a.group_members && a.group_members.length > 1) html += `<div class="lbl">Spiller i gruppe<span>${a.group_members.length}</span></div><div class="grpm">${a.group_members.map((m) => `<button class="chip${m === s.entity_id ? ' on' : ''}" data-a="goto" data-v="${esc(m)}"><ha-icon icon="mdi:speaker"></ha-icon><span data-noi18n>${esc((this.hass.states[m] && this.hass.states[m].attributes.friendly_name) || m)}</span></button>`).join('')}</div>`;
       if (src.length) html += `<div class="lbl">Kilde</div>${this.chips(src.map((x) => [x, x, 'mdi:import']), a.source, 'svcv', ' data-d="media_player" data-s="select_source" data-f="source"')}`;
       if (a.sound_mode_list && a.sound_mode_list.length) html += `<div class="lbl">Lydmodus</div>${this.chips(a.sound_mode_list.map((x) => [x, x, 'mdi:equalizer']), a.sound_mode, 'svcv', ' data-d="media_player" data-s="select_sound_mode" data-f="sound_mode"')}`;
+      html += this.relHtml(this.related(s, ['power', 'energy', 'sound_pressure', 'signal_strength']), 'Sensorer');
       html += `<div class="row"><button class="chip" data-a="svc" data-d="media_player" data-s="${off ? 'turn_on' : 'turn_off'}" data-p="{}"><ha-icon icon="mdi:power"></ha-icon>${off ? 'Slå på' : 'Slå av'}</button></div>`;
       return html;
     }
@@ -745,6 +802,57 @@
       if (isNum(s.state) && DOM(s.entity_id) !== 'counter') return this.chart(s);
       return `${this.timeline(s)}${this.kv([['Nå', esc(this.stateTxt(s))], ['Endret', esc(agoT(s.last_changed))], ['Oppdatert', esc(agoT(s.last_updated || s.last_changed))], a.last_triggered ? ['Sist utløst', esc(agoT(a.last_triggered))] : null])}`;
     }
+    // Innstillinger for entiteten (navn, entitets-ID, ikon, område, synlig/aktivert) – samme felt som HAs entitetsinnstillinger
+    setTab(s) {
+      const h = this.hass, id = s.entity_id, e = (h.entities && h.entities[id]) || {}, u = this.ui.set || (this.ui.set = { name: e.name || '', eid: id, icon: e.icon || '', area: e.area_id || null, hidden: !!e.hidden_by, disabled: !!e.disabled_by });
+      const def = this.icon({ ...s, attributes: { ...s.attributes, icon: undefined } });
+      const SUG = [...new Set([def, ...({ light: ['mdi:lightbulb', 'mdi:ceiling-light', 'mdi:floor-lamp', 'mdi:lamp', 'mdi:led-strip-variant', 'mdi:wall-sconce'], climate: ['mdi:thermostat', 'mdi:radiator', 'mdi:heat-pump', 'mdi:air-conditioner', 'mdi:heating-coil', 'mdi:fireplace'], media_player: ['mdi:television', 'mdi:speaker', 'mdi:cast', 'mdi:soundbar', 'mdi:music', 'mdi:apple'], sensor: ['mdi:thermometer', 'mdi:water-percent', 'mdi:flash', 'mdi:gauge', 'mdi:molecule-co2', 'mdi:weather-windy'], switch: ['mdi:power-socket-eu', 'mdi:toggle-switch-variant', 'mdi:fan', 'mdi:coffee-maker', 'mdi:washing-machine', 'mdi:water-boiler'] }[DOM(id)] || ['mdi:star', 'mdi:home', 'mdi:shape', 'mdi:circle-outline', 'mdi:flash', 'mdi:bell'])])].slice(0, 7);
+      const areas = Object.values(h.areas || {});
+      const unique = !!(e.unique_id || e.entity_id || (h.entities && h.entities[id]));
+      if (!unique) return `<div class="card"><div class="note">Denne entiteten er laget i YAML og har ingen unik ID, så navn og ikon kan bare endres i konfigurasjonen.</div></div>`;
+      return `<label class="setf"><span>Navn</span><input data-in="sname" value="${esc(u.name)}" placeholder="${esc(s.attributes.friendly_name || '')}" autocomplete="off"></label>
+        <label class="setf"><span>Entitets-ID</span><input class="mono" data-in="seid" value="${esc(u.eid)}" autocapitalize="off" spellcheck="false" autocomplete="off"></label>
+        <div class="setf"><span>Ikon</span><div class="icrow"><span class="icprev"><ha-icon icon="${esc(u.icon || def)}"></ha-icon></span><input data-in="sicon" value="${esc(u.icon)}" placeholder="${esc(def)}" autocapitalize="off" spellcheck="false" style="flex:1"></div>
+          <div class="icsug">${SUG.map((ic) => `<button class="${(u.icon || def) === ic ? 'on' : ''}" data-a="sic" data-v="${ic}" aria-label="${ic}"><ha-icon icon="${ic}"></ha-icon></button>`).join('')}</div></div>
+        ${areas.length ? `<div class="lbl">Område</div>${this.chips([['', 'Følg enheten'], ...areas.map((x) => [x.area_id, x.name])], u.area || '', 'sarea')}` : ''}
+        <div class="card" style="padding:0"><div class="setrow"><b>Synlig<i>Vises i lister og på dashbord</i></b><button class="sw2${u.hidden ? '' : ' on'}" data-a="stg" data-v="hidden" aria-label="Synlig"></button></div><div class="setrow"><b>Aktivert<i>Av = HA slutter å oppdatere entiteten</i></b><button class="sw2${u.disabled ? '' : ' on'}" data-a="stg" data-v="disabled" aria-label="Aktivert"></button></div></div>
+        ${this.ui.setErr ? `<div class="note" style="color:${C.red}">${esc(this.ui.setErr)}</div>` : ''}
+        <div class="savebar"><button class="btn ghost" data-a="sreset">Tilbakestill</button><button class="btn" data-a="ssave" style="background:linear-gradient(145deg,#f285c9 -10%,#f5cdc6 100%);color:#2a1720">${this.ui.saving ? 'Lagrer …' : 'Lagre'}</button></div>`;
+    }
+    async saveSet() {
+      const h = this.hass, s = this.s, u = this.ui.set; if (!s || !u) return;
+      const e = (h.entities && h.entities[s.entity_id]) || {};
+      const nid = String(u.eid || '').trim();
+      if (nid !== s.entity_id && !/^[a-z_]+\.[a-z0-9_]+$/.test(nid)) { this.ui.setErr = 'Entitets-ID må være på formen domene.navn, med små bokstaver, tall og _'; return this.update(); }
+      if (nid !== s.entity_id && DOM(nid) !== DOM(s.entity_id)) { this.ui.setErr = 'Domenet (' + DOM(s.entity_id) + '.) kan ikke endres'; return this.update(); }
+      if (nid !== s.entity_id && h.states[nid]) { this.ui.setErr = nid + ' finnes allerede'; return this.update(); }
+      const p = { entity_id: s.entity_id, name: u.name.trim() || null, icon: u.icon.trim() || null, area_id: u.area || null, hidden_by: u.hidden ? 'user' : null, disabled_by: u.disabled ? 'user' : null };
+      if (nid !== s.entity_id) p.new_entity_id = nid;
+      this.ui.saving = true; this.ui.setErr = ''; this.update();
+      try {
+        await h.callWS({ type: 'config/entity_registry/update', ...p });
+        this.haptic('success'); this.ui.saving = false;
+        if (window.kiNote) window.kiNote('Lagret');
+        if (p.new_entity_id) { const nidv = p.new_entity_id; this.ui.set = null; setTimeout(() => { if (this.hass.states[nidv]) { this.eid = nidv; this.tab = 'set'; this.render(true); } }, 350); }
+        else { this.ui.set = null; this.update(); }
+      } catch (er) { this.ui.saving = false; this.ui.setErr = (er && (er.message || er.code)) || 'Kunne ikke lagre'; this.update(); }
+    }
+    // Sensorer som hører til: samme enhet først, så samme område (temperatur/fukt for klima, effekt/lydnivå for media)
+    related(s, classes) {
+      const h = this.hass, id = s.entity_id, E = h.entities || {}, me = E[id] || {}, dev = me.device_id;
+      const ar = me.area_id || (dev && h.devices && h.devices[dev] && h.devices[dev].area_id);
+      const areaOf = (x) => { const e = E[x] || {}; return e.area_id || (e.device_id && h.devices && h.devices[e.device_id] && h.devices[e.device_id].area_id); };
+      const ok = (x) => x !== id && /^(sensor|binary_sensor)\./.test(x) && h.states[x] && h.states[x].state !== 'unavailable';
+      const same = Object.keys(h.states).filter((x) => ok(x) && dev && (E[x] || {}).device_id === dev);
+      const near = ar ? Object.keys(h.states).filter((x) => ok(x) && !same.includes(x) && areaOf(x) === ar && (!classes || classes.includes(h.states[x].attributes.device_class))) : [];
+      return [...same, ...near].slice(0, 8);
+    }
+    relHtml(ids, title) {
+      if (!ids.length) return '';
+      const h = this.hass, col = { temperature: C.orange, humidity: C.blue, power: C.yellow, energy: C.yellow, battery: C.green, illuminance: C.yellow, carbon_dioxide: C.green, signal_strength: C.purple, motion: C.pink, door: C.pink, window: C.blue };
+      return `<div class="lbl">${title || 'Sensorer'}<span>${ids.length}</span></div><div class="rels">${ids.map((x) => { const st = h.states[x], dc = st.attributes.device_class; return `<button class="rel" data-a="goto" data-v="${esc(x)}" style="--rc:${col[dc] || C.blue}"><span class="ri"><ha-icon icon="${this.icon(st)}"></ha-icon></span><span class="rt"><b data-noi18n>${esc(this.stateTxt(st))}</b><i data-noi18n>${esc(String(st.attributes.friendly_name || x).replace(String(this.s.attributes.friendly_name || '') + ' ', ''))}</i></span></button>`; }).join('')}</div>`;
+    }
+    stats(rows) { return `<div class="stats">${rows.filter(Boolean).map(([ic, l, v, u]) => `<div class="stat"><span><ha-icon icon="${ic}"></ha-icon>${esc(l)}</span><b>${v}${u ? `<small>${esc(u)}</small>` : ''}</b></div>`).join('')}</div>`; }
     detTab(s) {
       const a = s.attributes, h = this.hass, e = h.entities && h.entities[s.entity_id], dv = e && e.device_id && h.devices && h.devices[e.device_id];
       const skip = ['friendly_name', 'entity_picture', 'supported_features', 'icon', 'entity_picture_local'];
@@ -759,14 +867,14 @@
     html(s) {
       const d = DOM(s.entity_id), on = ON(s), acc = this.accent(s);
       const ar = this.area(s.entity_id);
-      const body = this.tab === 'hist' ? this.histTab(s) : this.tab === 'det' ? this.detTab(s) : this.ctl(s);
-      const ti = { ctl: 0, hist: 1, det: 2 }[this.tab] || 0;
+      const body = this.tab === 'hist' ? this.histTab(s) : this.tab === 'det' ? this.detTab(s) : this.tab === 'set' ? this.setTab(s) : this.ctl(s);
+      const ti = { ctl: 0, hist: 1, det: 2 }[this.tab]; const tiv = ti == null ? -1 : ti;
       return `<div class="bd" data-a="close"></div>
         <div class="sh" part="sheet"><div class="glowbg" style="--gc:${acc};--go:${on && this.tab === 'ctl' && d !== 'media_player' ? 0.16 : 0}"></div><div class="grab"><i></i></div>
           <div class="hd"><span class="ic${on ? ' on' : ''}" style="background:${on ? acc : SURF};color:${on ? DARK : TX};--icc:${acc}"><ha-icon icon="${this.icon(s)}"></ha-icon></span>
             <span class="tt"><b data-noi18n>${esc(cap(String(s.attributes.friendly_name || s.entity_id)))}</b><span>${esc([ar, this.stateTxt(s)].filter(Boolean).join(' · '))}</span></span>
-            <button class="x" data-a="close" aria-label="Lukk"><ha-icon icon="mdi:close"></ha-icon></button></div>
-          <div class="seg" style="--si:${ti}"><span class="ind"></span>${[['ctl', 'Kontroll'], ['hist', 'Historikk'], ['det', 'Detaljer']].map(([k, l]) => `<button class="${this.tab === k ? 'on' : ''}" data-a="tab" data-v="${k}">${l}</button>`).join('')}</div>
+            <button class="gear" data-a="tab" data-v="set" aria-label="Innstillinger"><ha-icon icon="mdi:cog-outline"></ha-icon></button><button class="x" data-a="close" aria-label="Lukk"><ha-icon icon="mdi:close"></ha-icon></button></div>
+          <div class="seg" style="--si:${tiv < 0 ? 0 : tiv};${tiv < 0 ? '--seg-off:1' : ''}"><span class="ind"></span>${[['ctl', 'Kontroll'], ['hist', 'Historikk'], ['det', 'Detaljer']].map(([k, l]) => `<button class="${this.tab === k ? 'on' : ''}" data-a="tab" data-v="${k}">${l}</button>`).join('')}</div>${tiv < 0 ? '<style>.seg .ind{opacity:0}</style>' : ''}
           <div class="bdy" data-k="${this.tab}">${body}</div></div>`;
     }
     render(fresh) {
@@ -818,7 +926,9 @@
       const R = this.shadowRoot;
       const find = (e, sel) => { for (const n of e.composedPath()) { if (n === R) break; if (n.matches && n.matches(sel)) return n; } return null; };
       R.addEventListener('click', (e) => { const el = find(e, '[data-a]'); if (el) { e.stopPropagation(); this.act(el); } });
-      R.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const i = find(e, 'input[data-in]'); if (i) { const b = { todo: 'todoadd', text: 'textset', date: 'dtset', time: 'dtset', num: 'numset' }[i.dataset.in]; if (b) this.act({ dataset: { a: b } }); } } });
+      // Innstillinger-feltene: skriv til utkastet uten å tegne arket på nytt (ikonforhåndsvisningen oppdateres direkte)
+      R.addEventListener('input', (e) => { const i = find(e, 'input[data-in]'); if (!i || !this.ui.set) return; const k = { sname: 'name', seid: 'eid', sicon: 'icon' }[i.dataset.in]; if (!k) return; this.ui.set[k] = i.value; if (k === 'icon') { const p = R.querySelector('.icprev ha-icon'); if (p && /^mdi:[a-z0-9-]+$/.test(i.value)) p.setAttribute('icon', i.value); } });
+      R.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const i = find(e, 'input[data-in]'); if (i) { const b = { todo: 'todoadd', text: 'textset', date: 'dtset', time: 'dtset', num: 'numset', sname: 'ssave', seid: 'ssave', sicon: 'ssave' }[i.dataset.in]; if (b) this.act({ dataset: { a: b } }); } } });
       R.addEventListener('pointerdown', (e) => {
         const sl = find(e, '[data-sl]'); if (sl) return this.dragSl(sl, e);
         const dl = find(e, '[data-dial]'); if (dl) return this.dragDial(dl, e);
@@ -878,6 +988,12 @@
         case 'goto': return this.open(x.v);
         case 'hash': this.close(); setTimeout(() => { location.hash = x.v; }, 200); return;
         case 'url': try { window.open(x.v, '_blank'); } catch (e) { /* */ } return;
+        case 'sic': this.ui.set.icon = x.v; return this.update();
+        case 'sarea': this.ui.set.area = x.v || null; return this.update();
+        case 'stg': this.ui.set[x.v] = !this.ui.set[x.v]; return this.update();
+        case 'sreset': this.ui.set = null; this.ui.setErr = ''; return this.update();
+        case 'ssave': return this.saveSet();
+        case 'browse': this.close(); setTimeout(() => { if (window.MSH && window.MSH.ha) window.MSH.ha.open('media', { player: s.entity_id }); }, 250); return;
         case 'copy': try { navigator.clipboard.writeText(s.entity_id); } catch (e) { /* */ } if (window.kiNote) window.kiNote('Kopiert: ' + s.entity_id); return;
       }
     }

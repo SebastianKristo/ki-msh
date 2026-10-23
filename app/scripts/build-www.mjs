@@ -1,6 +1,6 @@
 // Bygger www/ for Capacitor: appens egne sider (web/) + demo-modus med hele src/ og testdataene,
 // lagt ut som i prototypen (demo/ki/runtime.html laster ../src/ og ../test/mock/).
-import { cpSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import { cpSync, mkdirSync, rmSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { buildSync } from 'esbuild';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +21,16 @@ cpSync(join(repo, 'test', 'mock-hass.js'), join(demo, 'test', 'mock-hass.js'));
 cpSync(join(repo, 'test', 'mock'), join(demo, 'test', 'mock'), { recursive: true });
 cpSync(join(app, 'prototype', 'ki'), join(demo, 'ki'), { recursive: true });
 cpSync(join(app, 'web', 'native.js'), join(demo, 'ki', 'native.js'));
+
+// SRC-lista i runtime.html genereres fra filene som faktisk ligger i demo/src (som build.mjs: vendor/*-no.js først,
+// så navnerekkefølge). Da kan ikke en ny fil i src/ (f.eks. 00-c-tilpass.js, 69*-ha-*.js) mangle i appen.
+const srcDir = join(demo, 'src');
+const vendor = (existsSync(join(srcDir, 'vendor')) ? readdirSync(join(srcDir, 'vendor')) : []).filter((f) => f.endsWith('-no.js')).sort().map((f) => 'vendor/' + f);
+const SRC = [...vendor, ...readdirSync(srcDir).filter((f) => f.endsWith('.js')).sort()];
+const rt = join(demo, 'ki', 'runtime.html');
+const html = readFileSync(rt, 'utf8');
+if (!/const SRC = \[[^\]]*\];/.test(html)) { console.error('fant ikke SRC-lista i runtime.html'); process.exit(1); }
+writeFileSync(rt, html.replace(/const SRC = \[[^\]]*\];/, () => `const SRC = ${JSON.stringify(SRC)};`));
 
 // Ikoner og kart lokalt i appen (raskere oppstart, virker uten CDN)
 const nm = join(app, 'node_modules');

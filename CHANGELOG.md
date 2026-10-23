@@ -2,6 +2,16 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## Claude Design 23.10.2026 · HA-innstillinger, mer info, Liquid Glass
+Endringer tatt inn fra Claude Design-prosjektet «Home Assistant App» (base main 164e2e4).
+- **HA-innstillinger:** «Lag ny» med maler for automasjoner, skript og scener (`src/69f-ha-ny.js`), sider for etiketter og mapper, ekstra paneler/verktøy (`69g`, `69h`), profilkort, «Companion-appen» og «Tilpass dashbordet» i hub-en (`69i-ha-app.js`). Scene fra rom (`69d`). Headeren dekker innhold som ruller under (`69`). «Tema: Auto» følger HAs eget temavalg i HA, telefonen i appen.
+- **Mer info-ark:** tannhjul ved ✕ med entitetsinnstillinger (navn, entitets-ID, ikon, område, synlig/aktivert via `config/entity_registry/update`); klima får nøkkeltall og «Sensorer i rommet»; media får nytt toppkort, volum ± og gruppemedlemmer.
+- **Navbar / Mer-panel:** nytt menydesign (ikonfliser i farge, utvidet rutenett), og panelets regel som skjuler mini-spilleren fjernes når panelet lukkes.
+- **Liquid Glass:** klarere glass, glans som følger telefonen (`--ki-gl-tilt`), lys under fingeren og gelé-morf i segmentrader (`00-base.js`).
+- **Popups:** enklere Bubble-header (ingen pille bak ikon/tittel, 34 px tittel, × uten sirkel) (`02-popups.js`).
+- **Lysrader:** hold inne 450 ms = mer info for lampen (`08-light-row.js`). Server-menyens «Tilpass …» heter nå «Innstillinger» og åpner HA-innstillingene.
+- **App:** SRC-lista i `demo/ki/runtime.html` genereres nå fra `src/` i `app/scripts/build-www.mjs` (manglende `00-c-tilpass.js`, `00-a-lang-en-17/18.js` og `69*-ha-*.js` ga `MSH.tp`/`MSH.ha` = undefined i appen). Prototypen bruker `MSH.ha` i stedet for gamle `ki/ha-settings.js`, har demo-register for etiketter/mapper/entiteter, og Vær holdes under statuslinjen.
+
 ## Fiks 66 · Felles kontroller i Tilpass-arkene
 - Én slider overalt (`MSH.tp.range`): 6 px spor, rosa fyll fram til verdien, hvit knott – erstatter native `accent-color`-slidere (ulikt utseende på iOS/Android) og de egne variantene i kamera, strømpris, lys, klima, navbar, Hjem og fanehøyde.
 - Forvalg under slidere er små, stille snarvalg (rosa tone når valgt) i stedet for en ekstra rad med store piller; valg-chips er like overalt (34 px, valgt = rosa).

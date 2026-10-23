@@ -16,6 +16,8 @@
     scene: { n: 'Scener', en: 'Scenes', addEn: 'New scene', one: 'scene', icon: 'mdi:palette', add: 'Ny scene', path: '/config/scene/dashboard' },
     script: { n: 'Skript', en: 'Scripts', addEn: 'New script', one: 'skript', icon: 'mdi:script-text', add: 'Nytt skript', path: '/config/script/dashboard' },
   };
+  // Hjelpere har egne mapper i HA (scope «helpers»); ikke med i KIND-lister for automasjon/scene/skript
+  const KIND_H = { n: 'Hjelpere', en: 'Helpers', addEn: 'New helper', one: 'hjelper', icon: 'mdi:tools', add: 'Ny hjelper', path: '/config/helpers' };
   const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* */ } };
   const nameOf = (h, id) => { const s = h && h.states[id]; return (s && s.attributes.friendly_name) || id; };
@@ -28,7 +30,7 @@
     sub: (c) => { const h = c.h, cf = (h && h.config) || {}; return [cf.location_name, cf.version ? `Home Assistant ${cf.version}` : ''].filter(Boolean).join(' · '); },
     async load(c) {
       const st = c.state;
-      const [rep, bk] = await Promise.all([c.ws('repairs/list_issues').catch(() => null), c.ws('backup/info').catch(() => null)]);
+      const [rep, bk] = await Promise.all([c.ws('repairs/list_issues').catch(() => null), c.ws('backup/info').catch(() => null), reg.load(c.h)]);
       st.repairs = rep && rep.issues ? rep.issues.filter((i) => !i.ignored).length : null;
       st.backup = bk;
     },
@@ -52,10 +54,15 @@
         ['/config/storage', 'mdi:harddisk', 'Lagringsplass', 'Diskbruk'],
         ['/config/hardware', 'mdi:memory', 'Maskinvare', 'Prosessor og minne'],
       ];
-      return `<div class="tiles">${['automation', 'scene', 'script'].map(tile).join('')}</div>
+      const nCats = ['automation', 'scene', 'script'].reduce((n, k) => n + (reg.cats[k] || []).length, 0), nLabs = (reg.labels || []).length;
+      return `${M.ha.appTop ? M.ha.appTop(c) : ''}<div class="tiles">${['automation', 'scene', 'script'].map(tile).join('')}</div>
         ${alert}
+        ${M.ha.tpSection ? M.ha.tpSection(c) : ''}
+        ${ui.sec(T('Lag ny', 'Create'))}
+        <div class="chs wrap">${[['automation', 'mdi:robot-outline', 'Automasjon', 'Automation'], ['scene', 'mdi:palette-outline', 'Scene', 'Scene'], ['script', 'mdi:script-text-outline', 'Skript', 'Script']].map(([k, i, n, e]) => `<button class="ch" data-a="go" data-v="new|${k}">${ui.ic('mdi:plus', 15)}${ui.ic(i, 15)}${esc(T(n, e))}</button>`).join('')}</div>
         ${ui.sec(T('Organisering', 'Organisation'))}
-        ${ui.group(ui.row({ a: 'go', v: 'cats', icon: 'mdi:folder-outline', title: T('Mapper', 'Folders'), sub: T('Kategorier for automasjoner, scener og skript', 'Categories for automations, scenes and scripts'), chev: true }) + ui.row({ a: 'go', v: 'labels', icon: 'mdi:label-outline', title: T('Etiketter', 'Labels'), sub: `${reg.labels.length} ${T('etiketter', 'labels')}`, chev: true }))}
+        ${ui.group(ui.row({ a: 'go', v: 'cats', icon: 'mdi:folder-outline', title: T('Mapper', 'Folders'), sub: nCats ? `${nCats} ${T('mapper for automasjoner, scener og skript', 'folders for automations, scenes and scripts')}` : T('Kategorier for automasjoner, scener og skript', 'Categories for automations, scenes and scripts'), chev: true }) + ui.row({ a: 'go', v: 'labels', icon: 'mdi:label-outline', title: T('Etiketter', 'Labels'), sub: nLabs ? `${nLabs} ${T('etiketter', 'labels')}` : T('Fargede merker på tvers av alt', 'Coloured tags across everything'), chev: true }))}
+        ${M.ha.appSection ? M.ha.appSection(c) : ''}
         ${ui.sec(T('System', 'System'))}
         ${ui.group([
           ui.row({ a: 'go', v: 'updates', icon: 'mdi:update', title: T('Oppdateringer', 'Updates'), sub: ups ? `${ups} ${T('tilgjengelig', 'available')}` : T('Alt er oppdatert', 'Everything is up to date'), right: ui.badge(ups, true), chev: true }),
@@ -66,8 +73,7 @@
           ui.row({ a: 'go', v: 'general', icon: 'mdi:cog-outline', title: T('Generelt', 'General'), sub: T('Navn, sted, enheter og adresser', 'Name, location, units and URLs'), chev: true }),
           ui.row({ a: 'go', v: 'about', icon: 'mdi:information-outline', title: T('Om', 'About'), sub: T('Versjoner og systeminfo', 'Versions and system info'), chev: true }),
         ].join(''))}
-        ${ui.sec(T('Mer i Home Assistant', 'More in Home Assistant'))}
-        ${ui.group(ext.map(([p, i, t, s]) => ui.row({ a: 'ext', v: p, icon: i, title: T(t), sub: T(s), ext: true })).join(''))}`;
+        ${M.ha.morePanels ? M.ha.morePanels() : ui.sec(T('Mer i Home Assistant', 'More in Home Assistant')) + ui.group(ext.map(([p, i, t, s]) => ui.row({ a: 'ext', v: p, icon: i, title: T(t), sub: T(s), ext: true })).join(''))}`;
     },
   });
 
@@ -160,7 +166,7 @@
       },
     });
   }
-  M.ha.orgSheet = orgSheet;
+  M.ha.orgSheet = orgSheet; M.ha.labelSheet = labelSheet; M.ha.nameSheet = nameSheet; M.ha.regUpdate = regUpdate; M.ha.KIND = KIND; M.ha.items = items;
 
   /* ------------------------------------------------------------ lister */
   function filtered(c, kind, st) {
@@ -247,7 +253,7 @@
           if (!cid) { M.haptic('warning'); return c.toast(T('Laget i YAML – kan bare endres i konfigurasjonsfilene', 'Made in YAML – can only be changed in the configuration files'), { type: 'error' }); }
           return c.push(kind === 'scene' ? 'scene' : 'edit', { kind, entity: v, id: cid });
         }
-        case 'new': return c.push(kind === 'scene' ? 'scene' : 'edit', { kind, isNew: true });
+        case 'new': return c.push('new', { kind });
         case 'more': return moreSheet(c, kind, v);
         default: return undefined;
       }
@@ -305,6 +311,7 @@
       loadTr(c).then(() => c.render());
       let cfg;
       if (a.isNew && a.copyOf) { cfg = await c.api('GET', `config/${a.kind}/config/${a.copyOf}`); cfg = { ...cfg, alias: `${cfg.alias || ''} (${T('kopi', 'copy')})` }; delete cfg.id; }
+      else if (a.isNew && a.tpl) cfg = clone(a.tpl);
       else if (a.isNew) cfg = blank(a.kind);
       else cfg = await c.api('GET', `config/${a.kind}/config/${a.id}`);
       st.cfg = B.normalize(cfg, a.kind);
@@ -313,7 +320,8 @@
       st.open = new Set(); st.mode = 'visual';
       st.org = {};
       if (a.isNew && a.copyEnt) { const o = orgOf(a.copyEnt); st.org = { cat: o.cat[a.kind] || null, labels: o.labels, area: o.area }; }
-      if (a.isNew) { if (a.kind === 'automation') st.open.add('triggers.0'); }
+      if (a.isNew && a.org) st.org = { ...a.org };
+      if (a.isNew && !a.tpl) { if (a.kind === 'automation') st.open.add('triggers.0'); }
     },
     back(c) {
       const st = c.state;
@@ -436,14 +444,15 @@
   /* ------------------------------------------------------------ mapper (kategorier) */
   M.ha.page('cats', {
     title: () => T('Mapper', 'Folders'),
-    sub: (c, a) => (a.kind ? T(KIND[a.kind].n, KIND[a.kind].en) : T('Kategorier i Home Assistant', 'Categories in Home Assistant')),
+    sub: (c, a) => (a.kind ? T((KIND[a.kind] || KIND_H).n, (KIND[a.kind] || KIND_H).en) : T('Kategorier i Home Assistant', 'Categories in Home Assistant')),
     load: async (c) => { await reg.load(c.h, true); },
     render(c, a) {
       const st = c.state;
       const kind = st.kind || a.kind || 'automation';
       const h = c.h, cats = (reg.cats[kind] || []).slice().sort((x, y) => x.name.localeCompare(y.name, 'nb'));
-      const n = (cid) => items(h, kind).filter((x) => (x.r.categories || {})[kind] === cid).length;
-      return `${a.kind ? '' : ui.seg('__kind', kind, Object.keys(KIND).map((k) => [k, T(KIND[k].n, KIND[k].en)]))}
+      const HD = ['input_boolean', 'input_number', 'input_select', 'input_text', 'input_datetime', 'input_button', 'counter', 'timer', 'schedule'];
+      const n = (cid) => (kind === 'helpers' ? Object.keys(h.states).filter((id) => HD.includes(id.split('.')[0]) && ((reg.ent(id) || {}).categories || {}).helpers === cid).length : items(h, kind).filter((x) => (x.r.categories || {})[kind] === cid).length);
+      return `${a.kind ? '' : ui.seg('__kind', kind, [...Object.keys(KIND).map((k) => [k, T(KIND[k].n, KIND[k].en)]), ['helpers', T('Hjelpere', 'Helpers')]])}
         <p class="mut" style="margin:0 6px">${esc(T('Mapper er Home Assistants kategorier. Hver type har sine egne mapper.', 'Folders are Home Assistant categories. Each type has its own folders.'))}</p>
         ${cats.length ? ui.group(cats.map((x) => ui.row({ a: 'ed', v: x.category_id, icon: x.icon || 'mdi:folder-outline', title: x.name, sub: `${n(x.category_id)} ${T('elementer', 'items')}`, chev: true })).join('')) : ui.empty('mdi:folder-outline', T('Ingen mapper ennå', 'No folders yet'))}
         <button class="fab" data-a="add">${ui.ic('mdi:folder-plus-outline', 22)}${esc(T('Ny mappe', 'New folder'))}</button>`;
@@ -452,7 +461,8 @@
       const st = c.state, kind = st.kind || args.kind || 'automation';
       if (a === 'seg') { st.kind = el.dataset.v; M.haptic('selection'); return c.render(); }
       if (a === 'add') return nameSheet(c, T('Ny mappe', 'New folder'), '', 'mdi:folder-outline', async (name, icon) => { await c.ws('config/category_registry/create', { scope: kind, name, icon: icon || null }); await reg.load(c.h, true); c.render(); });
-      if (a === 'ed') {
+      if (a === 'ed' && kind !== 'helpers') return c.push('cat', { kind, cid: el.dataset.v });
+      if (a === 'edx' || a === 'ed') {
         const x = reg.cat(kind, el.dataset.v); if (!x) return undefined;
         return nameSheet(c, T('Rediger mappe', 'Edit folder'), x.name, x.icon, async (name, icon) => { await c.ws('config/category_registry/update', { scope: kind, category_id: x.category_id, name, icon: icon || null }); await reg.load(c.h, true); c.render(); c.closeSheet(); },
           async () => { await c.ws('config/category_registry/delete', { scope: kind, category_id: x.category_id }); await reg.load(c.h, true); M.haptic('medium'); c.render(); });
@@ -475,7 +485,7 @@
     },
     act(c, a, el) {
       if (a === 'add') return labelSheet(c, null);
-      if (a === 'ed') return labelSheet(c, reg.label(el.dataset.v));
+      if (a === 'ed') return c.push('label', { id: el.dataset.v });
       return undefined;
     },
   });

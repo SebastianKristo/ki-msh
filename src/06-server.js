@@ -373,7 +373,7 @@
     const na = srv.navn === her, st = V.stil(srv, i);
     return `<button class="rad${na ? ' na' : ''}" role="menuitem" data-i="${i}" ${na ? 'aria-current="location"' : ''} style="--rad-farge:${esc(st.farge)};--rad-fg:${esc(AT(st.farge))}">
         <span class="flis">${M.icon(st.ikon, 20)}</span><span class="navn">${esc(srv.navn)}</span>${na ? '<span class="her">Du er her</span>' : `<span class="gaa">${M.icon('mdi:chevron-right', 20)}</span>`}</button>`;
-  }).join('') + (tilpass ? `<div class="skille"></div><button class="rad tilpass" role="menuitem" data-t="1"><span class="flis">${M.icon('mdi:tune-variant', 20)}</span><span class="navn">Tilpass …</span></button>` : '');
+  }).join('') + (tilpass ? `<div class="skille"></div><button class="rad tilpass" role="menuitem" data-t="1"><span class="flis">${M.icon('mdi:tune-variant', 20)}</span><span class="navn">Innstillinger</span></button>` : '');
   // Bygg (eller hent) menyen for o uten å vise den. Kalles også ved pointerdown på navnet (V.forbered) så første åpning
   // ikke må parse stil og lage DOM i samme frame som trykket.
   const bygg = (o) => {
@@ -489,7 +489,7 @@
     api._klikk = (e) => {
       const r = e.composedPath().find((n) => n && n.classList && n.classList.contains('rad'));
       if (!r) { if (o.onArk) o.onArk(); return; }
-      if (r.dataset.t) { M.haptic('light'); api.lukk(); if (o.onTilpass) o.onTilpass(); return; }
+      if (r.dataset.t) { M.haptic('light'); api.lukk(); if (M.ha && M.ha.open) setTimeout(() => M.ha.open('hub'), 120); else if (o.onTilpass) o.onTilpass(); return; } // «Tilpass …» åpner Innstillinger-siden
       const srv = liste[Number(r.dataset.i)];
       if (!srv) return;
       if (srv.navn === o.her) { api.lukk(); return; } // raden du allerede er på → bare lukk

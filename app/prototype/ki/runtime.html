@@ -61,8 +61,14 @@ customElements.define('hui-card', class extends HTMLElement {
 (async function () {
   // ?live = ekte Home Assistant (token fra onboarding), ellers demo med testdataene
   const LIVE = /[?&]live\b/.test(location.search);
-  const SRC = ["vendor/geo-no.js","00-a-i18n.js","00-a-lang-en-01.js","00-a-lang-en-02.js","00-a-lang-en-03.js","00-a-lang-en-04.js","00-a-lang-en-05.js","00-a-lang-en-06.js","00-a-lang-en-07.js","00-a-lang-en-08.js","00-a-lang-en-09.js","00-a-lang-en-10.js","00-a-lang-en-11.js","00-a-lang-en-12.js","00-a-lang-en-13.js","00-a-lang-en-14.js","00-a-lang-en-15.js","00-a-lang-en-16.js","00-a-theme.js","00-b-perf.js","00-base.js","00-c-tilpass-ui.js","01-editor.js","01-store.js","02-popups.js","02-yaml.js","03-editors.js","03-templates.js","04-strategy.js","05-segment.js","05-start-tab.js","05-tab-bar.js","05-tab-reorder.js","06-appliance-icons.js","06-arr-media.js","06-server.js","06-station-art.js","06-varsling-kilde.js","07-sikring.js","07-universal.js","08-light-row.js","09-icon-picker.js","09-pickers.js","09-tap-picker.js","10-navbar.js","11-hurtigpanel.js","12-gjoremal.js","13-person.js","15-strompris-kilde.js","20-hjem-header.js","21-hjem-prosa.js","22-hjem-soppel.js","23-hjem-gjoremal.js","24-hjem-faner.js","25-hjem.js","26-hjem-strompris.js","27-hjem-editor.js","28-popup-editor.js","29-strompris-editor.js","30-rom-klima.js","31-rom.js","32-romkort.js","33-kombinert.js","40-basseng.js","41-vanning.js","42-klima-blokker.js","42-klima.js","43-lys.js","44-media.js","45-kamera.js","46-sikkerhet.js","47-ruter.js","48-vaer.js","49-las.js","50-ringeklokke.js","50b-ringeopptak.js","51-kart.js","52-energi-hus.js","52-energi.js","53-kiosk.js","54-onboarding.js","54b-tilpass-v2.js","55-kalender.js","56-tesla.js","57-stovsuger.js","58-server.js","58b-server-unifi.js","58c-server-cf.js","59-avfall.js","60-innstillinger.js","60-strom-regning.js","61-strom.js","61-varmepumpe.js","62-garasje.js","62-strom-kurser.js","63-strom-sider.js","64-stue.js","65-planter.js","66-sovn.js","67-printer.js","68-pc-data.js","68-pc.js","99-ui-persist.js"];
+  const SRC = ["vendor/geo-no.js","00-a-i18n.js","00-a-lang-en-01.js","00-a-lang-en-02.js","00-a-lang-en-03.js","00-a-lang-en-04.js","00-a-lang-en-05.js","00-a-lang-en-06.js","00-a-lang-en-07.js","00-a-lang-en-08.js","00-a-lang-en-09.js","00-a-lang-en-10.js","00-a-lang-en-11.js","00-a-lang-en-12.js","00-a-lang-en-13.js","00-a-lang-en-14.js","00-a-lang-en-15.js","00-a-lang-en-16.js","00-a-lang-en-17.js","00-a-lang-en-18.js","00-a-theme.js","00-b-perf.js","00-base.js","00-c-tilpass-ui.js","00-c-tilpass.js","01-editor.js","01-store.js","02-popups.js","02-yaml.js","03-editors.js","03-templates.js","04-strategy.js","05-segment.js","05-start-tab.js","05-tab-bar.js","05-tab-reorder.js","06-appliance-icons.js","06-arr-media.js","06-server.js","06-station-art.js","06-varsling-kilde.js","07-sikring.js","07-universal.js","08-light-row.js","09-icon-picker.js","09-pickers.js","09-tap-picker.js","10-navbar.js","11-hurtigpanel.js","12-gjoremal.js","13-person.js","15-strompris-kilde.js","20-hjem-header.js","21-hjem-prosa.js","22-hjem-soppel.js","23-hjem-gjoremal.js","24-hjem-faner.js","25-hjem.js","26-hjem-strompris.js","27-hjem-editor.js","28-popup-editor.js","29-strompris-editor.js","30-rom-klima.js","31-rom.js","32-romkort.js","33-kombinert.js","40-basseng.js","41-vanning.js","42-klima-blokker.js","42-klima.js","43-lys.js","44-media.js","45-kamera.js","46-sikkerhet.js","47-ruter.js","48-vaer.js","49-las.js","50-ringeklokke.js","50b-ringeopptak.js","51-kart.js","52-energi-hus.js","52-energi.js","53-kiosk.js","54-onboarding.js","54b-tilpass-v2.js","55-kalender.js","56-tesla.js","57-stovsuger.js","58-server.js","58b-server-unifi.js","58c-server-cf.js","59-avfall.js","60-innstillinger.js","60-strom-regning.js","61-strom.js","61-varmepumpe.js","62-garasje.js","62-strom-kurser.js","63-strom-sider.js","64-stue.js","65-planter.js","66-sovn.js","67-printer.js","68-pc-data.js","68-pc.js","69-ha-config.js","69b-ha-blocks.js","69c-ha-auto.js","69d-ha-scene.js","69e-ha-system.js","69f-ha-ny.js","69g-ha-panels.js","69h-ha-tools.js","69i-ha-app.js","99-ui-persist.js"];
   const MOCK = ["05-registry.js","12-gjoremal.js","13-person.js","20-hjem.js","21-prosa.js","22-soppel.js","24-hjem.js","26-strompris.js","31-kirom-scener.js","31-rom-16.js","31-rom.js","35-rom-format.js","40-basseng.js","41-vanning.js","42-klima-hero.js","42-klima.js","42-klimaz-blokker.js","43-lys.js","43-utelys.js","44-media.js","45-kamera.js","46-sikkerhet.js","47-ruter.js","48-vaer.js","49-las.js","50-ringeklokke.js","51-kart.js","52-energi.js","55-kalender.js","56-tesla.js","57-stovsuger.js","58-server.js","59-avfall.js","60-innstillinger.js","61-strom.js","61-varmepumpe.js","62-garasje.js","64-stue.js","65-v4-popups.js","91-vanning-stat.js"];
+  // Statuslinjen i telefonrammen får fargen til det som ligger øverst (dashbord, varselpanel, innstillinger …), så det ikke blir et skille
+  (() => { let last = ''; const bgOf = (el) => { // blander halvgjennomsiktige lag (glass) ned til en ugjennomsiktig farge, ellers blir det en kant mot rammen
+      const L = []; for (let n = el, k = 0; n && k < 16; n = n.parentElement || (n.getRootNode && n.getRootNode().host), k++) { const cs = (n.ownerDocument.defaultView || window).getComputedStyle(n); let m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(cs.backgroundColor || ''); if ((!m || (m[4] != null && +m[4] <= 0.01)) && /gradient/.test(cs.backgroundImage || '')) m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(cs.backgroundImage); /* øverste farge i en gradient (Vær) */ if (!m) continue; const al = m[4] == null ? 1 : +m[4]; if (al <= 0.01) continue; L.push([+m[1], +m[2], +m[3], al]); if (al >= 0.99) break; }
+      let c = [35, 35, 35]; for (let i = L.length - 1; i >= 0; i--) { const [R, G, B, al] = L[i]; c = [R * al + c[0] * (1 - al), G * al + c[1] * (1 - al), B * al + c[2] * (1 - al)]; }
+      return `rgb(${c.map((v) => Math.round(v)).join(',')})`; };
+    setInterval(() => { try { let el = document.elementFromPoint(24, 1); for (let k = 0; el && k < 8; k++) { if (el.shadowRoot) { const x = el.shadowRoot.elementFromPoint(24, 1); if (!x || x === el) break; el = x; continue; } if (el.localName === 'iframe') { try { const doc = el.contentDocument, rr = el.getBoundingClientRect(); const x = doc && doc.elementFromPoint(24 - rr.left, 1 - rr.top); if (!x) break; el = x; continue; } catch (er) { break; } } break; } const c = el ? bgOf(el) : '#232323'; if (c !== last) { last = c; parent.postMessage({ kiTop: c }, '*'); } } catch (e) {} }, 200); })();
   const boot = document.getElementById('boot');
   window.kiNote = (t) => { let n = document.getElementById('ki-note'); if (!n) { n = document.createElement('div'); n.id = 'ki-note'; n.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2147483600;max-width:88%;padding:12px 18px;border-radius:24px;background:#fafafa;color:#232323;font:500 14px "Space Grotesk",system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);transition:opacity .3s;text-align:center'; document.body.appendChild(n); } n.textContent = t; n.style.opacity = 1; clearTimeout(n._t); n._t = setTimeout(() => { n.style.opacity = 0; }, 2200); };
   const load = (src, mod) => new Promise((ok) => { const s = document.createElement('script'); if (mod) s.type = 'module'; s.src = src; s.async = false; s.onload = ok; s.onerror = () => { console.error('kunne ikke laste', src); ok(); }; document.body.appendChild(s); });
@@ -109,7 +115,20 @@ customElements.define('hui-card', class extends HTMLElement {
   (document.getElementById('bootT') || boot).textContent = 'laster kortene …';
   await Promise.all(SRC.map((f) => load('../src/' + f)));
   await load('more-info.js');
-  if (!LIVE) await load('ha-settings.js');
+  // HA-innstillinger = MSH.ha (src/69*-ha-*.js). Gammel ki/ha-settings.js lastes ikke lenger; en tynn bro holder
+  // kiSettings-meldingene (knappene over telefonene, Glimt, /config-lenker) i gang mot de nye sidene.
+  const HA_PAGE = (p) => { p = String(p || ''); const m = { root: 'hub', automations: 'list|automation', scenes: 'list|scene', scripts: 'list|script', zones: 'areas', integrations: 'devices', persons: 'persons', profile: 'hub', auto: 'edit' }; if (m[p]) return m[p];
+    if (/\/config\/(automation)/.test(p)) return 'list|automation'; if (/\/config\/scene/.test(p)) return 'list|scene'; if (/\/config\/script/.test(p)) return 'list|script';
+    if (/\/config\/(integrations|devices|entities)/.test(p)) return 'devices'; if (/\/config\/helpers/.test(p)) return 'helpers'; if (/\/config\/(areas|zone|floors)/.test(p)) return 'areas';
+    if (/\/config\/(person|users)/.test(p)) return 'persons'; if (/\/config\/labels/.test(p)) return 'labels'; if (/\/hassio/.test(p)) return 'addons'; if (/\/history/.test(p)) return 'history'; if (/\/logbook/.test(p)) return 'logbook';
+    if (/\/map/.test(p)) return 'map'; if (/\/energy/.test(p)) return 'energy'; if (/\/media-browser/.test(p)) return 'media'; if (/\/todo/.test(p)) return 'todo'; if (/\/calendar/.test(p)) return 'calendar'; if (/\/developer-tools/.test(p)) return 'devtools'; if (/\/assist/.test(p)) return 'assist';
+    if (/\/config\/(backup)/.test(p)) return 'backups'; if (/\/config\/updates/.test(p)) return 'updates'; if (/\/config\/repairs/.test(p)) return 'repairs'; if (/\/config\/logs/.test(p)) return 'logs'; if (/\/config\/(general|info)/.test(p)) return 'general';
+    return /^\/(config|profile)/.test(p) ? 'hub' : null; };
+  const haOpen = (p) => { const k = HA_PAGE(p); if (!k || !window.MSH || !window.MSH.ha) return false; const [id, kind] = k.split('|'); window.MSH.ha.open(id, kind ? { kind } : {}); return true; };
+  window.kiSettings = { host: document.createElement('div'), open: (p) => haOpen(p || 'root'),
+    addAutomation: (a) => { const id = String(Date.now()); (window.__H || window.MSH.lastHass).callApi('POST', 'config/automation/config/' + id, { id, mode: 'single', conditions: [], ...a }); return id; } };
+  window.kiSettingsFor = (p) => haOpen(p);
+  window.addEventListener('message', (e) => { if (e.data && e.data.kiSettings != null) haOpen(e.data.kiSettings || 'root'); });
   await load('glimt.js');
   await load('vaer.js');
   // Navigering ut av dashbordet (f.eks. /config/…): i appen åpnes HAs egne sider – her vises bare en melding
@@ -158,7 +177,72 @@ customElements.define('hui-card', class extends HTMLElement {
       });
       return r;
     });
+    const rg = demoReg(m); if (rg) return rg;
     return ws0(m);
+  };
+  // Demo-register: etiketter, mapper (kategorier) og entitetsregister lagres i nettleseren, så organisering virker uten HA
+  const RLS = 'ki-proto-registry';
+  const RD = (() => { try { return JSON.parse(localStorage.getItem(RLS)) || null; } catch (e) { return null; } })() || {
+    labels: [{ label_id: 'viktig', name: 'Viktig', color: 'red', icon: 'mdi:alert-circle-outline', description: null }, { label_id: 'kveld', name: 'Kveld', color: 'indigo', icon: 'mdi:weather-night', description: 'Kveldsrutiner' }, { label_id: 'energi', name: 'Energi', color: 'amber', icon: 'mdi:lightning-bolt', description: null }],
+    cats: { automation: [{ category_id: 'c_lys', name: 'Lys', icon: 'mdi:lightbulb-group-outline' }, { category_id: 'c_sikk', name: 'Sikkerhet', icon: 'mdi:shield-home-outline' }], scene: [{ category_id: 'c_kveld', name: 'Kveld', icon: 'mdi:weather-night' }], script: [] },
+    ents: {}, configs: {},
+  };
+  const rsave = () => { try { localStorage.setItem(RLS, JSON.stringify(RD)); } catch (e) {} };
+  const rid = (n) => String(n || 'x').toLowerCase().replace(/[^a-z0-9æøå]+/g, '_').replace(/^_|_$/g, '') + '_' + Math.random().toString(36).slice(2, 5);
+  const entRow = (id) => { const base = (H.entities && H.entities[id]) || {}; const o = RD.ents[id] || {}; return { entity_id: id, platform: id.split('.')[0], labels: [], categories: {}, area_id: base.area_id || null, device_id: base.device_id || null, ...o }; };
+  function demoReg(m) {
+    const t = m && m.type, ok = (v) => Promise.resolve(v);
+    if (t === 'config/label_registry/list') return ok(RD.labels.slice());
+    if (t === 'config/label_registry/create') { const l = { label_id: rid(m.name), name: m.name, color: m.color || null, icon: m.icon || null, description: m.description || null }; RD.labels.push(l); rsave(); return ok(l); }
+    if (t === 'config/label_registry/update') { const l = RD.labels.find((x) => x.label_id === m.label_id); if (l) ['name', 'color', 'icon', 'description'].forEach((k) => { if (k in m) l[k] = m[k]; }); rsave(); return ok(l); }
+    if (t === 'config/label_registry/delete') { RD.labels = RD.labels.filter((x) => x.label_id !== m.label_id); Object.values(RD.ents).forEach((e) => { if (e.labels) e.labels = e.labels.filter((x) => x !== m.label_id); }); rsave(); return ok(null); }
+    if (t === 'config/category_registry/list') return ok((RD.cats[m.scope] || []).slice());
+    if (t === 'config/category_registry/create') { const c = { category_id: rid(m.name), name: m.name, icon: m.icon || null }; (RD.cats[m.scope] = RD.cats[m.scope] || []).push(c); rsave(); return ok(c); }
+    if (t === 'config/category_registry/update') { const c = (RD.cats[m.scope] || []).find((x) => x.category_id === m.category_id); if (c) { c.name = m.name; c.icon = m.icon || null; } rsave(); return ok(c); }
+    if (t === 'config/category_registry/delete') { RD.cats[m.scope] = (RD.cats[m.scope] || []).filter((x) => x.category_id !== m.category_id); Object.values(RD.ents).forEach((e) => { if (e.categories && e.categories[m.scope] === m.category_id) delete e.categories[m.scope]; }); rsave(); return ok(null); }
+    if (t === 'config/entity_registry/list') return ok(Object.keys(S).map(entRow));
+    if (t === 'config/entity_registry/get') return ok(entRow(m.entity_id));
+    if (t === 'config/entity_registry/update') {
+      const o = RD.ents[m.entity_id] = RD.ents[m.entity_id] || {};
+      if ('name' in m) { o.name = m.name; if (S[m.entity_id]) upd(m.entity_id, null, { friendly_name: m.name || (S[m.entity_id].attributes.__orig_name || S[m.entity_id].attributes.friendly_name) }); }
+      if ('icon' in m) { o.icon = m.icon; if (S[m.entity_id]) upd(m.entity_id, null, { icon: m.icon || undefined }); }
+      if ('hidden_by' in m) o.hidden_by = m.hidden_by; if ('disabled_by' in m) o.disabled_by = m.disabled_by;
+      if (H.entities && H.entities[m.entity_id]) Object.assign(H.entities[m.entity_id], o, 'area_id' in m ? { area_id: m.area_id } : {});
+      if (m.new_entity_id && S[m.entity_id] && !S[m.new_entity_id]) { const nid = m.new_entity_id; S[nid] = { ...S[m.entity_id], entity_id: nid }; delete S[m.entity_id]; RD.ents[nid] = RD.ents[m.entity_id]; delete RD.ents[m.entity_id]; if (H.entities) { H.entities[nid] = { ...(H.entities[m.entity_id] || {}), entity_id: nid }; delete H.entities[m.entity_id]; } rsave(); push(); return Promise.resolve({ entity_entry: entRow(nid) }); }
+      if ('name' in m || 'icon' in m) push();
+      if ('labels' in m) o.labels = m.labels || [];
+      if ('area_id' in m) o.area_id = m.area_id;
+      if ('categories' in m) { o.categories = { ...(o.categories || {}) }; Object.entries(m.categories || {}).forEach(([k, v]) => { if (v) o.categories[k] = v; else delete o.categories[k]; }); }
+      rsave(); return ok({ entity_entry: entRow(m.entity_id) });
+    }
+    if (t === 'trace/list') return ok([]);
+    return null;
+  }
+  // Demo-API for automasjon/scene/skript-konfig (GET/POST/DELETE config/<kind>/config/<id>)
+  const api0 = H.callApi;
+  const callApi = LIVE ? api0 : (method, path, body) => {
+    const mm = /^config\/(automation|scene|script)\/config\/(.+)$/.exec(path || '');
+    if (!mm) return api0 ? api0(method, path, body) : Promise.reject(new Error('Ikke tilgjengelig i demo'));
+    const kind = mm[1], id = decodeURIComponent(mm[2]), key = kind + ':' + id;
+    const findEnt = () => Object.keys(S).find((x) => x.startsWith(kind + '.') && (kind === 'script' ? x === 'script.' + id : String(S[x].attributes.id) === id));
+    if (method === 'GET') {
+      if (RD.configs[key]) return Promise.resolve(JSON.parse(JSON.stringify(RD.configs[key])));
+      const e = findEnt(), s = e && S[e];
+      if (!s) return Promise.reject(new Error('Fant ikke ' + id));
+      if (kind === 'scene') return Promise.resolve({ id, name: s.attributes.friendly_name, icon: s.attributes.icon, entities: Object.fromEntries((s.attributes.entity_id || []).map((x) => [x, S[x] ? { state: S[x].state } : { state: 'off' }])) });
+      if (kind === 'script') return Promise.resolve({ alias: s.attributes.friendly_name, icon: s.attributes.icon, mode: 'single', sequence: [] });
+      return Promise.resolve({ id, alias: s.attributes.friendly_name, description: '', mode: 'single', triggers: [], conditions: [], actions: [] });
+    }
+    if (method === 'POST') {
+      RD.configs[key] = JSON.parse(JSON.stringify(body)); rsave();
+      let e = findEnt();
+      const name = body.alias || body.name || id;
+      if (!e) { const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || id; e = kind + '.' + (kind === 'script' ? id : slug); let n = 2; while (S[e]) e = kind + '.' + slug + '_' + n++; }
+      S[e] = { entity_id: e, state: kind === 'automation' ? 'on' : kind === 'script' ? 'off' : 'unknown', attributes: { ...(S[e] ? S[e].attributes : {}), friendly_name: name, id: kind === 'script' ? undefined : id, icon: body.icon || (S[e] && S[e].attributes.icon), ...(kind === 'scene' ? { entity_id: Object.keys(body.entities || {}) } : {}) }, last_changed: new Date().toISOString(), last_updated: new Date().toISOString() };
+      push(); return Promise.resolve({ result: 'ok' });
+    }
+    if (method === 'DELETE') { delete RD.configs[key]; const e = findEnt(); if (e) { delete S[e]; delete RD.ents[e]; } rsave(); push(); return Promise.resolve({ result: 'ok' }); }
+    return Promise.reject(new Error('Ikke støttet'));
   };
   // Tjenestekall endrer tilstanden og sender ny hass til alle kort (som HA gjør)
   const S = H.states;
@@ -174,6 +258,8 @@ customElements.define('hui-card', class extends HTMLElement {
       if (service === 'turn_on' && data.effect) return upd(id, 'on', { effect: data.effect });
       if (service === 'turn_on' && data.activity) return upd(id, 'on', { current_activity: data.activity });
       if (service === 'turn_on') { const a = {}; if (data.rgb_color) { a.rgb_color = data.rgb_color; a.color_temp_kelvin = undefined; } if (data.color_temp_kelvin) { a.color_temp_kelvin = data.color_temp_kelvin; a.rgb_color = undefined; } if (data.brightness_pct != null) a.brightness = Math.round(data.brightness_pct * 2.55); if (data.brightness != null) a.brightness = data.brightness; if (data.percentage != null) a.percentage = data.percentage; if (dom === 'light' && a.brightness == null && !o.attributes.brightness) a.brightness = 200; return upd(id, a.brightness === 0 ? 'off' : 'on', a); }
+      if (dom === 'scene' && service === 'turn_on') { const cf = Object.values(RD.configs).find((x) => x && x.name === o.attributes.friendly_name); if (cf && cf.entities) { Object.entries(cf.entities).forEach(([eid, v]) => { const st = typeof v === 'object' ? v : { state: v }; const { state, ...at } = st; if (S[eid]) upd(eid, state, at); }); } return upd(id, new Date().toISOString()); }
+      if (dom === 'script' && service === 'turn_on') return upd(id, null, { last_triggered: new Date().toISOString() });
       if (service === 'turn_off') return upd(id, 'off');
       if (service === 'lock') return upd(id, 'locked'); if (service === 'unlock') return upd(id, 'unlocked'); if (service === 'open' && dom === 'lock') return upd(id, 'open');
       if (service === 'open_cover') return upd(id, 'open', { current_position: 100 }); if (service === 'close_cover') return upd(id, 'closed', { current_position: 0 });
@@ -223,7 +309,7 @@ customElements.define('hui-card', class extends HTMLElement {
     push();
     return Promise.resolve();
   };
-  const mk = () => (LIVE ? window.__live.current() : { ...H, states: { ...S }, callService, callWS });
+  const mk = () => (LIVE ? window.__live.current() : { ...H, states: { ...S }, callService, callWS, callApi });
   let hass = mk();
   window.__H = hass;
   const S0 = customElements.get('ll-strategy-dashboard-ki-dashboard');

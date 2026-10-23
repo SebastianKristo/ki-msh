@@ -11,24 +11,37 @@
 
   const STYLES_A = `.bubble-pop-up-container {
   --vertical-stack-card-gap: 0px!important;
-} #header-container > div > div {
-  background: var(--gray000)!important;
+} /* Enkel header (alle popups utenom rom): ingen pille bak ikon og tittel, stor tittel, × uten sirkel */
+#header-container > div > div {
+  background: none !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
 }
 #header-container > button {background: none;}
-.icon-container {background-color:var(--gray1000)!important;}
+.icon-container {background-color:var(--gray1000)!important;width:46px!important;height:46px!important;min-width:46px!important}
 .icon-container > ha-icon {color:var(--black)!important;opacity:1!important}
 .bubble-icon {
   --mdc-icon-size: 24px !important;
 }
+#header-container {
+  gap: 14px !important;
+}
 .bubble-name {
-  font-size: 30px !important;
+  font-size: 34px !important;
   font-weight: 500;
+  letter-spacing: -0.02em;
   line-height: 1.4 !important;
   padding: 8px 0 !important;
 }
+/* × uten sirkel, men samme trykkflate */
 .bubble-close-button {
-  background-color: var(--gray200) !important;
+  background: none !important;
   border-radius: 50%;
+  --mdc-icon-size: 26px !important;
+  opacity: .9;
+}
+.bubble-close-button:active {
+  background: rgb(255 255 255/.08) !important;
 }
 `;
   const stylesB = (col) => `.bubble-pop-up-container {

@@ -56,11 +56,12 @@
       const st = c.state;
       let cfg;
       if (a.isNew && a.copyOf) { cfg = await c.api('GET', `config/scene/config/${a.copyOf}`); cfg = { ...cfg, name: `${cfg.name || ''} (${T('kopi', 'copy')})` }; delete cfg.id; }
+      else if (a.isNew && a.tpl) cfg = JSON.parse(JSON.stringify(a.tpl));
       else if (a.isNew) cfg = { name: '', icon: '', entities: {} };
       else cfg = await c.api('GET', `config/scene/config/${a.id}`);
       if (!cfg.entities || typeof cfg.entities !== 'object') cfg.entities = {};
       delete cfg.id;
-      st.cfg = cfg; st.orig = a.isNew ? '' : JSON.stringify(cfg); st.org = {}; st.yb = new Set();
+      st.cfg = cfg; st.orig = a.isNew ? '' : JSON.stringify(cfg); st.org = a.isNew && a.org ? { ...a.org } : {}; st.yb = new Set();
     },
     back(c) { const st = c.state; if (st.cfg && dirty(st) && !c.armed('discard')) { c.confirm('discard'); c.toast(T('Ikke lagret – trykk tilbake igjen for å forkaste', 'Not saved – tap back again to discard'), { type: 'error' }); return false; } return true; },
     render(c, a) {
@@ -147,5 +148,6 @@
     c.render();
     return undefined;
   }
+  M.ha.sceneCapture = capture; M.ha.sceneSummary = summary;
   M.ha.scenePage = true;
 })();

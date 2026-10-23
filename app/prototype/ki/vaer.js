@@ -18,7 +18,8 @@
           if (root && !root.__ki) { root.__ki = 1; root.style.minHeight = '0'; for (let e = root; e && e !== doc.documentElement; e = e.parentElement) e.style.height = '100%'; }
           // bare selve statuslinjen («09:41» + «●●● ▮») – ikke toppfeltet rundt, som også har ✕
           doc.querySelectorAll('div').forEach((d) => { if (!d.__ki && d.children.length === 2 && (d.children[0].textContent || '').trim() === '09:41') { d.__ki = 1; d.style.display = 'none'; } });
-          doc.querySelectorAll('button[aria-label="Lukk"]').forEach((b) => { if (b.__ki) return; b.__ki = 1; b.addEventListener('click', (e) => { const sheetOpen = b.closest('[role="dialog"]') || (b.getBoundingClientRect().top > (parseFloat(getComputedStyle(doc.documentElement).getPropertyValue('--ki-sat')) || 0) + 40); if (!sheetOpen) this.close(); }); });
+          // hoved-✕ (data-ki-close) lukker Vær; ✕ i ark/kart lukker bare arket
+          doc.querySelectorAll('button[data-ki-close]').forEach((b) => { if (b.__ki) return; b.__ki = 1; b.addEventListener('click', () => this.close()); });
         };
         fix();
         try { new MutationObserver(fix).observe(doc.body, { childList: true, subtree: true }); } catch (e) {}
@@ -37,11 +38,15 @@
       doc = doc || (this._f && this._f.contentDocument); if (!doc) return;
       const pr = document.createElement('div'); pr.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
       document.body.appendChild(pr); const cs = getComputedStyle(pr); const t = cs.paddingTop, b = cs.paddingBottom; pr.remove();
-      doc.documentElement.style.setProperty('--ki-sat', t); doc.documentElement.style.setProperty('--ki-sab', b);
+      // Telefonrammen lar Vær gå opp under statuslinjen (kiBleed) → innholdet og × holdes under statuslinjen
+      const bleed = this.isOpen ? (/android/.test(location.search) ? 36 : 47) : 0;
+      doc.documentElement.style.setProperty('--ki-sat', bleed ? `max(${t}, ${bleed}px)` : t); doc.documentElement.style.setProperty('--ki-sab', b);
     },
     open() {
       if (this.isOpen) return;
       this.isOpen = true;
+      try { window.parent.postMessage({ kiBleed: true }, '*'); } catch (e) {} // telefonrammen lar Vær gå helt opp under statuslinjen
+      try { this.inset(); } catch (e) {}
       if (!this.f) { this.f = this._f; document.body.appendChild(this.f); }
       this.f.style.display = 'block'; this.f.style.visibility = 'visible';
       requestAnimationFrame(() => requestAnimationFrame(() => { this.f.style.transform = 'none'; }));
@@ -49,6 +54,7 @@
     },
     hide() {
       this.isOpen = false;
+      try { window.parent.postMessage({ kiBleed: false }, '*'); } catch (e) {}
       if (!this.f) return;
       this.f.style.transform = 'translateY(100%)';
       setTimeout(() => { if (!this.isOpen) { this.f.style.visibility = 'hidden'; this.f.style.display = 'none'; } }, 470);
