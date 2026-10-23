@@ -878,7 +878,7 @@
   //   Standard: bakteppe rgba(0,0,0,.5) uten blur; ark #282828 radius 28 28 0 0, grupper #3a3a3a r24, indre #404040.
   //   Liquid Glass: bakteppe rgba(0,0,0,.62) uten blur (Fiks 20.8); ark rgba(34,34,37,.72) + blur(22px) saturate(190%) brightness(1.1),
   //   radius 32 32 0 0 (som «Tilpass klima» i Klima v3).
-  const SH_BLUR = 'blur(22px) saturate(190%) brightness(1.1)';
+  const SH_BLUR = 'blur(18px) saturate(180%) brightness(1.06)'; // Liquid Glass «regular»: mindre uskarphet, mer metning – innholdet skal skimtes
   const SH = {
     solid: {
       scrim: 'background:rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1))));backdrop-filter:none;-webkit-backdrop-filter:none;',
@@ -903,9 +903,13 @@
   //   segment = spor i segmentvelgere: rgba(0,0,0,.25) (aktiv = glassboble, se MSH.GLASS_BUBBLE)
   // Overlegget (lys gradient) legges som ekstra bakgrunnslag, så flaten trenger ingen egne pseudo-elementer.
   // Uten backdrop-filter-støtte: menu/sheet → #2f2f2f, row → #3a3a3a (se MSH.glassFallback).
-  const GL_BLUR = 'blur(22px) saturate(190%) brightness(1.1)';
-  const GL_SHEEN = 'linear-gradient(180deg,rgb(255 255 255/0.14),rgb(255 255 255/0.02) 45%,rgb(255 255 255/0.06))';
-  const GL_EDGE = 'inset 0 0 0 0.5px rgb(255 255 255/0.18),inset 0 1px 0 rgb(255 255 255/0.25)';
+  // Liquid Glass (Apple HIG 2025): et eget funksjonslag over innholdet. Lyset brytes i kanten (spekulær kant oppe, svak
+  // refleks nede, tynn rand), glansen følger hvordan telefonen holdes (--ki-gl-tilt fra deviceorientation), og flaten er
+  // klar nok til at innholdet under skimtes. Ingen glass-på-glass: rader inni glass er bare en svak tone (row).
+  const GL_BLUR = 'blur(16px) saturate(180%) brightness(1.08)';
+  const GL_SHEEN = 'linear-gradient(calc(165deg + var(--ki-gl-tilt, 0deg)),rgb(255 255 255/0.17),rgb(255 255 255/0.04) 36%,rgb(255 255 255/0) 58%,rgb(255 255 255/0.07))';
+  const GL_EDGE = 'inset 0 0.5px 0 rgb(255 255 255/0.5),inset 0 -0.5px 0 rgb(255 255 255/0.14),inset 0 0 0 0.5px rgb(255 255 255/0.16),inset 0 0 14px rgb(255 255 255/0.05)';
+  MSH.GL_BLUR = GL_BLUR; MSH.GL_SHEEN = GL_SHEEN; MSH.GL_EDGE = GL_EDGE;
   MSH.glassSurface = function (level) {
     switch (level) {
       case 'menu': return `background:${GL_SHEEN},var(--ki-glass, rgba(40,40,44,0.38));backdrop-filter:${GL_BLUR};-webkit-backdrop-filter:${GL_BLUR};box-shadow:${GL_EDGE},0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))));color:var(--ki-text, #fafafa);`;
@@ -917,7 +921,8 @@
   };
   // @supports-reserve (legg etter regelen som bruker glassSurface): sel = selektor, level som over.
   // Ytelsesmodus (00-b-perf.js, Android): samme reserve når blur er skrudd av (@container style(--ki-perf: lite))
-  MSH.glassFallback = (sel, level) => { const r = `{${sel}{background:${level === 'row' ? 'var(--ki-surface, #3a3a3a)' : 'var(--ki-surface-3, #2f2f2f)'};backdrop-filter:none;-webkit-backdrop-filter:none}}`; return `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)))${r}@container style(--ki-perf: lite)${r}`; };
+  // + «Reduser gjennomsiktighet» (frostet/ugjennomsiktig flate) og «Øk kontrast» (tydelig rand), som Apple krever
+  MSH.glassFallback = (sel, level) => { const r = `{${sel}{background:${level === 'row' ? 'var(--ki-surface, #3a3a3a)' : 'var(--ki-surface-3, #2f2f2f)'};backdrop-filter:none;-webkit-backdrop-filter:none}}`; return `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)))${r}@container style(--ki-perf: lite)${r}@media (prefers-reduced-transparency:reduce)${r}@media (prefers-contrast:more){${sel}{box-shadow:inset 0 0 0 1px rgb(255 255 255/0.55),0 10px 30px rgb(0 0 0/0.4)!important}}`; };
   // Aktiv glassboble (segmentvelgere, dra-linsen)
   MSH.GLASS_BUBBLE = 'background:linear-gradient(180deg,rgb(255 255 255/0.32),rgb(255 255 255/0.1));box-shadow:inset 0 1px 0 rgb(255 255 255/0.65),inset 0 -1px 1px rgb(255 255 255/0.18),inset 0 0 0 0.5px rgb(255 255 255/0.4);color:var(--ki-text, #fafafa);';
   // CSS-variabler som arver inn i alle shadow roots under et glassark (felles editor, egne editorer):
@@ -939,7 +944,7 @@
   // 300 ms, pillene skjult under morfen). Ingen animasjon: allerede aktiv fane, rett etter glass-dra/fane-dra
   // (MSH.glassDragEnd()), MSH.animOff() (Liquid Glass-animasjon av i «Tilpass Hjem» → Faner, prefers-reduced-motion).
   // Ingen haptic her – kortets egen haptic('selection') ved fanebytte er den eneste.
-  const LENS_CSS = { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgb(255 255 255/0.32), rgb(255 255 255/0.1))', boxShadow: 'inset 0 1px 0 rgb(255 255 255/0.65), inset 0 -1px 1px rgb(255 255 255/0.18), inset 0 0 0 0.5px rgb(255 255 255/0.4), 0 10px 24px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))', backdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', WebkitBackdropFilter: 'blur(4px) saturate(220%) brightness(1.15)', opacity: '0' };
+  const LENS_CSS = { position: 'absolute', left: '0', top: '0', zIndex: '3', pointerEvents: 'none', borderRadius: '999px', background: 'linear-gradient(180deg, rgb(255 255 255/0.32), rgb(255 255 255/0.1))', boxShadow: 'inset 0 1px 0 rgb(255 255 255/0.65), inset 0 -1px 1px rgb(255 255 255/0.18), inset 0 0 0 0.5px rgb(255 255 255/0.4), 0 10px 24px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))', backdropFilter: 'blur(1.5px) saturate(210%) brightness(1.12) contrast(1.06)', WebkitBackdropFilter: 'blur(1.5px) saturate(210%) brightness(1.12) contrast(1.06)', opacity: '0' }; // linsen er klar: forstørrer og bryter lyset, nesten uten uskarphet
   MSH.GLASS_LENS = LENS_CSS;
   let gdEndT = 0;
   MSH.glassDragEnd = () => { gdEndT = Date.now(); }; // kalles av glass-dra og fane-dra ved slipp
@@ -1141,7 +1146,7 @@
     const A = loc(from);
     const f = (x, y, w, h, t) => ({ left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', transform: t });
     Object.assign(l.style, { transition: 'none', ...f(A.x, A.y, A.w, A.h, '') });
-    const an = l.animate([f(A.x, A.y, A.w, A.h, 'scale(1)'), f(A.x, A.y, A.w, A.h, 'scale(1)')], { duration: 300, easing: 'cubic-bezier(.3,.8,.3,1)', fill: 'forwards' });
+    const an = l.animate([f(A.x, A.y, A.w, A.h, 'scale(1)'), f(A.x, A.y, A.w, A.h, 'scale(1)')], { duration: 460, easing: 'linear', fill: 'forwards' });
     an.pause();
     s.an = an;
     an.oncancel = () => s.finish(); // Fiks 20.18: avbrutt (fanen byttes midt i, siden skjult) → linsen fjernes alltid
@@ -1161,8 +1166,12 @@
       const W = ax === 'x' ? Math.max(A.w, B.w) * 1.15 : (A.w + B.w) / 2, H = ax === 'y' ? Math.max(A.h, B.h) * 1.15 : (A.h + B.h) / 2;
       try {
         an.effect.setKeyframes([
-          { offset: 0, ...f(A.x, A.y, A.w, A.h, 'scale(1)') },
-          { offset: 0.5, ...f(cx - W / 2, cy - H / 2, W, H, ax === 'x' ? 'scale(1.02, 0.94)' : 'scale(0.94, 1.02)') },
+          // Gelé-morf (Liquid Glass): løftes og vokser når den tas, strekkes i fartsretningen, svinger litt forbi målet og
+          // setter seg med fjær. Fart og strekk følger avstanden.
+          { offset: 0, easing: 'cubic-bezier(.3,0,.2,1)', ...f(A.x, A.y, A.w, A.h, 'scale(1)') },
+          { offset: 0.14, easing: 'cubic-bezier(.4,0,.2,1)', ...f(A.x - A.w * 0.04, A.y - A.h * 0.06, A.w * 1.08, A.h * 1.12, 'scale(1)') },
+          { offset: 0.5, easing: 'cubic-bezier(.2,0,.1,1)', ...f(cx - W * 0.56, cy - H / 2, W * 1.12, H, ax === 'x' ? 'scale(1.04, 0.9)' : 'scale(0.9, 1.04)') },
+          { offset: 0.78, easing: 'cubic-bezier(.3,0,.3,1)', ...(() => { const dx = Math.sign(B.x - A.x) * Math.min(6, Math.abs(B.x - A.x) * 0.04), dy = Math.sign(B.y - A.y) * Math.min(6, Math.abs(B.y - A.y) * 0.04); return f(B.x + dx, B.y + dy, B.w, B.h, ax === 'x' ? 'scale(0.97, 1.04)' : 'scale(1.04, 0.97)'); })() },
           { offset: 1, ...f(B.x, B.y, B.w, B.h, 'scale(1)') },
         ]);
       } catch (e) { s.finish(); return; }
@@ -1170,7 +1179,7 @@
       an.onfinish = () => s.finish();
       an.play();
       // Fiks 20.18: onfinish som aldri kommer → sikkerhets-timeout fjerner linsen alltid
-      s.timers.push(setTimeout(() => s.finish(), 400));
+      s.timers.push(setTimeout(() => s.finish(), 560));
     };
     requestAnimationFrame(go);
     s.timers.push(setTimeout(() => { if (!s.target) s.finish(); }, 250)); // rAF kommer aldri (skjult side) → rydd
@@ -1192,6 +1201,43 @@
     const bg = its.filter(hasBg); // fasit: aktiv knapp er den som har bakgrunn
     return bg.length === 1 ? bg[0] : null;
   };
+  // Glansen følger telefonen (deviceorientation → --ki-gl-tilt, arver inn i alle shadow roots). Grovt og dempet, ingen
+  // omtegning oftere enn hver 3. ramme. Av ved «reduser bevegelse».
+  (() => {
+    let last = 0, raf = 0, val = 0;
+    const set = () => { raf = 0; document.documentElement.style.setProperty('--ki-gl-tilt', val.toFixed(1) + 'deg'); };
+    window.addEventListener('deviceorientation', (e) => {
+      if (reduced() || e.gamma == null) return; const now = performance.now(); if (now - last < 50) return; last = now;
+      const v = Math.max(-24, Math.min(24, e.gamma * 0.6)); if (Math.abs(v - val) < 0.8) return; val = v; if (!raf) raf = requestAnimationFrame(set);
+    }, { passive: true });
+  })();
+  // Trykk på glass: kontrollen løftes og vokser litt med fjær, og et lys tennes der fingeren er (Liquid Glass «interactive»).
+  // Gjelder knapper som ligger i en glassflate (navbar, mini-spiller, menyer, segmentrader). Én global lytter.
+  (() => {
+    const isGlass = (el) => { try { const cs = getComputedStyle(el); const b = cs.backdropFilter || cs.webkitBackdropFilter; return b && b !== 'none'; } catch (e) { return false; } };
+    let cur = null;
+    const SPRING = 'cubic-bezier(.34,1.56,.64,1)';
+    const up = () => {
+      if (!cur) return; const { btn, glass, bg, an } = cur; cur = null;
+      try { if (an) an.cancel(); btn.animate([{ transform: 'scale(1.07)' }, { transform: 'scale(1)' }], { duration: 380, easing: SPRING, composite: 'add' }); } catch (e) { /* */ }
+      if (glass) setTimeout(() => { glass.style.backgroundImage = bg; }, 120);
+    };
+    window.addEventListener('pointerdown', (e) => {
+      if (reduced() || MSH.animOff && MSH.animOff()) return;
+      const path = e.composedPath ? e.composedPath() : [];
+      const btn = path.slice(0, 6).find((n) => n && n.nodeType === 1 && n.matches && n.matches('button,[role="button"],[data-act],[data-a]'));
+      if (!btn) return;
+      const glass = path.slice(0, 9).find((n) => n && n.nodeType === 1 && n !== document.documentElement && n !== document.body && isGlass(n));
+      if (!glass) return;
+      const r = glass.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      const bg = glass.style.backgroundImage, cs = getComputedStyle(glass).backgroundImage;
+      glass.style.backgroundImage = `radial-gradient(circle ${Math.max(60, Math.min(r.width, 180)) * 0.7}px at ${x}px ${y}px,rgb(255 255 255/0.2),rgb(255 255 255/0) 70%)${cs && cs !== 'none' ? ',' + cs : ''}`;
+      let an = null; try { an = btn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }], { duration: 220, easing: SPRING, fill: 'forwards', composite: 'add' }); } catch (er) { /* */ }
+      cur = { btn, glass, bg, an };
+    }, { capture: true, passive: true });
+    window.addEventListener('pointerup', up, { capture: true, passive: true });
+    window.addEventListener('pointercancel', up, { capture: true, passive: true });
+  })();
   MSH.glassTap = function (row, opt = {}) {
     if (!row) return;
     row.__gt = { ...(row.__gt || {}), ...opt };

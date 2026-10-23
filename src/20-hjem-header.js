@@ -769,7 +769,7 @@
     .body:has(> .scr){overflow:visible}
     .scr>*,.body>*{flex-shrink:0} .body>.scr{flex-shrink:1}
     .body{display:flex;flex-direction:column;gap:10px}
-    .orb{position:absolute;left:50%;top:-48px;transform:translateX(-50%);width:96px;height:96px;border-radius:48px;display:grid;place-items:center;overflow:hidden}
+    .orb{position:relative;left:auto;top:auto;transform:none;align-self:center;margin:-110px auto 0;width:96px;height:96px;border-radius:48px;display:grid;place-items:center;overflow:hidden}
     .orb.pic{background-size:cover;background-position:center;font-size:36px;font-weight:600;color:var(--ki-on-accent, #232323)}
     .orb.pic img{display:block;width:100%;height:100%;object-fit:cover}
     .nm{display:flex;flex-direction:column;align-items:center;gap:3px;padding-bottom:4px;text-align:center}

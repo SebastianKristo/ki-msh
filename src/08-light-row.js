@@ -247,6 +247,8 @@
     if (st.dis) return;
     const x = el.classList.contains('lr-xb');
     const d = { key, el, id: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false, v: null, kind: x ? (st.type === 'ct' ? 'ct' : 'hue') : 'main', st, sentAt: 0, tm: null, last: null, done: false };
+    // hold inne (450 ms uten å dra) = mer info for lampen (gruppe: første lampe)
+    d.lp = setTimeout(() => { if (d.moved || d.done) return; d.long = true; M.haptic('medium'); const id = st.ids && st.ids[0]; if (id && M.moreInfo) M.moreInfo(el, id); }, 450);
     const val = (cx) => { const r = el.getBoundingClientRect(); return Math.round(M.clamp((cx - r.left) / Math.max(1, r.width), 0, 1) * 100); };
     const set = (v) => {
       let nv;
@@ -265,6 +267,7 @@
       ev.stopPropagation();
       const dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
       if (!d.moved) {
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 8) clearTimeout(d.lp);
         if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { end(ev, true); return; } // loddrett = scroll
         if (Math.abs(dx) <= 5) return;
         d.moved = true;
@@ -281,7 +284,8 @@
       window.removeEventListener('pointerup', up, true);
       window.removeEventListener('pointercancel', cn, true);
       if (rs.drag === d) rs.drag = null;
-      d.done = true;
+      d.done = true; clearTimeout(d.lp);
+      if (d.long) { refresh(card, key); return; }
       if (d.moved && d.v != null) {
         const pd = (rs.pend[key] = rs.pend[key] || {});
         if (d.kind === 'main') { pd.p = d.v; pd.pt = Date.now(); } else { pd[d.kind] = d.v; pd.xt = Date.now(); }
@@ -313,7 +317,19 @@
     R.addEventListener('touchstart', stop, { passive: true });
     R.addEventListener('touchmove', stop, { passive: true });
     R.addEventListener('pointerdown', (e) => { const el = ctl(e); if (!el) return; e.stopPropagation(); down(card, el, e); });
+    // av/på-kort og bryter: hold inne = mer info (klikket etterpå ignoreres)
+    R.addEventListener('pointerdown', (e) => {
+      const b = e.target && e.target.closest ? e.target.closest('.lr-cv,.lr-sw,.lr-h') : null; if (!b || ctl(e)) return;
+      const row = b.closest('[data-key]') || b.parentElement, hd = row && row.querySelector('[data-ent]'), id = (b.dataset && b.dataset.ent) || (hd && hd.dataset.ent);
+      if (!id) return;
+      const x0 = e.clientX, y0 = e.clientY;
+      const tm = setTimeout(() => { R.__lrLong = Date.now(); M.haptic('medium'); if (M.moreInfo) M.moreInfo(b, id); }, 450);
+      const off = (ev) => { if (ev.type === 'pointermove' && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) return; clearTimeout(tm); window.removeEventListener('pointermove', off, true); window.removeEventListener('pointerup', off, true); window.removeEventListener('pointercancel', off, true); };
+      window.addEventListener('pointermove', off, true); window.addEventListener('pointerup', off, true); window.addEventListener('pointercancel', off, true);
+    });
+    R.addEventListener('contextmenu', (e) => { if (e.target && e.target.closest && e.target.closest('.lr-sl,.lr-cv,.lr-sw,.lr-h')) e.preventDefault(); });
     R.addEventListener('click', (e) => {
+      if (R.__lrLong && Date.now() - R.__lrLong < 700) { e.stopPropagation(); e.preventDefault(); return; }
       const b = e.target && e.target.closest ? e.target.closest('.lr-cv,.lr-sw') : null;
       if (!b) return;
       const row = b.closest('.lr'), key = row && row.dataset.lr, rs = lrs(card), L = key != null && rs.rows[key];

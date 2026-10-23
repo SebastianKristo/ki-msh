@@ -35,11 +35,13 @@
       if (!h) return;
       if (!force && this.ents && Date.now() - this.at < 15000) return;
       const ws = (t, d) => h.callWS({ type: t, ...(d || {}) }).catch(() => null);
-      const [ents, labels, ca, cs, cc] = await Promise.all([ws('config/entity_registry/list'), ws('config/label_registry/list'),
-        ws('config/category_registry/list', { scope: 'automation' }), ws('config/category_registry/list', { scope: 'scene' }), ws('config/category_registry/list', { scope: 'script' })]);
+      const [ents, labels, ca, cs, cc, chp] = await Promise.all([ws('config/entity_registry/list'), ws('config/label_registry/list'),
+        ws('config/category_registry/list', { scope: 'automation' }), ws('config/category_registry/list', { scope: 'scene' }), ws('config/category_registry/list', { scope: 'script' }), ws('config/category_registry/list', { scope: 'helpers' })]);
       const m = {};
-      (ents || []).forEach((e) => { m[e.entity_id] = e; });
-      this.ents = m; this.labels = labels || []; this.cats = { automation: ca || [], scene: cs || [], script: cc || [] }; this.at = Date.now();
+      // Svar som ikke er lister (eldre HA eller demo uten registeret) blir tomme lister, ellers knekker .find/.length
+      const A = (x, k) => (Array.isArray(x) ? x : x && Array.isArray(x[k]) ? x[k] : []);
+      A(ents, 'entities').forEach((e) => { m[e.entity_id] = e; });
+      this.ents = m; this.labels = A(labels, 'labels'); this.cats = { automation: A(ca, 'categories'), scene: A(cs, 'categories'), script: A(cc, 'categories'), helpers: A(chp, 'categories') }; this.at = Date.now();
     },
     ent(id) { return (this.ents && this.ents[id]) || (hassNow() && hassNow().entities && hassNow().entities[id]) || null; },
     label(id) { return this.labels.find((l) => l.label_id === id) || null; },
@@ -55,10 +57,11 @@
     ic: (n, s, st) => M.icon(n, s || 22, st || ''),
     // rad: { a, v, icon, iconBg, title, sub, right, chev, key, cls, attrs, ext }
     row(o) {
-      const tag = o.a ? 'button' : 'div';
       const right = o.right != null ? o.right : '';
+      // knapp i knapp (rad med bryter) er ugyldig og deler raden – da blir raden en div med role=button
+      const tag = o.a && !/<button/.test(right) ? 'button' : 'div';
       const chev = o.ext ? ui.ic('mdi:open-in-new', 18, 'color:var(--ki-text-3, #7f7f7f);flex:none') : o.chev ? ui.ic('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f);flex:none') : '';
-      return `<${tag} class="hr ${o.cls || ''}" ${o.a ? `data-a="${esc(o.a)}"` : ''} ${o.v != null ? `data-v="${esc(o.v)}"` : ''} ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.attrs || ''}>
+      return `<${tag} class="hr ${o.cls || ''}" ${o.a ? `data-a="${esc(o.a)}"${tag === 'div' ? ' role="button" tabindex="0" style="cursor:pointer"' : ''}` : ''} ${o.v != null ? `data-v="${esc(o.v)}"` : ''} ${o.key ? `data-key="${esc(o.key)}"` : ''} ${o.attrs || ''}>
         ${o.icon ? `<span class="hi" ${o.iconBg ? `style="background:${o.iconBg};color:var(--ki-on-accent, #2a1720)"` : ''}>${ui.ic(o.icon, 22)}</span>` : ''}
         <span class="ht"><b>${o.titleHtml || esc(o.title || '')}</b>${o.sub || o.subHtml ? `<i>${o.subHtml || esc(o.sub)}</i>` : ''}</span>${right}${chev}</${tag}>`;
     },
@@ -257,6 +260,31 @@
       this.dir = 'fw';
       this.ov = M.overlay({ html: '<div class="pgw" data-pgw></div><div class="ps" data-ps></div>', css: CSS, tilpass: true, maxWidth: 600, guard: 300, onClose: () => this._closed() });
       this.ov.host.setAttribute('data-ha-cfg', '');
+      // Egen side, ikke ark: fyller hele skjermen, glir inn fra høyre (som en side i appen), uten grep-håndtak og bakteppe.
+      // Dra fra venstre kant eller ✕ / tilbake lukker.
+      const pg = document.createElement('style');
+      pg.textContent = `.bg{display:none!important}
+        .sh.tp{top:0!important;left:0!important;right:0!important;width:100%!important;height:100%!important;max-width:none!important;border-radius:0!important;
+          padding-top:calc(var(--ki-sh-pt) + env(safe-area-inset-top, 0px))!important;transform:translate3d(100%,0,0)!important;transition:transform .42s cubic-bezier(.2,.85,.25,1)!important;box-shadow:-20px 0 50px rgb(0 0 0/.35)!important}
+        :host(.on) .sh.tp{transform:translate3d(var(--ki-pg-dx,0px),0,0)!important}
+        :host(.tpout) .sh.tp{transform:translate3d(100%,0,0)!important;transition:transform .32s cubic-bezier(.4,0,.7,.2)!important}
+        :host(.pgdrag) .sh.tp{transition:none!important}
+        .sh.tp>.gz{display:none!important}
+        .sh.tp{background:var(--ki-page, var(--ki-bg, #262626))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+        .sh.tp .hh{background:var(--ki-page, var(--ki-bg, #262626))!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+        .sh.tp{padding-top:0!important}
+        .hh{top:0!important;margin-top:0!important;padding-top:calc(10px + env(safe-area-inset-top, 0px))!important;background:var(--ki-page, var(--ki-bg, #262626))!important;box-shadow:0 -40px 0 var(--ki-page, var(--ki-bg, #262626))!important}
+        @media (prefers-reduced-motion:reduce){.sh.tp{transition:opacity .2s!important}}`;
+      this.ov.root.appendChild(pg);
+      const shEl = this.ov.root.querySelector('.sh'); if (shEl) { [['top', '0'], ['height', '100%'], ['border-radius', '0'], ['left', '0'], ['width', '100%'], ['max-width', 'none']].forEach(([k, v]) => shEl.style.setProperty(k, v, 'important')); }
+      // sveip fra venstre kant = tilbake (lukker på første side)
+      (() => {
+        let d = null; const host = this.ov.host, R0 = this.ov.root;
+        R0.addEventListener('pointerdown', (e) => { if (e.clientX - host.getBoundingClientRect().left > 22 || this._sheetO) return; d = { x: e.clientX, y: e.clientY, dx: 0 }; }, true);
+        R0.addEventListener('pointermove', (e) => { if (!d) return; const dx = e.clientX - d.x; if (!d.on && (Math.abs(e.clientY - d.y) > 14 || dx < 0)) { d = null; return; } if (dx > 8) { d.on = true; host.classList.add('pgdrag'); } if (d.on) { d.dx = Math.max(0, dx); host.style.setProperty('--ki-pg-dx', d.dx + 'px'); } }, true);
+        const end = () => { if (!d) return; const go = d.on && d.dx > 90; host.classList.remove('pgdrag'); host.style.removeProperty('--ki-pg-dx'); d = null; if (go) { M.haptic('light'); if (this.stack.length > 1) this.pop(); else this.ov.close(); } };
+        R0.addEventListener('pointerup', end, true); R0.addEventListener('pointercancel', end, true);
+      })();
       this.root = this.ov.root;
       this.wrap = this.root.querySelector('[data-pgw]');
       this.psEl = this.root.querySelector('[data-ps]');

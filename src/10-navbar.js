@@ -470,30 +470,67 @@
     ${NAV_CSS}
     .mbg{position:fixed;inset:0;z-index:25}
     .mpos{position:fixed;z-index:26}
-    .mbox{min-width:176px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:none;padding:8px;border-radius:18px;background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323));box-shadow:0 18px 40px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.45*var(--ki-ka-k,1))));display:flex;flex-direction:column;touch-action:none;animation:mshMenu .22s ease-out}
+    .mbox{min-width:232px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:none;padding:8px;border-radius:28px;background:var(--ki-popup, var(--ki-sheet, #2a2a2a));color:var(--ki-text, #fafafa);box-shadow:0 24px 60px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.5*var(--ki-ka-k,1)))),inset 0 0 0 1px rgb(var(--ki-wa-c,255 255 255)/.07);display:flex;flex-direction:column;gap:2px;touch-action:none;transform-origin:right bottom;animation:mshMenu .32s cubic-bezier(.2,.85,.25,1)}
+    .mh{display:flex;align-items:baseline;justify-content:space-between;padding:8px 12px 8px 14px;font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ki-text-mid, #979797)}
+    .mh b{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ki-text, #fafafa)}
     .mbox::-webkit-scrollbar{display:none}
     .mbox.ic{min-width:0;padding:6px;border-radius:26px}
     .mi{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .18s ease}
     .mbox.reord .mi{transition:transform .18s ease}.mbox.reord .mi.lift{transition:none;z-index:5;background:var(--ki-surface, rgba(255,255,255,0.92));color:var(--ki-text, #232323)!important;box-shadow:0 8px 22px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
     .mbox.glass.reord .mi.lift{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.28*var(--ki-wa-k,1)),var(--ki-wa-max,1)));color:var(--ki-text, #fafafa)!important}
     .mbox{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-    .mi{position:relative;height:50px;padding:0 14px 0 12px;border-radius:12px;display:flex;align-items:center;gap:14px;font-size:14px;font-weight:500;white-space:nowrap;flex:none}
-    .mbox.ic .mi{width:50px;padding:0;border-radius:25px;justify-content:center}
-    .mi:hover{background:rgb(0 0 0/0.05)}
-    .mi .mdot{width:8px;height:8px;border-radius:4px;background:var(--red,#f28073);margin-left:auto}
-    .mbox.ic .mi .mdot{position:absolute;right:9px;top:9px;margin:0}
-    .sep{flex:none;align-self:stretch;min-width:24px;height:1.5px;border-radius:1px;background:rgb(0 0 0/0.16);margin:8px 10px}
+    .mi{position:relative;height:52px;padding:0 12px 0 6px;border-radius:20px;display:flex;align-items:center;gap:12px;font-size:15px;font-weight:500;white-space:nowrap;flex:none;color:var(--ki-text, #fafafa)!important;animation:mshItem .38s cubic-bezier(.2,.85,.25,1) backwards;transition:background .15s,transform .18s cubic-bezier(.34,1.45,.64,1)}
+    .mi .mic{width:40px;height:40px;border-radius:14px;flex:none;display:grid;place-items:center;background:color-mix(in srgb, var(--mc, #f285c9) 20%, transparent);transition:transform .25s cubic-bezier(.34,1.45,.64,1)}
+    .mi .mic ha-icon{color:var(--mc, #f285c9)!important}
+    .mi .ml{flex:1;min-width:0;text-align:left}
+    .mi .mchev{opacity:.35;flex:none}
+    .mi:hover{background:rgb(var(--ki-wa-c,255 255 255)/.05)}
+    .mi:active{background:rgb(var(--ki-wa-c,255 255 255)/.08);transform:scale(.97)}
+    .mi:active .mic{transform:scale(.88)}
+    .mbox.ic .mi{width:52px;padding:0;border-radius:20px;justify-content:center}
+    .mbox.ic .mi .mic{width:44px;height:44px}
+    .mi .mdot{width:8px;height:8px;border-radius:4px;background:var(--red,#f28073);margin-left:auto;box-shadow:0 0 0 3px color-mix(in srgb, var(--red,#f28073) 25%, transparent)}
+    .mbox.ic .mi .mdot{position:absolute;right:6px;top:6px;margin:0}
+    .mi.tool{margin-top:2px;height:58px;padding:0 14px 0 8px;background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%);color:#2a1720!important;box-shadow:0 8px 22px rgb(242 133 201/.25)}
+    .mi.tool .mic{background:rgb(255 255 255/.4)}
+    .mi.tool .mic ha-icon,.mi.tool ha-icon{color:#2a1720!important}
+    .mi.tool .ml{display:flex;flex-direction:column;gap:1px;line-height:1.15}
+    .mi.tool .ml small{font-size:11.5px;font-weight:500;opacity:.7}
+    .mi.tool .mchev{opacity:.6}
+    .mi.tool:hover{background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%);filter:brightness(1.04)}
+    .mbox.ic .mi.tool{height:52px;padding:0}
+    .sep{flex:none;align-self:stretch;min-width:24px;height:1px;border-radius:1px;background:rgb(var(--ki-wa-c,255 255 255)/.08);margin:6px 12px}
     .mbox{position:relative}
     /* «Mer» i liquid glass (Fiks 3 · 7c): glassSurface('menu'), radius 32, bredde 64 (kun ikoner), ikoner #fafafa 22 */
     .mbox.glass{${M.glassSurface('menu')}border-radius:32px;padding:7px}
     .mbox.glass.ic{width:64px}
-    .mbox.glass .mi{color:var(--ki-text, #fafafa)!important;border-radius:25px}
-    .mbox.glass .mi ha-icon{color:var(--ki-text, #fafafa)!important}
+    .mbox.glass .mi{color:var(--ki-text, #fafafa)!important;border-radius:22px}
+    .mbox.glass .mi.tool{color:#2a1720!important}
     .mbox.glass .mi:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .mbox.glass .sep{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     ${M.glassFallback('.mbox.glass', 'menu')}
     ${MINI_CSS}
-    @keyframes mshMenu{from{opacity:0;transform:translateY(6px) scale(.96)}}
+    @keyframes mshMenu{0%{opacity:0;transform:translateY(12px) scale(.88);filter:blur(8px)}60%{opacity:1;filter:blur(0)}80%{transform:translateY(-1px) scale(1.012)}100%{transform:none}}
+    @keyframes mshItem{from{opacity:0;transform:translateY(8px)}}
+    /* utvidet navbar */
+    .mpos.exp{z-index:26}
+    .mbox.exp{min-width:0;width:100%;max-height:calc(100vh - 80px);background:var(--nbg);color:var(--nc);box-shadow:0 -10px 40px rgb(0 0 0/.35);padding:12px 10px 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;transform-origin:center bottom;animation:mshExp .42s cubic-bezier(.2,.9,.25,1)}
+    .mbox.exp .mh{grid-column:1/-1;color:color-mix(in srgb,var(--nc) 60%,transparent);padding:4px 10px 6px}
+    .mbox.exp .mh b{color:var(--nc)}
+    .mbox.exp .mi{height:auto;flex-direction:column;justify-content:center;gap:8px;padding:12px 4px 10px;border-radius:22px;font-size:12.5px;white-space:normal;text-align:center;color:var(--nc)!important}
+    .mbox.exp .mi .ml{flex:none;text-align:center;line-height:1.15}
+    .mbox.exp .mi .mic{width:48px;height:48px;border-radius:16px;background:color-mix(in srgb, var(--mc, #f285c9) 34%, transparent)}
+    /* lys flate: mørkere ikon og fyldigere flis så pastellfargene kan leses */
+    .mbox.exp .mi:not(.tool) .mic{color:color-mix(in srgb, var(--mc, #f285c9) 40%, var(--nc))!important}
+    .mbox.exp .mi:not(.tool) .ml{color:var(--nc)!important;font-weight:500}
+    .mbox.exp .mh,.mbox.exp .mh b{color:var(--nc)!important}
+    .mbox.exp .mi:hover{background:color-mix(in srgb,var(--nc) 6%,transparent)}
+    .mbox.exp .mi .mdot{position:absolute;top:10px;right:calc(50% - 30px);margin:0}
+    .mbox.exp .sep{grid-column:1/-1;margin:2px 10px;background:color-mix(in srgb,var(--nc) 12%,transparent)}
+    .mbox.exp .mi.tool{grid-column:1/-1;flex-direction:row;justify-content:flex-start;height:58px;padding:0 14px 0 8px;text-align:left;color:#2a1720!important}
+    .mbox.exp .mi.tool .ml{flex:1;text-align:left}
+    @keyframes mshExp{0%{clip-path:inset(calc(100% - var(--nh,72px)) 0 0 0 round 32px);opacity:.6}100%{clip-path:inset(0 0 0 0 round 32px);opacity:1}}
+    @media (prefers-reduced-motion:reduce){.mbox,.mi{animation:none}}
   `;
 
   // Fiks 52 · Android (klassen ki-android, M.perf.android – uavhengig av Ytelsesmodus): Android-WebView tegner backdrop-filter
@@ -928,13 +965,15 @@
     _menuHtml(N, geo) {
       const c = this.config, ic = c.menu_names === false, at = this.ui.menuAt || {};
       const moreIds = N.more.filter((id) => !N.hidden.has(id));
-      const item = (id, icon, label, color, act, badge) => `<button class="mi" data-act="${act}" data-id="${esc(id)}" title="${esc(label)}" style="color:${color}">${M.icon(icon, 22, `color:${color}`)}${ic ? '' : `<span>${esc(label)}</span>`}${badge ? '<span class="mdot"></span>' : ''}</button>`;
+      const MC = ['var(--blue,#73b9f2)', 'var(--green,#66d19e)', 'var(--yellow,#f2d26f)', 'var(--purple,#ad99e6)', 'var(--orange,#f2b573)', 'var(--pink,#f285c9)', 'var(--teal,#5fc4c4)', 'var(--red,#f28073)'];
+      let n = 0;
+      const item = (id, icon, label, color, act, badge, sub) => { const k = n++; const tool = act === 'mtool'; return `<button class="mi ${tool ? 'tool' : ''}" data-act="${act}" data-id="${esc(id)}" title="${esc(label)}" style="--mc:${tool ? '#2a1720' : MC[k % MC.length]};animation-delay:${40 + k * 28}ms"><span class="mic">${M.icon(icon, 21)}</span>${ic ? '' : `<span class="ml">${esc(label)}${tool && sub ? `<small>${esc(sub)}</small>` : ''}</span>`}${badge ? '<span class="mdot"></span>' : ''}${!ic && tool ? `<span class="mchev">${M.icon('mdi:chevron-right', 20)}</span>` : ''}</button>`; };
       const tools = [];
       if (c.admin_tools !== false) {
         // Fiks 17.27: verktøyene har samme farge som menypunktene over (glass: #fafafa via .mbox.glass .mi) – bare streken skiller
         // 24.5: én «Tilpass»-knapp (arket med Tilpass alt · Hjem · navbar · header · Kiosk-modus).
         // Del 44: verktøy-raden under streken er bare snarveier – aldri prikk/badge/teller (Hjem v3 menuTools).
-        tools.push(item('__tilpass', 'tune', 'Tilpass', 'var(--ki-text, var(--gray000,#232323))', 'mtool'));
+        tools.push(item('__tilpass', 'tune', 'Tilpass', '', 'mtool', false, 'Hjem, navbar, header og mer'));
       }
       const list = moreIds.map((id) => { const [icon, label] = catOf(N, id); return item(id, icon, label, 'var(--ki-text, var(--gray000,#232323))', 'go', this._badge(N, id)); }).join('');
       // Fiks 19.9: bunn-navbar med mini-spiller → menyen løftes over mini-spilleren (målt høyde + 10) og max-height minskes like mye
@@ -943,11 +982,16 @@
       if (geo.rail) pos = `left:${Math.round(at.right != null ? at.right + 8 : geo.left + 106)}px;bottom:${Math.round(at.bottom != null ? window.innerHeight - at.bottom : 40)}px;transform:scale(1.15);transform-origin:left bottom`;
       else if (ic) pos = `left:${Math.round(at.cx || geo.left + geo.width / 2)}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14 + lift)}px;transform:translateX(-50%)`;
       else pos = `right:${Math.round(Math.max(12, window.innerWidth - (at.right || geo.left + geo.width / 2 + 198) - 6))}px;bottom:${Math.round(window.innerHeight - (at.top || window.innerHeight - 90) + 14 + lift)}px`;
+      // Navbaren utvides: panelet har navbarens bredde, flate og radius, ligger bak navbar-knappene og glir opp fra dem.
+      // Mini-spilleren skjules mens panelet er åpent. Gjelder bunn-navbar (ikke rail og ikke ren ikonmeny).
+      const navEl = this._portal && this._portal.shadowRoot && this._portal.shadowRoot.querySelector('[data-nav]'), NR = navEl && navEl.getBoundingClientRect();
+      const exp = !geo.rail && !ic && NR && NR.width;
+      if (exp) { at.navH = NR.height; pos = `left:${Math.round(NR.left)}px;width:${Math.round(NR.width)}px;bottom:${Math.round(window.innerHeight - NR.bottom)}px`; }
       // bakteppet tar ikke imot trykk de første 300 ms (trykket som åpnet menyen skal ikke lukke den igjen)
       const guard = Date.now() - (this._menuT || 0) < 300;
       return `<div class="mbg" data-act="mclose" data-haptic="off" style="pointer-events:${guard ? 'none' : 'auto'}"></div>
-        <div class="mpos" style="${pos}"><div class="mbox ${ic ? 'ic' : ''} ${c.style === 'glass' ? 'glass' : ''}" data-menu${lift ? ` style="max-height:calc(100vh - ${120 + lift}px)"` : geo.rail ? ` style="max-height:${Math.max(160, Math.floor(((at.bottom != null ? at.bottom : window.innerHeight - 40) - 12) / 1.15))}px"` : ''}>
-          ${list}${list && tools.length ? '<div class="sep"></div>' : ''}${tools.join('')}
+        <div class="mpos${exp ? ' exp' : ''}" style="${pos}">${exp ? `<style>nav.nb{z-index:27!important}.mini{opacity:0!important;pointer-events:none!important;transition:opacity .2s!important}.mbox.exp{--nbg:${at.navBg || 'var(--ki-surface,#e6e6e6)'};--nc:${at.navC || 'var(--ki-text,#232323)'};border-radius:${at.navR || '32px'};padding-bottom:${Math.round(at.navH + 10)}px!important}</style>` : ''}<div class="mbox ${ic ? 'ic' : ''} ${exp ? 'exp' : ''} ${c.style === 'glass' ? 'glass' : ''}" data-menu${lift ? ` style="max-height:calc(100vh - ${120 + lift}px)"` : geo.rail ? ` style="max-height:${Math.max(160, Math.floor(((at.bottom != null ? at.bottom : window.innerHeight - 40) - 12) / 1.15))}px"` : ''}>
+          ${ic ? '' : `<div class="mh"><b>Mer</b><span>${moreIds.length}</span></div>`}${list}${list && tools.length ? '<div class="sep"></div>' : ''}${tools.join('')}
         </div></div>`;
     }
 
@@ -2043,7 +2087,8 @@
           if (this._inline) return;
           if (this.ui.menu) return this._closeMenu();
           const r = el.getBoundingClientRect(), nav = el.closest('nav'), nr = nav ? nav.getBoundingClientRect() : r;
-          return this._openMenu({ cx: r.left + r.width / 2, right: this._wide(this._dash().width) ? nr.right : r.right, top: r.top, bottom: nr.bottom });
+          const ncs = nav ? getComputedStyle(nav) : null;
+          return this._openMenu({ cx: r.left + r.width / 2, right: this._wide(this._dash().width) ? nr.right : r.right, top: r.top, bottom: nr.bottom, navL: nr.left, navW: nr.width, navT: nr.top, navH: nr.height, navBg: ncs ? (ncs.backgroundImage !== 'none' ? ncs.backgroundImage + ',' : '') + ncs.backgroundColor : '', navC: ncs ? ncs.color : '', navR: ncs ? ncs.borderTopLeftRadius : '' });
         }
         const hap = this._goHap; this._goHap = null;
         const fromMenu = !!this.ui.menu;
