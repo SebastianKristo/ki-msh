@@ -56,6 +56,9 @@
   };
   M.ha.tpSection = () => { M.ha.appSection(); return M.ha._tpSec || ''; };
   M.ha.appSection = () => {
+    // TODO(Glimt-konto): leverandøren 'glimt' (konto delt med Nordlys OS, POST {server}/api/auth/login → token, chat via
+    // POST {server}/api/chat med Bearer) er bare beskrevet i Claude Design-handoffen – app/prototype/ki/glimt.js har den ikke ennå,
+    // og API-et er ikke sjekket mot Glimt-tjenesten i Nordlys OS. Bare etiketten finnes her.
     const g = glimt(), gs = g.provider === 'glimt' ? `Glimt-konto${g.glimtUser ? ' · ' + g.glimtUser : ''}` : g.provider === 'ollama' ? `Ollama · ${g.ollamaModel || 'qwen2.5:7b'}` : g.provider === 'off' ? T('Av', 'Off') : 'Claude · sky';
     const n = (D.history || []).length, s = srv();
     // Tilpass (samme valg som Mer → Tilpass i navbaren): åpner de vanlige Tilpass-arkene

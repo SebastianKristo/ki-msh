@@ -1,0 +1,25 @@
+{
+  "domain": "ki_msh",
+  "name": "KI MSH",
+  "version": "1.6.0",
+  "codeowners": [
+    "@SebastianKristo"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "lovelace",
+    "websocket_api"
+  ],
+  "after_dependencies": [
+    "ki_rom",
+    "hacs"
+  ],
+  "documentation": "https://github.com/SebastianKristo/ki-msh",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/SebastianKristo/ki-msh/issues",
+  "requirements": [],
+  "single_config_entry": true
+}

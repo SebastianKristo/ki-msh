@@ -150,6 +150,16 @@
 .bubble-pop-up[data-ki-theme=light][data-ki-pop-icon=neutral] .icon-container{background-color:var(--ki-surface)!important;box-shadow:var(--ki-pill-sh)!important}
 .bubble-pop-up[data-ki-theme=light][data-ki-pop-icon=neutral] .icon-container > ha-icon{color:var(--ki-text)!important}
 .bubble-pop-up[data-ki-theme=light][data-ki-pop-icon=accent] .icon-container > ha-icon{color:var(--ki-on-accent)!important}
+/* Header-form (alle tema): pille bak ikon og navn, rund ×-knapp, 50 px – som Bubble Card før v3 (tema-radius/large ga avrundet firkant 56 px) */
+.bubble-pop-up:not(.popup-style-classic):not(.popup-style-home-assistant) > .bubble-header-container{min-height:50px!important}
+.bubble-pop-up:not(.popup-style-classic):not(.popup-style-home-assistant) > .bubble-header-container > .bubble-header .bubble-button-card-container{border-radius:999px!important;height:50px!important;min-height:50px!important;border:0!important}
+.bubble-pop-up:not(.popup-style-classic):not(.popup-style-home-assistant) > .bubble-header-container > .bubble-header{min-height:50px!important;max-height:50px}
+.bubble-pop-up:not(.popup-style-classic):not(.popup-style-home-assistant) > .bubble-header-container > .bubble-header-actions > .bubble-header-action-button{width:50px!important;height:50px!important;border-radius:50%!important;border:0!important}
+/* Uten pille (som Tesla-popupen): ikon helt til venstre, ingen flate/kant bak navnet, × uten sirkel */
+.bubble-pop-up[data-ki-hdr=plain] > .bubble-header-container > .bubble-header .bubble-button-card-container,.bubble-pop-up[data-ki-hdr=plain] #header-container > div > div{background:none!important;box-shadow:none!important;border:0!important;padding-left:0!important}
+.bubble-pop-up[data-ki-hdr=plain] > .bubble-header-container > .bubble-header .bubble-icon-container{margin-inline-start:0!important}
+.bubble-pop-up[data-ki-hdr=plain] > .bubble-header-container > .bubble-header-actions > .bubble-close-button,.bubble-pop-up[data-ki-hdr=plain][data-ki-theme=light] #header-container .bubble-close-button{background:none!important;box-shadow:none!important;border:0!important}
+.bubble-pop-up[data-ki-hdr=plain] > .bubble-header-container > .bubble-header-actions > .bubble-close-button:active{background:rgb(255 255 255/.08)!important}
 ${ISLAND_CSS}
 `;
   // Dokumentnivå: tokens i lys modus + Bubble-bakteppe (rgba(0,0,0,.5) → .2) + eksplisitte øyer i light DOM.
@@ -368,6 +378,14 @@ ${ISLAND_CSS}
     if (!v || /gray|grey|white|#e1e1e1|#fafafa|#fff\b|#ffffff|#c7c7c7/i.test(v)) return 'neutral';
     return 'accent';
   }
+  // Header uten pille (funksjons-popups: Media, Søppel, Server, Strøm …): ingen/gjennomsiktig/gray000-bakgrunn i styles. Rom-popups har gray200.
+  function popHdrKind(pop) {
+    const host = pop.getRootNode && pop.getRootNode().host;
+    const cfg = host && (host.config || host._config);
+    const m = cfg && typeof cfg.styles === 'string' && /#header-container\s*>\s*div\s*>\s*div\s*\{[^}]*background(?:-color)?\s*:\s*([^;!}]+)/.exec(cfg.styles);
+    const v = m ? m[1].trim() : '';
+    return !v || /^(none|transparent)$|gray000|--ki-popup/i.test(v) ? 'plain' : 'pill';
+  }
   function popOpacity(pop) {
     const host = pop.getRootNode && pop.getRootNode().host;
     const cfg = host && (host.config || host._config);
@@ -390,6 +408,8 @@ ${ISLAND_CSS}
     if (MSH.perf && MSH.perf.adoptPop) MSH.perf.adoptPop(pop); // ytelsesmodus (00-b-perf.js): bg_blur → 0 på Android
     const kind = popIconKind(pop);
     if (pop.getAttribute('data-ki-pop-icon') !== kind) pop.setAttribute('data-ki-pop-icon', kind);
+    const hk = popHdrKind(pop);
+    if (pop.getAttribute('data-ki-hdr') !== hk) pop.setAttribute('data-ki-hdr', hk);
     const op = popOpacity(pop);
     if (op) pop.style.setProperty('--ki-pop-op', op);
     if (!pops.has(pop)) {

@@ -1,0 +1,6 @@
+lag_dashbord:
+  name: Lag dashbordet på nytt
+  description: Skriver strategien custom:ki-dashboard til KI MSH-dashbordet igjen. Egne endringer i dashbordets rå konfigurasjon forsvinner; Tilpass-valgene (ki-store) beholdes.
+les_rom:
+  name: Les rom på nytt
+  description: Kartlegger rom, etasjer og entiteter på nytt uten omstart.

@@ -239,9 +239,10 @@ light = await page.evaluate(SNAP);
 ok('lys: overlay-rot merket light', light.attr.overlay === 'light', light.attr);
 ok('lys: Bubble-popup bakgrunn = --ki-popup (#f0f0f0 · 98 %)', /rgba?\(240, 240, 240|srgb 0\.94117\d* 0\.94117\d* 0\.94117\d* \/ 0\.98/.test(light.popBg || ''), light.popBg);
 ok('lys: Bubble-header navn --ki-text', lum(light.popName) < 0.05, light.popName);
-ok('lys: Bubble lukk-knapp --ki-surface-2 + mørkt ikon', light.popClose === 'rgb(235, 235, 235)' && lum(light.popCloseFg) < 0.05, { bg: light.popClose, fg: light.popCloseFg });
+// #lys er en funksjons-popup (data-ki-hdr=plain, Claude Design 23.10): × uten sirkel; rom-popups har --ki-surface-2
+ok('lys: Bubble lukk-knapp uten flate (funksjons-popup) + mørkt ikon', /rgba\(0, 0, 0, 0\)|transparent/.test(light.popClose || '') && lum(light.popCloseFg) < 0.05, { bg: light.popClose, fg: light.popCloseFg });
 ok('lys: Bubble ikon-sirkel (mal A) --ki-surface + mørkt ikon', light.popIcon === 'rgb(255, 255, 255)' && lum(light.popIconFg) < 0.05, { bg: light.popIcon, fg: light.popIconFg });
-ok('lys: ingen mørk stripe i headeren', light.popHdr == null || lum(light.popHdr) > 0.7, light.popHdr);
+ok('lys: ingen mørk stripe i headeren', light.popHdr == null || /rgba\([^)]*, 0\)$/.test(light.popHdr) || lum(light.popHdr) > 0.7, light.popHdr);
 ok('lys: bakteppe rgba(0,0,0,.2)', light.backdrop === 'rgba(0, 0, 0, 0.2)', light.backdrop);
 ok('lys: ark = --ki-popup + mørk tekst', light.sheetBg === 'rgb(240, 240, 240)' && lum(light.sheetFg) < 0.05, { bg: light.sheetBg, fg: light.sheetFg });
 ok('lys: toast invers (mørk pille, lys tekst)', light.toastBg === 'rgb(28, 28, 28)' && light.toastFg === 'rgb(250, 250, 250)' && cr(light.toastBg, light.toastFg) >= 4.5, { bg: light.toastBg, fg: light.toastFg });

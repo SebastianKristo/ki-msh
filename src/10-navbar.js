@@ -519,10 +519,10 @@
     .mbox.exp .mh b{color:var(--nc)}
     .mbox.exp .mi{height:auto;flex-direction:column;justify-content:center;gap:8px;padding:12px 4px 10px;border-radius:22px;font-size:12.5px;white-space:normal;text-align:center;color:var(--nc)!important}
     .mbox.exp .mi .ml{flex:none;text-align:center;line-height:1.15}
-    .mbox.exp .mi .mic{width:48px;height:48px;border-radius:16px;background:color-mix(in srgb, var(--mc, #f285c9) 34%, transparent)}
-    /* lys flate: mørkere ikon og fyldigere flis så pastellfargene kan leses */
-    .mbox.exp .mi:not(.tool) .mic{color:color-mix(in srgb, var(--mc, #f285c9) 40%, var(--nc))!important}
-    .mbox.exp .mi:not(.tool) .ml{color:var(--nc)!important;font-weight:500}
+    .mbox.exp .mi .mic{width:48px;height:48px;border-radius:16px;background:var(--mc, #f285c9)}
+    /* Fargede fliser: hel farge bak ikonet, mørkt ikon (som rom-ikonene), navnet i flisens farge blandet med tekstfargen */
+    .mbox.exp .mi:not(.tool) .mic,.mbox.exp .mi:not(.tool) .mic ha-icon{color:#232323!important} /* ki-hex-ok: mørkt ikon på aksentflaten (vinner over .mi .mic ha-icon = --mc, som ga usynlig ikon) */
+    .mbox.exp .mi:not(.tool) .ml{color:color-mix(in srgb, var(--mc, #f285c9) 32%, var(--nc))!important;font-weight:600}
     .mbox.exp .mh,.mbox.exp .mh b{color:var(--nc)!important}
     .mbox.exp .mi:hover{background:color-mix(in srgb,var(--nc) 6%,transparent)}
     .mbox.exp .mi .mdot{position:absolute;top:10px;right:calc(50% - 30px);margin:0}
@@ -969,7 +969,8 @@
       let n = 0;
       const item = (id, icon, label, color, act, badge, sub) => { const k = n++; const tool = act === 'mtool'; return `<button class="mi ${tool ? 'tool' : ''}" data-act="${act}" data-id="${esc(id)}" title="${esc(label)}" style="--mc:${tool ? '#2a1720' : MC[k % MC.length]};animation-delay:${40 + k * 28}ms"><span class="mic">${M.icon(icon, 21)}</span>${ic ? '' : `<span class="ml">${esc(label)}${tool && sub ? `<small>${esc(sub)}</small>` : ''}</span>`}${badge ? '<span class="mdot"></span>' : ''}${!ic && tool ? `<span class="mchev">${M.icon('mdi:chevron-right', 20)}</span>` : ''}</button>`; };
       const tools = [];
-      if (c.admin_tools !== false) {
+      // Tilpass ligger i Innstillinger (M.ha.tpSection, 69i-ha-app.js) – ikke lenger i Mer-menyen. Uten Innstillinger (ikke admin) beholdes knappen.
+      if (c.admin_tools !== false && !(M.ha && M.ha.tpSection && ((this._hass || M.lastHass || {}).user || {}).is_admin !== false)) {
         // Fiks 17.27: verktøyene har samme farge som menypunktene over (glass: #fafafa via .mbox.glass .mi) – bare streken skiller
         // 24.5: én «Tilpass»-knapp (arket med Tilpass alt · Hjem · navbar · header · Kiosk-modus).
         // Del 44: verktøy-raden under streken er bare snarveier – aldri prikk/badge/teller (Hjem v3 menuTools).

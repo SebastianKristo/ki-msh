@@ -2,6 +2,22 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## 1.6.0 · KI MSH som integrasjon + Claude Design 23.10.2026 (runde 2)
+**KI MSH er nå en Home Assistant-integrasjon** (`custom_components/ki_msh/`, HACS-type *Integration*). Se README → Installasjon for flytting fra plugin-utgaven.
+- **Kortene** serveres fra integrasjonen (`/ki_msh_static/ki-msh.js?v=<versjon>`) og lastes på alle sider – ingen Lovelace-ressurs. Den gamle ressursen til `ki-msh.js` (HACS-plugin eller `/local/`) fjernes automatisk. Bubble Card lastes fra jsDelivr når den mangler (Konfigurer → Kort: auto/cdn/av).
+- **Dashbordet lages automatisk** på `/ki-msh` med strategien `custom:ki-dashboard` (navn, ikon, adresse, sidepanel, bare admin). Strategien skrives bare når lageret er tomt – egne endringer beholdes. `ki_msh.lag_dashbord` skriver den på nytt; fjernes integrasjonen, slettes dashbordet.
+- **Husmodellen:** `sensor.ki_msh` og websocket `ki_msh/hus` (rom, etasjer, funksjons-popups med `aktiv`/`grunn`). Funksjonslista (`FUNKSJONER` i `const.py`) speiler nå alle `M.FUNCTION_POPUPS` og vilkårene i strategien som regler (domene, plattform, device_class, produsent, regex, attributt, posisjon); `npm run funksjoner` sjekker at hashene er like.
+- **Romtellerne fra KI Rom** (`sensor.<rom>_lys` … `_oversikt`) når KI Rom ikke er installert (Automatisk/Alltid/Av).
+- **HA 2024.11 → nyeste:** panelet registreres med `show_in_sidebar` bare der HA har parameteren (2024.11/2025.1 ga TypeError), `hass.data["lovelace"]` som dict og `LovelaceData`, `StaticPathConfig` uten den fjernede `register_static_path`, ingen fil-I/O i hendelsesløkken (versjon leses ved import, `exists()` i executor), gammel `extra_js_url` fjernes ved ny versjon uten omstart.
+- **Tester:** `tests/` (pytest-homeassistant-custom-component, som ki-rom): `hub._build` med registre, `_finn_funksjoner`, dashbordet lagres bare når lageret er tomt, ingen romtellere når KI Rom er satt opp.
+- `npm run build` skriver bundelen også til `custom_components/ki_msh/frontend/ki-msh.js` og setter `version` i `manifest.json` fra `package.json`. `hacs.json` er integrasjon (uten `filename`).
+
+Fra Claude Design (base main 164e2e4):
+- **Popup-header:** rom-popups får pille (999px) bak ikon og navn og rund × på 50 px uten kant; funksjons-popups (`data-ki-hdr=plain`, lest fra popupens styles) har ikonet helt til venstre, ingen flate og × uten sirkel (`00-a-theme.js`).
+- **Mer-menyen:** «Tilpass» ligger i Innstillinger (under oppdateringskortet) for admin og er fjernet fra menyen; ikke-admin beholder den. Flisene har hel farge bak ikonet, mørkt ikon og navnet i flisens farge (kontrast ≥ 5:1 på navbaren i begge tema). Rettet her: ikonet arvet flisens farge og ble usynlig.
+- **Prototypen:** `phu:tesla-*` vendret lokalt (`app/prototype/vendor/phu.js`, kopieres til appen av `build-www.mjs`), andre ikonprefiks via Iconify, dra ned for å oppdatere, oppstartstekst «Laster …».
+- **Ikke tatt inn:** `src/00-c-tilpass-ui.js` (bare prototypen, ligger i `app/prototype/src-extra/`), `ki/native.js` (kopieres fra `app/web/`), `*.dc.html`. «Tema: Auto» i `69i` følger fortsatt HAs darkMode i HA (rettelsen fra forrige runde). «Glimt-konto» er bare beskrevet i handoffen – `glimt.js` har ikke leverandøren, og API-et mot Nordlys OS er ikke sjekket (TODO i `69i-ha-app.js`).
+
 ## Claude Design 23.10.2026 · HA-innstillinger, mer info, Liquid Glass
 Endringer tatt inn fra Claude Design-prosjektet «Home Assistant App» (base main 164e2e4).
 - **HA-innstillinger:** «Lag ny» med maler for automasjoner, skript og scener (`src/69f-ha-ny.js`), sider for etiketter og mapper, ekstra paneler/verktøy (`69g`, `69h`), profilkort, «Companion-appen» og «Tilpass dashbordet» i hub-en (`69i-ha-app.js`). Scene fra rom (`69d`). Headeren dekker innhold som ruller under (`69`). «Tema: Auto» følger HAs eget temavalg i HA, telefonen i appen.
