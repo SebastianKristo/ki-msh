@@ -1,0 +1,98 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KI MSH",
+        "description": "Kortene lastes av integrasjonen, og dashbordet lages automatisk med strategien custom:ki-dashboard. Alt kan endres senere under Konfigurer.",
+        "data": {
+          "dashbord": "Lag dashbordet automatisk",
+          "tittel": "Navn i sidepanelet",
+          "url_path": "Adresse (må ha bindestrek)",
+          "ikon": "Ikon",
+          "sidepanel": "Vis i sidepanelet",
+          "kun_admin": "Bare for administratorer"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "KI MSH er allerede satt opp."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KI MSH",
+        "menu_options": {
+          "dashbord": "Dashbord",
+          "rom": "Rom og romtellere",
+          "kort": "Kort og Bubble Card"
+        }
+      },
+      "dashbord": {
+        "title": "Dashbord",
+        "data": {
+          "dashbord": "Lag dashbordet automatisk",
+          "tittel": "Navn i sidepanelet",
+          "url_path": "Adresse (må ha bindestrek)",
+          "ikon": "Ikon",
+          "sidepanel": "Vis i sidepanelet",
+          "kun_admin": "Bare for administratorer"
+        }
+      },
+      "rom": {
+        "title": "Rom",
+        "description": "Romtellerne er de samme som KI Rom lager (sensor.<rom>_lys … _oversikt). Automatisk = bare når KI Rom ikke er installert.",
+        "data": {
+          "romsensorer": "Romtellere",
+          "ekskluder_rom": "Hopp over disse rommene",
+          "areas": "Bare disse rommene (tomt = alle)",
+          "exclude": "Ignorer entiteter",
+          "include_category": "Ta med konfig- og diagnoseentiteter",
+          "include_groups": "Ta med grupper"
+        }
+      },
+      "kort": {
+        "title": "Kort",
+        "data": {
+          "bubble": "Bubble Card"
+        }
+      }
+    }
+  },
+  "selector": {
+    "romsensorer": {
+      "options": {
+        "auto": "Automatisk",
+        "alltid": "Alltid (også med KI Rom)",
+        "av": "Av"
+      }
+    },
+    "bubble": {
+      "options": {
+        "auto": "Last fra jsDelivr hvis den mangler",
+        "cdn": "Alltid fra jsDelivr",
+        "av": "Aldri – jeg har den selv"
+      }
+    }
+  },
+  "issues": {
+    "bubble_mangler": {
+      "title": "Bubble Card mangler",
+      "description": "KI MSH-popupene trenger Bubble Card. Installer den fra HACS, eller velg «Last fra jsDelivr» under KI MSH → Konfigurer → Kort."
+    },
+    "frontend_mangler": {
+      "title": "ki-msh.js mangler i integrasjonen",
+      "description": "Filen custom_components/ki_msh/frontend/ki-msh.js finnes ikke. Installer KI MSH på nytt fra HACS."
+    }
+  },
+  "services": {
+    "lag_dashbord": {
+      "name": "Lag dashbordet på nytt",
+      "description": "Skriver strategien custom:ki-dashboard til KI MSH-dashbordet igjen."
+    },
+    "les_rom": {
+      "name": "Les rom på nytt",
+      "description": "Kartlegger rom, etasjer og entiteter på nytt uten omstart."
+    }
+  }
+}

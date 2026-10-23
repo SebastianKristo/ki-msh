@@ -2,7 +2,8 @@
 // så én feil ikke stopper resten.
 // Ytelse (Android): hver fil minifiseres for seg med esbuild (mellomrom/kommentarer/syntaks – navnene beholdes, så
 // feilmeldinger i konsollen er lesbare). Toppteksten (banner, versjonssjekk, KI_MSH_VERSION) står uminifisert.
-//   node build.mjs                → dist/ki-msh.js (minifisert – det er denne som er Lovelace-ressursen)
+//   node build.mjs                → dist/ki-msh.js + custom_components/ki_msh/frontend/ki-msh.js (minifisert; integrasjonen
+//                                   serverer kopien) – og manifest.json får versjonen fra package.json
 //   node build.mjs <fil>          → <fil> (minifisert; testene bygger slik)
 //   node build.mjs --dev [<fil>]  → uminifisert (standard dist/ki-msh.dev.js) for feilsøking; også KI_MSH_DEV=1
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
@@ -50,5 +51,13 @@ out += `\nsetTimeout(console.info, 0, '%c KI MSH %c ${pkg.version} ', 'backgroun
 const target = outArg || (dev ? 'dist/ki-msh.dev.js' : 'dist/ki-msh.js');
 if (!outArg) mkdirSync('dist', { recursive: true });
 writeFileSync(target, out);
+// Integrasjonen (custom_components/ki_msh) serverer den samme bundelen og har samme versjon som package.json
+if (!outArg && !dev) {
+  const CC = 'custom_components/ki_msh';
+  mkdirSync(`${CC}/frontend`, { recursive: true });
+  writeFileSync(`${CC}/frontend/ki-msh.js`, out);
+  const man = JSON.parse(readFileSync(`${CC}/manifest.json`, 'utf8'));
+  if (man.version !== pkg.version) { man.version = pkg.version; writeFileSync(`${CC}/manifest.json`, JSON.stringify(man, null, 2) + '\n'); }
+}
 const bytes = Buffer.byteLength(out);
 console.log(`${target} · ${files.length} filer · ${(bytes / 1024).toFixed(0)} KB${esbuild ? ` minifisert (${(gzipSync(out).length / 1024).toFixed(0)} KB gzip)` : ' uminifisert'}`);

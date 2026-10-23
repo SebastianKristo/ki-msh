@@ -21,6 +21,8 @@ cpSync(join(repo, 'test', 'mock-hass.js'), join(demo, 'test', 'mock-hass.js'));
 cpSync(join(repo, 'test', 'mock'), join(demo, 'test', 'mock'), { recursive: true });
 cpSync(join(app, 'prototype', 'ki'), join(demo, 'ki'), { recursive: true });
 cpSync(join(app, 'web', 'native.js'), join(demo, 'ki', 'native.js'));
+// Egendefinerte ikonsett i prototypen (phu:tesla-* m.fl., runtime.html laster ../vendor/phu.js)
+cpSync(join(app, 'prototype', 'vendor'), join(demo, 'vendor'), { recursive: true });
 
 // SRC-lista i runtime.html genereres fra filene som faktisk ligger i demo/src (som build.mjs: vendor/*-no.js først,
 // så navnerekkefølge). Da kan ikke en ny fil i src/ (f.eks. 00-c-tilpass.js, 69*-ha-*.js) mangle i appen.

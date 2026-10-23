@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Custom%20integration-41BDF5.svg" alt="HACS Custom integration"></a>
   <a href="https://www.home-assistant.io"><img src="https://img.shields.io/badge/Home%20Assistant-2024.11%2B-18BCF2.svg?logo=homeassistant&logoColor=white" alt="Home Assistant 2024.11+"></a>
   <a href="https://github.com/SebastianKristo/ki-msh/releases"><img src="https://img.shields.io/github/v/release/SebastianKristo/ki-msh?display_name=tag&sort=semver" alt="Siste release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/SebastianKristo/ki-msh" alt="Lisens"></a>
@@ -64,9 +64,13 @@ og PC (1440×900) i nettleservindu. Bildene er tatt med `npm run shots` mot ekte
 |:---:|:---:|:---:|:---:|
 | <img src="docs/images/iphone/server.webp" alt="Server" width="190"> | <img src="docs/images/iphone/tesla.webp" alt="Tesla Model Y" width="190"> | <img src="docs/images/iphone/rolf.webp" alt="Sir Sweeps" width="190"> | <img src="docs/images/iphone/soppel.webp" alt="Søppel" width="190"> |
 
-| Varmepumpe | Kari | Innstillinger |
-|:---:|:---:|:---:|
-| <img src="docs/images/iphone/varmepumpe.webp" alt="Varmepumpe" width="190"> | <img src="docs/images/iphone/person-kari.webp" alt="Kari" width="190"> | <img src="docs/images/iphone/settings.webp" alt="Innstillinger" width="190"> |
+| Varmepumpe | Planter | Søvn | 3D-printer |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/iphone/varmepumpe.webp" alt="Varmepumpe" width="190"> | <img src="docs/images/iphone/planter.webp" alt="Planter" width="190"> | <img src="docs/images/iphone/sovn.webp" alt="Søvn" width="190"> | <img src="docs/images/iphone/3d-printer.webp" alt="3D-printer" width="190"> |
+
+| Kari | Innstillinger |
+|:---:|:---:|
+| <img src="docs/images/iphone/person-kari.webp" alt="Kari" width="190"> | <img src="docs/images/iphone/settings.webp" alt="Innstillinger" width="190"> |
 
 ### PC
 
@@ -113,21 +117,58 @@ Alle bilder (iPhone og PC for hver popup, og Hjem i lyst tema): [docs/galleri.md
 
 ## Installasjon
 
-1. Installer [Bubble Card](https://github.com/Clooos/Bubble-Card) (HACS) og temaet **My SmartHome v3** (mørk).
-   [KI Rom](https://github.com/SebastianKristo/ki-rom) anbefales.
-2. HACS → ⋮ → *Custom repositories* → `https://github.com/SebastianKristo/ki-msh`, type **Dashboard** → last ned **KI MSH**.
-   HACS legger til ressursen `/hacsfiles/ki-msh/ki-msh.js` selv.
-   *Manuelt:* kopier `dist/ki-msh.js` til `/config/www/` og legg til ressursen `/local/ki-msh.js` (JavaScript-modul).
-3. Innstillinger → Dashbord → *Legg til dashbord* → «Nytt dashbord fra bunnen», åpne *Rå konfigurasjon* og lim inn:
+KI MSH er en Home Assistant-integrasjon (som [KI Rom](https://github.com/SebastianKristo/ki-rom)): den laster kortene,
+lager dashbordet og holder husmodellen (rom, etasjer, funksjons-popups) oppdatert.
 
-   ```yaml
-   strategy:
-     type: custom:ki-dashboard
-   ```
+### Kom i gang
 
-   Strategien bygger Hjem, navbaren og alle popups: én rom-popup per HA-område med entiteter og en funksjons-popup for
-   det du har. Nye rom og integrasjoner dukker opp av seg selv. Vil du skrive YAML selv, se
-   [`examples/dashboard.yaml`](examples/dashboard.yaml).
+1. Installer temaet **My SmartHome v3** (mørk). [Bubble Card](https://github.com/Clooos/Bubble-Card) (HACS) anbefales –
+   mangler den, lastes den fra jsDelivr (Konfigurer → Kort). [KI Rom](https://github.com/SebastianKristo/ki-rom)
+   anbefales også, men er ikke påkrevd.
+2. HACS → ⋮ → *Custom repositories* → `https://github.com/SebastianKristo/ki-msh`, type **Integration** → last ned
+   **KI MSH** og start Home Assistant på nytt.
+3. Innstillinger → *Enheter og tjenester* → *Legg til integrasjon* → **KI MSH**. Velg navn, ikon og adresse (standard
+   `/ki-msh`) og om dashbordet skal vises i sidepanelet.
+
+Dashbordet lages automatisk på **/ki-msh** med strategien `custom:ki-dashboard`: Hjem, navbaren og alle popups – én
+rom-popup per HA-område med entiteter og en funksjons-popup for det du har. Nye rom og integrasjoner dukker opp av seg selv.
+Kortene lastes på alle sider (ingen Lovelace-ressurs å legge inn), og endringer du gjør i dashbordet beholdes.
+
+Integrasjonen gir også:
+- `sensor.ki_msh` og websocket-kommandoen `ki_msh/hus`: hele husmodellen (rom, etasjer, hvilke funksjons-popups som er
+  aktive og hvorfor, dashbord-URL, versjon).
+- Romtellerne fra KI Rom (`sensor.<rom>_lys`, `_media`, `_brytere`, `_sensorer`, `_effekt`, `_oversikt`) når KI Rom ikke
+  er installert (Konfigurer → Rom: *Automatisk* / *Alltid* / *Av*).
+- Tjenestene `ki_msh.lag_dashbord` (skriv strategien på nytt) og `ki_msh.les_rom` (kartlegg huset på nytt).
+- Reparasjoner når Bubble Card eller `ki-msh.js` mangler.
+
+Fjernes integrasjonen, slettes dashbordet og oppsettet det lagret.
+
+### Valgfritt: strategien i et eget dashbord
+
+Vil du ha strategien i et annet dashbord (eller flere), lag et nytt dashbord, åpne *Rå konfigurasjon* og lim inn:
+
+```yaml
+strategy:
+  type: custom:ki-dashboard
+```
+
+Vil du skrive YAML selv, se [`examples/dashboard.yaml`](examples/dashboard.yaml).
+
+### Fra plugin-utgaven (HACS Dashboard)
+
+Fram til 1.6 var KI MSH en HACS-plugin (type *Dashboard*) med Lovelace-ressursen `/hacsfiles/ki-msh/ki-msh.js`. HACS kan
+ikke ha begge typene i samme repo, så:
+
+1. HACS → KI MSH (Dashboard) → ⋮ → *Fjern*.
+2. Legg til repoet på nytt som **Integration** (punkt 2 over), start HA på nytt og legg til **KI MSH** (punkt 3).
+3. Den gamle Lovelace-ressursen til `ki-msh.js` fjernes automatisk når integrasjonen starter, så kortene ikke lastes to
+   ganger. Har du lagt den inn for hånd (`/local/ki-msh.js`), fjernes den også – slett gjerne filen i `/config/www/`.
+
+Dashbordene du allerede har med `strategy: type: custom:ki-dashboard` virker som før; Tilpass-valgene (ki-store) følger
+med. Det nye `/ki-msh`-dashbordet kan du skjule i sidepanelet eller slå av (Konfigurer → Dashbord).
+
+*Manuelt uten HACS:* kopier `custom_components/ki_msh/` til `/config/custom_components/` og start HA på nytt.
 
 Krever Home Assistant **2024.11** eller nyere (kortene bruker `getGridOptions`). Kortene heter `msh-…`, så de kan lastes
 sammen med [ki-cards](https://github.com/SebastianKristo/ki-cards).
@@ -137,9 +178,9 @@ sammen med [ki-cards](https://github.com/SebastianKristo/ki-cards).
 Viser HA fortsatt en gammel popup (f.eks. den gamle Basseng-popupen med `ki-basseng-card`) etter en oppdatering, er det
 nesten alltid en gammel kopi av `ki-msh.js` i cachen:
 
-1. **Bump versjonen i ressurs-URL-en.** Innstillinger → Dashbord → ⋮ → *Ressurser*: sett `?v=<versjon>` bak filen,
-   f.eks. `/local/ki-msh.js?v=1.3.0` (versjonen står i `package.json` og i konsollen: «KI MSH 1.3.0»). HACS legger selv
-   til `?hacstag=…` ved hver oppdatering – da trengs bare punkt 2.
+1. **Versjonen i URL-en.** Integrasjonen laster `/ki_msh_static/ki-msh.js?v=<versjon>` og bytter versjonen selv ved
+   hver oppdatering – da trengs bare punkt 2. (Bruker du fortsatt en egen ressurs, f.eks. `/local/ki-msh.js`: sett
+   `?v=<versjon>` bak filen under Innstillinger → Dashbord → ⋮ → *Ressurser*.)
 2. **Tøm cachen.** Nettleser: hard omlasting (Ctrl/Cmd + Shift + R) eller «Tøm buffer og hard omlasting» i
    utviklerverktøyet (Application → Service workers → *Unregister* hvis det fortsatt er gammelt). Companion-appen:
    Innstillinger → Companion-app → *Feilsøking* → **Tilbakestill frontend-hurtigbuffer**, og lukk appen helt.
@@ -159,7 +200,7 @@ fortsatt (den genererte `#basseng` tar over); står `custom:ki-basseng-card`/`cu
 dashbord, rendres de som `msh-basseng-card` med en advarsel i konsollen.
 
 Det kortkoden **ikke** kan gjøre selv, og som må gjøres for hånd etter oppdateringen:
-- Sett `?v=<ny versjon>` på `ki-msh.js`-ressursen (punkt 1 over) – URL-en ligger i HA, ikke i bundelen.
+- Bruker du en egen `ki-msh.js`-ressurs i stedet for integrasjonen: sett `?v=<ny versjon>` på den (punkt 1 over).
 - Ligger de gamle `ki-basseng-card.js`/`ki-basseng-hero-card.js` fortsatt i ressurslisten: fjern dem selv.
 - iOS-appen (WKWebView) holder på den gamle `ki-msh.js` til appen er tvunget til å lukke: tilbakestill frontend-hurtigbufferen
   (punkt 2), sveip appen helt bort og åpne den igjen. Sjekk så at konsollen viser riktig versjon.
@@ -268,7 +309,7 @@ strategy:
 
 ```bash
 npm install         # én gang: esbuild (minifiserer bundelen)
-npm run build       # dist/ki-msh.js (alle filer i src/ i navnerekkefølge, minifisert per fil)
+npm run build       # dist/ki-msh.js + custom_components/ki_msh/frontend/ki-msh.js (alle filer i src/, minifisert per fil)
 node build.mjs --dev  # uminifisert dist/ki-msh.dev.js til feilsøking (ikke ressursen)
 npm run perf        # ytelsesmåling (CPU ×6, mobil) + krav: test/perf-check.mjs
 npm test            # smoke-test av alle kort i Chromium (test/cases, test/mock), mobil + PC
@@ -282,6 +323,8 @@ npm run draft       # utkast og «Ferdig» i Tilpass-arkene
 npm run icons       # ikonvelgeren og trykk-handlinger (MSH.tap) mot ekte Bubble Card
 npm run glass       # Liquid Glass-indikatoren (TV / Musikk i Media)
 npm run templates   # button-card-/decluttering-maler (MSH.resolveTemplates)
+npm run funksjoner  # FUNKSJONER i custom_components/ki_msh/const.py = M.FUNCTION_POPUPS
+pip install pytest-homeassistant-custom-component && pytest   # integrasjonen (tests/)
 ```
 
 **Ytelsesmodus (Android):** på Android (og svake berøringsenheter) skrus backdrop-blur (også Bubble-popupenes `bg_blur`)
@@ -295,6 +338,8 @@ Avvik fra designet: [`docs/avvik.md`](docs/avvik.md). Endringer: [`CHANGELOG.md`
 - `src/01-editor.js` – felles editor `msh-editor` (GUI-editor og kortets egen tilpasning).
 - `src/02-popups.js` / `src/04-strategy.js` – popup-malene og strategien `custom:ki-dashboard`.
 - `src/NN-*.js` – ett eller flere kort per skjerm.
+- `custom_components/ki_msh/` – integrasjonen (dashbordet, `sensor.ki_msh`, romtellerne, `ki_msh/hus`); `frontend/ki-msh.js`
+  skrives av `npm run build`.
 
 ## Lisens
 

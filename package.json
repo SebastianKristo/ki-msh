@@ -1,6 +1,6 @@
 {
   "name": "ki-msh",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "private": true,
   "description": "My SmartHome v3-dashbord for Home Assistant: custom cards i Bubble Card-popups",
   "type": "module",
@@ -18,7 +18,8 @@
     "glass": "node test/glass-check.mjs",
     "templates": "node test/templates-check.mjs",
     "perf": "node test/perf-check.mjs",
-    "shots": "node test/docs-shots.mjs"
+    "shots": "node test/docs-shots.mjs",
+    "funksjoner": "node test/funksjoner-sync.mjs"
   },
   "license": "Apache-2.0",
   "devDependencies": {

@@ -1,0 +1,98 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KI MSH",
+        "description": "The cards are loaded by the integration, and the dashboard is created automatically with the custom:ki-dashboard strategy. Everything can be changed later under Configure.",
+        "data": {
+          "dashbord": "Create the dashboard automatically",
+          "tittel": "Sidebar name",
+          "url_path": "Address (must contain a hyphen)",
+          "ikon": "Icon",
+          "sidepanel": "Show in sidebar",
+          "kun_admin": "Administrators only"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "KI MSH is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KI MSH",
+        "menu_options": {
+          "dashbord": "Dashboard",
+          "rom": "Rooms and room counters",
+          "kort": "Cards and Bubble Card"
+        }
+      },
+      "dashbord": {
+        "title": "Dashboard",
+        "data": {
+          "dashbord": "Create the dashboard automatically",
+          "tittel": "Sidebar name",
+          "url_path": "Address (must contain a hyphen)",
+          "ikon": "Icon",
+          "sidepanel": "Show in sidebar",
+          "kun_admin": "Administrators only"
+        }
+      },
+      "rom": {
+        "title": "Rooms",
+        "description": "The room counters are the same ones KI Rom creates (sensor.<room>_lys … _oversikt). Automatic = only when KI Rom is not installed.",
+        "data": {
+          "romsensorer": "Room counters",
+          "ekskluder_rom": "Skip these rooms",
+          "areas": "Only these rooms (empty = all)",
+          "exclude": "Ignore entities",
+          "include_category": "Include config and diagnostic entities",
+          "include_groups": "Include groups"
+        }
+      },
+      "kort": {
+        "title": "Cards",
+        "data": {
+          "bubble": "Bubble Card"
+        }
+      }
+    }
+  },
+  "selector": {
+    "romsensorer": {
+      "options": {
+        "auto": "Automatic",
+        "alltid": "Always (also with KI Rom)",
+        "av": "Off"
+      }
+    },
+    "bubble": {
+      "options": {
+        "auto": "Load from jsDelivr if missing",
+        "cdn": "Always from jsDelivr",
+        "av": "Never – I have it"
+      }
+    }
+  },
+  "issues": {
+    "bubble_mangler": {
+      "title": "Bubble Card is missing",
+      "description": "The KI MSH popups need Bubble Card. Install it from HACS, or choose «Load from jsDelivr» under KI MSH → Configure → Cards."
+    },
+    "frontend_mangler": {
+      "title": "ki-msh.js is missing from the integration",
+      "description": "The file custom_components/ki_msh/frontend/ki-msh.js does not exist. Reinstall KI MSH from HACS."
+    }
+  },
+  "services": {
+    "lag_dashbord": {
+      "name": "Recreate the dashboard",
+      "description": "Writes the custom:ki-dashboard strategy to the KI MSH dashboard again."
+    },
+    "les_rom": {
+      "name": "Reread rooms",
+      "description": "Maps rooms, floors and entities again without a restart."
+    }
+  }
+}

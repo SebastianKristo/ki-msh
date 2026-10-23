@@ -10,13 +10,13 @@ My SmartHome v3-dashbordet for Home Assistant – custom cards i JavaScript, byg
 - Alt autokonfigureres fra HA-områder, -registre og KI Rom – ingen eksempeldata.
 - «Tilpass»-ark for Hjem, navbar, header, rom og hver popup, pluss GUI-editor for alle kort.
 
-**Krever:** Home Assistant 2024.11+, [Bubble Card](https://github.com/Clooos/Bubble-Card) og temaet My SmartHome v3.
+**Krever:** Home Assistant 2024.11+ og temaet My SmartHome v3. [Bubble Card](https://github.com/Clooos/Bubble-Card) anbefales (ellers lastes den fra jsDelivr).
 
-**Kom i gang:** nytt dashbord → *Rå konfigurasjon* →
+**Kom i gang:** installer som **Integration** i HACS og start HA på nytt → Innstillinger → *Enheter og tjenester* →
+*Legg til integrasjon* → **KI MSH**. Dashbordet lages automatisk på **/ki-msh**, og kortene lastes uten Lovelace-ressurs.
+Strategien `custom:ki-dashboard` kan fortsatt legges i egne dashbord (valgfritt).
 
-```yaml
-strategy:
-  type: custom:ki-dashboard
-```
+**Fra plugin-utgaven:** fjern KI MSH (Dashboard) i HACS, legg til repoet som Integration og legg til «KI MSH». Den gamle
+Lovelace-ressursen fjernes automatisk.
 
 Se [README](https://github.com/SebastianKristo/ki-msh#readme) for skjermbilder, popups og tilpasning.

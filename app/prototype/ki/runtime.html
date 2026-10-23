@@ -25,6 +25,19 @@ fetch('../vendor/mdi.js').then(r => r.text()).then(t => {
   for (const m of t.matchAll(/export var mdi(\w+) = "([^"]+)"/g)) window.__MDI[m[1].replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Za-z])([0-9])/g, '$1-$2').toLowerCase()] = m[2];
   ICONS.forEach(i => i.isConnected && i._r());
 }).catch(() => {});
+// Egendefinerte ikonsett (custom_icons/hass-custom_icons-stil): phu: vendret lokalt, øvrige prefiks via Iconify ved behov
+window.__PHU = window.__PHU || {}; const XIC = {};
+const phuS = document.createElement('script'); phuS.src = '../vendor/phu.js'; phuS.onload = () => ICONS.forEach(i => i.isConnected && i._r()); document.head.appendChild(phuS);
+const IFY = { phu: null, hue: 'hue', si: 'simple-icons', fab: 'fa6-brands', fas: 'fa6-solid', fapro: 'fa6-solid', bha: null };
+function xIcon(pre, n) {
+  const k = pre + ':' + n; if (k in XIC) return XIC[k];
+  XIC[k] = ''; const set = IFY[pre] === undefined ? pre : IFY[pre]; if (!set) return '';
+  fetch('https://api.iconify.design/' + set + '.json?icons=' + n).then(r => r.json()).then(j => {
+    const ic = j && j.icons && j.icons[n]; if (!ic) return;
+    XIC[k] = { body: ic.body, w: ic.width || j.width || 24, h: ic.height || j.height || 24 }; ICONS.forEach(i => i.isConnected && i._r());
+  }).catch(() => {});
+  return '';
+}
 customElements.define('ha-icon', class extends HTMLElement {
   static get observedAttributes() { return ['icon']; }
   connectedCallback() { ICONS.add(this); this._r(); } disconnectedCallback() { ICONS.delete(this); } attributeChangedCallback() { this._r(); }
@@ -32,8 +45,12 @@ customElements.define('ha-icon', class extends HTMLElement {
   _r() {
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     const i = this.getAttribute('icon') || ''; this.setAttribute('data-ok', /^[a-z]+:[a-z0-9-]+$/.test(i) ? '1' : '0');
-    const n = i.replace(/^(mdi|hass):/, ''), d = window.__MDI[n] || '';
-    this.shadowRoot.innerHTML = '<style>:host{display:inline-flex;align-items:center;justify-content:center;position:relative;vertical-align:middle;fill:currentcolor;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}svg{width:100%;height:100%;pointer-events:none;display:block}</style><svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" aria-hidden="true"><path d="' + d + '"></path></svg>';
+    const m = /^([a-z0-9]+):(.+)$/.exec(i), pre = m ? m[1] : 'mdi', n = m ? m[2] : i;
+    let svg;
+    if (pre === 'mdi' || pre === 'hass') svg = '<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" aria-hidden="true"><path d="' + (window.__MDI[n] || '') + '"></path></svg>';
+    else if (window.__PHU[n] && (pre === 'phu' || !IFY[pre])) svg = '<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" aria-hidden="true"><path d="' + window.__PHU[n] + '"></path></svg>';
+    else { const x = xIcon(pre, n); svg = x ? '<svg viewBox="0 0 ' + x.w + ' ' + x.h + '" preserveAspectRatio="xMidYMid meet" focusable="false" aria-hidden="true">' + x.body.replace(/fill="(?!none)[^"]*"/g, '') + '</svg>' : '<svg viewBox="0 0 24 24"></svg>'; }
+    this.shadowRoot.innerHTML = '<style>:host{display:inline-flex;align-items:center;justify-content:center;position:relative;vertical-align:middle;fill:currentcolor;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}svg{width:100%;height:100%;pointer-events:none;display:block}</style>' + svg;
   }
 });
 customElements.define('ha-card', class extends HTMLElement {});
@@ -56,7 +73,7 @@ customElements.define('hui-card', class extends HTMLElement {
   _mk() { if (!this._c || this._el) return; const el = document.createElement(this._c.type.replace('custom:', '')); try { el.setConfig(this._c); } catch (e) { console.error(e); } if (this._h) el.hass = this._h; this._el = el; this.appendChild(el); this.style.display = 'block'; }
 });
 </script>
-</head><body><div id="boot"><i></i><span id="bootT">Kobler til Home Assistant …</span></div><div id="sidebar"></div><div id="dash"></div>
+</head><body><div id="boot"><i></i><span id="bootT">Laster …</span></div><div id="sidebar"></div><div id="dash"></div>
 <script>
 (async function () {
   // ?live = ekte Home Assistant (token fra onboarding), ellers demo med testdataene
@@ -112,7 +129,7 @@ customElements.define('hui-card', class extends HTMLElement {
     set('input_select.vaskemaskin_status', 'Av');
     Object.values(S).forEach((st) => { const a = st.attributes || {}; if (a.integrasjon !== 'ki_planter') return; if (a.type === 'sted') { st.state = '0'; a.trenger_vann = []; a.trenger_vann_tekst = ''; } else if (a.type === 'plante') st.state = 'off'; });
   };
-  (document.getElementById('bootT') || boot).textContent = 'laster kortene …';
+  if (!LIVE) (document.getElementById('bootT') || boot).textContent = 'Laster …';
   await Promise.all(SRC.map((f) => load('../src/' + f)));
   await load('more-info.js');
   // HA-innstillinger = MSH.ha (src/69*-ha-*.js). Gammel ki/ha-settings.js lastes ikke lenger; en tynn bro holder
@@ -140,7 +157,6 @@ customElements.define('hui-card', class extends HTMLElement {
       if (/^\/(config|profile)/.test(p) && window.kiSettingsFor) return window.kiSettingsFor(p); kiNote('Åpner ' + p + ' i Home Assistant');
     };
   }
-  (document.getElementById('bootT') || boot).textContent = 'laster Bubble Card …';
   // Appen: ikke heng hvis CDN er utilgjengelig (popupene trenger Bubble Card, resten av dashbordet ikke)
   await Promise.race([load('https://cdn.jsdelivr.net/gh/Clooos/Bubble-Card@main/dist/bubble-card.js', true), new Promise((q) => setTimeout(q, 8000))]);
   for (let i = 0; i < 150 && !customElements.get('bubble-card'); i++) await new Promise((q) => setTimeout(q, 100));
@@ -328,6 +344,59 @@ customElements.define('hui-card', class extends HTMLElement {
   (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((q) => setTimeout(q, 1500))]) : Promise.resolve()).then(() => setTimeout(reveal, 350));
   window.parent && window.parent.postMessage({ kiReady: true, pops: stack.cards.filter((c) => c.card_type === 'pop-up').map((c) => ({ hash: c.hash, name: c.name })) }, '*');
   window.addEventListener('message', (e) => { if (e.data && typeof e.data.kiHash === 'string') location.hash = e.data.kiHash; });
+  pullToRefresh();
 })();
+// Dra ned for å oppdatere (som HA-appen): virker når det du drar i står helt øverst. Hurtigpanelet (dra ned på Hjem)
+// har forrang – det kaller preventDefault i capture-fasen, og da avbrytes oppdateringen.
+function pullToRefresh() {
+  const MAX = 120, TRIG = 72;
+  const ind = document.createElement('div');
+  ind.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);width:40px;height:40px;margin-left:-20px;border-radius:50%;background:var(--ki-surface-2,#3a3a3a);color:var(--ki-text,#fafafa);display:grid;place-items:center;z-index:2147483000;pointer-events:none;opacity:0;transform:translateY(-56px);box-shadow:0 4px 14px rgba(0,0,0,.3)';
+  ind.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" style="display:block;fill:currentColor"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg>';
+  document.body.appendChild(ind);
+  const svg = ind.firstChild;
+  let g = null, busy = false;
+  const scrollerAtTop = (path) => {
+    if ((document.scrollingElement || document.documentElement).scrollTop > 0) return false;
+    for (const n of path) {
+      if (!n || n.nodeType !== 1) continue;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(n.tagName) || n.hasAttribute('data-nodrag') || n.hasAttribute('data-sl')) return false;
+      if (n.scrollHeight > n.clientHeight + 2) { const oy = getComputedStyle(n).overflowY; if ((oy === 'auto' || oy === 'scroll') && n.scrollTop > 0) return false; }
+    }
+    return true;
+  };
+  const set = (d, anim) => {
+    const p = Math.min(1, d / TRIG);
+    ind.style.transition = anim ? 'transform .25s ease, opacity .25s ease' : 'none';
+    ind.style.opacity = String(Math.min(1, d / 30));
+    ind.style.transform = 'translateY(' + (Math.min(d, MAX) - 56) + 'px)';
+    svg.style.transform = 'rotate(' + (p * 270) + 'deg)';
+    svg.style.opacity = String(0.4 + p * 0.6);
+  };
+  window.addEventListener('touchstart', (e) => {
+    if (busy || e.touches.length !== 1) { g = null; return; }
+    const path = e.composedPath ? e.composedPath() : [];
+    g = scrollerAtTop(path) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, on: false, d: 0, hit: false } : null;
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    if (!g) return;
+    if (e.defaultPrevented && !g.on) { g = null; return; } // hurtigpanel, slider, sveip … tok gesten
+    const t = e.touches[0], dx = t.clientX - g.x, dy = t.clientY - g.y;
+    if (!g.on) { if (dy < 12 || Math.abs(dx) > dy) { if (dy < -4 || Math.abs(dx) > 12) g = null; return; } g.on = true; g.y0 = t.clientY; }
+    g.d = Math.max(0, (t.clientY - g.y0) * 0.5);
+    if (e.cancelable) e.preventDefault();
+    if (!g.hit && g.d >= TRIG) { g.hit = true; try { window.MSH && window.MSH.haptic && window.MSH.haptic('light'); } catch (x) {} } else if (g.hit && g.d < TRIG) g.hit = false;
+    set(g.d);
+  }, { passive: false });
+  const end = () => {
+    if (!g) return; const ok = g.on && g.d >= TRIG; g = null;
+    if (!ok) { set(0, true); return; }
+    busy = true; set(TRIG, true);
+    svg.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 700, iterations: Infinity });
+    setTimeout(() => location.reload(), 450);
+  };
+  window.addEventListener('touchend', end, { passive: true });
+  window.addEventListener('touchcancel', () => { if (g) { g = null; set(0, true); } }, { passive: true });
+}
 </script>
 </body></html>

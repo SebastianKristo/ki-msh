@@ -166,6 +166,24 @@ iPhone: 390×844 @3x i iPhone-ramme. PC: 1440×900 hi-DPI i nettleservindu. Inge
 |:---:|:---:|
 | <img src="images/iphone/varmepumpe.webp" alt="Varmepumpe – iPhone" width="260"> | <img src="images/pc/varmepumpe.webp" alt="Varmepumpe – PC" width="560"> |
 
+### Planter · `#planter`
+
+| iPhone | PC |
+|:---:|:---:|
+| <img src="images/iphone/planter.webp" alt="Planter – iPhone" width="260"> | <img src="images/pc/planter.webp" alt="Planter – PC" width="560"> |
+
+### Søvn · `#sovn`
+
+| iPhone | PC |
+|:---:|:---:|
+| <img src="images/iphone/sovn.webp" alt="Søvn – iPhone" width="260"> | <img src="images/pc/sovn.webp" alt="Søvn – PC" width="560"> |
+
+### 3D-printer · `#3d-printer`
+
+| iPhone | PC |
+|:---:|:---:|
+| <img src="images/iphone/3d-printer.webp" alt="3D-printer – iPhone" width="260"> | <img src="images/pc/3d-printer.webp" alt="3D-printer – PC" width="560"> |
+
 ### Innstillinger · `#settings`
 
 | iPhone | PC |
