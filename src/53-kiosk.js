@@ -133,6 +133,7 @@
     .lab{font-size:12px;color:var(--ki-text-3, #7f7f7f)}
     .trk{position:relative;width:44px;height:26px;border-radius:13px;flex:none;background:var(--ki-ctrl, var(--gray400,#545454));transition:background .2s}
     .trk.on{background:${M.SWITCH_ON}}.trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}.trk.on i{left:21px}
+    ${M.tp ? M.tp.sw('.trk', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .stp{display:flex;align-items:center;gap:8px}.stp button{width:36px;height:32px;border-radius:16px;background:var(--ki-sheet-in,#404040);font-size:18px}.stp span{min-width:70px;text-align:center;font-size:13px}
     .me{font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(242,133,201,0.2);color:var(--ki-pink-text, #f285c9);margin-left:6px}
     input.ent{height:44px;border-radius:14px;border:0;padding:0 12px;background:var(--ki-sheet-in,#404040);color:inherit;font:inherit;font-size:14px;width:100%;box-sizing:border-box}

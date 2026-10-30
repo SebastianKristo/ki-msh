@@ -159,7 +159,7 @@ const G0 = await mv();
 ok('26.12 én finger ved 1×: kartet kan ikke dras ut av rammen', G0.s === 1 && G0.x === 0 && G0.y === 0 && !G0.reset, G0);
 await drag([[cx - 40, cy], [cx + 40, cy]], [[cx - 100, cy], [cx + 100, cy]], 10);
 const G1 = await mv();
-ok('26.12 pinch med to fingre zoomer rundt midtpunktet (≈2,5×), «Tilbakestill visning» vises', G1.s > 2.2 && G1.s < 2.8 && Math.abs(G1.x - Math.round(-(mb.w / 2) * (G1.s - 1))) <= 6 && G1.reset, { G1, mb });
+ok('26.12 pinch med to fingre zoomer rundt midtpunktet (≈2,5×), «Nullstill visning» vises', G1.s > 2.2 && G1.s < 2.8 && Math.abs(G1.x - Math.round(-(mb.w / 2) * (G1.s - 1))) <= 6 && G1.reset, { G1, mb });
 await drag([[cx, cy]], [[cx + 50, cy + 30]]);
 const G2 = await mv();
 ok('26.12 én finger panorerer', Math.abs(G2.x - G1.x - 50) <= 3 && Math.abs(G2.y - G1.y - 30) <= 3 && G2.s === G1.s, { G1, G2 });
@@ -189,7 +189,7 @@ ok('26.12 reset-knapp øverst til høyre', rbInfo.w === 44 && rbInfo.h === 44 &&
 await click(p, '.mreset');
 await wait(p, 350);
 const Rz = await mv();
-ok('26.12 «Tilbakestill visning» (44×44, fit-to-screen) nullstiller', Rz.s === 1 && Rz.x === 0 && !Rz.reset, Rz);
+ok('26.12 «Nullstill visning» (44×44, fit-to-screen) nullstiller', Rz.s === 1 && Rz.x === 0 && !Rz.reset, Rz);
 // hjul (PC)
 await p.mouse.move(cx, cy);
 await p.mouse.wheel(0, -200); await wait(p, 120);
@@ -277,7 +277,7 @@ const Av = await p.evaluate(async () => {
   const labels = R.textContent + [...R.querySelectorAll('ki-spacing-editor')].map((e) => (e.shadowRoot ? e.shadowRoot.textContent : '')).join(' ');
   R.querySelector('[data-a="bool"][data-name="confirm_start"]').click(); await new Promise((q) => setTimeout(q, 150));
   R.querySelector('[data-a="save"]').click(); await new Promise((q) => setTimeout(q, 900));
-  return { labels: ['Bekreft før start', 'Tøm automatisk', 'Tilbakestill til standard', 'Mellom seksjonene'].filter((l) => labels.includes(l)).length, cfg: window.__c.config };
+  return { labels: ['Bekreft før start', 'Tøm automatisk', 'Nullstill til standard', 'Mellom seksjonene'].filter((l) => labels.includes(l)).length, cfg: window.__c.config };
 });
 ok('Avansert: bekreft/tøm automatisk/tilbakestill/mellomrom; Ferdig lagrer i kortets config', Av.labels === 4 && Av.cfg.confirm_start === true && (Av.cfg.tab_hidden || []).includes('info') && Av.cfg.room_order[0] === 'trappegang', Av);
 await p.evaluate(() => window.__set('vacuum.sir_sweeps_a_lot', 'docked'));

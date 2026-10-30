@@ -742,7 +742,7 @@
       M.haptic('selection'); ed._set('limits', [...L].sort((a, b) => a - b));
     } };
     const entSec = ([g, label, icon]) => ({ type: 'section', id: 'ent-' + g, label, icon, meta: (hh, cc) => { const L = FIELDS.filter((f) => f[2] === g); return `${L.filter((f) => entOf(hh, cc, f[0])).length} av ${L.length} funnet`; }, fields: FIELDS.filter((f) => f[2] === g).map(([k, l, , doms, , , ic]) => ({ type: 'entity', name: 'entities.' + k, label: l, icon: ic, domain: doms, auto: (hh, cc) => autoAll(hh, cc)[k] || null, none_label: '– · Velg entitet' })) });
-    const reset = { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => {
+    const reset = { type: 'button', label: 'Nullstill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => {
       M.haptic('warning');
       const id = (cc && cc.card_id) || M.uid();
       ed._config = { type: cc.type || 'custom:msh-tesla-card', card_id: id };
@@ -842,6 +842,7 @@
     .tsw.on{background:${M.SWITCH_ON || C.pink}}
     .tsw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .tsw.on i{left:21px}
+    ${M.tp ? M.tp.sw('.tsw', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .row{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px}
     .row+.row,.row+.brow,.brow+.brow{border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -971,7 +972,7 @@
         <section class="sec pad">${segH('Smartlading: ferdig før', 'smart_until', [5, 6, 7, 8, 9].map((x) => [x, `${M.pad(x)}:00`]), sp('smart_until', DEF.smart_until))}</section>
         <section class="sec pad" data-focus="spacing"><span class="lab">Mellomrom</span>${M.spacingEditorHTML ? M.spacingEditorHTML(M.spacingSchema({ gap: 8, pad_top: 20, pad_bottom: 24 }).fields, c, 'ksp-tesla') : ''}</section>
         <label class="sec pad fl" style="gap:6px"><span class="ft">Prefiks for autofunn (kommaseparert)</span><input class="inp mono" data-name="prefix" value="${esc(c.prefix != null ? [].concat(c.prefix).join(', ') : DEF_PREFIX.join(', '))}" placeholder="${esc(DEF_PREFIX.join(', '))}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
-        <button class="reset" data-a="treset">Tilbakestill til standard</button>`;
+        <button class="reset" data-a="treset">Nullstill til standard</button>`;
     }
     _click(e) {
       if (!this._inline) return super._click(e);

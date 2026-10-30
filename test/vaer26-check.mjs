@@ -225,7 +225,7 @@ const G = await p.evaluate(async () => {
   add && add.click(); await w(80);
   const pl = last && last.places;
   ed.remove();
-  return { chips: chip.map((x) => x.textContent), st1, pl, has: ['Steder', 'Farevarsel', 'Neste timer', 'Døgnvarsel', 'Fliser', 'Tilbakestill rekkefølge'].filter((x) => !txt.includes(x)) };
+  return { chips: chip.map((x) => x.textContent), st1, pl, has: ['Steder', 'Farevarsel', 'Neste timer', 'Døgnvarsel', 'Fliser', 'Nullstill rekkefølge'].filter((x) => !txt.includes(x)) };
 });
 ok('26.25 getConfigElement: Stil + Steder + Seksjoner + Fliser', G.chips.join('|') === 'Klassisk|Scene' && G.st1 === 'klassisk' && Array.isArray(G.pl) && G.pl[0].id === 'weather.hytta' && !G.has.length, G);
 

@@ -842,7 +842,7 @@
   const viewEff = (c) => (android() ? 'sheet' : viewOf(c)); // 60.2
   const navHidden = () => (M.navHidesIn ? M.navHidesIn('#vaer') : true);
   // 60.2: navbar/Now Playing skjules i #vaer bare når værscenen faktisk vises (Android og «Klassisk» = vanlig popup med navbar)
-  const navHiddenEff = () => navHidden() && stilEff(vaerCfg()) === 'scene';
+  const navHiddenEff = () => navHidden() && (M.vaerScene ? M.vaerScene() : stilEff(vaerCfg()) === 'scene'); // én kilde: M.vaerScene (60.2)
   const hideNavOf = () => navHidden();
   M.vaerViewOf = viewOf;
   M.vaerHideNavOf = hideNavOf;
@@ -970,7 +970,7 @@
         { type: 'html', html: (hh, cc, key, ed) => placesGui(hh, cc, key, ed), click: (d, ed) => placesClick(d, ed) },
         ...HIDE.map(([k, l]) => ({ type: 'boolean', label: l, get: (hh, cc) => !hiddenOf(cc).has(k), set: (v, hh, cc, ed) => { if (!ed || !ed._set) return; const p = secPatch(ed._config || cc, k, v); ed._config = { ...ed._config, hidden_sections: p.hidden_sections, hide: undefined }; ed._set('sections', p.sections); } })),
         { type: 'order', name: 'tile_order', hiddenName: 'hidden_tiles', label: 'Fliser (rekkefølge – eller hold inne en flis og dra)', options: [...TILES.map((t) => [t[0], t[1]]), ['moon', 'Månefase (Scene)'], ['feels', 'Føles som (Scene)'], ['vis', 'Sikt (Scene)']] },
-        { type: 'button', label: 'Tilbakestill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); M.haptic('medium'); } } },
+        { type: 'button', label: 'Nullstill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); M.haptic('medium'); } } },
         { type: 'overrides', label: 'Bytt entiteter', fields: FIELDS },
         // 56 I · Visning (samme nøkler som Tilpass Hjem → Popups → Vær)
         { type: 'section', label: 'Visning', icon: 'mdi:fullscreen', id: 'display', fields: [
@@ -2035,7 +2035,7 @@ ${VE}`;
 
   /* ================================================================ «Tilpass Vær» (26.25 · ark portalet ut av popupen, MSH.overlay) */
   // Stil (Klassisk · Scene) · Steder (liste, fjern, «Legg til sted» med navn + weather.*-velger) · Seksjoner av/på
-  // (Farevarsel, Neste timer, Døgnvarsel, Fliser) + Animasjoner · Fliser: «Tilbakestill rekkefølge».
+  // (Farevarsel, Neste timer, Døgnvarsel, Fliser) + Animasjoner · Fliser: «Nullstill rekkefølge».
   // Utkastflyten (MSH.draftEditor): endringer vises straks i kortet, lagres i kortets config ved Ferdig (rosa pille øverst
   // til høyre). Utenfor/Esc forkaster. Samme felter som GUI-editoren (stil, places, hide, tile_order, hero_fx).
   // Fiks 27 (27.4/27.8, fasit Vær v5 tp/places): header (ikon · «Tilpass Vær» · Ferdig) · Stil-segment · «Steder · hold og
@@ -2114,7 +2114,7 @@ ${VE}`;
         <div class="rows">${HIDE.map(([k, l, ic]) => `<div class="r" data-key="sec-${k}">${M.icon(ic, 20, 'color:var(--ki-text-2, #afafaf)')}<span class="rl ell">${l}</span>${sw('sec', k, !hid.has(k), l)}</div>`).join('')}
           <div class="r">${M.icon('mdi:weather-snowy-rainy', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="col grow" style="min-width:0"><span class="rl ell">Animasjoner</span><span class="rs2 ell">Regn, snø, lyn, sol og vind i Scene</span></span>${sw('fx', 'fx', fxOn, 'Animasjoner')}</div></div>
         <span class="cap">Fliser</span>
-        <div class="tbox"><span class="tnote">Hold inne en flis og dra for å endre rekkefølgen.</span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>${M.icon('mdi:restart', 18)}Tilbakestill rekkefølge</button></div>
+        <div class="tbox"><span class="tnote">Hold inne en flis og dra for å endre rekkefølgen.</span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>${M.icon('mdi:restart', 18)}Nullstill rekkefølge</button></div>
         <button class="more" data-a="sensors">${M.icon('mdi:thermometer', 18)}Føles som og sikt</button>
         <button class="more" data-a="more">${M.icon('mdi:cog-outline', 18)}Entiteter og prognose</button>`;
       M.tp.fill(box);
@@ -2253,6 +2253,7 @@ ${VE}`;
     .tsw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px ${BA(0.3)};transition:left .2s}
     .tsw.on{background:${PINKG}}
     .tsw.on i{left:23px}
+    ${M.tp ? M.tp.sw('.tsw', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .tbox{flex:none;display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
     .tnote{font-size:14px;color:var(--ki-text-1, #c7c7c7);line-height:1.4;text-wrap:pretty}
     .nb{height:44px;border-radius:22px;background:var(--ki-surface-2, #404040);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}

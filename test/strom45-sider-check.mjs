@@ -21,7 +21,7 @@ async function open(opts = {}) {
   const p = await b.newPage({ viewport: { width: 400, height: 900 }, hasTouch: true });
   p.on('pageerror', (e) => errs.push(e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push(m.text()); });
-  await p.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#282828;color:#fafafa;font-family:system-ui}</style></head><body></body></html>`);
+  await p.setContent(`<!doctype html><html><head><meta charset="utf-8"><script>window.__kiInHA = true;</script><style>html,body{margin:0;background:#282828;color:#fafafa;font-family:system-ui}</style></head><body></body></html>`);
   await p.addScriptTag({ content: `customElements.define('ha-icon', class extends HTMLElement { connectedCallback(){ if(!this.shadowRoot) this.attachShadow({mode:'open'}).innerHTML='<span style="display:block;width:100%;height:100%;background:currentColor;opacity:.35"></span>'; } });` });
   await p.addScriptTag({ path: bundle });
   await p.evaluate((o) => {

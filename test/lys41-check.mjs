@@ -36,7 +36,8 @@ const near = (a, b, d = 1.5) => Math.abs(a - b) <= d;
 // Ingen rester av prompt 39 i bundelen (og i dist når den er bygget på nytt)
 const src = readFileSync(bundle, 'utf8');
 ok('bundelen har ingen rester av msh-light-slider / light-slider / mysmart-light-control', !/light-slider|LightSlider|mysmart-light-control|lightRowHeight|lightRowCfg|mountLightRows|sliderColor/.test(src), (src.match(/.{40}(light-slider|LightSlider|mysmart-light-control|lightRowHeight|lightRowCfg|mountLightRows|sliderColor).{40}/) || [])[0]);
-ok('src/vendor finnes ikke lenger (mysmart-light-control er ute av bygget)', !existsSync('src/vendor'));
+// src/vendor finnes igjen (geo-no.js, Fiks 63) – sjekk at ingen lysslider-filer ligger der
+ok('src/vendor har ingen mysmart-light-control (ute av bygget)', !existsSync('src/vendor') || !readdirSync('src/vendor').some((f) => /light/i.test(f)));
 
 const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 const POPS = [

@@ -24,6 +24,7 @@ async function page(vp, ua, pre) {
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto('file://' + resolve('test/harness.html'));
+  await p.evaluate(() => { window.__noNavSelftest = true; }); // navbar-mockens selvtest endrer hash og lukker «Mer» midt i testen
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   if (pre) await p.evaluate(pre[0], pre[1]);
   await p.addScriptTag({ path: bundle });

@@ -184,7 +184,9 @@ for (const [tag, card, vp] of [['faner', {}, { w: 340, h: 760 }], ['kort', { vel
   const h = await T.swipe(sel, -200, 0, { fx: 0.75, extra: `{ sl: Math.round(sr.querySelector('${sel}').scrollLeft) }` });
   ok(`Server ${tag}: horisontalt sveip scroller karusellen, popupen står i ro, ingen vertbytte`, h && !h.err && h.s1.sl - h.s0.sl > 30 && Math.abs(h.dSt) <= 2 && h.s1.tab === h.s0.tab && h.s1.hash === '#server', h);
   // trykk bytter vert
-  const tq = await T.pt(nonOn, { top: true });
+  // forrige steg (horisontalt sveip) har rullet karusellen – trykk på en fane som er helt synlig
+  const nonOnVis = `=> [...sr.querySelectorAll("${item}")].find((b) => { const r = b.getBoundingClientRect(); return !b.classList.contains("on") && r.left >= 8 && r.right <= innerWidth - 8; })`;
+  const tq = await T.pt(nonOnVis, { top: true });
   const before = (await T.state()).tab;
   await T.p.waitForTimeout(300);
   await tapAt(T, tq);

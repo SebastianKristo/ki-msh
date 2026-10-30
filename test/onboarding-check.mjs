@@ -32,7 +32,7 @@ async function boot(ud) {
   await p.evaluate(async () => {
     window.deepAll = (sel, root) => { const out = []; const walk = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(root || document); return out; };
     window.deep = (sel, root) => window.deepAll(sel, root)[0] || null;
-    const H = window.mockHass(); window.H = H;
+    const H = window.mockHass(); H.user = { ...(H.user || {}), is_admin: false }; window.H = H; // ikke-admin: «Tilpass» ligger i Mer
     const ws = H.callWS;
     window.__pupd = [];
     H.callWS = (m) => {

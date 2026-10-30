@@ -586,7 +586,7 @@
     const acts = [];
     if (d.mode === 'yaml' || d.ro) acts.push(`<button class="ppb" data-a="pppreview">${ic('mdi:eye-outline', 18)}Forhåndsvis</button>`, `<button class="ppb" data-a="ppcopy">${ic('mdi:content-copy', 18)}Kopier YAML</button>`);
     else acts.push(`<button class="ppb" data-a="pppreview">${ic('mdi:eye-outline', 18)}Forhåndsvis</button>`);
-    if (d.src === 'over') acts.push(`<button class="ppb" data-a="ppreset">${ic('mdi:restore', 18)}Tilbakestill til generert</button>`);
+    if (d.src === 'over') acts.push(`<button class="ppb" data-a="ppreset">${ic('mdi:restore', 18)}Nullstill til generert</button>`);
     if (d.src === 'yaml') acts.push(`<button class="ppb" data-a="ppclone">${ic('mdi:content-duplicate', 18)}Kopier til Egne</button>`);
     if (d.src === 'custom') acts.push(`<button class="ppb" data-a="ppgo">${ic('mdi:open-in-app', 18)}Åpne</button>`, `<button class="ppb" data-a="ppdup">${ic('mdi:content-duplicate', 18)}Dupliser</button>`, `<button class="ppb" data-a="ppdl1">${ic('mdi:download', 18)}Eksporter YAML</button>`);
     if (d.src === 'custom') acts.push(d.confirmDel ? `<button class="ppb redf" data-a="ppdel" data-h="warning">${ic('mdi:delete', 18)}Bekreft sletting</button><button class="ppb" data-a="ppdelno">Avbryt</button>` : `<button class="ppb red" data-a="ppdelask">${ic('mdi:delete-outline', 18)}Slett</button>`);
@@ -600,7 +600,7 @@
       ${segs}
       ${d.mode === 'form' && !d.ro ? renderForm(ed, d) : `${sync}<div class="ppcode" data-nomorph data-key="ppc-${d.id}"></div>${errBox(d)}`}
       <div class="ppacts" data-key="ppacts">${acts.join('')}</div>
-      ${d.src === 'auto' && d.mode === 'yaml' ? '<span class="hint">Dette er den genererte configen. Endrer du den og trykker «Ferdig», lagres den som overstyring (popup_overrides) – «Tilbakestill til generert» angrer.</span>' : ''}
+      ${d.src === 'auto' && d.mode === 'yaml' ? '<span class="hint">Dette er den genererte configen. Endrer du den og trykker «Ferdig», lagres den som overstyring (popup_overrides) – «Nullstill til generert» angrer.</span>' : ''}
     </div>`;
   }
 

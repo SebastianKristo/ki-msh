@@ -427,7 +427,7 @@
     .lr .nm i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797)}
     .lr .ck{color:${PK};opacity:0;transition:opacity .2s;flex:none}
     .lr.on .ck{opacity:1}
-    .fld{display:flex;flex-direction:column;gap:8px;animation:tpfade .2s ease both}
+    .fld{display:flex;flex-direction:column;gap:8px;animation:tpfade .2s ease backwards}
     .cap{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 2px}
     .pf{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px 8px 8px;border-radius:18px;background:var(--msh-tp-bg,var(--ki-bg, #232323));text-align:left;width:100%}
     .pf:active{transform:scale(.99)}
@@ -456,6 +456,7 @@
     .trk.on{background:${PK}}
     .trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .trk.on i{left:21px}
+    ${M.tp ? M.tp.sw('.trk', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .hint{font-size:13px;color:var(--ki-text-mid, #979797);line-height:1.45;padding:0 2px}
     .hint b{color:var(--ki-text, #fafafa);font-weight:500}
     .hint.warn{color:#f2c073}

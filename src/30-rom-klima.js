@@ -37,13 +37,17 @@
     if (!ov && hass && hass.areas && hass.areas[area]) { const g = hass.states[`sensor.${M.slug(hass.areas[area].name)}_oversikt`]; if (g && g.attributes.integrasjon === 'ki_rom') ov = g; }
     const A = (ov && ov.attributes) || {};
     const t = M.attrEnt(hass, A.temperatur), h = M.attrEnt(hass, A.fuktighet);
-    let temp = t.id || (t.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'temperature', area)) : null);
-    let hum = h.id || (h.v == null ? firstNum(hass, M.byClass(hass, 'sensor', 'humidity', area)) : null);
+    // Runde 2: HAs eget valg for området (temperature_entity_id/humidity_entity_id, HA 2024.11+ – også via integrasjonens husmodell)
+    const HR = (M.hus && M.hus.rom(area)) || {}, AR = (hass && hass.areas && hass.areas[area]) || {};
+    const areaT = [HR.temperatur_entity, AR.temperature_entity_id].find((id) => id && hass.states[id]) || null;
+    const areaH = [HR.fuktighet_entity, AR.humidity_entity_id].find((id) => id && hass.states[id]) || null;
+    let temp = t.id || (t.v == null ? areaT || firstNum(hass, M.byClass(hass, 'sensor', 'temperature', area)) : null);
+    let hum = h.id || (h.v == null ? areaH || firstNum(hass, M.byClass(hass, 'sensor', 'humidity', area)) : null);
     // Ingen sensor i rommet → husets sensorer (strategi-config fallback_temperature / fallback_humidity)
     const FB = M.FALLBACK || {};
     let tempFallback = false, humFallback = false;
-    if (!temp && t.v == null) { const f = FB.temperature || 'sensor.hus_temperature'; if (hass.states[f]) { temp = f; tempFallback = true; } }
-    if (!hum && h.v == null) { const f = FB.humidity || 'sensor.hus_fuktighet'; if (hass.states[f]) { hum = f; humFallback = true; } }
+    if (!temp && t.v == null) { const f = FB.temperature; if (f && hass.states[f]) { temp = f; tempFallback = true; } }
+    if (!hum && h.v == null) { const f = FB.humidity; if (f && hass.states[f]) { hum = f; humFallback = true; } }
     const climates = A.klima ? M.ids(A.klima).filter((id) => id.startsWith('climate.')) : [];
     const areaClim = M.all(hass, 'climate', (s, id) => M.areaOf(hass, id) === area);
     const thermo = climates[0] || areaClim[0] || null;

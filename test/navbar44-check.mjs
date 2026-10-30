@@ -28,7 +28,7 @@ for (const variant of ['bunn', 'rail']) {
     const r = await p.evaluate(async ({ dark, variant }) => {
       const M = window.MSH, wait = (ms) => new Promise((q) => setTimeout(q, ms));
       const deepAll = () => { const out = []; const walk = (root) => root.querySelectorAll('*').forEach((e) => { out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(document); return out; };
-      const hass = window.mockHass(); hass.themes = { ...(hass.themes || {}), darkMode: dark };
+      const hass = window.mockHass(); hass.user = { ...(hass.user || {}), is_admin: false }; hass.themes = { ...(hass.themes || {}), darkMode: dark };
       if (M.theme && M.theme.update) M.theme.update(hass);
       if (!dark) document.documentElement.setAttribute('data-ki-theme', 'light');
       const t = new Date().toISOString();

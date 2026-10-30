@@ -884,7 +884,7 @@
       }
       const VIS = [['anim', 'Animasjoner', 'Vifte, rør og varme i toppkortet'], ['kpi', 'Nøkkeltall', 'Ute, kompressor og varmtvann'], ['sentence', 'Setning i Info', '«Kompressoren går på …»'], ['diag', 'Diagnostikk', 'Knappen nederst i popupen']];
       return safe(() => sec('Visning', `<div class="vis">${VIS.map(([k, l, s], i) => `<div class="vr${i ? ' bt' : ''}"><span class="vcol"><span class="vl1">${esc(l)}</span><span class="vl2">${esc(s)}</span></span>${sw('vis', k, D[k] !== false, l)}</div>`).join('')}</div>`, 'lsec')
-        + `<button class="reset" data-a="reset">${M.icon('mdi:restart', 20)}Tilbakestill alt</button>`);
+        + `<button class="reset" data-a="reset">${M.icon('mdi:restart', 20)}Nullstill alt</button>`);
     };
     const draw = () => {
       if (!ov) return;
@@ -1173,7 +1173,7 @@
     const entSec = ([g, label, icon]) => ({ type: 'section', id: 'vp-' + g, label, icon,
       meta: (hh, cc) => { const L = ROLES.filter((r) => r[2] === g); return `${L.filter((r) => entOf(hh, cc, r[0])).length} av ${L.length} funnet`; },
       fields: ROLES.filter((r) => r[2] === g).map(([k, l, , doms, pids, , ic]) => ({ type: 'entity', name: 'overrides.' + k, label: l + (pids.length ? ` · ${pids[0]}` : ''), icon: ic, domain: doms, auto: (hh, cc) => autoOf(hh, { ...cc, overrides: {} }, k), none_label: '– · Velg entitet' })) });
-    const reset = { type: 'button', label: 'Tilbakestill alt', icon: 'mdi:restart', run: (hh, cc, ed) => {
+    const reset = { type: 'button', label: 'Nullstill alt', icon: 'mdi:restart', run: (hh, cc, ed) => {
       M.haptic('warning');
       const id = (cc && cc.card_id) || M.uid();
       ed._config = { type: cc.type || 'custom:msh-varmepumpe-card', card_id: id };

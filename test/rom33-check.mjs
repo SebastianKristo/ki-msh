@@ -157,7 +157,8 @@ for (const light of [false, true]) {
     const want = ['Gardiner Venstre', 'Markise terrassen mot hagen', 'Rullegardinvenstrevinduetmothagen'];
     const N = G.names.filter((n) => want.includes(n.t));
     ok(`35.5 ${tag}: lange navn vises hele (ingen kutt/ellipsis/nowrap, ingen overflyt)`, N.length === 3 && G.names.every((n) => !n.outside && n.sw <= n.cw + 1 && n.ws !== 'nowrap' && n.to !== 'ellipsis'), G.names);
-    ok(`35.7 regel 7 ${tag}: kolonne 112 px, line-height 1.2, overflow-wrap:anywhere, text-wrap:balance`, G.names.every((n) => n.w === 112 && /^0 0 112px/.test(n.flex) && Math.abs(parseFloat(n.lh) - 1.2 * parseFloat(n.fs)) < 0.6 && n.ow === 'anywhere' && /balance/.test(n.tw)), G.names);
+    // Fiks 60 (prompt v4): navnet har fleksibel bredde (flex 0 1 auto, maks 60 %) i stedet for fast 112 px-kolonne – kuttes fortsatt aldri
+    ok(`35.7 regel 7 ${tag}: navnet kuttes aldri (fleksibel bredde), line-height 1.2, overflow-wrap:anywhere, text-wrap:balance`, G.names.every((n) => !n.outside && n.sw <= n.cw + 1 && /^0 1 auto/.test(n.flex) && Math.abs(parseFloat(n.lh) - 1.2 * parseFloat(n.fs)) < 0.6 && n.ow === 'anywhere' && /balance/.test(n.tw)), G.names);
     ok(`35.5 ${tag}: «Gardiner Venstre» på to linjer`, (G.names.find((n) => n.t === 'Gardiner Venstre') || {}).lines === 2, G.names);
     ok(`35.5 ${tag}: radene flyter ikke over`, G.rows.every((r) => r.sw <= r.cw + 1) && !G.hostOver, G.rows);
     ok(`35.6 ${tag}: forvalg 0 % blir aktiv (rosa + aria-pressed) når alle gardiner står der`, G.pre.on && G.pre.pressed === 'true' && /gradient/.test(G.pre.onBg) && !G.before.every(Boolean), G.pre);

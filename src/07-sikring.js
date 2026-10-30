@@ -389,6 +389,7 @@
     .sk-sw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, var(--white,#fafafa));box-shadow:0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1))));transition:left .2s}
     .sk-sw.on{background:${PK}}
     .sk-sw.on i{left:23px}
+    ${M.tp ? M.tp.sw('.sk-sw', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .sk-alist{padding:0 16px 6px;display:flex;flex-direction:column;border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));transition:opacity .2s;animation:sk-fade .2s ease}
     .sk-alist.off{opacity:.4;pointer-events:none}
     .sk-ar{display:flex;flex-direction:column}
@@ -466,6 +467,7 @@
     .sk-sw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, var(--white,#fafafa));box-shadow:0 2px 6px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.3*var(--ki-ka-k,1))));transition:left .2s}
     .sk-sw.on{background:${PK}}
     .sk-sw.on i{left:23px}
+    ${M.tp ? M.tp.sw('.sk-sw', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .sk-sw:disabled{opacity:.5}
     .sk-lhd{display:flex;align-items:center;gap:10px}
     .sk-in{flex:1;min-width:0;height:44px;border-radius:14px;border:0;outline:none;padding:0 14px;background:var(--ki-popup, #282828);color:var(--ki-text, #fafafa);font-size:15px;box-sizing:border-box}

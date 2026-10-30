@@ -372,7 +372,7 @@
             ${M.icon('mdi:chevron-down', 18, 'color:var(--ki-text-2, #afafaf);flex:none')}${own ? '<span class="xpown" title="Egen profil"></span>' : ''}</div>
           <div class="xpbtns">
             <label class="xpb2 ${copy ? '' : 'off'}">${M.icon('mdi:content-copy', 16)}Kopier fra …<select data-pcopy="1" aria-label="Kopier fra" ${copy ? '' : 'disabled'}><option value="" selected disabled>Kopier fra …</option>${copy}</select></label>
-            <button class="xpb2" data-a="x-preset" ${own ? '' : 'disabled'}>${M.icon('mdi:backup-restore', 16)}Tilbakestill til arvet</button>
+            <button class="xpb2" data-a="x-preset" ${own ? '' : 'disabled'}>${M.icon('mdi:backup-restore', 16)}Nullstill til arvet</button>
           </div>
           <div class="xpv" data-nomorph data-w="${W}"></div>
           <span class="help">${own ? 'Egen profil for dette valget.' : 'Arver fra ' + esc(this._inhName(sel)) + '.'} Forhåndsvisning i ${W} px bredde.</span>
@@ -794,6 +794,7 @@
     .trk.on{background:var(--pink,#f285c9)}
     .trk i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .trk.on i{left:21px}
+    ${M.tp ? M.tp.sw('.trk', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .done{height:52px;border-radius:26px;background:${PINK};color:var(--ki-on-accent, #2f2f2f);font-size:15px;font-weight:600}
     .more{height:36px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:13px;color:var(--ki-text-mid, var(--gray700,#979797))}
     button:active{transform:scale(.97)}

@@ -640,6 +640,9 @@
   MSH.kiRom = function (hass, area, kind = 'oversikt') {
     if (!hass) return null;
     const aid = area || 'hele_huset';
+    // Runde 2: integrasjonens kart (entitetsregisteret – riktig også når brukeren har gitt sensoren nytt navn)
+    const hk = MSH.hus && MSH.hus.data && ((((MSH.hus.data.kilder || {}).ki_rom || {}).rom || {})[aid]);
+    if (hk && hk[kind] && hass.states[hk[kind]]) return hass.states[hk[kind]];
     let ov = kiRomIdx(hass.states).get(aid) || null;
     if (!ov && hass.states[`sensor.${aid}_oversikt`]) ov = `sensor.${aid}_oversikt`;
     if (!ov) {
@@ -986,7 +989,8 @@
     try { v = S && S.get ? S.get('ui.glass_anim') : undefined; } catch (e) { v = undefined; }
     if (v === true || v === false || (S && S.loaded)) {
       const on = v !== false;
-      try { if (localStorage.getItem(GA_LS) !== (on ? '1' : '0')) localStorage.setItem(GA_LS, on ? '1' : '0'); } catch (e) { /* */ }
+      // cachen skrives bare når valget faktisk er satt (ikke for standardverdien – en lesing skal ikke lagre noe)
+      try { if ((v === true || v === false) && localStorage.getItem(GA_LS) !== (on ? '1' : '0')) localStorage.setItem(GA_LS, on ? '1' : '0'); else if (v == null && localStorage.getItem(GA_LS) === '0') localStorage.removeItem(GA_LS); } catch (e) { /* */ }
       return on;
     }
     try { return localStorage.getItem(GA_LS) !== '0'; } catch (e) { return true; }
@@ -1207,7 +1211,8 @@
     let last = 0, raf = 0, val = 0;
     const set = () => { raf = 0; document.documentElement.style.setProperty('--ki-gl-tilt', val.toFixed(1) + 'deg'); };
     window.addEventListener('deviceorientation', (e) => {
-      if (reduced() || e.gamma == null) return; const now = performance.now(); if (now - last < 50) return; last = now;
+      // bare når glansen faktisk vises (glass-tema, ikke ytelsesmodus): ellers ville hver skriving restilt hele dokumentet for ingenting
+      if (reduced() || e.gamma == null || (MSH.perf && MSH.perf.lite) || !MSH.glassOn()) return; const now = performance.now(); if (now - last < 50) return; last = now;
       const v = Math.max(-24, Math.min(24, e.gamma * 0.6)); if (Math.abs(v - val) < 0.8) return; val = v; if (!raf) raf = requestAnimationFrame(set);
     }, { passive: true });
   })();
@@ -1414,7 +1419,14 @@
         const rm = () => { if (gone) return; gone = true; host.remove(); };
         if (!api.started || (MSH.reducedMotion && MSH.reducedMotion())) rm();
         else { shEl.addEventListener('transitionend', (e) => { if (e.target === shEl && e.propertyName === 'transform') rm(); }); setTimeout(rm, MSH.CENTER_FX.ms + 300); }
-      } else setTimeout(() => host.remove(), 250);
+      } else if (tp) {
+        // Runde 2: Tilpass-arket glir ut på 240 ms – verten fjernes når det er ute (transitionend), reserve 280 ms
+        const shEl = sr.querySelector('.sh');
+        let gone = false;
+        const rm = () => { if (gone) return; gone = true; host.remove(); };
+        shEl.addEventListener('transitionend', (e) => { if (e.target === shEl && e.propertyName === 'transform') rm(); });
+        setTimeout(rm, 280);
+      } else setTimeout(() => host.remove(), 250); // vanlig ark: opasiteten er 0 etter 200 ms
       off();
       MSH.sheetCount(-1);
       onClose && onClose();
@@ -1708,12 +1720,15 @@
       const onHash = () => {
         if (!sc.isConnected) return window.removeEventListener('hashchange', onHash);
         const back = () => S.jump(S.o.index ? S.o.index() : 0);
-        back(); requestAnimationFrame(back); setTimeout(back, 400); // også etter Bubble Cards inn-animasjon
+        // Runde 2: ikke synkront i hashchange (tvinger layout før Bubble har tegnet popupen) – neste bilde + etter inn-animasjonen
+        requestAnimationFrame(back); setTimeout(back, 400);
       };
       window.addEventListener('hashchange', onHash);
     }
     MSH.bindDots(o.dots && o.dots(), S.go);
-    S.jump(o.index ? o.index() : 0);
+    // Runde 2: ResizeObserver melder første bredde etter layout og hopper da til startsiden – her bare prikkene (ingen
+    // tvungen layout midt i tegningen). Uten ResizeObserver: hopp som før.
+    if (window.ResizeObserver) set(MSH.clamp(o.index ? o.index() : 0, 0, Math.max(0, n() - 1)), true); else S.jump(o.index ? o.index() : 0);
     return S;
   };
 
@@ -2248,6 +2263,9 @@
     .num{font-variant-numeric:tabular-nums}
     .press{transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
     .press:active{transform:scale(.96)}
+    /* Runde 2: «Reduser bevegelse» gjelder alle kort – overganger og animasjoner blir øyeblikkelige (transitionend/animationend
+       kommer fortsatt, så logikk som venter på dem virker). Lastesirkler snurrer videre. */
+    @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.spin,.spin ha-icon,.spn,.spinner,[data-ki-spin]{animation-duration:1s!important;animation-iteration-count:infinite!important}}
     .row{display:flex;align-items:center}
     .col{display:flex;flex-direction:column}
     .grow{flex:1;min-width:0}
@@ -2507,22 +2525,27 @@
       if (!cont) return;
       const c = this._config, D = this.constructor.spacingDefaults || MSH.SPACING;
       const gap = c.gap != null ? Number(c.gap) : D.gap, top = c.pad_top != null ? Number(c.pad_top) : D.pad_top, bot = c.pad_bottom != null ? Number(c.pad_bottom) : D.pad_bottom;
+      // Runde 2: skriv bare når verdien endres – å sette samme verdi på nytt (eller nullstille marginen før måling) gjør
+      // layouten ugyldig, og målingen under tvinger da en ny layout midt i popupens åpne-animasjon
+      const setS = (el, k, v) => { if (el.style[k] !== v) el.style[k] = v; };
       const grids = [cont, ...cont.querySelectorAll('.bubble-cards-container')];
-      grids.forEach((g) => { g.style.setProperty('--bubble-pop-up-gap', gap + 'px'); g.style.gap = gap + 'px'; g.style.rowGap = gap + 'px'; });
+      grids.forEach((g) => { if (g.style.getPropertyValue('--bubble-pop-up-gap') !== gap + 'px') g.style.setProperty('--bubble-pop-up-gap', gap + 'px'); setS(g, 'gap', gap + 'px'); setS(g, 'rowGap', gap + 'px'); });
       const cards = [...cont.querySelectorAll('*')].filter((e) => /^msh-.*-card$/.test(e.localName));
       if (!cards.length || (cards[0] !== this && cards[cards.length - 1] !== this)) return;
       const first = cards[0], last = cards[cards.length - 1];
-      if (last === this) { this.style.paddingBottom = MSH.popupBottomPad(bot); this.style.marginBottom = ''; }
+      if (last === this) { setS(this, 'paddingBottom', MSH.popupBottomPad(bot)); setS(this, 'marginBottom', ''); }
       if (first === this) {
-        this.style.marginTop = '';
         // Headeren i DENNE popupen (ikke første popup i samme rot – da havner kortet utenfor synsfeltet)
         const pop = cont.closest ? cont.closest('.bubble-pop-up') : null, root = cont.getRootNode && cont.getRootNode();
         const hdr = (pop && pop.querySelector('.bubble-header-container')) || (root && root.querySelector && root.querySelector('.bubble-header-container'));
+        // målt med dagens margin: ønsket margin = dagens + (ønsket avstand − faktisk avstand)
+        const m0 = parseFloat(this.style.marginTop) || 0;
         const fr = this.getBoundingClientRect(), hr = hdr && hdr.getBoundingClientRect();
         // 26.18: popupens felles header-mellomrom (--ki-popup-header-gap, MSH.applyHeaderGap i 02-popups.js) legges til pad_top én gang
         const hg = parseFloat(getComputedStyle(cont).getPropertyValue('--ki-popup-header-gap')) || 0;
-        const mt = hr && hr.height ? top + hg - (fr.top - hr.bottom) : null;
-        if (fr.height && mt != null && Math.abs(mt) < 240) this.style.marginTop = mt + 'px';
+        const mt = hr && hr.height ? m0 + top + hg - (fr.top - hr.bottom) : null;
+        if (fr.height && mt != null && Math.abs(mt) < 240) setS(this, 'marginTop', Math.round(mt * 100) / 100 + 'px');
+        else if (!fr.height || mt == null) setS(this, 'marginTop', '');
       }
     }
     // Ytelse (Android): sjekken leser beregnet stil for hvert element. Rett etter tegningen tvinger det stil + layout

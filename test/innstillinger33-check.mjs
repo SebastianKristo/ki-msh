@@ -4,7 +4,7 @@
 //       «Enheter», «gjelder for deg … denne enheten»; gammel config `dashbord: true` gir heller ingen del; ingen
 //       «Dashbordinnstillinger nederst» i Tilpass (skjemaet / GUI-editoren)
 //   B · funksjonene finnes fortsatt: navbarens «Mer» → «Tilpass» → Tilpass Hjem / navbar / header åpner editorene;
-//       «Tilpass navbar» har «Liquid Glass-tema»; eget oppsett per enhet ligger i Kamera/Person-arkene (msh-scope-bar,
+//       «Tilpass navbar» har «Glass i menyer og Tilpass-ark»; eget oppsett per enhet ligger i Kamera/Person-arkene (msh-scope-bar,
 //       MSH.PER_DEVICE_CARDS); lagringen er urørt (MSH.store, glassOn/glassSet, msh-settings-card finnes fortsatt)
 //   C · lyst tema (Del A-tokens på containeren): faner/rader/tekst i popupen ≥ 4,5:1; mørk modus uendret
 //   node test/innstillinger33-check.mjs
@@ -83,7 +83,7 @@ for (const vp of [{ n: '390', w: 390, h: 844 }, { n: 'PC', w: 1400, h: 900, sb: 
     try { localStorage.clear(); } catch (e) { /* */ }
     window.deepAll = (sel, root) => { const out = []; const walk = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(root || document); return out; };
     window.deep = (sel, root) => window.deepAll(sel, root)[0] || null;
-    const H = window.mockHass(); window.H = H; window.MSH.lastHass = H;
+    const H = window.mockHass(); H.user = { ...(H.user || {}), is_admin: false }; window.H = H; window.MSH.lastHass = H;
     await window.MSH.store.load(H);
     const v = await window.MSH.generateDashboardView({}, H);
     const nc = v.cards[0].cards.find((c) => c.type === 'custom:msh-navbar-card');
@@ -103,7 +103,7 @@ for (const vp of [{ n: '390', w: 390, h: 844 }, { n: 'PC', w: 1400, h: 900, sb: 
     window.removeEventListener('ki-open-editor', on);
     out.ev = ev;
     const deepTxt = (r) => { let s = ''; r.querySelectorAll('*').forEach((e) => { if (e.shadowRoot) s += ' ' + deepTxt(e.shadowRoot); }); return (r.textContent || '') + s; };
-    out.glass = M.portals().some((x) => /Liquid Glass-tema/.test(deepTxt(x.shadowRoot || x)));
+    out.glass = M.portals().some((x) => /Glass i menyer og Tilpass-ark/.test(deepTxt(x.shadowRoot || x)));
     out.store = !!(M.store && M.store.loaded && typeof M.glassOn === 'function' && M.store.deviceName != null);
     out.perDev = Array.isArray(M.PER_DEVICE_CARDS) ? M.PER_DEVICE_CARDS.slice() : M.PER_DEVICE_CARDS;
     out.scope = !!customElements.get('msh-scope-bar');
@@ -111,7 +111,7 @@ for (const vp of [{ n: '390', w: 390, h: 844 }, { n: 'PC', w: 1400, h: 900, sb: 
     return out;
   });
   ok('B · «Mer» → «Tilpass» → arket har Tilpass Hjem · navbar · header', B.tilpass && ['home', 'navbar', 'header'].every((k) => B.rows.includes(k)), B);
-  ok('B · «Tilpass navbar» åpnes fra arket og har «Liquid Glass-tema»', B.ev.includes('navbar') && B.glass, B);
+  ok('B · «Tilpass navbar» åpnes fra arket og har «Glass i menyer og Tilpass-ark»', B.ev.includes('navbar') && B.glass, B);
   ok('B · eget oppsett per enhet: Kamera/Person (MSH.PER_DEVICE_CARDS + msh-scope-bar); lagringen urørt (ki-store, msh-settings-card, innstEnheter)', B.store && B.scope && B.settingsCard && JSON.stringify(B.perDev).includes('kamera') && JSON.stringify(B.perDev).includes('person'), B);
   await p.close();
 }

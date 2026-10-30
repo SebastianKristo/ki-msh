@@ -295,7 +295,9 @@ try { unlinkSync(timed); if (own) unlinkSync(bundle); } catch (e) { /* */ }
 if (own && !process.env.PERF_NOASSERT) {
   const res = [];
   const ok = (name, cond, info) => res.push(`${cond ? '✔' : '✘'} ${name}${info != null ? ' · ' + JSON.stringify(info) : ''}`);
-  ok('dist/ki-msh.js er minifisert (< 4 MB rå, var 5,1 MB)', statSync('dist/ki-msh.js').size < 4e6 && !/\n\s*\/\/ /.test(readFileSync('dist/ki-msh.js', 'utf8').slice(3000, 200000)), statSync('dist/ki-msh.js').size);
+  // Grensen er hevet fra 4 MB: bundelen har vokst med Fiks 60–66 og Runde 2 (Server-CF, besøkskart, PC, HA-innstillinger). Sjekken
+  // gjelder fortsatt at den er minifisert (kildene er ca. 6,6 MB).
+  ok('dist/ki-msh.js er minifisert (< 5,5 MB rå)', statSync('dist/ki-msh.js').size < 5.5e6 && !/\n\s*\/\/ /.test(readFileSync('dist/ki-msh.js', 'utf8').slice(3000, 200000)), statSync('dist/ki-msh.js').size);
   // Oppstart (Hjem på Android): container og navbar tegnes én gang; ingen delkort mer enn to ganger (andre = data som kom
   // etterpå: kalender/Sonarr-henting, gjøremål-abonnement); første maling av det synlige av Hjem innen PERF_PAINT_MAX ms
   // (standard 1800 ved ×6 – var ~2100 før oppstartsoptimaliseringen, nå ~1300–1500).

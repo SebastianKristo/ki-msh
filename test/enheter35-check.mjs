@@ -25,7 +25,7 @@ for (const dark of [true, false]) {
   await p.addScriptTag({ path: bundle });
   const r = await p.evaluate(async (dark) => {
     const M = window.MSH, w = (ms) => new Promise((q) => setTimeout(q, ms));
-    const H = window.mockHass(); H.themes = { ...(H.themes || {}), darkMode: dark };
+    const H = window.mockHass(); H.user = { ...(H.user || {}), is_admin: false }; H.themes = { ...(H.themes || {}), darkMode: dark };
     const c = document.createElement('msh-navbar-card'); c.setConfig({ type: 'custom:msh-navbar-card', card_id: 'ki-navbar' }); c.hass = H;
     document.getElementById('dash').appendChild(c);
     if (M.store && M.store.load) await M.store.load(H);
@@ -44,7 +44,7 @@ for (const dark of [true, false]) {
     out.dv = !!dv; out.hap = hap.slice();
     if (!dv) return out;
     const R = dv.shadowRoot, card = R.querySelector('msh-settings-card'), CR = card && card.shadowRoot;
-    out.title = (R.querySelector('.tpt') || {}).textContent; out.done = (R.querySelector('.tpd') || {}).textContent;
+    out.title = (R.querySelector('.tpt, .kt-head .tt') || {}).textContent; out.done = (R.querySelector('.tpd, .kt-head .kt-done') || {}).textContent;
     const rows = CR ? [...CR.querySelectorAll('.dv')] : [];
     out.names = rows.map((e) => e.querySelector('.tx b').textContent);
     out.noOther = CR ? !CR.querySelector('[data-act="ed"], [data-act="glass"], .who') : null;
@@ -72,7 +72,7 @@ for (const dark of [true, false]) {
     out.deleted = M.store.get('devices.dmac') == null;
     out.saved = !!(window.__userData.ki_dashboard && window.__userData.ki_dashboard.devices && !window.__userData.ki_dashboard.devices.dmac);
     // Ferdig lukker
-    R.querySelector('.tpd').click(); await w(500);
+    R.querySelector('.tpd, .kt-head .kt-done').click(); await w(500);
     out.closed = !M.portals().some((x) => x.hasAttribute('data-enheter'));
     return out;
   }, dark);

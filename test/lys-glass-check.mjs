@@ -77,7 +77,8 @@ async function suite(name, hash, cardSel) {
   let lensFrames = S.filter((f) => f.lens.length);
   const lensDur = lensFrames.length ? lensFrames[lensFrames.length - 1].t - lensFrames[0].t : 0;
   ok(`${name} · trykk: fane ${tgt} valgt`, (await page.evaluate(() => ONI())) === tgt);
-  ok(`${name} · trykk: linsen morfer (synlig ~300 ms, ikke 560)`, lensFrames.length > 3 && lensDur >= 200 && lensDur <= 520, { lensDur, frames: lensFrames.length, t: lensFrames.map((f) => f.t) });
+  // Claude Design 23.10.2026: gelé-morfen varer 460 ms (+ oppstart på neste bilde) – før var den ~300 ms
+  ok(`${name} · trykk: linsen morfer (gelé-morf ~460 ms, borte innen 620)`, lensFrames.length > 3 && lensDur >= 300 && lensDur <= 620, { lensDur, frames: lensFrames.length, t: lensFrames.map((f) => f.t) });
   ok(`${name} · trykk: aldri to rosa piller samtidig`, S.every((f) => f.n <= 1), S.filter((f) => f.n > 1).slice(0, 3));
   ok(`${name} · trykk: pillen alltid synlig (linse eller ekte)`, S.every((f) => f.n === 1), S.filter((f) => f.n !== 1).slice(0, 3));
   ok(`${name} · trykk: linsen ryddet etterpå`, (await page.evaluate(() => pinks(ROW()).anyLens)) === 0);

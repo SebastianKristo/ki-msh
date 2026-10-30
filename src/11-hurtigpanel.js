@@ -184,8 +184,8 @@
       center: true, maxWidth: 360,
       css: `.w{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}.t{font-size:20px;font-weight:600}.s{font-size:14px;color:var(--ki-text-2, #afafaf)}
         .qr{width:220px;height:220px;border-radius:24px;background:#fff;display:grid;place-items:center;overflow:hidden}/* ki-hex-ok: QR trenger hvit bunn */
-        .qr img{width:200px;height:200px;image-rendering:pixelated}.nq{width:220px;padding:22px 16px;border-radius:24px;background:var(--ki-surface, #383838);font-size:14px;color:var(--ki-text-2, #afafaf)}
-        .b{width:100%;height:48px;border-radius:24px;border:0;font:inherit;font-size:15px;font-weight:600;cursor:pointer;background:var(--ki-surface-2, #4a4a4a);color:var(--ki-text, #fafafa)}`,
+        .qr img{width:200px;height:200px;image-rendering:pixelated}.nq{width:220px;padding:22px 16px;border-radius:24px;background:var(--ki-surface, #3a3a3a);font-size:14px;color:var(--ki-text-2, #afafaf)}
+        .b{width:100%;height:48px;border-radius:24px;border:0;font:inherit;font-size:15px;font-weight:600;cursor:pointer;background:var(--ki-surface-2, #404040);color:var(--ki-text, #fafafa)}`,
       html: `<div class="w"><span class="t">${esc(ssid)}</span>${pic ? `<div class="qr"><img alt="QR-kode" src="${esc(M.hjemPicUrl ? M.hjemPicUrl(h, pic) : pic)}"></div>` : `<div class="nq">Fant ingen QR-kode (image.*_qr_code fra UniFi).</div>`}${pw ? `<span class="s">Passord: <b>${esc(pw)}</b></span>` : ''}<button class="b" data-a="off">Slå av gjeste-Wi-Fi</button></div>`,
     });
     const r = ov && (ov.root || ov.el || ov.shadowRoot);
@@ -323,9 +323,12 @@
     .num{font-variant-numeric:tabular-nums}
     .hint{position:fixed;width:44px;height:4px;border-radius:2px;background:${M.theme.whiteA(0.22)};z-index:1000;pointer-events:none;opacity:0;transition:opacity .25s ease}
     .hint.on{opacity:1}
-    .scrim{position:fixed;top:0;bottom:0;z-index:1000;background:rgb(0 0 0/0.5);opacity:0;pointer-events:none;-webkit-backdrop-filter:blur(var(--hp-blur,0px));backdrop-filter:blur(var(--hp-blur,0px))}
+    .scrim{position:fixed;top:0;bottom:0;z-index:1000;background:rgb(0 0 0/0.5);opacity:0;pointer-events:none}
+    /* Runde 2: blur bare mens panelet står åpent (blur(0px) lager også et eget lag på GPU-en) – aldri i Ytelsesmodus */
+    .scrim.blur{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+    :host-context([data-ki-perf=lite]) .scrim.blur,.scrim.blur.lite{-webkit-backdrop-filter:none;backdrop-filter:none}
     .scrim.on{pointer-events:auto}
-    .pn{position:fixed;top:0;z-index:1001;max-height:100dvh;overflow-y:auto;overscroll-behavior:contain;background:var(--ki-popup, #2a2a2a);border-radius:0 0 36px 36px;padding:calc(env(safe-area-inset-top, 0px) + 18px) 16px 10px;box-shadow:0 18px 50px rgb(0 0 0/0.45);transform:translateY(calc(-100% - 24px));will-change:transform;touch-action:none;user-select:none;-webkit-user-select:none;visibility:hidden}
+    .pn{position:fixed;top:0;z-index:1001;max-height:100dvh;overflow-y:auto;overscroll-behavior:contain;background:var(--ki-popup, #2f2f2f);border-radius:0 0 36px 36px;padding:calc(env(safe-area-inset-top, 0px) + 18px) 16px 10px;box-shadow:0 18px 50px rgb(0 0 0/0.45);transform:translateY(calc(-100% - 24px));will-change:transform;touch-action:none;user-select:none;-webkit-user-select:none;visibility:hidden}
     .pn.vis{visibility:visible}
     .pn.anim{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
     .tb{display:flex;align-items:flex-start;gap:10px;padding:0 4px 14px;touch-action:none}
@@ -333,16 +336,16 @@
     .tb .dt{font-size:13px;color:var(--ki-text-2, #afafaf);margin-top:6px}
     .tb .sub{font-size:13px;color:var(--ki-text-3, #7f7f7f);margin-top:2px}
     .tb .sp{flex:1}
-    .ib{width:44px;height:44px;border-radius:22px;background:var(--ki-surface, #383838);display:grid;place-items:center;flex:none;transition:transform .12s ease}
+    .ib{width:44px;height:44px;border-radius:22px;background:var(--ki-surface, #3a3a3a);display:grid;place-items:center;flex:none;transition:transform .12s ease}
     .ib:active,.press:active{transform:scale(.94)}
     .ib.on{background:${PINK};color:${ON_PINK}}
     .rr{display:grid;grid-template-columns:repeat(6,minmax(0,56px));justify-content:space-between;gap:4px;padding:0 2px;overflow:hidden;opacity:calc(1 - var(--exp,0));max-height:calc((1 - var(--exp,0)) * 76px)}
-    .rt{width:100%;aspect-ratio:1;max-width:56px;border-radius:50%;background:var(--ki-surface, #383838);display:grid;place-items:center;flex:none;transition:transform .12s ease,background .2s}
+    .rt{width:100%;aspect-ratio:1;max-width:56px;border-radius:50%;background:var(--ki-surface, #3a3a3a);display:grid;place-items:center;flex:none;transition:transform .12s ease,background .2s}
     .rt.on{background:${PINK};color:${ON_PINK}}
     .rt.dead{opacity:.45}
     .ex{overflow:hidden;opacity:var(--exp,0);max-height:calc(var(--exp,0) * var(--hp-exmax, 470px));display:flex;flex-direction:column;gap:10px}
     .exi{display:flex;flex-direction:column;gap:10px;padding:2px 0 12px}
-    .sl{position:relative;height:56px;border-radius:28px;background:var(--ki-surface, #383838);overflow:hidden;touch-action:none;display:flex;align-items:center;gap:10px;padding:0 18px}
+    .sl{position:relative;height:56px;border-radius:28px;background:var(--ki-surface, #3a3a3a);overflow:hidden;touch-action:none;display:flex;align-items:center;gap:10px;padding:0 18px}
     .sl .fl{position:absolute;left:0;top:0;bottom:0;background:${PINK};border-radius:28px;min-width:56px;pointer-events:none}
     .sl .lb{position:relative;z-index:1;display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;pointer-events:none;flex:1;min-width:0}
     .sl .pv{position:relative;z-index:1;font-size:14px;font-weight:600;pointer-events:none}
@@ -350,22 +353,22 @@
     .sl.dim .fl{display:none}
     .lsw{display:flex;gap:8px;align-items:center}.lsw .sl{flex:1;min-width:0}
     .sl.grow .fl{background:${C.yellow}}.sl.grow.lit .lb{color:var(--ki-on-accent, #2a1720)}
-    .lpk{width:56px;height:56px;border-radius:28px;background:var(--ki-surface, #383838);display:grid;place-items:center;flex:none;transition:transform .2s ease}
+    .lpk{width:56px;height:56px;border-radius:28px;background:var(--ki-surface, #3a3a3a);display:grid;place-items:center;flex:none;transition:transform .2s ease}
     .lpk.on{transform:rotate(180deg)}
-    .lpl{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto;overscroll-behavior:contain;background:var(--ki-surface-3, #2c2c2c);border-radius:24px;padding:6px;touch-action:pan-y}
+    .lpl{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto;overscroll-behavior:contain;background:var(--ki-surface-3, #2f2f2f);border-radius:24px;padding:6px;touch-action:pan-y}
     .lhd{font-size:12px;color:var(--ki-text-mid, #979797);padding:6px 10px 2px}
-    .lq{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;margin:0 2px 4px;border-radius:22px;background:var(--ki-surface-2, #2a2a2a);flex:none;color:var(--ki-text-mid, #979797)}
+    .lq{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;margin:0 2px 4px;border-radius:22px;background:var(--ki-surface-2, #2f2f2f);flex:none;color:var(--ki-text-mid, #979797)}
     .lq input{flex:1;min-width:0;height:100%;border:0;outline:none;background:none;color:var(--ki-text, #fafafa);font:inherit;font-size:15px;user-select:text;-webkit-user-select:text}
-    .lqx{width:28px;height:28px;border-radius:14px;background:var(--ki-surface, #444);display:grid;place-items:center;flex:none;color:var(--ki-text, #fafafa)}
+    .lqx{width:28px;height:28px;border-radius:14px;background:var(--ki-surface, #404040);display:grid;place-items:center;flex:none;color:var(--ki-text, #fafafa)}
     .lcu{box-shadow:inset 0 0 0 1.5px ${M.theme.whiteA(0.14)};flex:none}
     .lnone{font-size:13px;color:var(--ki-text-mid, #979797);padding:10px 12px}
     .lo2{flex:none;min-height:44px;border-radius:22px;padding:0 14px;display:flex;align-items:center;gap:8px;text-align:left;font-size:14px;font-weight:500}
     .lo2 span{flex:1}.lo2 i{font-style:normal;font-size:11px;color:var(--ki-text-3, #7f7f7f);max-width:45%}
-    .lo2.on{background:var(--ki-surface, #383838);font-weight:600}
+    .lo2.on{background:var(--ki-surface, #3a3a3a);font-weight:600}
     .sl.lit .lb{color:${ON_PINK}}
     .tg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .tp{height:64px;border-radius:32px;background:var(--ki-surface, #383838);display:flex;align-items:center;gap:10px;padding:0 12px 0 8px;text-align:left;min-width:0;transition:transform .12s ease,background .2s}
-    .tp .ci{width:48px;height:48px;border-radius:24px;background:var(--ki-surface-2, #4a4a4a);display:grid;place-items:center;flex:none}
+    .tp{height:64px;border-radius:32px;background:var(--ki-surface, #3a3a3a);display:flex;align-items:center;gap:10px;padding:0 12px 0 8px;text-align:left;min-width:0;transition:transform .12s ease,background .2s}
+    .tp .ci{width:48px;height:48px;border-radius:24px;background:var(--ki-surface-2, #404040);display:grid;place-items:center;flex:none}
     .tp .tx{display:flex;flex-direction:column;min-width:0;gap:1px}
     .tp .nm{font-size:14px;font-weight:600}
     .tp .st{font-size:12px;color:var(--ki-text-2, #afafaf)}
@@ -381,30 +384,30 @@
     .mp .pp{width:44px;height:44px;border-radius:22px;background:var(--ki-pill-fg, #232323);color:var(--ki-pill-bg, #e6e6e6);display:grid;place-items:center;flex:none}
     .nh{display:flex;align-items:center;gap:8px;padding:14px 6px 8px}
     .nh .t{font-size:15px;font-weight:600;flex:1;min-width:0}
-    .nh .ca{flex:none;white-space:nowrap;height:36px;padding:0 14px;border-radius:18px;background:var(--ki-surface, #383838);font-size:13px;font-weight:600}
+    .nh .ca{flex:none;white-space:nowrap;height:36px;padding:0 14px;border-radius:18px;background:var(--ki-surface, #3a3a3a);font-size:13px;font-weight:600}
     .nl{display:flex;flex-direction:column;gap:8px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;transform:translateZ(0);max-height:max(160px, calc(100dvh - var(--hp-nl-off, 600px)));touch-action:pan-y;padding-bottom:2px}
-    .nc{position:relative;background:var(--ki-surface, #383838);border-radius:24px;padding:14px;display:flex;gap:12px;touch-action:pan-y;transition:transform .25s ease,opacity .25s ease}
+    .nc{position:relative;background:var(--ki-surface, #3a3a3a);border-radius:24px;padding:14px;display:flex;gap:12px;touch-action:pan-y;transition:transform .25s ease,opacity .25s ease}
     .nc.drag{transition:none}
     .nc .ni{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;flex:none}
     .nc .nb{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
     .nc .na{font-size:12px;color:var(--ki-text-3, #7f7f7f)}
     .nc .nt{font-size:15px;font-weight:600}
     .nc .nx{font-size:13px;color:var(--ki-text-2, #afafaf)}
-    .nc .pg{height:6px;border-radius:3px;background:var(--ki-surface-3, #2c2c2c);overflow:hidden;margin-top:6px}
+    .nc .pg{height:6px;border-radius:3px;background:var(--ki-surface-3, #2f2f2f);overflow:hidden;margin-top:6px}
     .nc .pg span{display:block;height:100%;border-radius:3px}
     .nc .acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-    .nc .ab{height:36px;min-width:44px;padding:0 14px;border-radius:18px;background:var(--ki-surface-2, #4a4a4a);font-size:13px;font-weight:600;white-space:nowrap}
-    .nc .snap{position:relative;width:84px;height:64px;border-radius:14px;background:#2f2f2f center/cover no-repeat;flex:none}
+    .nc .ab{height:36px;min-width:44px;padding:0 14px;border-radius:18px;background:var(--ki-surface-2, #404040);font-size:13px;font-weight:600;white-space:nowrap}
+    .nc .snap{position:relative;width:84px;height:64px;border-radius:14px;background:#2f2f2f center/cover no-repeat;flex:none} /* ki-hex-ok: kamera-plassholder (samme i begge moduser) */
     .nc .snp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:14px;display:grid;place-items:center;background:rgba(0,0,0,0.5);color:#fff;font-style:normal} /* ki-hex-ok: play-merke over kamerabildet */
-    .nc.tap{cursor:pointer}/* ki-hex-ok: kamera-plassholder */
-    .empty{padding:18px;text-align:center;font-size:14px;color:var(--ki-text-3, #7f7f7f);background:var(--ki-surface-3, #2c2c2c);border-radius:24px}
+    .nc.tap{cursor:pointer}
+    .empty{padding:18px;text-align:center;font-size:14px;color:var(--ki-text-3, #7f7f7f);background:var(--ki-surface-3, #2f2f2f);border-radius:24px}
     .hd{touch-action:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0 4px;font-size:12px;color:var(--ki-text-3, #7f7f7f)}
     .hd .hb{width:44px;height:5px;border-radius:3px;background:var(--ki-text-lo, #696969)}
-    .set{background:var(--ki-surface, #383838);border-radius:24px;padding:14px;margin:0 0 12px;display:flex;flex-direction:column;gap:12px}
+    .set{background:var(--ki-surface, #3a3a3a);border-radius:24px;padding:14px;margin:0 0 12px;display:flex;flex-direction:column;gap:12px}
     .set .sh{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
     .set .sh span{flex:1}
     .set .lab{font-size:13px;color:var(--ki-text-2, #afafaf);display:flex;justify-content:space-between}
-    .seg{display:flex;gap:4px;background:var(--ki-surface-3, #2c2c2c);border-radius:22px;padding:4px}
+    .seg{display:flex;gap:4px;background:var(--ki-surface-3, #2f2f2f);border-radius:22px;padding:4px}
     .seg button{flex:1;height:36px;border-radius:18px;font-size:13px;font-weight:600;color:var(--ki-text-2, #afafaf)}
     .seg button.on{background:${PINK};color:${ON_PINK}}
     ${M.tp.range('.set input[type=range]')}
@@ -414,7 +417,8 @@
     .tgl.on{background:${M.C.accent}}
     .tgl i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .tgl.on i{left:21px}
-    .rs{align-self:flex-start;height:36px;padding:0 16px;border-radius:18px;background:var(--ki-surface-2, #4a4a4a);font-size:13px;font-weight:600}
+    ${M.tp ? M.tp.sw('.tgl', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
+    .rs{align-self:flex-start;height:36px;padding:0 16px;border-radius:18px;background:var(--ki-surface-2, #404040);font-size:13px;font-weight:600}
     /* nettbrett */
     .pn.tab{border-radius:0 0 40px 40px;padding:calc(env(safe-area-inset-top, 0px) + 24px) 24px 12px;max-height:100vh}
     .pn.tab .tb .ck{font-size:56px}
@@ -506,7 +510,7 @@
       const f = M.clamp(p / Math.max(1, H), 0, 1);
       this.scrim.style.transition = anim ? 'opacity .32s ease' : 'none';
       this.scrim.style.opacity = String(f);
-      this.scrim.style.setProperty('--hp-blur', '0px'); // 2b: blur bare når panelet ligger åpent og ikke dras
+      this.scrim.classList.remove('blur'); // 2b: blur bare når panelet ligger åpent og ikke dras
       if (this.variant === 'mobil' && p > H + 24) this._setExp(M.clamp((p - H - 24) / 220, 0, 1));
     }
     _setExp(e, anim) {
@@ -559,7 +563,7 @@
       document.documentElement.setAttribute('data-ki-hurtig', '1');
       this._lockBg(true);
     }
-    _blur(on) { this.scrim.style.setProperty('--hp-blur', on && this.isOpen && !(this._p && this._p.mode === 'drag') ? '8px' : '0px'); }
+    _blur(on) { this.scrim.classList.toggle('blur', !!(on && this.isOpen && !(this._p && this._p.mode === 'drag'))); this.scrim.classList.toggle('lite', !!(M.perf && M.perf.lite)); }
     close(anim = true) {
       clearTimeout(this._blurT);
       const was = this.isOpen;
@@ -572,7 +576,7 @@
       this.pn.style.transform = 'translateY(calc(-100% - 24px))';
       this.scrim.style.transition = anim ? 'opacity .28s ease' : 'none';
       this.scrim.style.opacity = '0';
-      this.scrim.style.setProperty('--hp-blur', '0px');
+      this.scrim.classList.remove('blur');
       clearTimeout(this._hideT);
       this._hideT = setTimeout(() => { if (!this.isOpen && !this._g) this.pn.classList.remove('vis'); this._hintUpd(); }, anim ? 340 : 0);
       document.documentElement.removeAttribute('data-ki-hurtig');
@@ -639,9 +643,9 @@
       const row = (k, label, unit) => `<div><div class="lab"><span>${label}</span><span class="num">${S[k]}${unit}</span></div><input type="range" data-set="${k}" min="${LIM[k][0]}" max="${LIM[k][1]}" step="${LIM[k][2]}" value="${S[k]}"></div>`;
       return `<div class="set" data-nodrag><div class="sh">${M.icon('mdi:gesture-swipe-down', 20)}<span>Innstillinger for sveip</span><button class="ib press" data-a="set" aria-label="Lukk innstillinger">${M.icon('mdi:close', 20)}</button></div>
         <div class="lab"><span>Hvor sveipet kan starte</span></div><div class="seg">${ZONES.map(([v, l]) => `<button class="${S.zone === v ? 'on' : ''}" data-a="zone" data-v="${v}">${l}</button>`).join('')}</div>
-        ${row('open', 'Avstand for å åpne', ' px')}${row('dead', 'Dødsone', ' px')}${row('rest', 'Ro i toppen', ' ms')}${row('wheel', 'Musehjul / styreflate', '')}
-        <button class="hn" data-a="hint" role="switch" aria-checked="${S.hint !== false}"><span>Vis hint øverst</span><span class="tgl${S.hint !== false ? ' on' : ''}"><i></i></span></button>
-        <button class="rs press" data-a="reset">Tilbakestill</button></div>`;
+        ${row('open', 'Hvor langt du må dra', ' px')}${row('dead', 'Bevegelse før sveipet registreres', ' px')}${row('rest', 'Ventetid i toppen før sveip', ' ms')}${row('wheel', 'Følsomhet for musehjul', '')}
+        <button class="hn" data-a="hint" role="switch" aria-checked="${S.hint !== false}"><span>Vis streken øverst på denne enheten</span><span class="tgl${S.hint !== false ? ' on' : ''}"><i></i></span></button>
+        <button class="rs press" data-a="reset">Nullstill</button></div>`;
     }
     _tileP(m) { return `<button class="tp press${m.on ? ' on' : ''}${m.dead ? ' dead' : ''}" data-a="tile" data-k="${m.key}" data-key="tp-${m.key}" aria-pressed="${m.on}"><span class="ci">${M.icon(m.icon, 22)}</span><span class="tx"><span class="nm ell">${esc(m.name)}</span><span class="st ell">${esc(m.status)}</span></span></button>`; }
     // 2b · lys-sliderens mål: 'on' (alle lys som er på, mobil standard) · 'stue' (Stue-kortets lys, nettbrett standard) ·
@@ -1028,7 +1032,7 @@
     return { type: 'section', id: 'hurtigpanel', label: 'Hurtigpanel (dra ned)', icon: 'mdi:gesture-swipe-down', fields: [
       { type: 'info', label: tab ? 'Nedtrekkspanelet på nettbrettet: dra ned fra headeren i Hjem-fanen (eller musehjul opp i toppen).' : 'Dra ned fra toppen av Hjem (siden må stå i ro øverst) for hurtigfliser og varsler. Sveip-innstillingene (sone, avstand, dødsone …) ligger i panelet (tune-knappen) og gjelder bare denne enheten.' },
       { type: 'boolean', name: pre + 'enabled', label: 'Hurtigpanel', default: true },
-      { type: 'boolean', name: pre + 'show_hint', label: 'Vis hint-streken øverst', default: true },
+      { type: 'boolean', name: pre + 'show_hint', label: 'Vis streken som viser at du kan dra ned', default: true, help: 'Kan også slås av per enhet i sveip-innstillingene.' },
       ...(tab ? [{ type: 'select', name: pre + 'shade_layout', label: 'Oppsett', options: [['delt', 'Delt (to kolonner)'], ['sentrert', 'Sentrert (én kolonne)']], default: 'delt' }, { type: 'text', name: pre + 'panel_name', label: 'Navn i toppfeltet', placeholder: 'Stue-panel' }] : []),
       { type: 'order', name: pre + 'tiles', hiddenName: pre + 'hidden_tiles', label: tab ? 'Fliser (rekkefølge · skjul)' : 'Fliser (de 6 første vises som runde i nivå 1)', options: TILES.map((t) => [t[0], t[0] === 'night' && tab ? 'Nattmodus' : t[1]]) },
       ent('alarm', 'Alarm'), ent('lock', 'Dørlås'), ent('garage', 'Garasjeport'), ent('dnd', 'Ikke forstyrr'), ent('heat', 'Varmepumpe'), ent('vac', 'Støvsuger'), ent('guest', 'Gjeste-Wi-Fi'), ent('night', tab ? 'Nattmodus' : 'Natta'),

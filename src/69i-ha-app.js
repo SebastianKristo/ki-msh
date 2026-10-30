@@ -33,7 +33,8 @@
   // Tema i hele dashbordet: Auto følger telefonen, ellers tvinges lys/mørk (overstyrer HAs darkMode for MSH.theme)
   const themeMode = () => (D.theme === 'auto' ? (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : D.theme === 'light' ? 'light' : 'dark');
   // I Home Assistants eget grensesnitt betyr Auto «følg HA» (HAs darkMode følger allerede brukerens temavalg/telefonen)
-  const inHA = () => !!document.querySelector('home-assistant');
+  // (test/harness.html setter __kiInHA: testene styrer modus via hass.themes.darkMode som i HA, ikke via nettleserens prefers-color-scheme)
+  const inHA = () => !!document.querySelector('home-assistant') || !!window.__kiInHA;
   const follow = () => D.theme === 'auto' && inHA();
   const applyTheme = () => {
     const T0 = M.theme; if (!T0 || !T0.set) return;
@@ -62,13 +63,10 @@
     const g = glimt(), gs = g.provider === 'glimt' ? `Glimt-konto${g.glimtUser ? ' · ' + g.glimtUser : ''}` : g.provider === 'ollama' ? `Ollama · ${g.ollamaModel || 'qwen2.5:7b'}` : g.provider === 'off' ? T('Av', 'Off') : 'Claude · sky';
     const n = (D.history || []).length, s = srv();
     // Tilpass (samme valg som Mer → Tilpass i navbaren): åpner de vanlige Tilpass-arkene
-    const TP = [
-      ['alt', 'auto_awesome', C.pink, T('Tilpass alt', 'Customize everything'), T('Veiviser for hele dashbordet', 'Wizard for the whole dashboard'), !!M.openTilpassAlt],
-      ['home', 'dashboard_customize', C.blue, T('Hjem', 'Home'), T('Kort, faner, popups og tekst', 'Cards, tabs, popups and text'), true],
-      ['navbar', 'tune', C.orange, 'Navbar', T('Knapper, plassering og stil', 'Buttons, position and style'), true],
-      ['header', 'mdi:page-layout-header', C.green, 'Header', T('Hilsen, vær og personer', 'Greeting, weather and people'), true],
-      ['kiosk', 'mdi:fullscreen', C.purple, T('Kiosk-modus', 'Kiosk mode'), T('Skjul alt utenom dashbordet', 'Hide everything but the dashboard'), !!M.kioskSheet],
-    ].filter((r) => r[5]);
+    // Runde 2: samme innganger, titler og undertitler som Mer → Tilpass (MSH.tp.entries); fargene er hub-ens egne
+    const TPC = { alt: C.pink, home: C.blue, navbar: C.orange, header: C.green, kiosk: C.purple };
+    const TPS = { alt: !!M.openTilpassAlt, home: true, navbar: true, header: true, kiosk: !!M.kioskSheet };
+    const TP = (M.tp ? M.tp.entries(Object.keys(TPC)) : []).filter((e) => TPS[e[0]]).map(([k, icon, title, sub]) => [k, icon, TPC[k], title, sub || (k === 'kiosk' ? 'Skjul alt utenom dashbordet' : '')]);
     const tpSec = `${ui.sec(T('Tilpass dashbordet', 'Customize dashboard'))}${ui.group(TP.map(([k, icon, bg, title, sub]) => ui.row({ a: 'tp', v: k, icon, iconBg: bg, title, sub, chev: true })))}`;
     M.ha._tpSec = tpSec;
     return `${ui.sec(T('Companion-appen', 'Companion app'))}${ui.group([

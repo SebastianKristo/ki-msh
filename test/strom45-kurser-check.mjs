@@ -4,7 +4,7 @@
 // mangler), Kroner/kWh + I dag/Måneden + prisvalg, fordeling ved trykk, akkordeon, hold 400 ms + dra (mus og touch)
 // lagrer ord.cat / ord.kurs via setCfg og svelger klikket, Esc avbryter; editoren (legg til/flytt/slett/rediger/farge/
 // underpunkt/gruppe/standardvalg) endrer visningen live; «Vis YAML» er gyldig YAML (MSH.yaml.parse) som rundtur-er
-// skjemaet; «Tilbakestill kurser» → KDEF.
+// skjemaet; «Nullstill kurser» → KDEF.
 //   node test/strom45-kurser-check.mjs
 import { createRequire } from 'node:module';
 import { mkdirSync, unlinkSync } from 'node:fs';
@@ -163,7 +163,7 @@ await wait(50);
 const E = (sel) => ev((s) => { const e = sr.getElementById('ed').querySelector(s); if (!e) return false; e.click(); return true; }, sel);
 const ED = () => sr_ed();
 await ev(() => { window.sr_ed = () => sr.getElementById('ed'); window.typeIn = (sel, v) => { const i = sr_ed().querySelector(sel); i.focus(); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); return true; }; });
-ok('editor: info, Pris og totaler (6 felt + 3 valg), 2 grupper, knapper', await ev(() => { const e = sr_ed(); return /samme oppsett som ki-energi-card-strom/.test(e.querySelector('.sk-kinfo').textContent) && e.querySelectorAll('.sk-kcard > .sk-kfl input').length === 6 && e.querySelectorAll('.sk-keseg').length === 3 && e.querySelectorAll('.sk-kegrp').length === 2 && /Vis YAML/.test(e.textContent) && /Tilbakestill kurser/.test(e.textContent) && /Legg til gruppe/.test(e.textContent); }));
+ok('editor: info, Pris og totaler (6 felt + 3 valg), 2 grupper, knapper', await ev(() => { const e = sr_ed(); return /samme oppsett som ki-energi-card-strom/.test(e.querySelector('.sk-kinfo').textContent) && e.querySelectorAll('.sk-kcard > .sk-kfl input').length === 6 && e.querySelectorAll('.sk-keseg').length === 3 && e.querySelectorAll('.sk-kegrp').length === 2 && /Vis YAML/.test(e.textContent) && /Nullstill kurser/.test(e.textContent) && /Legg til gruppe/.test(e.textContent); }));
 await E('[data-sk-e="adv"]');
 ok('Avansert åpner status/laster/logg/tau/bereder', await ev(() => ['status', 'laster', 'logg', 'tau', 'bereder'].every((k) => sr_ed().querySelector(`[data-sk-f="${k}"]`))));
 // rediger navn på første kategori → visningen oppdateres live
@@ -227,7 +227,7 @@ ok('reserve-YAML (kYaml) gir samme rundtur', yf === true, yf);
 
 /* ---- Tilbakestill */
 await E('[data-sk-e="reset"]');
-ok('Tilbakestill kurser → onChange(null) og visningen = KDEF', await ev(() => h.config.kurs === null) && (await ev(() => tiles())).map((x) => x.l).join('|') === 'Oppvarming|Belysning|Hvitvarer|Data og nettverk');
+ok('Nullstill kurser → onChange(null) og visningen = KDEF', await ev(() => h.config.kurs === null) && (await ev(() => tiles())).map((x) => x.l).join('|') === 'Oppvarming|Belysning|Hvitvarer|Data og nettverk');
 ok('norm(null/ugyldig) = KDEF-kopi', await ev(() => { const K = MSH.stromKurser; const a = K.norm(null), b = K.norm({ title: 'x' }); return a !== K.KDEF && JSON.stringify(a) === JSON.stringify(K.KDEF) && JSON.stringify(b) === JSON.stringify(K.KDEF); }));
 
 /* ---- lys modus: ingen hardkodet lys tekst på flisene */

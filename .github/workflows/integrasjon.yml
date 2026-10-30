@@ -1,0 +1,37 @@
+name: Integrasjon (hassfest, HACS, pytest)
+
+on:
+  push:
+    branches: [main]
+    paths: ['custom_components/**', 'tests/**', 'hacs.json', 'requirements_test.txt', '.github/workflows/integrasjon.yml']
+  pull_request:
+    paths: ['custom_components/**', 'tests/**', 'hacs.json', 'requirements_test.txt', '.github/workflows/integrasjon.yml']
+  workflow_dispatch:
+
+jobs:
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # Ikonet ligger ikke i home-assistant/brands ennå; beskrivelse og emner (topics) settes i repoets innstillinger på GitHub
+          ignore: brands description topics
+
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+      - run: pip install -r requirements_test.txt
+      - run: python -m pytest -q tests

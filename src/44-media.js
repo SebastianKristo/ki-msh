@@ -726,7 +726,7 @@
         return `<div class="sec" data-key="b21-${esc(P.obj)}-${kind}" style="display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--ki-surface-2, #404040)">
           <div class="line"><span style="flex:1;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ki-text-2, #afafaf)">${esc(title)}</span><span class="small">${L.length}${auto ? ' · auto' : ''}</span></div>
           ${L.map((x, i) => row(kind, x, i, L.length)).join('') || `<span class="small">Ingen ${esc(count)}</span>`}
-          <div class="line" style="flex-wrap:wrap">${addBtns}${btn('reset', kind, -1, 'style="height:44px;padding:0 14px;border-radius:22px;font-size:13px;color:var(--ki-text-2, #afafaf);background:var(--ki-surface-3, #2f2f2f);flex:none"', 'Tilbakestill', 'Tilbake til autokonfig', 'chip')}</div>
+          <div class="line" style="flex-wrap:wrap">${addBtns}${btn('reset', kind, -1, 'style="height:44px;padding:0 14px;border-radius:22px;font-size:13px;color:var(--ki-text-2, #afafaf);background:var(--ki-surface-3, #2f2f2f);flex:none"', 'Nullstill', 'Tilbake til autokonfig', 'chip')}</div>
           ${chipsHtml}</div>`;
       };
       const addB = (kind, label, t) => btn('add', kind, -1, `${t ? `data-ty="${t}"` : ''} style="flex:1 1 auto;height:44px;border-radius:22px;background:transparent;box-shadow:inset 0 0 0 1.5px rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)));justify-content:center;font-size:13px"`, `${M.icon('mdi:plus', 18)}${esc(label)}`, '', 'chip');
@@ -1594,7 +1594,7 @@
         .al-wt b{font-weight:700}
         .off .al-wt{background:#4a4a4a}
         .dots{display:flex;justify-content:center;gap:6px;height:10px;align-items:center}
-        .dot{width:6px;height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454));transition:all .25s;flex:none}
+        .dot{width:6px;height:6px;border-radius:3px;background:var(--ki-ctrl, var(--gray400,#545454));transition:width .25s,background-color .25s;flex:none}
         .dot.on{width:18px;background:var(--ki-text, var(--white,#fafafa))}
         /* 56 E · lys modus (klassene settes bare i lys modus – mørk er uendret) */
         .pc.lt{background:var(--ki-surface, #3a3a3a);background-image:none;box-shadow:inset 0 0 0 1px rgb(0 0 0/0.06),0 2px 10px rgb(0 0 0/0.06);color:var(--ki-text, #fafafa)}

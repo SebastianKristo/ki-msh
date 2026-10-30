@@ -89,7 +89,7 @@ for (const [k, want] of [['iphone', 0], ['oneplus', 20], ['pixel', 16]]) {
     return { order, hint, std0, bubbled, live, lbl, lsLive, stLive, saved, std1, after };
   });
   ok('18.6 editor: «Avstand fra bunnen» rett under Bredde', r.order);
-  ok('18.6 editor: hint «Gjelder bare Pixel 9 Pro · standard 16 px», ingen Standard-knapp', r.hint === 'Gjelder bare Pixel 9 Pro · standard 16 px' && !r.std0, r.hint);
+  ok('18.6 editor: hint «Gjelder bare denne enheten (Pixel 9 Pro) · standard 16 px», ingen Standard-knapp', r.hint === 'Gjelder bare denne enheten (Pixel 9 Pro) · standard 16 px' && !r.std0, r.hint);
   ok('18.6 editor: pointerdown stoppes (fallgruve 2)', !r.bubbled);
   ok('18.6 editor: slideren flytter navbaren live (30 px), ikke lagret i ki-store før slipp', r.live === 30 && r.lbl === '30 px' && r.stLive == null, r);
   ok('19.13 editor: slipp lagrer i ki-store nav_profiles[u1/annen].bottom (ikke localStorage)', r.saved.ls == null && r.saved.st === 30 && r.saved.cls === 'annen' && r.std1, r.saved);

@@ -1098,10 +1098,13 @@
       const order = all.map((id) => (vis.includes(id) ? nv[k++] : id));
       await this._saveCfg({ tab_order: order });
     }
-    async _saveCfg(patch) {
+    async _saveCfg(patch, quiet) {
       const old = this._rawConfig || this.config, nc = { ...old, ...patch };
       if (!nc.card_id) nc.card_id = old.card_id || M.uid();
+      const pend = !!this._raf;
       this.setConfig(nc);
+      // quiet: configen gir samme visning (første utfylling lagrer bare det som allerede vises) → ingen ny tegning
+      if (quiet && !pend && this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; this._force = false; }
       try { const r = await M.saveCardConfig(this.hass, old, nc); if (r && r.config) { this._rawConfig = r.config; } } catch (e) { /* */ }
     }
     // Fanerad: flex-rad som scroller vannrett (scroll-snap proximity), fanene krymper aldri og kuttes aldri.
@@ -1901,7 +1904,7 @@
       const hc = M.hjemCards(hass, c), tabs = { ...(c.tabs || {}) };
       tabs.hjem = hc.auto ? { auto_fill: true } : { auto_fill: false, cards: hc.cards, seen: hc.candidates };
       if (!tabs.aktuelt) tabs.aktuelt = { auto_fill: false, types: M.aktTypes(c) };
-      setTimeout(() => { if (!get(this.config, 'tabs.hjem')) this._saveCfg({ tabs }); }, 0);
+      setTimeout(() => { if (!get(this.config, 'tabs.hjem')) this._saveCfg({ tabs }, true); }, 0); // samme visning – lagres uten ny tegning
     }
     // 20.13 · migrering: rom lagret i layout.aktuelt.order tømmes én gang (rendering ignorerer dem uansett)
     _aktMigOnce() {
@@ -1926,7 +1929,7 @@
           <div class="ap-h"><span class="ap-n ell">${esc(A.name)}</span><button class="ap-b" data-act="appl" data-k="${A.kind}" title="${A.mode === 'done' ? 'Tøm' : A.mode === 'run' ? 'Pause' : 'Fortsett'}">${this._applIcon(A, 20) || M.icon(A.icon, 20)}</button></div>
           <span style="flex:1"></span><span class="ap-t num" style="color:${col}">${time}</span>
           <span class="ap-s ell">${esc(A.mode === 'done' ? 'Klar til å tømmes' : (A.mode === 'paused' ? 'Pauset · ' : '') + (A.prog || ''))}</span>
-          <div class="ap-bar"><span style="width:${p.toFixed(1)}%;background:${bar};${A.secs == null && A.mode !== 'done' ? 'opacity:.35' : ''}"></span></div></div>`;
+          <div class="ap-bar"><span style="transform:scaleX(${(p / 100).toFixed(3)});background:${bar};${A.secs == null && A.mode !== 'done' ? 'opacity:.35' : ''}"></span></div></div>`;
       }).join('')}</div>`;
     }
     _batView(B) {
@@ -2062,7 +2065,7 @@
         if (!el) return;
         const secs = Math.max(0, (a.end - now) / 1000), t = el.querySelector('.ap-t'), b = el.querySelector('.ap-bar span');
         if (t) t.textContent = `${Math.floor(secs / 3600)}:${pad2(Math.floor((secs % 3600) / 60))}:${pad2(Math.floor(secs % 60))}`;
-        if (b) b.style.width = M.clamp((1 - secs / 60 / a.nominal) * 100, 2, 100).toFixed(1) + '%';
+        if (b) b.style.transform = `scaleX(${(M.clamp((1 - secs / 60 / a.nominal) * 100, 2, 100) / 100).toFixed(3)})`; // Runde 2: scaleX (kompositor) i stedet for width
       });
     }
     // Linse (.ind) på aktiv fane. Scroll av aktiv fane inn i synlig område (row.scrollTo smooth) og kant-fade: MSH.tabReorder.
@@ -2242,7 +2245,7 @@
         .ap-t{font-size:34px;font-weight:300;letter-spacing:-0.02em;line-height:1;padding:0 16px}
         .ap-s{font-size:11px;color:var(--ki-text-mid, var(--gray700,#979797));padding:2px 16px 10px}
         .ap-bar{position:relative;height:26px;background:repeating-linear-gradient(135deg, #5c5c5c 0 2px, transparent 2px 7px);flex:none}
-        .ap-bar span{position:absolute;left:0;top:0;bottom:0;transition:width 1s linear}
+        .ap-bar span{position:absolute;left:0;top:0;bottom:0;width:100%;transform-origin:left center;transition:transform 1s linear}
         .bv{display:flex;flex-direction:column}
         .bh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:0 4px 8px}
         .bh-t{font-size:15px;font-weight:500;white-space:nowrap;flex:none}

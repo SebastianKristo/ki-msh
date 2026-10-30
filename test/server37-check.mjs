@@ -147,8 +147,10 @@ const m1 = await p.evaluate(async (SERV) => {
   // Tilpass … i menyen
   R.querySelector('.ttl').click(); await __w(400);
   __ed.length = 0;
+  const haOpen = []; if (window.MSH.ha) { window.__haOpen0 = window.MSH.ha.open; window.MSH.ha.open = (pg) => haOpen.push(pg); }
   __menu().shadowRoot.querySelector('.rad.tilpass').click(); await __w(250);
-  out.tilpass = { ed: __ed.slice(), open: !!__menu() };
+  if (window.MSH.ha) window.MSH.ha.open = window.__haOpen0;
+  out.tilpass = { ed: __ed.slice(), ha: haOpen, open: !!__menu() };
   // trykk utenfor (bakgrunnen) lukker
   R.querySelector('.ttl').click(); await __w(400);
   __menu().shadowRoot.querySelector('.vern').click(); await __w(250);
@@ -163,12 +165,12 @@ ok('tittel: stedsnavnet med pil (mdi:menu-down) i «Hjem»', m1.title === 'Oslo'
 ok('trykk åpner menyen med en gang', m1.openSync, m1);
 ok('menyen portales til ki-overlay-root over dashbord-containeren (ikke vinduet)', m1.inOverlay && m1.hostL === m1.dashL, m1);
 ok('ark 260 px, radius 22, under navnet, spiss, «Bytt sted»', m1.w === 260 && m1.rad === '22px' && m1.belowTitle && m1.spiss === '12px' && m1.top === 'Bytt sted', m1);
-ok('rader: Oslo «Du er her» (ingen chevron), andre med chevron, standardikoner, ingen forsinkede rader (Fiks 52: bare arket animeres)', m1.rows.length === 4 && m1.rows[0].her && !m1.rows[0].chev && m1.rows[1].chev && m1.rows[2].chev && m1.rows[1].ic === 'mdi:sail-boat' && m1.rows[2].ic === 'mdi:tractor' && m1.rows.every((r) => !r.d) && m1.rows[3].n === 'Tilpass …', m1.rows);
+ok('rader: Oslo «Du er her» (ingen chevron), andre med chevron, standardikoner, ingen forsinkede rader (Fiks 52: bare arket animeres)', m1.rows.length === 4 && m1.rows[0].her && !m1.rows[0].chev && m1.rows[1].chev && m1.rows[2].chev && m1.rows[1].ic === 'mdi:sail-boat' && m1.rows[2].ic === 'mdi:tractor' && m1.rows.every((r) => !r.d) && m1.rows[3].n === 'Innstillinger', m1.rows); // Claude Design 23.10: «Tilpass …» → «Innstillinger»
 ok('pila roterer 180° når menyen er åpen', !!m1.rot && m1.rot !== 'none', m1.rot);
 ok('haptic ved åpning (én)', m1.hapOpen.length === 1, m1.hapOpen);
 ok('trykk på raden du er på → bare lukk', !m1.ownRow.open && !m1.ownRow.urls.length, m1.ownRow);
 ok('bytt: window.open(homeassistant://navigate/ki-dashboard?server=Strømstad), haptic selection, menyen lukkes, location.href urørt', m1.swap.urls.length === 1 && m1.swap.urls[0] === 'homeassistant://navigate/ki-dashboard?server=Strømstad' && m1.swap.hap.includes('selection') && !m1.swap.open && m1.swap.href && !m1.swap.rot, m1.swap);
-ok('«Tilpass …» åpner Tilpass header', m1.tilpass.ed.join() === 'header' && !m1.tilpass.open, m1.tilpass);
+ok('«Innstillinger» åpner HA-innstillingene (hub) og lukker menyen (uten MSH.ha: Tilpass header)', (m1.tilpass.ha.join() === 'hub' || m1.tilpass.ed.join() === 'header') && !m1.tilpass.open, m1.tilpass);
 ok('trykk utenfor lukker menyen', !m1.outside);
 ok('Esc lukker menyen', !m1.esc);
 

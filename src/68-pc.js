@@ -533,7 +533,7 @@
       if (this._sheet) this._sheet.close();
       const L = this._flat();
       const css = `.sh{top:72px;bottom:auto;left:50%;right:auto;width:min(620px, calc(100% - 32px));max-width:none;max-height:72vh;margin:0;padding:0;border-radius:30px;display:flex;flex-direction:column;overflow:hidden;
-          background:var(--ki-surface-3, #2f2f2f);box-shadow:0 24px 70px ${M.theme.blackA(0.6)};transform:translate3d(-50%,-8px,0);opacity:0}
+          background:var(--ki-popup, #282828);box-shadow:0 24px 70px ${M.theme.blackA(0.6)};transform:translate3d(-50%,-8px,0);opacity:0}
         :host(.on) .sh{transform:translate3d(-50%,0,0);opacity:1}
         .body{display:flex;flex-direction:column;min-height:0;flex:1}
         .sr{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid ${M.theme.whiteA(0.08)}}
@@ -569,31 +569,30 @@
     _tilpass() {
       if (this._sheet) this._sheet.close();
       const en = () => (window.kiLang ? window.kiLang() : 'no') === 'en';
+      // Runde 2: samme gruppe/rad/bryter/segment som de andre Tilpass-arkene (MSH.tp)
       const css = `${this._dlgCss(520)}
-        .menu{display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:var(--ki-surface, #3a3a3a);margin-bottom:10px}
-        .mr{display:flex;align-items:center;gap:14px;min-height:62px;padding:0 16px;width:100%;box-sizing:border-box;text-align:left;color:var(--ki-text, #fafafa);border-top:1px solid ${M.theme.whiteA(0.06)}}
-        .mr:first-child{border-top:0}.mr:hover{background:var(--ki-surface-2, #454545)}
-        .mx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.mx b{font-size:14px;font-weight:500}.mx i{font-style:normal;font-size:12px;color:var(--ki-text-mid, #979797)}
-        .lbl{padding:2px 14px 6px;font-size:12px;font-weight:600;color:var(--ki-text-2, #afafaf)}
-        .kr{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:20px;background:var(--ki-surface, #3a3a3a);text-align:left;width:100%;box-sizing:border-box;color:var(--ki-text, #fafafa);margin-bottom:4px}
-        .kr:hover{background:var(--ki-surface-2, #454545)}
-        .kr span{flex:1;min-width:0;font-size:14px;font-weight:500}
-        .trk{width:52px;height:32px;flex:none;box-sizing:border-box;border-radius:16px;padding:3px;display:flex;justify-content:flex-start;background:var(--ki-ctrl, #4e4e4e);box-shadow:inset 0 0 0 1px ${M.theme.whiteA(0.12)};transition:background .2s}
-        .trk.on{justify-content:flex-end;background:${GRAD};box-shadow:none}
-        .knb{width:26px;height:26px;border-radius:13px;display:grid;place-items:center;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px ${M.theme.blackA(0.45)};color:var(--ki-on-accent, #282828)}
-        .knb ha-icon{opacity:0;transition:opacity .2s}.trk.on .knb ha-icon{opacity:1}
-        .ft{padding:10px 14px 0;font-size:12px;color:var(--ki-text-mid, #7f7f7f)}`;
+        .menu,.kg{display:flex;flex-direction:column;${M.tp.GROUP}overflow:hidden;margin-bottom:14px}
+        .mr,.kr{${M.tp.ROW}width:100%;box-sizing:border-box;text-align:left;color:var(--ki-text, #fafafa);border:0;${M.tp.ROW_SEP}}
+        .mr{min-height:62px}.mr:first-child,.kr:first-child{box-shadow:none}
+        .mr:hover,.kr:hover{background:var(--ki-surface-2, #454545)}
+        .mx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.mx b{${M.tp.LABEL}}.mx i{font-style:normal;${M.tp.SUB}}
+        .kr>span:first-child{flex:1;min-width:0;${M.tp.LABEL}}
+        .lbl{display:block;padding:2px 8px 8px;${M.tp.SEC}}
+        .lang{${M.tp.SEG}margin-bottom:14px}.lang button{${M.tp.SEG_BTN}}.lang button.on{${M.tp.CHIP_ON}}
+        ${M.tp.sw('.trk', ' .knb')}
+        .ft{${M.tp.HINT}}`;
       const ov = M.overlay({ html: '', css, sheet: false, maxWidth: 520, guard: 250, onClose: () => { if (this._sheet === ov) this._sheet = null; } });
       ov.host.setAttribute('data-pc-tilpass', '');
       const draw = () => {
         const hid = this._hidden();
-        const rows = [['mdi:translate', 'Språk · Language', en() ? 'English' : 'Norsk', 'lang'], ['mdi:monitor', 'Dashbord på PC', kiT('Oversikt for PC', 'Overview for PC'), 'pc'],
+        const rows = [['mdi:cellphone', 'Bytt til mobilvisning', kiT('PC-oversikten vises igjen fra Tilpass', 'The PC overview can be turned on again from Customize'), 'pc'],
           ['mdi:auto-fix', 'Tilpass alt', kiT('Veiviser for hele dashbordet', 'Wizard for the whole dashboard'), 'alt'], ['mdi:view-dashboard-edit-outline', 'Tilpass Hjem', kiT('Kort, faner, popups og tekst', 'Cards, tabs, popups and text'), 'home'],
           ['mdi:tune-variant', 'Innstillinger', kiT('Enheter, varsler og integrasjoner', 'Devices, notifications and integrations'), 'settings']];
-        ov.body.innerHTML = `<div class="dh kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass oversikten', sub: 'Snarveier til alle Tilpass-menyene', done: 'close', act: 'ta' })}</div><div class="db">
-          <div class="menu">${rows.map(([ic, n, sub, k]) => `<button class="mr" data-ta="${k}">${M.icon(ic, 22, 'color:var(--ki-text-1, #c7c7c7)')}<span class="mx"><b${k === 'lang' ? ' data-noi18n' : ''}>${esc(n)}</b><i${k === 'lang' ? ' data-noi18n' : ''}>${esc(sub)}</i></span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, #7f7f7f)')}</button>`).join('')}</div>
+        ov.body.innerHTML = `<div class="dh kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass oversikten', sub: 'Kort, språk og snarveier', done: 'close', act: 'ta' })}</div><div class="db">
+          <span class="lbl">Språk</span><div class="lang" role="radiogroup" data-noi18n>${[['no', 'Norsk'], ['en', 'English']].map(([k, l]) => `<button class="${(en() ? 'en' : 'no') === k ? 'on' : ''}" data-ta="lang" data-v="${k}" role="radio" aria-checked="${(en() ? 'en' : 'no') === k}">${l}</button>`).join('')}</div>
+          <span class="lbl">Snarveier</span><div class="menu">${rows.map(([ic, n, sub, k]) => `<button class="mr" data-ta="${k}">${M.icon(ic, 22, 'color:var(--ki-text-1, #c7c7c7)')}<span class="mx"><b${k === 'lang' ? ' data-noi18n' : ''}>${esc(n)}</b><i${k === 'lang' ? ' data-noi18n' : ''}>${esc(sub)}</i></span>${M.icon('mdi:chevron-right', 20, 'color:var(--ki-text-3, #7f7f7f)')}</button>`).join('')}</div>
           <span class="lbl">Kort i oversikten</span>
-          ${KORT.map(([k, n]) => `<button class="kr" data-ta="kort" data-k="${k}" role="switch" aria-checked="${!hid[k]}"><span>${esc(n)}</span><span class="trk${hid[k] ? '' : ' on'}"><span class="knb">${M.icon('mdi:check', 16)}</span></span></button>`).join('')}
+          <div class="kg">${KORT.map(([k, n]) => `<button class="kr" data-ta="kort" data-k="${k}" role="switch" aria-checked="${!hid[k]}"><span>${esc(n)}</span><span class="trk${hid[k] ? '' : ' on'}"><span class="knb"></span></span></button>`).join('')}</div>
           <span class="ft">Valget lagres på denne maskinen.</span></div>`;
       };
       ov.root.addEventListener('click', (e) => {
@@ -601,7 +600,7 @@
         const k = b.dataset.ta;
         if (k === 'kort') { M.haptic('selection'); const H = this._hidden(); if (H[b.dataset.k]) delete H[b.dataset.k]; else H[b.dataset.k] = true; lsSet(LS.cards, JSON.stringify(H)); draw(); this.update(); return; }
         M.haptic('light');
-        if (k === 'lang') { if (window.kiSetLang) window.kiSetLang(en() ? 'no' : 'en'); draw(); return; }
+        if (k === 'lang') { if (window.kiSetLang && b.dataset.v !== (en() ? 'en' : 'no')) window.kiSetLang(b.dataset.v); draw(); return; }
         ov.close();
         if (k === 'pc') return this._mobile();
         if (k === 'alt') return window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass-alt' } }));
@@ -613,14 +612,11 @@
     }
     _dlgCss(w) {
       return `.sh{top:72px;bottom:auto;left:50%;right:auto;width:min(${w}px, calc(100% - 32px));max-width:none;max-height:78vh;margin:0;padding:0;border-radius:30px;display:flex;flex-direction:column;overflow:hidden;
-          background:var(--ki-surface-3, #2f2f2f);box-shadow:0 24px 70px ${M.theme.blackA(0.6)};transform:translate3d(-50%,-8px,0);opacity:0}
+          background:var(--ki-popup, #282828);box-shadow:0 24px 70px ${M.theme.blackA(0.6)};transform:translate3d(-50%,-8px,0);opacity:0}
         :host(.on) .sh{transform:translate3d(-50%,0,0);opacity:1}
         .body{display:flex;flex-direction:column;min-height:0;flex:1}
         .dh{display:flex;align-items:center;gap:12px;padding:16px 16px 14px 20px;flex:none}
         ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
-        .dt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:19px;font-weight:600;letter-spacing:-0.02em}
-        .dt i{font-style:normal;font-size:12px;font-weight:400;color:var(--ki-text-mid, #979797);letter-spacing:0}
-        .x{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa);flex:none}
         .db{flex:1;overflow-y:auto;padding:0 12px 16px;display:flex;flex-direction:column}`;
     }
 
@@ -649,7 +645,7 @@
             ${bars(c.vals, c.c, 2).replace('class="bars', 'class="cb bars')}
             <div class="cax"><span>${esc(kiT('§ siden', '§ ago').replace('§', PER[pi][0]))}</span><span>${esc(kiT('snitt § / dag', 'avg § / day').replace('§', f(c.avg) + (c.u ? ' ' + c.u : '')))}</span><span>${esc(kiT('i dag', 'today'))}</span></div></div>`;
         }).join('');
-        ov.body.innerHTML = `<div class="dh"><span class="dt">Analyse<i>${esc(TABL[this.tab][1])}</i></span><button class="x" data-aa="close" title="Lukk" aria-label="Lukk">${M.icon('mdi:close', 22)}</button></div>
+        ov.body.innerHTML = `<div class="dh kt-head">${M.tp.head({ title: 'Analyse', sub: TABL[this.tab][1], done: 'close', doneLabel: 'Lukk', act: 'aa' })}</div>
           <div class="pr">${PER.map(([l], i) => `<button class="pp${i === pi ? ' on' : ''}" data-aa="per" data-v="${i}">${esc(l)}</button>`).join('')}</div>
           <div class="db">${ch || `<span class="no">${esc(kiT('Ingen statistikk for denne fanen ennå.', 'No statistics for this tab yet.'))}</span>`}</div>`;
       };

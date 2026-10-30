@@ -105,7 +105,8 @@ ok('Strøm-fanen: 9 rader, Energivarsler øverst', S.length === 9 && S[0] === 'E
 await wait(p, 300);
 // Fiks 33.3: Dashbord-/Utseende-/Enheter-delen og fotteksten er fjernet – popupen slutter etter brytersettene
 const DB = await p.evaluate(() => { const sr = window.__c.shadowRoot, w = sr.querySelector('.wrap'); return { dash: !!sr.querySelector('.dash, msh-settings-card, .gh'), last: w.lastElementChild && w.lastElementChild.className, txt: sr.textContent }; });
-ok('33.3 · ingen DASHBORD/Utseende/Enheter/fottekst – popupen slutter med brytersettene', !DB.dash && /pane/.test(DB.last) && !/Liquid Glass|Tilpass Hjem|gjelder for deg|denne enheten/.test(DB.txt), { dash: DB.dash, last: DB.last });
+// Claude Design 23.10: admin får «Tilpass»/Home Assistant-delen (.hag) etter brytersettene – den er tillatt, resten fortsatt borte
+ok('33.3 · ingen DASHBORD/Utseende/Enheter/fottekst – popupen slutter med brytersettene (+ admin-delen .hag)', !DB.dash && /pane|hag/.test(DB.last) && !/Liquid Glass|gjelder for deg|denne enheten/.test(DB.txt), { dash: DB.dash, last: DB.last });
 await shot(p, '2-slutt');
 await p.close();
 
@@ -141,7 +142,7 @@ const E = await p3.evaluate(() => {
     vis: [...sr.querySelectorAll('[data-name="tab_labels"]')].map((x) => x.textContent.trim()),
   };
 });
-ok('tittel «Tilpass Innstillinger» 16–22/600 (krympes til den får plass ved siden av × / Ferdig) + rosa «Ferdig»-pille øverst til høyre', E.title === 'Tilpass Innstillinger' && /^(1[6-9]|2[0-2])px\/600$/.test(E.tsize) && E.done === 'Ferdig' && E.doneRight && E.doneTop && /242, 133, 201|f285c9/i.test(E.doneBg), E);
+ok('tittel «Tilpass innstillinger» 16–22/600 (krympes til den får plass ved siden av × / Ferdig) + rosa «Ferdig»-pille øverst til høyre', E.title === 'Tilpass innstillinger' && /^(1[6-9]|2[0-2])px\/600$/.test(E.tsize) && E.done === 'Ferdig' && E.doneRight && E.doneTop && /242, 133, 201|f285c9/i.test(E.doneBg), E);
 ok('tekstfaner i segmentrad: Faner · Rader · Entiteter · Avansert, ingen ikoner, #3a3a3a r24 pad 4, 12 px', E.tabs.join() === 'Faner,Rader,Entiteter,Avansert' && E.tabIcons === 0 && E.seg.join() === 'rgb(58, 58, 58),24px,4px,12px', E);
 ok('én flate: «Faner · dra for rekkefølge» = felles seksjonstittel (MSH.tp.SEC: 13 px #afafaf, ingen versaler) INNI flaten (#3a3a3a r24), skillelinjer', /Faner · dra for rekkefølge/i.test(E.hdr) && E.hdrSize === '13px' && E.hdrCol === 'rgb(175, 175, 175)' && E.hdrIn && E.box[0] === 'rgb(58, 58, 58)' && E.box[1] === '24px' && E.div === 'rgba(255, 255, 255, 0.06)', E);
 ok('rad: ikon #afafaf, navnefelt i raden (#282828 r12 40 px), rosa bryter, ingen «Dra for rekkefølge»-hjelpetekst', E.ic === 'rgb(175, 175, 175)' && E.inp.join() === 'rgb(40, 40, 40),12px,40px' && E.sw && !E.help.some((x) => /Dra for rekkefølge/.test(x)), E);

@@ -247,7 +247,7 @@
     .tile b{font-size:14px;font-weight:600}.tile i{font-style:normal;font-size:11px;color:var(--ki-text-mid, #979797);margin-top:-6px}
     .tile .bd{position:absolute;top:10px;right:10px}
     .tile .hi{width:38px;height:38px}
-    .stg{animation:stg .38s cubic-bezier(.2,.8,.2,1) both}
+    .stg{animation:stg .38s cubic-bezier(.2,.8,.2,1) backwards}
     @keyframes stg{from{opacity:0;transform:translate3d(0,8px,0)}to{opacity:1;transform:none}}
     @media (prefers-reduced-motion: reduce){.stg{animation:none}}
   `;

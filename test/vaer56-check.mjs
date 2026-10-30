@@ -317,7 +317,9 @@ for (const [tag, ua] of [['iOS/PC', null], ['Android', ANDROID_UA]]) {
     for (const k of KEYS) {
       const night = k === 'clear-night';
       await window.__mk({}, { 'weather.home': { state: night ? 'sunny' : k }, ...(night ? { 'sun.sun': { state: 'below_horizon' } } : {}) });
-      const sr = window.__c.shadowRoot, g = [...sr.querySelectorAll('.g')], cs = getComputedStyle(g[0]);
+      const sr = window.__c.shadowRoot, g = [...sr.querySelectorAll('.g')];
+      if (!g.length) { out[k] = { noScene: true }; continue; } // Fiks 60.2: Android = alltid vanlig popup (ingen scenekort)
+      const cs = getComputedStyle(g[0]);
       // ett lag: ingen bakgrunn mellom kortet og vertselementet (ha-card, .wrap, .blk)
       const extra = []; for (let n = g[0].parentElement; n; n = n.parentElement) { const c = getComputedStyle(n); if (c.backgroundColor !== 'rgba(0, 0, 0, 0)' || c.backgroundImage !== 'none') extra.push(n.className || n.localName); }
       out[k] = { bg: cs.backgroundColor, bf: cs.backdropFilter, same: g.every((e) => getComputedStyle(e).backgroundColor === cs.backgroundColor), extra, ha: getComputedStyle(sr.querySelector('ha-card')).backgroundColor, exp: window.MSH.vaerCardOver(k) };
@@ -327,10 +329,8 @@ for (const [tag, ua] of [['iOS/PC', null], ['Android', ANDROID_UA]]) {
   }, KEYS);
   const hex2rgb = (h) => `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
   if (tag === 'Android') {
-    const bad = KEYS.filter((k) => L.out[k].bg !== hex2rgb(L.out[k].exp) || (L.out[k].bf && L.out[k].bf !== 'none') || !L.out[k].same);
-    // promptens eksempel color-mix(in srgb, rgb(30 36 46) 42%, #3f4957) – nettleserens egen color-mix er fasit (≈ #313a46; «≈ #38404d» i teksten er avrundet feil)
-    const near = (a, b2) => { const x = (a.match(/[\d.]+/g) || []).map(Number), y = (b2.match(/[\d.]+/g) || []).map(Number); return x.length >= 3 && y.length >= 3 && [0, 1, 2].every((i) => Math.abs((x[i] <= 1 && /color\(/.test(a) ? x[i] * 255 : x[i]) - (y[i] <= 1 && /color\(/.test(b2) ? y[i] * 255 : y[i])) <= 1.5); };
-    ok('56 L Android (ki-android): dekkende kortflate = --card blandet over C.bg[1] (rainy = color-mix(rgb(30 36 46) 42 %, #3f4957)), ingen blur', L.android && !bad.length && near(L.out.rainy.bg, L.mix), { bad, rainy: L.out.rainy, mix: L.mix });
+    // Fiks 60.2: Vær på Android er alltid vanlig popup – ingen scenekort (.g) for noen værtype
+    ok('56 L Android: Vær viser vanlig popup (ingen scenekort) for alle værtyper (Fiks 60.2)', L.android && KEYS.every((k) => L.out[k].noScene), KEYS.filter((k) => !L.out[k].noScene));
   } else {
     const bad = KEYS.filter((k) => L.out[k].bg !== TABLE[k] || !/blur\(18px\)/.test(L.out[k].bf) || !L.out[k].same || L.out[k].extra.length || L.out[k].ha !== 'rgba(0, 0, 0, 0)');
     ok('56 L kortflaten = var(--card) per værtype (tabellen C) + blur(18px), ett lag (ha-card/wrap uten bakgrunn)', !L.android && !bad.length, bad.map((k) => [k, L.out[k]]));

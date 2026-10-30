@@ -454,8 +454,8 @@
               ...a.lampsAll.map((id) => light(id)),
             ]),
           ] },
-          { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => {
-            if (!window.confirm('Tilbakestille alle innstillinger for Lys til standard?')) return;
+          { type: 'button', label: 'Nullstill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => {
+            if (!window.confirm('Nullstille alle innstillinger for Lys til standard?')) return;
             ed._config = { type: cc.type };
             ed._set('card_id', cc.card_id);
           } },
@@ -1755,6 +1755,7 @@
     .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:var(--ki-ctrl, #4a4a4d);transition:background .2s}
     .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #d8d6d1);transition:left .2s}
     .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:var(--ki-knob, #2a2a2c)} /* Fiks 26: rosa */
+    ${M.tp ? M.tp.sw('.sw', ' span') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .lp{display:flex;align-items:flex-start;gap:10px;padding:10px 10px 10px 14px}
     .lpi{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:var(--ki-ctrl, var(--gray400,#545454));color:var(--ki-text-1, var(--gray1000,#e1e1e1))}
     .lpf{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}

@@ -152,7 +152,9 @@ for (const theme of ['dark', 'light']) {
   ok(T('Framover · måned: filter-chipsene øverst – rett under fanelinjen, over månedsnavigasjonen'), /fchips/.test(pos.first) && pos.chipsUnderTabs && pos.chipsOverNav && pos.labels.join() === 'Alle,Serier,Filmer,Plex', pos);
   const exp = async (f) => page.evaluate((f) => { const c = card(), now = new Date(), off = Number(c.ui.fOff) || 0, mf = new Date(now.getFullYear(), now.getMonth() + off, 1); const P = c._fPool(f).filter((x) => x.date.getFullYear() === mf.getFullYear() && x.date.getMonth() === mf.getMonth()); return { n: P.length, kinds: [...new Set(P.map((x) => x.kind))].sort() }; }, f);
   const a0 = await kinds(), e0 = await exp('alle');
-  ok(T('Alle: merkene teller Sonarr + Radarr + Plex (Plex på)'), a0.badges === e0.n && e0.kinds.join() === 'film,plex,serie', { a0, e0 });
+  // Hvilke slag som finnes i måneden avhenger av datoen (mock-dataene er relative til i dag) – merkene skal telle alt i «Alle»,
+  // og Plex skal være med når Plex er på
+  ok(T('Alle: merkene teller Sonarr + Radarr + Plex (Plex på)'), a0.badges === e0.n && e0.kinds.includes('plex') && e0.kinds.every((k) => ['film', 'plex', 'serie'].includes(k)), { a0, e0 });
   for (const [f, k] of [['plex', 'plex'], ['serier', 'serie'], ['filmer', 'film']]) {
     await page.evaluate(() => { HP.length = 0; });
     await touchTap(`.fc[data-v="${f}"]`);

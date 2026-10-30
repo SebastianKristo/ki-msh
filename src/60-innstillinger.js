@@ -370,7 +370,7 @@
     .irow .sw::after{top:3px;left:3px;width:20px;height:20px;border-radius:10px}
     .irow .sw.on{background:var(--pink,#f285c9)}.irow .sw.on::after{transform:translateX(18px)}
     .iadd{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:0 4px;border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)));text-align:left;color:var(--ki-pink-text, rgb(242 133 201));font-size:15px;font-weight:500}
-    .ntp{display:flex;flex-direction:column;gap:10px;margin:0 -4px 8px;padding:12px;border-radius:20px;background:var(--ki-popup, #282828);animation:ntfade .25s ease both}
+    .ntp{display:flex;flex-direction:column;gap:10px;margin:0 -4px 8px;padding:12px;border-radius:20px;background:var(--ki-popup, #282828);animation:ntfade .25s ease backwards}
     @keyframes ntfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
     .ntl{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 4px}
     .nts{display:flex;flex-direction:column;gap:2px}
@@ -756,7 +756,7 @@
       if (dd.op === 'rsort') { M.haptic('selection'); return setRows(ed, (W) => { const O = { ...W.order }; delete O[tab]; W.order = O; }); }
       return undefined;
     } };
-    const reset = { type: 'html', html: (hh, cc, key) => `<button class="ireset" data-a="fn" data-k="${key}" data-op="reset" data-v="">Tilbakestill til standard</button>`,
+    const reset = { type: 'html', html: (hh, cc, key) => `<button class="ireset" data-a="fn" data-k="${key}" data-op="reset" data-v="">Nullstill til standard</button>`,
       click: (dd, ed) => { if (dd.op !== 'reset') return; M.haptic('medium'); const cc = ed._config || {}, id = cc.card_id || M.uid(); NT.delete(cid(ed)); RT.delete(cid(ed)); EXPF.delete(cid(ed)); ed._config = { type: cc.type || 'custom:msh-innstillinger-card', card_id: id }; ed._set('card_id', id); } };
     // Entiteter (designet): ikon, navn, entitet (mono) / «Velg entitet» (rosa), chevron → søk med forslag (✓ = valgt).
     // Autokonfig vises som «… · automatisk»; «Automatisk» i lista fjerner overstyringen.
@@ -880,7 +880,7 @@
   /* ============================================================ kortet */
   class Innstillinger extends M.Card {
     static get cardName() { return 'Innstillinger'; }
-    static get editorTitle() { return 'Tilpass Innstillinger'; }
+    static get editorTitle() { return 'Tilpass innstillinger'; }
     static getStubConfig() { return { card_id: M.uid() }; }
     static get schema() { return editorSchema; }
     static get uiPersist() { return ['tab']; }

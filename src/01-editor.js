@@ -463,6 +463,7 @@
     .sw{position:relative;width:46px;height:28px;border-radius:14px;background:var(--ki-ctrl, #545454);flex:none;transition:background .2s}
     .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
     .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: brytere er rosa overalt */
+    ${M.tp ? M.tp.sw('.sw', '::after') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip{${M.tp.CHIP}}
     .chip.on{${M.tp.CHIP_ON}}

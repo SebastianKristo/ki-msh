@@ -18,7 +18,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 
 try:  # etasjer finnes fra HA 2024.4
     from homeassistant.helpers import floor_registry as fr
@@ -27,7 +27,7 @@ except ImportError:  # pragma: no cover
 
 from .const import (
     ACTIVE_BINARY_CLASSES, CONF_AREAS, CONF_EKSKLUDER_ROM, CONF_EXCLUDE, CONF_INCLUDE_CATEGORY,
-    CONF_INCLUDE_GROUPS, DOMAIN, FUNKSJONER, KIND_EFFEKT, KIND_META, KIND_OVERSIKT, ROM_MARKOR,
+    CONF_FUKT_RESERVE, CONF_INCLUDE_GROUPS, CONF_PRIS, CONF_TEMP_RESERVE, DOMAIN, FUNKSJONER, KIND_EFFEKT, KIND_META, KIND_OVERSIKT, ROM_MARKOR,
     SENSOR_CLASSES, TOTALT_ID, TRACKED_DOMAINS,
 )
 
@@ -56,6 +56,11 @@ class KiMshHub:
         self._unsub_registry: list = []
         self._known_area_ids: set[str] | None = None
         self._debouncer = Debouncer(hass, _LOGGER, cooldown=2.0, immediate=False, function=self._async_rebuild)
+        # Runde 2: husmodellen har revisjon (frontend mellomlagrer på den) og data fra søsken-integrasjonene (kilder.py)
+        self.rev = 0
+        self.area_extra: dict[str, dict[str, Any]] = {}
+        self.samlet: dict[str, Any] = {"kilder": {}, "energi": {"lastet": False}}
+        self._totalt_unsub = None
 
     @property
     def options(self) -> dict[str, Any]:
@@ -63,6 +68,8 @@ class KiMshHub:
 
     async def async_start(self) -> None:
         self._build()
+        await self._async_samle()
+        self.rev = 1
         self._known_area_ids = set(self.areas)
         self._subscribe_states()
         events = [ar.EVENT_AREA_REGISTRY_UPDATED, er.EVENT_ENTITY_REGISTRY_UPDATED, dr.EVENT_DEVICE_REGISTRY_UPDATED]
@@ -70,6 +77,13 @@ class KiMshHub:
             events.append(fr.EVENT_FLOOR_REGISTRY_UPDATED)
         for ev in events:
             self._unsub_registry.append(self.hass.bus.async_listen(ev, self._registry_changed))
+        # KI Rom / KI Energi / Energi legges til eller fjernes → ny modell (og romtellerne vurderes på nytt)
+        try:
+            from homeassistant.config_entries import SIGNAL_CONFIG_ENTRY_CHANGED  # noqa: PLC0415
+            from homeassistant.helpers.dispatcher import async_dispatcher_connect  # noqa: PLC0415
+            self._unsub_registry.append(async_dispatcher_connect(self.hass, SIGNAL_CONFIG_ENTRY_CHANGED, self._entry_changed))
+        except ImportError:  # pragma: no cover
+            pass
 
     @callback
     def async_stop(self) -> None:
@@ -80,13 +94,40 @@ class KiMshHub:
             unsub()
         self._unsub_registry = []
         self._debouncer.async_cancel()
+        if self._totalt_unsub:
+            self._totalt_unsub()
+            self._totalt_unsub = None
 
     @callback
     def _registry_changed(self, _event: Event) -> None:
         self._debouncer.async_schedule_call()
 
+    @callback
+    def _entry_changed(self, _change: Any, entry: ConfigEntry) -> None:
+        if entry.domain == DOMAIN:
+            return
+        if entry.domain == ROM_MARKOR:
+            from . import bruk_romsensorer  # noqa: PLC0415
+            if bruk_romsensorer(self.hass, self.entry) != self.romsensorer:
+                _LOGGER.info("KI MSH: KI Rom lagt til/fjernet – romtellerne vurderes på nytt")
+                self.hass.config_entries.async_schedule_reload(self.entry.entry_id)
+                return
+        self._debouncer.async_schedule_call()
+
+    async def _async_samle(self) -> None:
+        from .kilder import async_samle  # noqa: PLC0415
+        try:
+            self.samlet = await async_samle(self.hass)
+        except Exception:  # noqa: BLE001 – kildene er bonus, aldri en grunn til å feile
+            _LOGGER.exception("KI MSH: kunne ikke lese søsken-integrasjonene")
+
+    async def async_rebuild(self) -> None:
+        await self._async_rebuild()
+
     async def _async_rebuild(self) -> None:
         self._build()
+        await self._async_samle()
+        self.rev += 1
         new_ids = set(self.areas)
         if self.romsensorer and self._known_area_ids is not None and new_ids != self._known_area_ids:
             _LOGGER.info("KI MSH: rom endret, laster på nytt")
@@ -114,12 +155,19 @@ class KiMshHub:
             except Exception:  # noqa: BLE001
                 floors = {}
 
-        areas, icons, area_floors = {}, {}, {}
+        areas, icons, area_floors, extra = {}, {}, {}, {}
         for area in area_reg.async_list_areas():
             if (wanted and area.id not in wanted) or area.id in skip:
                 continue
             areas[area.id] = area.name
             icons[area.id] = area.icon
+            extra[area.id] = {
+                "bilde": getattr(area, "picture", None),
+                "aliaser": sorted(getattr(area, "aliases", None) or []),
+                # HAs egne klimasensorer for området (HA 2024.11+), ellers None
+                "temperatur_entity": getattr(area, "temperature_entity_id", None),
+                "fuktighet_entity": getattr(area, "humidity_entity_id", None),
+            }
             area_floors[area.id] = floors.get(getattr(area, "floor_id", None))
 
         members: dict[str, dict[str, list[str]]] = {aid: defaultdict(list) for aid in areas}
@@ -173,6 +221,7 @@ class KiMshHub:
 
         self.areas = dict(sorted(areas.items(), key=lambda kv: kv[1].lower()))
         self.area_icons, self.area_floors, self.members = icons, area_floors, members
+        self.area_extra = extra
         self.floors = sorted(floors.values(), key=lambda f: (f.get("niva") is None, f.get("niva") or 0))
         self._device_of, self._class_of = device_of, class_of
         self._entity_area = {eid: aid for aid, ds in members.items() for lst in ds.values() for eid in lst}
@@ -225,6 +274,13 @@ class KiMshHub:
         area_id = self._entity_area.get(event.data.get("entity_id"))
         if area_id:
             async_dispatcher_send(self.hass, signal(self.entry.entry_id, area_id))
+        # «Hele huset» regner over alle entiteter – samles opp til én oppdatering per sekund (tunge hus)
+        if self._totalt_unsub is None:
+            self._totalt_unsub = async_call_later(self.hass, 1.0, self._totalt_nå)
+
+    @callback
+    def _totalt_nå(self, _now: Any) -> None:
+        self._totalt_unsub = None
         async_dispatcher_send(self.hass, signal(self.entry.entry_id, TOTALT_ID))
 
     @callback
@@ -320,15 +376,34 @@ class KiMshHub:
 
     # ------------------------------------------------------------------ hele huset (sensor.ki_msh / ki_msh/hus)
     def hus(self) -> dict[str, Any]:
+        """Hele husmodellen (websocket ki_msh/hus). Rommene er de som er valgt i Konfigurer → Rom (areas/ekskluder_rom),
+        med listene fra KI Rom-kartleggingen. rev øker ved hver ny modell; kilder/energi kommer fra kilder.py."""
+        kirom = ((self.samlet.get("kilder") or {}).get("ki_rom") or {}).get("rom") or {}
         rom = []
         for aid, navn in self.areas.items():
             o = self._compute_oversikt(aid)
             f = self.area_floors.get(aid) or {}
-            rom.append({"area_id": aid, "navn": navn, "ikon": self.area_icons.get(aid), "etasje_id": f.get("id"),
-                        "antall": o["value"], **{k: o["attrs"][k] for k in ("lys", "media", "klima", "gardiner",
-                                                                             "temperatur", "fuktighet", "effekt")}})
+            x = self.area_extra.get(aid) or {}
+            a = o["attrs"]
+            rom.append({
+                "area_id": aid, "navn": navn, "ikon": self.area_icons.get(aid), "etasje_id": f.get("id"),
+                "bilde": x.get("bilde"), "aliaser": x.get("aliaser") or [],
+                "antall": o["value"],
+                **{k: a[k] for k in ("lys", "media", "klima", "gardiner", "temperatur", "fuktighet", "effekt", "effekt_andre", "scener", "skript", "lysniva")},
+                "brytere": [d["entity"] for d in a["brytere"]], "vifter": [d["entity"] for d in a["vifter"]],
+                "sensorer": a["sensorer"],
+                # Beste klimasensor: HAs eget valg for området, ellers første i rommet
+                "temperatur_entity": x.get("temperatur_entity") or (a["temperatur"][0] if a["temperatur"] else None),
+                "fuktighet_entity": x.get("fuktighet_entity") or (a["fuktighet"][0] if a["fuktighet"] else None),
+                "ki_rom": kirom.get(aid) or {},
+            })
         return {
+            "rev": self.rev,
             "etasjer": self.floors, "rom": rom, "funksjoner": self.funksjoner,
             "popups": [f["hash"] for f in self.funksjoner if f["aktiv"]],
             "romsensorer": "ki_msh" if self.romsensorer else ("ki_rom" if self.hass.config_entries.async_entries(ROM_MARKOR) else "av"),
+            "kilder": self.samlet.get("kilder") or {},
+            "energi": {**(self.samlet.get("energi") or {"lastet": False}), **({"pris": self.options[CONF_PRIS]} if self.options.get(CONF_PRIS) else {})},
+            # Reserve for hus/rom uten egen sensor (Konfigurer → Kilder) – erstatter gjettede ID-er i frontend
+            "reserve": {"temperatur": self.options.get(CONF_TEMP_RESERVE), "fuktighet": self.options.get(CONF_FUKT_RESERVE)},
         }
