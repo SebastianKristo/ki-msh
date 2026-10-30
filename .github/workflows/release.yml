@@ -1,10 +1,16 @@
 name: Release
 
-# Ny versjon: push en tag (f.eks. `git tag v55.0.0 && git push origin v55.0.0`) → GitHub-release med siste seksjon fra
+# Ny versjon: push en tag (f.eks. `git tag v55.0.0 && git push origin v55.0.0`) eller kjør workflowen for hånd → GitHub-release med siste seksjon fra
 # CHANGELOG.md. HACS installerer integrasjonen fra den nyeste releasen (custom_components/ki_msh i taggen).
 on:
   push:
     tags: ['v*']
+  # Eller start den i Actions → Release → Run workflow med en ny tag (opprettes på main)
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Ny tag, f.eks. v55.0.0'
+        required: true
 
 permissions:
   contents: write
@@ -24,4 +30,5 @@ jobs:
       - name: Opprett release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME · KI MSH $(jq -r .version custom_components/ki_msh/manifest.json)" --notes-file notes.md --latest
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG · KI MSH $(jq -r .version custom_components/ki_msh/manifest.json)" --notes-file notes.md --latest
