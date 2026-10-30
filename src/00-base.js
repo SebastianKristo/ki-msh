@@ -2525,22 +2525,27 @@
       if (!cont) return;
       const c = this._config, D = this.constructor.spacingDefaults || MSH.SPACING;
       const gap = c.gap != null ? Number(c.gap) : D.gap, top = c.pad_top != null ? Number(c.pad_top) : D.pad_top, bot = c.pad_bottom != null ? Number(c.pad_bottom) : D.pad_bottom;
+      // Runde 2: skriv bare når verdien endres – å sette samme verdi på nytt (eller nullstille marginen før måling) gjør
+      // layouten ugyldig, og målingen under tvinger da en ny layout midt i popupens åpne-animasjon
+      const setS = (el, k, v) => { if (el.style[k] !== v) el.style[k] = v; };
       const grids = [cont, ...cont.querySelectorAll('.bubble-cards-container')];
-      grids.forEach((g) => { g.style.setProperty('--bubble-pop-up-gap', gap + 'px'); g.style.gap = gap + 'px'; g.style.rowGap = gap + 'px'; });
+      grids.forEach((g) => { if (g.style.getPropertyValue('--bubble-pop-up-gap') !== gap + 'px') g.style.setProperty('--bubble-pop-up-gap', gap + 'px'); setS(g, 'gap', gap + 'px'); setS(g, 'rowGap', gap + 'px'); });
       const cards = [...cont.querySelectorAll('*')].filter((e) => /^msh-.*-card$/.test(e.localName));
       if (!cards.length || (cards[0] !== this && cards[cards.length - 1] !== this)) return;
       const first = cards[0], last = cards[cards.length - 1];
-      if (last === this) { this.style.paddingBottom = MSH.popupBottomPad(bot); this.style.marginBottom = ''; }
+      if (last === this) { setS(this, 'paddingBottom', MSH.popupBottomPad(bot)); setS(this, 'marginBottom', ''); }
       if (first === this) {
-        this.style.marginTop = '';
         // Headeren i DENNE popupen (ikke første popup i samme rot – da havner kortet utenfor synsfeltet)
         const pop = cont.closest ? cont.closest('.bubble-pop-up') : null, root = cont.getRootNode && cont.getRootNode();
         const hdr = (pop && pop.querySelector('.bubble-header-container')) || (root && root.querySelector && root.querySelector('.bubble-header-container'));
+        // målt med dagens margin: ønsket margin = dagens + (ønsket avstand − faktisk avstand)
+        const m0 = parseFloat(this.style.marginTop) || 0;
         const fr = this.getBoundingClientRect(), hr = hdr && hdr.getBoundingClientRect();
         // 26.18: popupens felles header-mellomrom (--ki-popup-header-gap, MSH.applyHeaderGap i 02-popups.js) legges til pad_top én gang
         const hg = parseFloat(getComputedStyle(cont).getPropertyValue('--ki-popup-header-gap')) || 0;
-        const mt = hr && hr.height ? top + hg - (fr.top - hr.bottom) : null;
-        if (fr.height && mt != null && Math.abs(mt) < 240) this.style.marginTop = mt + 'px';
+        const mt = hr && hr.height ? m0 + top + hg - (fr.top - hr.bottom) : null;
+        if (fr.height && mt != null && Math.abs(mt) < 240) setS(this, 'marginTop', Math.round(mt * 100) / 100 + 'px');
+        else if (!fr.height || mt == null) setS(this, 'marginTop', '');
       }
     }
     // Ytelse (Android): sjekken leser beregnet stil for hvert element. Rett etter tegningen tvinger det stil + layout

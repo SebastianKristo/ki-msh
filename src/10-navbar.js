@@ -1191,6 +1191,8 @@
         nav.dataset.glassDragOff = '1';
         nav.classList.add('reord');
         st.el.classList.add('lift');
+        // glass-trykket (additiv scale 1.07 fra MSH sin trykk-animasjon) skal ikke komme i tillegg til løftet (ble 1.2)
+        try { st.el.getAnimations().forEach((a) => a.cancel()); } catch (e) { /* */ }
         st.el.style.transform = 'scale(1.12)';
         M.haptic('medium');
       };
@@ -1262,6 +1264,7 @@
         this._busy = true;
         mb.classList.add('reord');
         st.el.classList.add('lift');
+        try { st.el.getAnimations().forEach((a) => a.cancel()); } catch (e) { /* */ } // ikke glass-trykket i tillegg (ble 1.16)
         st.el.style.transform = 'scale(1.08)';
         M.haptic('medium');
       };

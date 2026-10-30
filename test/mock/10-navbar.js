@@ -6,6 +6,7 @@
 //  - navigasjon (kun over http – file:// tillater ikke pushState til annen sti): /annet-dashbord skjuler, retur viser
 (function () {
   if (/harness-bubble/.test(location.pathname)) return; // ikke i Bubble-sjekklisten (endrer hash)
+  if (window.__noNavSelftest) return; // tester som selv styrer hash/menyer slår den av (den endrer hash et par sekunder etter start)
   const t0 = Date.now();
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const portal = () => document.querySelector('.msh-navbar-portal');
