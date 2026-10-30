@@ -14,7 +14,7 @@
  *                                remember_view, kursCat, kursOpen) – lokal morph av roten, ingen config-lagring.
  *   editorHtml(host, draft)    → Kurser-editoren (Tilpass → Kurser og GUI-editoren). draft = kurs-objektet (eller en
  *                                config med `kurs`); null = standard (KDEF).
- *   editorBind(host, el, draft, onChange) → alle endringer kaller onChange(nyKurs) (null = «Tilbakestill kurser»).
+ *   editorBind(host, el, draft, onChange) → alle endringer kaller onChange(nyKurs) (null = «Nullstill kurser»).
  *                                Ren editortilstand (åpne/redigert/Avansert/YAML) ligger på host.__skEd.
  *   toYaml(kurs)               → gyldig YAML for `custom:ki-energi-card-strom` (MSH.yaml.dump, ellers designets kYaml).
  *   css                        → stilene for begge (legg dem i kortets shadow root OG i Tilpass-arkets rot).
@@ -532,7 +532,7 @@
       </div>
       ${groups}
       <button class="sk-kaddg" data-sk-e="addGroup">${ic('mdi:playlist-plus', 22)}Legg til gruppe</button>
-      <div class="sk-kebr"><button class="sk-kebb" data-sk-e="yaml">${ic('mdi:code-tags', 20)}${E.yaml ? 'Skjul YAML' : 'Vis YAML'}</button><button class="sk-kebb" data-sk-e="reset">${ic('mdi:restart', 20)}Tilbakestill kurser</button></div>
+      <div class="sk-kebr"><button class="sk-kebb" data-sk-e="yaml">${ic('mdi:code-tags', 20)}${E.yaml ? 'Skjul YAML' : 'Vis YAML'}</button><button class="sk-kebb" data-sk-e="reset">${ic('mdi:restart', 20)}Nullstill kurser</button></div>
       ${E.yaml ? `<pre class="sk-kyaml" data-sk-yaml>${esc(toYaml(T0))}</pre>` : ''}
       <datalist id="sk-kents" data-nomorph data-key="sk-kents">${ents.map((id) => `<option value="${esc(id)}"></option>`).join('')}</datalist>`;
   }

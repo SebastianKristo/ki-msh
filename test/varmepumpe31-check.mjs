@@ -299,7 +299,7 @@ await shot(p, '7-tilpass-entiteter', false);
 // Visning
 await p.evaluate(() => window.MSH.portals().pop().shadowRoot.querySelector('[data-a="etab"][data-k="v"]').click()); await wait(p, 300);
 const V0 = await p.evaluate(() => { const R = window.MSH.portals().pop().shadowRoot; return { rows: [...R.querySelectorAll('.vr .vl1')].map((e) => e.textContent).join(), subs: [...R.querySelectorAll('.vr .vl2')].map((e) => e.textContent).join('|'), on: [...R.querySelectorAll('.vr .tsw')].map((e) => e.getAttribute('aria-checked')).join(), reset: R.querySelector('.reset').textContent.trim(), h: Math.round(R.querySelector('.sh').getBoundingClientRect().height) }; });
-ok('C · Visning: Animasjoner · Nøkkeltall · Setning i Info · Diagnostikk (alle på) + «Tilbakestill alt»; samme arkhøyde', V0.rows === 'Animasjoner,Nøkkeltall,Setning i Info,Diagnostikk' && V0.subs === 'Vifte, rør og varme i toppkortet|Ute, kompressor og varmtvann|«Kompressoren går på …»|Knappen nederst i popupen' && V0.on === 'true,true,true,true' && V0.reset === 'Tilbakestill alt' && V0.h === h0, V0);
+ok('C · Visning: Animasjoner · Nøkkeltall · Setning i Info · Diagnostikk (alle på) + «Nullstill alt»; samme arkhøyde', V0.rows === 'Animasjoner,Nøkkeltall,Setning i Info,Diagnostikk' && V0.subs === 'Vifte, rør og varme i toppkortet|Ute, kompressor og varmtvann|«Kompressoren går på …»|Knappen nederst i popupen' && V0.on === 'true,true,true,true' && V0.reset === 'Nullstill alt' && V0.h === h0, V0);
 await p.evaluate(async () => { const R = () => window.MSH.portals().pop().shadowRoot; R().querySelector('[data-a="vis"][data-k="kpi"]').click(); await new Promise((q) => setTimeout(q, 200)); R().querySelector('[data-a="vis"][data-k="diag"]').click(); await new Promise((q) => setTimeout(q, 300)); });
 card = await p.evaluate(() => ({ kp: window.__c.shadowRoot.querySelectorAll('.kp').length, diag: !!window.__c.shadowRoot.querySelector('[data-key="acc-diag"]') }));
 ok('C · Visning: Nøkkeltall og Diagnostikk av → borte i kortet', card.kp === 0 && !card.diag, card);
@@ -322,7 +322,7 @@ ok('C · GUI-editoren (getConfigElement) speiler rekkefølge, navn og synlighet'
 // Tilbakestill alt
 await p.evaluate(async () => { window.__c.customize('visning'); await new Promise((q) => setTimeout(q, 700)); const R = window.MSH.portals().pop().shadowRoot; R.querySelector('[data-a="reset"]').click(); await new Promise((q) => setTimeout(q, 300)); });
 card = await p.evaluate(() => ({ b: [...window.__c.shadowRoot.querySelectorAll('.qb')].map((q) => q.getAttribute('aria-label')).join(), kp: window.__c.shadowRoot.querySelectorAll('.kp').length, t: [...window.__c.shadowRoot.querySelectorAll('.tb')].map((e) => e.textContent.trim()).join(), tab: (window.MSH.portals().pop().shadowRoot.querySelector('.et.on') || {}).textContent }));
-ok('C · tannhjul/fokus «visning» åpner Visning; «Tilbakestill alt» → v3-standard i kortet', card.tab === 'Visning' && card.b === 'Boost,Vifte,Eco,Alarm,Wi-Fi' && card.kp === 3 && card.t === 'Info,Varme,Varmtvann,Luft', card);
+ok('C · tannhjul/fokus «visning» åpner Visning; «Nullstill alt» → v3-standard i kortet', card.tab === 'Visning' && card.b === 'Boost,Vifte,Eco,Alarm,Wi-Fi' && card.kp === 3 && card.t === 'Info,Varme,Varmtvann,Luft', card);
 await p.evaluate(() => { const R = window.MSH.portals().pop(); R.shadowRoot.querySelector('.bg').click(); });
 await p.close();
 } catch (e) { fail.push('krasj: ' + e.message); console.error(e); }

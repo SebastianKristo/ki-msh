@@ -690,7 +690,7 @@
     // «Legg til» (søk blant rom, snarveier og entiteter) + «Tilbakestill til forslag» (med bekreftelse).
     _hcTools(m) {
       const u = this.u, t = m.t, hass = this.hass, c = m.c;
-      const info = t.hc ? `Hjem er kuratert · ${m.rooms.length} rom og ${m.en.length} snarveier. Fjernede kort kommer ikke tilbake av seg selv.` : 'Hjem fylles automatisk med alle rom (tidligere oppsett). «Tilbakestill til forslag» gir en kuratert forside.';
+      const info = t.hc ? `Hjem er kuratert · ${m.rooms.length} rom og ${m.en.length} snarveier. Fjernede kort kommer ikke tilbake av seg selv.` : 'Hjem fylles automatisk med alle rom (tidligere oppsett). «Nullstill til forslag» gir en kuratert forside.';
       let search = '';
       if (u.hcAdd) {
         const q = String(u.hcQ || '').trim(), nq = q.toLowerCase(), has = new Set(t.hc ? t.hc.cards : [...m.vis.map((a) => 'rom:' + a.id), ...m.en]);

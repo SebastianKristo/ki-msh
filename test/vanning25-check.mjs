@@ -282,7 +282,7 @@ let S = await p.evaluate(async () => {
   R.querySelector('.tabs [role="tab"][data-v="avansert"]').click(); await new Promise((q) => setTimeout(q, 200));
   const av = R.textContent;
   const draft = { ...ed._config };
-  return { tabs, inPortal, live, ta: ta0[0], ta0, leaked, soner, gr, draft, ents: ['KI Vanning-oversikt', 'Anlegget', 'Regnpause', 'Vintermodus', 'Strømtrekk', 'Vannmåler totalt', 'KI Vann-prefiks', 'KI Vann-modell', 'Hendelser (Hvor gikk vannet)', 'Vannflyt / måler for hendelser', 'Minste hendelse'].filter((x) => !ents.includes(x)), av: ['Vis vannmåler', 'Haptikk', 'Styring av programmer', 'Dagsmål', 'Stopp alt nå', 'Tilbakestill til standard'].filter((x) => !av.includes(x)) };
+  return { tabs, inPortal, live, ta: ta0[0], ta0, leaked, soner, gr, draft, ents: ['KI Vanning-oversikt', 'Anlegget', 'Regnpause', 'Vintermodus', 'Strømtrekk', 'Vannmåler totalt', 'KI Vann-prefiks', 'KI Vann-modell', 'Hendelser (Hvor gikk vannet)', 'Vannflyt / måler for hendelser', 'Minste hendelse'].filter((x) => !ents.includes(x)), av: ['Vis vannmåler', 'Haptikk', 'Styring av programmer', 'Dagsmål', 'Stopp alt nå', 'Nullstill til standard'].filter((x) => !av.includes(x)) };
 });
 ok('D · Tilpass Vanning: fire faner Faner · Soner · Entiteter · Avansert, portalt ut av kortet', S.tabs.join() === 'Faner,Soner,Entiteter,Avansert' && S.inPortal, S);
 ok('D · av/på for fane vises straks i kortet (utkast)', !S.live.includes('Program') && S.live.includes('Soner'), S.live);

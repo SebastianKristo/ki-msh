@@ -146,7 +146,7 @@
         <div class="pwprev" data-nomorph data-key="pw-prev"></div>
       </div>
       <div class="pwst ${P.statusKind === 'ok' ? '' : P.statusKind}" data-key="pw-st">${esc(P.status)}</div>
-      <button class="b40" style="align-self:flex-start" data-a="pwreset" data-h="warning">${ic('mdi:restore', 18)} Tilbakestill til automatisk</button>
+      <button class="b40" style="align-self:flex-start" data-a="pwreset" data-h="warning">${ic('mdi:restore', 18)} Nullstill til automatisk</button>
     </div>`;
   }
   // Forhåndsvisning av fanen i egen shadow root (arkets .seg-stil skal ikke lekke inn)

@@ -56,5 +56,8 @@ window.MSH.i18n.add({
   "Nullstill til generert": "Reset to generated",
   "Nullstill til standard": "Reset to default",
   "Nullstill visning": "Reset view",
+  "Nullstill alt": "Reset all",
+  "Nullstill kurser": "Reset circuits",
   "Nullstille alle innstillinger for Lys til standard": "Reset all Light settings to default",
+  "Hjem fylles automatisk med alle rom (tidligere oppsett). «Nullstill til forslag» gir en kuratert forside": "Home is filled automatically with all rooms (previous setup). «Reset to suggestion» gives a curated front page",
 });

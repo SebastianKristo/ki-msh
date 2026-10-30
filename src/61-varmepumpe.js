@@ -884,7 +884,7 @@
       }
       const VIS = [['anim', 'Animasjoner', 'Vifte, rør og varme i toppkortet'], ['kpi', 'Nøkkeltall', 'Ute, kompressor og varmtvann'], ['sentence', 'Setning i Info', '«Kompressoren går på …»'], ['diag', 'Diagnostikk', 'Knappen nederst i popupen']];
       return safe(() => sec('Visning', `<div class="vis">${VIS.map(([k, l, s], i) => `<div class="vr${i ? ' bt' : ''}"><span class="vcol"><span class="vl1">${esc(l)}</span><span class="vl2">${esc(s)}</span></span>${sw('vis', k, D[k] !== false, l)}</div>`).join('')}</div>`, 'lsec')
-        + `<button class="reset" data-a="reset">${M.icon('mdi:restart', 20)}Tilbakestill alt</button>`);
+        + `<button class="reset" data-a="reset">${M.icon('mdi:restart', 20)}Nullstill alt</button>`);
     };
     const draw = () => {
       if (!ov) return;

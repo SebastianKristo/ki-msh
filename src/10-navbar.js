@@ -33,6 +33,8 @@
  */
 (function () {
   const M = window.MSH, esc = M.esc, C = M.C;
+  // Enhetens navn i «Gjelder bare denne enheten (…)»: modellen (Pixel 9 Pro), ellers det lagrede enhetsnavnet
+  const devNm = () => { try { const d = M.deviceInfo ? M.deviceInfo() : {}; return d.model || d.label || (M.store && M.store.deviceName) || ''; } catch (e) { return ''; } };
   // Ytelse: fast tom config til M.mediaPlayers (mellomlagret per config-objekt – en ny {} per kall ga full ny beregning per spiller)
   const NOCFG = Object.freeze({});
   const PINK = C.accent;
@@ -2576,7 +2578,7 @@
       const rail = document.documentElement.style.getPropertyValue('--ki-nav-h') === '0px';
       return `<span class="gt nbbl">Avstand fra bunnen</span>
         <div class="nbbot" data-key="nbbot"><div class="ln"><input type="range" min="0" max="48" step="1" value="${v}" data-nbbot="1" aria-label="Avstand fra bunnen"><span class="nbbv num">${v} px</span></div>
-        <div class="ln"><span class="hint" style="flex:1">${rail ? 'Navbaren står vertikalt nå – brukes når navbaren ligger i bunnen' : `Gjelder bare denne enheten${M.store && M.store.deviceName ? ' (' + esc(M.store.deviceName) + ')' : ''} · standard ${def} px`}</span>${own != null ? `<button class="rsb" data-a="nbbotstd">${M.icon('restart_alt', 18)}Standard</button>` : ''}</div></div>`;
+        <div class="ln"><span class="hint" style="flex:1">${rail ? 'Navbaren står vertikalt nå – brukes når navbaren ligger i bunnen' : `Gjelder bare denne enheten${devNm() ? ' (' + esc(devNm()) + ')' : ''} · standard ${def} px`}</span>${own != null ? `<button class="rsb" data-a="nbbotstd">${M.icon('restart_alt', 18)}Standard</button>` : ''}</div></div>`;
     }
     // «Mini-spiller» (Fiks 17.26): navbar.mini – samme felt i «Tilpass navbar» og GUI-editoren (samme element)
     _mini(c) {
@@ -2598,7 +2600,7 @@
       }
       html += tg('Skjul i Media-popupen', 'hide_in_media', m.hide_in_media !== false);
       // Fiks 20.16: per bruker × enhet (nav_profiles, lagres straks som «Avstand fra bunnen»)
-      html += `<button class="tg" data-a="nbmhpop" data-v="${mHidePopOn(m) ? 0 : 1}"><span class="tx2"><b>Skjul når en popup er åpen</b><i>${esc('Gjelder bare denne enheten' + (M.store && M.store.deviceName ? ' (' + M.store.deviceName + ')' : ''))}</i></span><span class="trk ${mHidePopOn(m) ? 'on' : ''}"><span class="knb"></span></span></button>`;
+      html += `<button class="tg" data-a="nbmhpop" data-v="${mHidePopOn(m) ? 0 : 1}"><span class="tx2"><b>Skjul når en popup er åpen</b><i>${esc('Gjelder bare denne enheten' + (devNm() ? ' (' + devNm() + ')' : ''))}</i></span><span class="trk ${mHidePopOn(m) ? 'on' : ''}"><span class="knb"></span></span></button>`;
       // Fiks 19.15: TV i mini-spilleren – − / + i pillen (standard) eller slider som for musikk
       const tvv = m.tv_vol === 'slider' ? 'slider' : 'steps';
       html += `<span class="cap" style="padding:0 6px">Volum for TV</span><div class="wseg">${[['steps', '− / +'], ['slider', 'Slider']].map(([k, l]) => `<button class="${tvv === k ? 'on' : ''}" aria-selected="${tvv === k}" data-a="nbmtv" data-v="${k}">${l}</button>`).join('')}</div>`;

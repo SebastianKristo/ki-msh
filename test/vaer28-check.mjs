@@ -97,7 +97,7 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
     const r = c._rawConfig;
     return { caps, stil, secs, resetTxt, resetOn, byName, byId, none: none.length, live, liveScene, cfg: { style: r.style, sections: r.sections, tile_order: r.tile_order, places: (r.places || []).length } };
   });
-  ok(`${T} 28.1 arket: Stil (Klassisk · Scene) · Steder · Seksjoner (4 brytere) · Fliser + «Tilbakestill rekkefølge»`, ['Stil', 'Steder', 'Seksjoner', 'Fliser'].every((x) => Sh.caps.some((c) => c.startsWith(x))) && Sh.stil.join('|') === 'Klassisk|Scene*' && Sh.secs.slice(0, 4).join('|') === 'Farevarsel|Neste timer|Døgnvarsel|Fliser' && Sh.resetTxt === 'Tilbakestill rekkefølge' && Sh.resetOn, Sh);
+  ok(`${T} 28.1 arket: Stil (Klassisk · Scene) · Steder · Seksjoner (4 brytere) · Fliser + «Nullstill rekkefølge»`, ['Stil', 'Steder', 'Seksjoner', 'Fliser'].every((x) => Sh.caps.some((c) => c.startsWith(x))) && Sh.stil.join('|') === 'Klassisk|Scene*' && Sh.secs.slice(0, 4).join('|') === 'Farevarsel|Neste timer|Døgnvarsel|Fliser' && Sh.resetTxt === 'Nullstill rekkefølge' && Sh.resetOn, Sh);
   ok(`${T} 28.1 søk i «Legg til sted» finner weather.* på navn og ID`, Sh.byName.includes('weather.hytta') && Sh.byId.join() === 'weather.hytta' && Sh.none === 0, Sh);
   ok(`${T} 28.2 Tilbakestill → designets standardrekkefølge (Vind · Soloppgang · Måne · UV · Føles som · Nedbør · Sikt · Luftfuktighet · Lufttrykk)`, Sh.liveScene.join() === 'wind,sun,moon,uv,feels,rain,vis,hum,press', Sh.liveScene);
   ok(`${T} 28.1 Ferdig lagrer style · sections · tile_order (fjernet) · places i kortets config`, Sh.cfg.style === 'scene' && Sh.cfg.sections && Sh.cfg.sections.hours === false && Sh.cfg.tile_order === undefined && Sh.cfg.places === 2, Sh.cfg);
@@ -118,7 +118,7 @@ for (const vp of [{ width: 390, height: 900, tag: 'mobil' }, { width: 1280, heig
     const a2 = last && { sections: last.sections };
     const txt = R.textContent;
     ed.remove();
-    return { cur, a1, a2, has: ['Steder', 'Farevarsel', 'Neste timer', 'Døgnvarsel', 'Fliser', 'Tilbakestill rekkefølge', 'Rekkefølge seksjoner'].filter((x) => !txt.includes(x)) };
+    return { cur, a1, a2, has: ['Steder', 'Farevarsel', 'Neste timer', 'Døgnvarsel', 'Fliser', 'Nullstill rekkefølge', 'Rekkefølge seksjoner'].filter((x) => !txt.includes(x)) };
   });
   ok(`${T} 28.1 getConfigElement: style (gammel stil vises riktig), sections-brytere, samme felt som arket`, G.cur.includes('klassisk*') && G.a1 && G.a1.style === 'scene' && G.a1.stil === undefined && G.a1.hide === undefined && G.a1.sections && G.a1.sections.days === false && G.a2 && G.a2.sections && G.a2.sections.hours === false && !G.has.length, G);
 

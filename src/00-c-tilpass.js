@@ -116,7 +116,7 @@
     document.addEventListener('change', on, true);
   }
 
-  // Runde 2 · ÉN bryter i alle Tilpass-ark: 50×30, knott 24 px (alltid hvit --ki-knob), av = --ki-ctrl, på = rosa (M.SWITCH_ON).
+  // Runde 2 · ÉN bryter i alle Tilpass-ark: 50×30, knott 24 px (alltid hvit --ki-knob), av = --ki-ctrl. På-fargen beholdes fra arkets egen .on-regel (rosa eller designets gradient).
   // Knotten flyttes med transform (ingen layout per frame). Legges ETTER arkets egne regler (samme spesifisitet → vinner).
   //   MSH.tp.sw(sporet, knotten relativt til sporet, på-klassen) – f.eks. sw('.trk', ' i', '.on') eller sw('.sw', '::after', '.on')
   //   on kan også være et forfedre-prefiks: sw('.qtr', ' i', '.on', '.qalt') → «.qalt.on .qtr»
@@ -124,7 +124,6 @@
     const pse = /^::/.test(k), T = anc ? `${anc} ${t}` : t, TON = anc ? `${anc}${on} ${t}` : `${t}${on}`;
     return `${T}{position:relative;display:inline-block;width:50px;height:30px;border-radius:15px;flex:none;box-sizing:border-box;padding:0;background:var(--ki-ctrl, var(--gray400,#545454));box-shadow:none;transition:background .2s ease}
     ${T}${k}{${pse ? "content:'';" : ''}position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px rgb(0 0 0/.3);transform:translateX(0);transition:transform .22s cubic-bezier(.3,1.3,.6,1)}
-    ${TON}{background:${M.SWITCH_ON || PINK}}
     ${TON}${k}{left:3px;background:var(--ki-knob, #fafafa);transform:translateX(20px)}
     @media (prefers-reduced-motion: reduce){${T},${T}${k}{transition:none}}`;
   };

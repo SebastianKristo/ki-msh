@@ -1778,7 +1778,6 @@
     .kb-sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .kb-sw.on{background:rgb(242 133 201)}
     .kb-sw.on i{left:21px}
-    ${M.tp ? M.tp.sw('.kb-sw', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .kb-sw.miss{opacity:.35}
     .kb-msw{margin-left:2px;cursor:pointer}
     .kb-stats{display:grid;gap:6px}

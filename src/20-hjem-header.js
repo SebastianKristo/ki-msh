@@ -372,7 +372,7 @@
             ${M.icon('mdi:chevron-down', 18, 'color:var(--ki-text-2, #afafaf);flex:none')}${own ? '<span class="xpown" title="Egen profil"></span>' : ''}</div>
           <div class="xpbtns">
             <label class="xpb2 ${copy ? '' : 'off'}">${M.icon('mdi:content-copy', 16)}Kopier fra …<select data-pcopy="1" aria-label="Kopier fra" ${copy ? '' : 'disabled'}><option value="" selected disabled>Kopier fra …</option>${copy}</select></label>
-            <button class="xpb2" data-a="x-preset" ${own ? '' : 'disabled'}>${M.icon('mdi:backup-restore', 16)}Tilbakestill til arvet</button>
+            <button class="xpb2" data-a="x-preset" ${own ? '' : 'disabled'}>${M.icon('mdi:backup-restore', 16)}Nullstill til arvet</button>
           </div>
           <div class="xpv" data-nomorph data-w="${W}"></div>
           <span class="help">${own ? 'Egen profil for dette valget.' : 'Arver fra ' + esc(this._inhName(sel)) + '.'} Forhåndsvisning i ${W} px bredde.</span>

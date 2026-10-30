@@ -2035,7 +2035,7 @@ ${VE}`;
 
   /* ================================================================ «Tilpass Vær» (26.25 · ark portalet ut av popupen, MSH.overlay) */
   // Stil (Klassisk · Scene) · Steder (liste, fjern, «Legg til sted» med navn + weather.*-velger) · Seksjoner av/på
-  // (Farevarsel, Neste timer, Døgnvarsel, Fliser) + Animasjoner · Fliser: «Tilbakestill rekkefølge».
+  // (Farevarsel, Neste timer, Døgnvarsel, Fliser) + Animasjoner · Fliser: «Nullstill rekkefølge».
   // Utkastflyten (MSH.draftEditor): endringer vises straks i kortet, lagres i kortets config ved Ferdig (rosa pille øverst
   // til høyre). Utenfor/Esc forkaster. Samme felter som GUI-editoren (stil, places, hide, tile_order, hero_fx).
   // Fiks 27 (27.4/27.8, fasit Vær v5 tp/places): header (ikon · «Tilpass Vær» · Ferdig) · Stil-segment · «Steder · hold og
@@ -2114,7 +2114,7 @@ ${VE}`;
         <div class="rows">${HIDE.map(([k, l, ic]) => `<div class="r" data-key="sec-${k}">${M.icon(ic, 20, 'color:var(--ki-text-2, #afafaf)')}<span class="rl ell">${l}</span>${sw('sec', k, !hid.has(k), l)}</div>`).join('')}
           <div class="r">${M.icon('mdi:weather-snowy-rainy', 20, 'color:var(--ki-text-2, #afafaf)')}<span class="col grow" style="min-width:0"><span class="rl ell">Animasjoner</span><span class="rs2 ell">Regn, snø, lyn, sol og vind i Scene</span></span>${sw('fx', 'fx', fxOn, 'Animasjoner')}</div></div>
         <span class="cap">Fliser</span>
-        <div class="tbox"><span class="tnote">Hold inne en flis og dra for å endre rekkefølgen.</span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>${M.icon('mdi:restart', 18)}Tilbakestill rekkefølge</button></div>
+        <div class="tbox"><span class="tnote">Hold inne en flis og dra for å endre rekkefølgen.</span><button class="nb" data-a="treset" ${D.tile_order || D.tiles ? '' : 'disabled'}>${M.icon('mdi:restart', 18)}Nullstill rekkefølge</button></div>
         <button class="more" data-a="sensors">${M.icon('mdi:thermometer', 18)}Føles som og sikt</button>
         <button class="more" data-a="more">${M.icon('mdi:cog-outline', 18)}Entiteter og prognose</button>`;
       M.tp.fill(box);

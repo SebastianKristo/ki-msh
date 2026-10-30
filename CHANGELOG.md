@@ -4,7 +4,7 @@
 
 ## 1.7.0 · Runde 2 · Enhetlige Tilpass-menyer, jevnere animasjoner, integrasjonen henter inn huset
 **Tilpass-menyene**
-- Én felles bryter (`MSH.tp.sw`: 50×30 spor, hvit knott med fjær, «Reduser bevegelse») i alle Tilpass-ark og editorer (18 filer). Bryterne inni popupene (Server, Tesla) er som i designet.
+- Én felles bryter (`MSH.tp.sw`: 50×30 spor, hvit knott med fjær, «Reduser bevegelse») i alle Tilpass-ark og editorer. På-fargen er arkets egen (rosa eller designets gradient). Bryterne inni popupene (Server, Tesla, Klima-varslinger) er som i designet. Bryterne inni popupene (Server, Tesla) er som i designet.
 - Én liste over Tilpass-oppføringene (`MSH.tp.entries`) med ikon og forklaring, brukt i Tilpass-arket, Innstillinger og HA-hub-en, så navn og forklaring er like overalt.
 - **Navbar:** «Plassering» som egen seksjon. Sjeldne valg ligger under «Avansert» (lukket): plass til navbaren, korte bekreftelser, «Tilpass» i Mer-menyen for brukere uten admin, og visning av handlingsvalg. Tydeligere tekster: «I Mer-menyen», «Når du trykker / holder inne», «Gjelder bare denne enheten (navn)». «Liquid glass» heter nå «Glass» («Glass i menyer og Tilpass-ark»).
 - **Tilpass-arket, PC, Server, Tilpass alt og Analyse** bruker felles header (`MSH.tp.head`), seksjonstitler (`MSH.tp.SEC`), grupper og chips. PC-arket har språkvalg (Norsk/English) og «Bytt til mobilvisning». «Tilpass alt»: «Steg n av 13 · lagres straks», og første steg heter «Hva skal med».
