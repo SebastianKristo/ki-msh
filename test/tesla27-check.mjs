@@ -153,7 +153,7 @@ const F = await e.evaluate(async () => {
   out.lims = ed._config.limits; out.chips = [...window.__c.shadowRoot.querySelectorAll('.lchip')].map((c) => c.textContent);
   return out;
 });
-ok('Fane-rad 60 px: ikon #afafaf uten sirkel, rosa bryter 44×26', F.h === 60 && F.icCol === 'rgb(175, 175, 175)' && F.icBg === 'rgba(0, 0, 0, 0)' && F.sw[0] === 44 && F.sw[1] === 26 && F.sw[2] === 'rgb(242, 133, 201)', F);
+ok('Fane-rad 60 px: ikon #afafaf uten sirkel, rosa bryter 50×30 (felles Tilpass-bryter, Runde 2)', F.h === 60 && F.icCol === 'rgb(175, 175, 175)' && F.icBg === 'rgba(0, 0, 0, 0)' && F.sw[0] === 50 && F.sw[1] === 30 && F.sw[2] === 'rgb(242, 133, 201)', F);
 ok('Segment «Ikoner» → forhåndsvisning og popup live; 90 % → ny ladegrense-knapp', F.prevIcons === 3 && F.cardIcons === 3 && F.lims.join() === '50,60,70,80,90,100' && F.chips.join() === '50,60,70,80,90,100', F);
 // Fiks 28.7: resten av 27.9/27.9b mot designet – drag_indicator-håndtak, bekreftelse-standard (hovedbryter på, Tut avkrysset),
 // arket uten egen høydeoverstyring (felles arkhøyde 28.11)

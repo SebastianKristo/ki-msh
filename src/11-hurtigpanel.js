@@ -323,7 +323,10 @@
     .num{font-variant-numeric:tabular-nums}
     .hint{position:fixed;width:44px;height:4px;border-radius:2px;background:${M.theme.whiteA(0.22)};z-index:1000;pointer-events:none;opacity:0;transition:opacity .25s ease}
     .hint.on{opacity:1}
-    .scrim{position:fixed;top:0;bottom:0;z-index:1000;background:rgb(0 0 0/0.5);opacity:0;pointer-events:none;-webkit-backdrop-filter:blur(var(--hp-blur,0px));backdrop-filter:blur(var(--hp-blur,0px))}
+    .scrim{position:fixed;top:0;bottom:0;z-index:1000;background:rgb(0 0 0/0.5);opacity:0;pointer-events:none}
+    /* Runde 2: blur bare mens panelet står åpent (blur(0px) lager også et eget lag på GPU-en) – aldri i Ytelsesmodus */
+    .scrim.blur{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+    :host-context([data-ki-perf=lite]) .scrim.blur,.scrim.blur.lite{-webkit-backdrop-filter:none;backdrop-filter:none}
     .scrim.on{pointer-events:auto}
     .pn{position:fixed;top:0;z-index:1001;max-height:100dvh;overflow-y:auto;overscroll-behavior:contain;background:var(--ki-popup, #2f2f2f);border-radius:0 0 36px 36px;padding:calc(env(safe-area-inset-top, 0px) + 18px) 16px 10px;box-shadow:0 18px 50px rgb(0 0 0/0.45);transform:translateY(calc(-100% - 24px));will-change:transform;touch-action:none;user-select:none;-webkit-user-select:none;visibility:hidden}
     .pn.vis{visibility:visible}
@@ -507,7 +510,7 @@
       const f = M.clamp(p / Math.max(1, H), 0, 1);
       this.scrim.style.transition = anim ? 'opacity .32s ease' : 'none';
       this.scrim.style.opacity = String(f);
-      this.scrim.style.setProperty('--hp-blur', '0px'); // 2b: blur bare når panelet ligger åpent og ikke dras
+      this.scrim.classList.remove('blur'); // 2b: blur bare når panelet ligger åpent og ikke dras
       if (this.variant === 'mobil' && p > H + 24) this._setExp(M.clamp((p - H - 24) / 220, 0, 1));
     }
     _setExp(e, anim) {
@@ -560,7 +563,7 @@
       document.documentElement.setAttribute('data-ki-hurtig', '1');
       this._lockBg(true);
     }
-    _blur(on) { this.scrim.style.setProperty('--hp-blur', on && this.isOpen && !(this._p && this._p.mode === 'drag') ? '8px' : '0px'); }
+    _blur(on) { this.scrim.classList.toggle('blur', !!(on && this.isOpen && !(this._p && this._p.mode === 'drag'))); this.scrim.classList.toggle('lite', !!(M.perf && M.perf.lite)); }
     close(anim = true) {
       clearTimeout(this._blurT);
       const was = this.isOpen;
@@ -573,7 +576,7 @@
       this.pn.style.transform = 'translateY(calc(-100% - 24px))';
       this.scrim.style.transition = anim ? 'opacity .28s ease' : 'none';
       this.scrim.style.opacity = '0';
-      this.scrim.style.setProperty('--hp-blur', '0px');
+      this.scrim.classList.remove('blur');
       clearTimeout(this._hideT);
       this._hideT = setTimeout(() => { if (!this.isOpen && !this._g) this.pn.classList.remove('vis'); this._hintUpd(); }, anim ? 340 : 0);
       document.documentElement.removeAttribute('data-ki-hurtig');

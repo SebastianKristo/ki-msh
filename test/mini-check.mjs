@@ -34,7 +34,7 @@ async function setup(vp, cfg, sb) {
     window.deepAll = (sel) => { const out = []; const walk = (root) => root.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(document); return out; };
     window.deep = (sel) => window.deepAll(sel)[0] || null;
     window.rect = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { l: +r.left.toFixed(1), t: +r.top.toFixed(1), w: +r.width.toFixed(1), h: +r.height.toFixed(1), b: +r.bottom.toFixed(1), r: +r.right.toFixed(1) }; };
-    const H = window.mockHass(); window.H = H;
+    const H = window.mockHass(); H.user = { ...(H.user || {}), is_admin: false }; window.H = H; // ikke-admin: «Tilpass» ligger i Mer
     const S = H.states;
     // Bare én spiller spiller (resten av), så testen er forutsigbar
     Object.keys(S).filter((k) => k.startsWith('media_player.')).forEach((k) => { S[k] = { ...S[k], state: 'off' }; });

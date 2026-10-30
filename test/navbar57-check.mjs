@@ -96,6 +96,9 @@ for (const V of VARIANTS) {
     ok(`${T}: oppsett (rail=${V.rail}, mini-spiller synlig, standardliste ['#vaer'], Android=${and})`, pre.rail === V.rail && pre.mini && JSON.stringify(pre.list) === '["#vaer"]' && pre.android === and, pre);
     // ---- åpne #vaer
     const O = await p.evaluate(async () => {
+      // Fiks 60.2: på Android er Vær alltid vanlig popup, og navbaren skjules i #vaer bare med værscene. Testen måler
+      // skjule-mekanikken (tid/overgang), så Android-passet later som scenen vises.
+      if (MSH.perf && MSH.perf.android) MSH.vaerScene = () => true;
       const rec = window.__rec(900);
       await window.__wait(50);
       const t = performance.now(); location.hash = '#vaer';

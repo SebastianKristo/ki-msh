@@ -1098,10 +1098,13 @@
       const order = all.map((id) => (vis.includes(id) ? nv[k++] : id));
       await this._saveCfg({ tab_order: order });
     }
-    async _saveCfg(patch) {
+    async _saveCfg(patch, quiet) {
       const old = this._rawConfig || this.config, nc = { ...old, ...patch };
       if (!nc.card_id) nc.card_id = old.card_id || M.uid();
+      const pend = !!this._raf;
       this.setConfig(nc);
+      // quiet: configen gir samme visning (første utfylling lagrer bare det som allerede vises) → ingen ny tegning
+      if (quiet && !pend && this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; this._force = false; }
       try { const r = await M.saveCardConfig(this.hass, old, nc); if (r && r.config) { this._rawConfig = r.config; } } catch (e) { /* */ }
     }
     // Fanerad: flex-rad som scroller vannrett (scroll-snap proximity), fanene krymper aldri og kuttes aldri.
@@ -1901,7 +1904,7 @@
       const hc = M.hjemCards(hass, c), tabs = { ...(c.tabs || {}) };
       tabs.hjem = hc.auto ? { auto_fill: true } : { auto_fill: false, cards: hc.cards, seen: hc.candidates };
       if (!tabs.aktuelt) tabs.aktuelt = { auto_fill: false, types: M.aktTypes(c) };
-      setTimeout(() => { if (!get(this.config, 'tabs.hjem')) this._saveCfg({ tabs }); }, 0);
+      setTimeout(() => { if (!get(this.config, 'tabs.hjem')) this._saveCfg({ tabs }, true); }, 0); // samme visning – lagres uten ny tegning
     }
     // 20.13 · migrering: rom lagret i layout.aktuelt.order tømmes én gang (rendering ignorerer dem uansett)
     _aktMigOnce() {

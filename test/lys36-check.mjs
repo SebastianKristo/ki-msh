@@ -49,7 +49,7 @@ async function boot(cfg, dark = true) {
     try { localStorage.clear(); } catch (e) { /* */ }
     const wait = (window.wait = (ms) => new Promise((q) => setTimeout(q, ms)));
     window.deepAll = (sel, root) => { const out = []; const walk = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(root || document); return out; };
-    const H = (window.H = window.mockHass()); H.themes = { ...(H.themes || {}), darkMode: dark };
+    const H = (window.H = window.mockHass()); delete H.states['light.creality_k2_light']; /* 3D-printerens lys uten rom (Fiks 60.3-mock) gir ellers fanen «Andre» */ H.themes = { ...(H.themes || {}), darkMode: dark };
     H.floors.forste = { ...H.floors.forste, name: '1. etasje' }; H.floors.andre = { ...H.floors.andre, name: '2. etasje' };
     window.HAP = []; window.addEventListener('haptic', (e) => window.HAP.push(e.detail));
     window.CALLS = []; const cs = H.callService; H.callService = (d, s, data) => { window.CALLS.push([d, s, data]); return cs ? cs.call(H, d, s, data) : Promise.resolve(); };
@@ -301,7 +301,7 @@ async function boot(cfg, dark = true) {
     const lr = [...SR().querySelectorAll('.lr[data-lr^="light."]')].find((r) => r.querySelector('.lr-f') && getComputedStyle(r.querySelector('.lr-f')).display !== 'none');
     o.row = lr ? { bg: getComputedStyle(lr.querySelector('.lr-f')).backgroundColor, v: lr.querySelector('.lr-p').textContent, slider: !!document.querySelector('msh-light-slider') } : null;
     const mm = SHR().querySelector('[data-key="vis-mellomrom"]'), cs = getComputedStyle(mm);
-    o.mm = { bg: cs.backgroundColor, r: cs.borderRadius, pre: [...mm.querySelectorAll('.mini:not(.on)')].map((b) => getComputedStyle(b).backgroundColor), on: [...mm.querySelectorAll('.mini.on')].map((b) => getComputedStyle(b).backgroundImage.slice(0, 15)) };
+    o.mm = { bg: cs.backgroundColor, r: cs.borderRadius, pre: [...mm.querySelectorAll('.mini:not(.on)')].map((b) => getComputedStyle(b).backgroundColor), on: [...mm.querySelectorAll('.mini.on')].map((b) => getComputedStyle(b).backgroundColor) };
     SHR().querySelector('[data-a="seg"][data-k="bottom"][data-v="220"]').click(); await wait(300);
     o.pb = L().style.paddingBottom;
     o.cfg = (({ cols, off_color, color_mode, on_color, show_kelvin, bottom }) => ({ cols, off_color, color_mode, on_color, show_kelvin, bottom }))(D());
@@ -309,7 +309,8 @@ async function boot(cfg, dark = true) {
   });
   ok('Visning: kolonner 3, av-farge (kortbakgrunn) live i popupen, ingen Kortstørrelse/Slider-høyde (Fiks 41)', vis.cols === 3 && vis.noSize && vis.off === 'rgb(47, 47, 47)', vis);
   ok('Visning: Én farge + på-farge (fyllet) når de felles lys-radene', vis.row && !vis.row.slider && vis.row.bg === 'rgb(102, 209, 158)', vis.row);
-  ok('Visning: Mellomrom-kortet helt dekkende #3a3a3a r24, forvalg #404040 / rosa', vis.mm.bg === 'rgb(58, 58, 58)' && vis.mm.r === '24px' && vis.mm.pre.every((x) => x === 'rgb(64, 64, 64)') && vis.mm.on.every((x) => /gradient/.test(x)), vis.mm);
+  // Fiks 66: forvalg under slidere er små og stille (MSH.tp.SNAP, ingen flate) – valgt = rosa tone (SNAP_ON)
+  ok('Visning: Mellomrom-kortet helt dekkende #3a3a3a r24, forvalg uten flate / valgt rosa tone', vis.mm.bg === 'rgb(58, 58, 58)' && vis.mm.r === '24px' && vis.mm.pre.every((x) => x === 'rgba(0, 0, 0, 0)') && vis.mm.on.length > 0 && vis.mm.on.every((x) => x !== 'rgba(0, 0, 0, 0)'), vis.mm);
   ok('Visning: «Luft i bunnen» 220 → popupens bunnluft (bottom)', /220px/.test(vis.pb) && vis.cfg.bottom === 220, { pb: vis.pb, cfg: vis.cfg });
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/lys36-visning.png` });
 

@@ -294,7 +294,7 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const want = ['#rolf', '#server', '#settings', '#kalender', '#tesla', '#3d', '#vanning', '#norgespris', '#stromregning', '#planter'];
     // Fiks 23.8: den importerte #kalender (ki-tabs-card …) erstattes av den genererte Kalender-popupen («Erstattet av Kalender»)
     // 25: #rolf (ki-robot-card) → Sir Sweeps (24.9), #tesla (ki-tesla-card) → Tesla, #server (ki-homelab-/unifi-card …) → Server
-    const SUPD = { '#settings': ['msh-innstillinger-card', 'Innstillinger'], '#kalender': ['msh-kalender-card', 'Kalender'], '#rolf': ['msh-stovsuger-card', 'Sir Sweeps'], '#tesla': ['msh-tesla-card', 'Tesla'], '#server': ['msh-server-card', 'Server'] };
+    const SUPD = { '#settings': ['msh-innstillinger-card', 'Innstillinger'], '#kalender': ['msh-kalender-card', 'Kalender'], '#rolf': ['msh-stovsuger-card', 'Sir Sweeps'], '#tesla': ['msh-tesla-card', 'Tesla'], '#server': ['msh-server-card', 'Server'], '#planter': ['msh-planter-card', 'Planter'] }; // Fiks 60.3: Planter er generert
     const wantC = want.filter((h) => !SUPD[h]);
     I.tiIStacken = want.every((h) => byI(h).length === 1) && wantC.every((h) => JSON.stringify(byI(h)[0]) === JSON.stringify(M.applyHeaderGap(M.resolveTemplates(M.yaml.parse(docs[want.indexOf(h)].text)), -10))) // 26.18: header-gap + gap-card øverst fjernet
       && Object.entries(SUPD).every(([h, [tag, by]]) => byI(h)[0].cards[0].type === 'custom:' + tag && (M.popupReport.inactive || []).some((x) => x.hash === h && x.by === by));
@@ -346,8 +346,8 @@ for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 
     const rolf = (M.store.get('custom_popups') || []).find((c) => c.hash === '#rolf');
     I.lagretYaml = !!rolf && rolf.name === 'Rolf' && rolf.yaml === t1 && !!rolf.imported;
     // dupliser
-    await act('ppopen', '#planter'); await act('ppdup');
-    I.dupliser = /hash: '#planter-kopi'/.test(q('.ppcode textarea').value) && !q('[data-key="ppsave"]').disabled;
+    await act('ppopen', '#norgespris'); await act('ppdup'); // #planter er nå også en autogenerert popup (Fiks 60.3)
+    I.dupliser = /hash: '#norgespris-kopi'/.test(q('.ppcode textarea').value) && !q('[data-key="ppsave"]').disabled;
     await act('ppback');
     // maler-editoren: ugyldig YAML stoppes, gyldig lagres
     await act('ppglobals');

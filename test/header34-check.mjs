@@ -82,7 +82,7 @@ ok('bytt: haptic selection, menyen lukkes, ingen toast, location.href urørt', r
 ok('«Du er her» følger serveren (location_name), ikke trykket', r.here2.join() === 'Oslo', r.here2);
 ok('stedets egen sti (ledende / fjernes) · navnet i appen kodes bare for & og mellomrom', r.urls[1] === 'homeassistant://navigate/lovelace/gard?server=Toten' && r.urls[2] === 'homeassistant://navigate/ki-dashboard?server=Min%20hytte%20%26%20co', r.urls);
 ok('i appen: samme window.open, aldri location.href', r.app.n === 4 && r.app.last === 'homeassistant://navigate/ki-dashboard?server=Strømstad' && r.app.href && !r.app.toasts.length, r.app);
-ok('Tilpass header → Steder: navn, server, ikon, farge, sti (ikke path/navigation_path/url)', r.fields.slice(0, 5).every(Boolean) && !r.fields.slice(5).some(Boolean), r.fields);
+ok('Tilpass header → Steder: navn, server, ikon, farge, sti + valgfri adresse (url, Fiks 61) – ikke path/navigation_path', r.fields.slice(0, 5).every(Boolean) && !r.fields[5] && !r.fields[6] && r.fields[7], r.fields);
 ok('ingen sidefeil', !errs.length, errs);
 await b.close();
 res.forEach((x) => console.log(x));

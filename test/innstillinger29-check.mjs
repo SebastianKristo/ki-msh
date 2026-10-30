@@ -90,7 +90,9 @@ const edClick = async (p, sel) => { await p.evaluate((sel) => window.__ed.shadow
     const tabeller = tab(KI_VARS_TEKST) === tab(M.KI_VARS_TEKST) && tab(KI_VARS_IKON) === tab(M.KI_VARS_IKON);
     return { out, tabeller };
   });
-  ok('29.1 ki-varsling-card (ki-cards, uendret) og MSH.finnBrytere gir identiske brytere for 13 configer (plattform, enheter, ikke_enheter, master, kjente, bare, skjul, ekstra, navn …) + samme tabeller', !V.missing && V.out.every((x) => x.same) && V.out[0].n > 10 && V.tabeller, V);
+  // ki-cards er et eget repo (KI_VARSLING); finnes det ikke i miljøet, kan sammenligningen ikke kjøres – meldes som hoppet over
+  if (V.missing && !existsSync(KI_VARSLING)) console.log(`– 29.1 ki-varsling-card: hoppet over (${KI_VARSLING} finnes ikke – sett KI_VARSLING=<sti til ki-cards/src/83-ki-varsling-card.js>)`);
+  else ok('29.1 ki-varsling-card (ki-cards, uendret) og MSH.finnBrytere gir identiske brytere for 13 configer (plattform, enheter, ikke_enheter, master, kjente, bare, skjul, ekstra, navn …) + samme tabeller', !V.missing && V.out.every((x) => x.same) && V.out[0].n > 10 && V.tabeller, V);
   // kilde = registeret: alle rader finnes i hass.entities med valgt plattform (eller er ekstra)
   const R = await p.evaluate(() => { const M = window.MSH, h = window.__h, F = M.innstFaner({}); return F.map((t) => ({ k: t.key, P: t.plattform, rows: M.innstRows(h, {}, t.key).map((r) => [r.id, (h.entities[r.id] || {}).platform, r.kilde]) })); });
   ok('29.2 ingen mockrader: hver rad er en switch/input_boolean i entitetsregisteret med fanens plattform', R.every((t) => t.rows.length && t.rows.every(([id, pl, k]) => k === 'integrasjon' && /^(switch|input_boolean)\./.test(id) && t.P.includes(pl))), R);

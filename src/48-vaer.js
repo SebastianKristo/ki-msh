@@ -842,7 +842,7 @@
   const viewEff = (c) => (android() ? 'sheet' : viewOf(c)); // 60.2
   const navHidden = () => (M.navHidesIn ? M.navHidesIn('#vaer') : true);
   // 60.2: navbar/Now Playing skjules i #vaer bare når værscenen faktisk vises (Android og «Klassisk» = vanlig popup med navbar)
-  const navHiddenEff = () => navHidden() && stilEff(vaerCfg()) === 'scene';
+  const navHiddenEff = () => navHidden() && (M.vaerScene ? M.vaerScene() : stilEff(vaerCfg()) === 'scene'); // én kilde: M.vaerScene (60.2)
   const hideNavOf = () => navHidden();
   M.vaerViewOf = viewOf;
   M.vaerHideNavOf = hideNavOf;

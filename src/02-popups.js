@@ -344,7 +344,7 @@
       if (!(pop && popHash === location.hash && pop.isConnected && pop.classList.contains('is-popup-opened'))) { pop = M.openPopupEl ? M.openPopupEl() : null; popHash = location.hash; }
       return pop && M.popupSettled(pop) ? pop : null;
     };
-    const skip = (e) => e.composedPath().some((n) => n.localName === 'msh-navbar-card' || n.id === 'ki-overlay-root' || (n.classList && (n.classList.contains('ki-more-info') || n.classList.contains('bubble-pop-up'))));
+    const skip = (e) => e.composedPath().some((n) => n.localName === 'msh-navbar-card' || n.localName === 'ki-overlay-root' || n.id === 'ki-overlay-root' || (n.classList && (n.classList.contains('ki-more-info') || n.classList.contains('bubble-pop-up'))));
     const swallow = (e) => { e.stopPropagation(); if (e.cancelable && e.type !== 'pointerdown' && e.type !== 'touchstart') e.preventDefault(); };
     window.addEventListener('pointerdown', (e) => {
       down = null;

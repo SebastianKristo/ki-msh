@@ -38,7 +38,7 @@ await page.waitForFunction(() => customElements.get('bubble-card'), null, { time
 const wait = (ms) => page.waitForTimeout(ms);
 await page.evaluate(async () => {
   window.deepAll = (sel, root) => { const out = []; const walk = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(root || document); return out; };
-  const H = (window.H = window.mockHass());
+  const H = (window.H = window.mockHass()); delete H.states['light.creality_k2_light']; // 3D-printerens lys (uten rom, Fiks 60.3-mock) gir ellers fanen «Andre»
   // HA-etasjene med lange navn: Lys skal vise kortnavnet som på Hjem
   H.floors.forste = { ...H.floors.forste, name: '1. etasje' };
   H.floors.andre = { ...H.floors.andre, name: '2. etasje' };

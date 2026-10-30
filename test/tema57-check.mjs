@@ -243,7 +243,7 @@ for (const light of [false, true]) {
 const SCB = { cloudy: '#4a525e', sunny: '#2f6fb0', rainy: '#323a46', 'clear-night': '#0b1224' };
 for (const light of [true, false]) {
   const M = light ? 'lys' : 'mørk';
-  const { p, ctx } = await bubble({ light, hash: '#vaer', card: { type: 'custom:msh-vaer-card', card_id: 'pop-vaer57' }, ua: light ? ANDROID_UA : undefined });
+  const { p, ctx } = await bubble({ light, hash: '#vaer', card: { type: 'custom:msh-vaer-card', card_id: 'pop-vaer57' }, ua: undefined }); // Fiks 60.2: på Android er Vær alltid vanlig popup (ingen scene) – scenefargen testes med standard-UA
   const V = await p.evaluate(async (SCB) => {
     const wait = (ms) => new Promise((q) => setTimeout(q, ms));
     const o = { dash: MSH.theme.dashBg(), conds: {} };

@@ -732,6 +732,9 @@ ${ISLAND_CSS}
   // Kort registrerer egen statuslinjefarge for popupen sin (null = fjern). Er popupen åpen, brukes den straks.
   MSH.popupThemeColor = T.popupThemeColor = function (hash, color) {
     if (!hash) return;
+    // Runde 2: kort kaller dette ved hver tegning (Vær: null for klassisk stil) – ingen endring → ingen ny utregning
+    // (popupTopColor tvinger layout/stil midt i åpne-animasjonen; hashchange-lytteren under setter fargen ved åpning)
+    if (!color && !TC.prov.has(hash)) return;
     if (color) TC.prov.set(hash, color); else TC.prov.delete(hash);
     if (location.hash === hash) T.setThemeColor(T.popupTopColor(hash), 'popup', 0);
   };
@@ -742,7 +745,8 @@ ${ISLAND_CSS}
     if (h && h.length > 1) {
       T.setThemeColor(T.popupTopColor(h), 'popup', 0); // samme hendelse som åpner popupen (Bubble lytter på hashchange)
       const again = () => { if (location.hash === h) T.setThemeColor(T.popupTopColor(h), 'popup', 0); };
-      popRaf = requestAnimationFrame(again);
+      // Runde 2: ingen ekstra utregning på neste bilde – popupen er fortsatt «is-opening» da, så svaret er det samme, men
+      // dimColor/getBoundingClientRect tvinger stil og layout midt i åpne-animasjonen (lang oppgave på Android)
       popT = setTimeout(again, 420); // når åpne-animasjonen er ferdig (bakteppe/plassering endelig)
     } else T.restoreThemeColor('popup');
   }

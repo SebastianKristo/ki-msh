@@ -278,17 +278,19 @@
       if (loading) return loading;
       loading = (async () => {
         try {
+          // husmodellen og brukerens eget oppsett hentes samtidig (ingen ekstra rundtur før kortene får oppsettet)
+          const userP = hass.callWS({ type: 'frontend/get_user_data', key: KEY }).catch(() => null);
           const H = M.hus ? await M.hus.load(hass) : null;
           shared = !!(H && H.lagring === 'felles');
-          let r = await BK.get();
+          let r = shared ? await BK.get() : await userP;
           if (shared && isEmpty(r && r.value)) {
             // første gang med felles lager: last opp brukerens eget oppsett (user_data, ellers cachen)
-            let own = null;
-            try { own = ((await hass.callWS({ type: 'frontend/get_user_data', key: KEY })) || {}).value; } catch (e) { /* */ }
+            let own = ((await userP) || {}).value;
             if (isEmpty(own)) own = isEmpty(data) ? null : data;
             if (own) { await BK.put(own); r = { value: own }; console.info('[ki-store] oppsettet er flyttet til det felles lageret (KI MSH-integrasjonen)'); }
           }
-          if (r && r.value && typeof r.value === 'object' && !busy()) { data = r.value; cache(); emit(''); }
+          // samme som cachen (vanlig ved oppstart) → ingen ny tegning av alle kortene
+          if (r && r.value && typeof r.value === 'object' && !busy() && JSON.stringify(r.value) !== JSON.stringify(data)) { data = r.value; cache(); emit(''); }
         } catch (e) { /* eldre HA: behold cache */ }
         loaded = true;
         try { if (M.i18n) M.i18n.fromHass(hass); } catch (e) { /* */ } // Fiks 59: språkvalget følger brukeren

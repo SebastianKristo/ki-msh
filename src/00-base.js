@@ -989,7 +989,8 @@
     try { v = S && S.get ? S.get('ui.glass_anim') : undefined; } catch (e) { v = undefined; }
     if (v === true || v === false || (S && S.loaded)) {
       const on = v !== false;
-      try { if (localStorage.getItem(GA_LS) !== (on ? '1' : '0')) localStorage.setItem(GA_LS, on ? '1' : '0'); } catch (e) { /* */ }
+      // cachen skrives bare når valget faktisk er satt (ikke for standardverdien – en lesing skal ikke lagre noe)
+      try { if ((v === true || v === false) && localStorage.getItem(GA_LS) !== (on ? '1' : '0')) localStorage.setItem(GA_LS, on ? '1' : '0'); else if (v == null && localStorage.getItem(GA_LS) === '0') localStorage.removeItem(GA_LS); } catch (e) { /* */ }
       return on;
     }
     try { return localStorage.getItem(GA_LS) !== '0'; } catch (e) { return true; }
@@ -1719,12 +1720,15 @@
       const onHash = () => {
         if (!sc.isConnected) return window.removeEventListener('hashchange', onHash);
         const back = () => S.jump(S.o.index ? S.o.index() : 0);
-        back(); requestAnimationFrame(back); setTimeout(back, 400); // også etter Bubble Cards inn-animasjon
+        // Runde 2: ikke synkront i hashchange (tvinger layout før Bubble har tegnet popupen) – neste bilde + etter inn-animasjonen
+        requestAnimationFrame(back); setTimeout(back, 400);
       };
       window.addEventListener('hashchange', onHash);
     }
     MSH.bindDots(o.dots && o.dots(), S.go);
-    S.jump(o.index ? o.index() : 0);
+    // Runde 2: ResizeObserver melder første bredde etter layout og hopper da til startsiden – her bare prikkene (ingen
+    // tvungen layout midt i tegningen). Uten ResizeObserver: hopp som før.
+    if (window.ResizeObserver) set(MSH.clamp(o.index ? o.index() : 0, 0, Math.max(0, n() - 1)), true); else S.jump(o.index ? o.index() : 0);
     return S;
   };
 
