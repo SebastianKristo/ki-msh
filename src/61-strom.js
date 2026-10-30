@@ -600,7 +600,7 @@
       const kort = `<div class="k2 fade">
         <button class="bill" data-act="page" data-page="stromregning" data-bp="Måned"><span class="bi" style="width:${big ? 48 : 44}px;height:${big ? 48 : 44}px">${ic('mdi:receipt-text-outline', big ? 24 : 22)}</span>
           <span class="bl">Regning ${MND[new Date().getMonth()]}</span><span class="bv"><b class="num" style="${bv}">${V.maned != null ? nf(V.maned, 0) : '–'}</b><small>kr</small></span>
-          <span class="bs">${V.manedEst ? 'Estimat' : 'Hittil'} · ${daysLeft} dager igjen</span></button>
+          <span class="bs">${V.manedEst ? 'Estimat' : 'Hittil'} · ${daysLeft} ${daysLeft === 1 ? 'dag' : 'dager'} igjen</span></button>
         <div class="kcol">
           <button class="kc" data-act="page" data-page="stromregning" data-bp="Dag">${small('mdi:calendar-today', 'Kostnad i dag')}<span class="cv"><b class="num" style="${sv}">${V.dag != null ? nf(V.dag, 0) : '–'}</b><small>kr</small></span></button>
           <button class="kc" data-act="page" data-page="norgespris">${small('mdi:piggy-bank-outline', 'Spart med Norgespris', GREEN)}<span class="cv"><b class="num" style="${sv};color:${GREEN}">${V.spart != null ? nf(V.spart, 0) : '–'}</b><small>kr i dag</small></span></button>

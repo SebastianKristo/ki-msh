@@ -26,6 +26,8 @@ const p = await b.newPage({ viewport: { width: 390, height: 844 } });
 const errs = [];
 p.on('pageerror', (e) => errs.push(e.message));
 p.on('console', (m) => { if (m.type() === 'error' && !/ERR_|CORS|bubble-modules|Failed to/.test(m.text())) errs.push(m.text().slice(0, 160)); });
+// Fast starttid (klokken går videre): mock-prisene følger timen, og noen timer gir tilfeldigvis designets eksempelverdier (1,49 kr)
+await p.clock.install({ time: new Date('2026-10-14T12:20:00') }); await p.clock.resume();
 await p.goto('file://' + resolve('test/harness-bubble.html'));
 for (const m of mocks) await p.addScriptTag({ path: m });
 await p.addScriptTag({ path: bundle });

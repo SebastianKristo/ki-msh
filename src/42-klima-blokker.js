@@ -676,7 +676,7 @@
       + stats([[N('dagens_maks_kwh', null) != null ? nf(N('dagens_maks_kwh'), 2) : '–', `døgnmaks i dag${N('dagens_maks_time', null) ? ' kl. ' + N('dagens_maks_time') : ''}`],
         [N('registrert_snitt', null) != null ? nf(N('registrert_snitt'), 2) : '–', 'snitt topp 3 (registrert)'],
         [N('forventet_time_kwh', null) != null ? nf(N('forventet_time_kwh'), 2) : '–', 'forventet denne timen']])
-      + facts([fact(`data ${kv || '–'}`, kvK), fact(`reserve ${nf(N('reserve_kwh', 0), 2)} kWh`), fact(`${N('dager_igjen', '–')} dager igjen`),
+      + facts([fact(`data ${kv || '–'}`, kvK), fact(`reserve ${nf(N('reserve_kwh', 0), 2)} kWh`), fact(`${N('dager_igjen', '–')} ${Number(N('dager_igjen', 0)) === 1 ? 'dag' : 'dager'} igjen`),
         N('mal_tapt', false) ? fact('mål passert', 'advarsel') : '', N('tariff_ukjent', false) ? fact('tariff ukjent', 'feil') : '', N('tillat_dyrere_trinn', false) ? fact('dyrere trinn tillatt', 'advarsel') : '']);
   }
   function dognGraf(K, card) {
