@@ -21,8 +21,8 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # Ikonet ligger ikke i home-assistant/brands ennå
-          ignore: brands
+          # Ikonet ligger ikke i home-assistant/brands ennå; beskrivelse og emner (topics) settes i repoets innstillinger på GitHub
+          ignore: brands description topics
 
   pytest:
     runs-on: ubuntu-latest

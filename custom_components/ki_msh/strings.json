@@ -56,7 +56,7 @@
       },
       "rom": {
         "title": "Rooms",
-        "description": "Which rooms get popups and room counters. The room counters are the same ones KI Rom creates (sensor.<room>_lys … _oversikt). Automatic = only when KI Rom is not installed.",
+        "description": "Which rooms get popups and room counters. The room counters are the same ones KI Rom creates (sensor.ROOM_lys … sensor.ROOM_oversikt). Automatic = only when KI Rom is not installed.",
         "data": {
           "romsensorer": "Room counters",
           "ekskluder_rom": "Skip these rooms",

@@ -56,7 +56,7 @@
       },
       "rom": {
         "title": "Rom",
-        "description": "Hvilke rom som får popups og romtellere. Romtellerne er de samme som KI Rom lager (sensor.<rom>_lys … _oversikt). Automatisk = bare når KI Rom ikke er installert.",
+        "description": "Hvilke rom som får popups og romtellere. Romtellerne er de samme som KI Rom lager (sensor.ROM_lys … sensor.ROM_oversikt). Automatisk = bare når KI Rom ikke er installert.",
         "data": {
           "romsensorer": "Romtellere",
           "ekskluder_rom": "Hopp over disse rommene",
