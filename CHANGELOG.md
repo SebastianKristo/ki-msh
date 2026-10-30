@@ -26,6 +26,13 @@
 - **Oppsett:** adressen gjøres om til en gyldig URL (æøå håndteres), og du får feilmelding hvis den er ugyldig eller opptatt. Nytt steg «Kilder» (reservesensorer for temperatur og fukt, strømpris). Tømte valg fjernes fra innstillingene. Etter oppsettet får du en velkomstmelding med lenke til dashbordet.
 - **Ryddig:** bundelen får innholdshash i URL-en (`?v=<versjon>-<hash>`), Bubble Card fra CDN fjernes når den ikke trengs lenger, og integrasjonens JS avregistreres ved utlasting. Ved fjerning slettes også det felles lageret og reparasjonsmeldingene. Bubble Card-CDN er låst til `v3.4.2`. `sensor.ki_msh` lagrer ikke store attributter i historikken.
 - **Tester:** `tests/test_runde2.py` (URL-er, innstillinger, KI Energi-kart, lager, websocket) og `test/runde2-check.mjs` (frontend med og uten integrasjonen, felles lager, live-oppdatering, felles kontroller, ark som lukkes).
+**Feil funnet da hele testsuiten ble gjennomgått** (37 sjekker feilet også på main)
+- Trykk på et Tilpass-ark som ligger over en åpen popup (f.eks. håndtaket i «Tilpass lys») lukket popupen bak. «Trykk over popupen lukker den» kjente ikke igjen `<ki-overlay-root>`.
+- Hurtigpanelets bakteppe hadde `backdrop-filter: blur(0px)` hele tiden. Det gir et eget GPU-lag, også i Ytelsesmodus. Nå blurer det bare mens panelet står åpent, og aldri i Ytelsesmodus.
+- Raskere popup-åpning på Android: statuslinjefargen regnes ikke ut på nytt ved hver Vær-tegning eller midt i animasjonen, og karusellene (Vær, Rom, Kalender) tvinger ikke layout ved oppstart eller hash-bytte.
+- Raskere oppstart: ki-store henter husmodellen og brukeroppsettet samtidig, og første utfylling av Hjem-fanene lagres uten ny tegning.
+- Vær skjuler navbaren etter samme regel overalt (`MSH.vaerScene`). En lesing av «Liquid Glass-animasjon» skriver ikke lenger til localStorage.
+- 30 utdaterte tester er oppdatert etter Fiks 60–66, Claude Design og Runde 2 (tekster, header, bryterstørrelse, Vær på Android, Planter som generert popup, datouavhengig kalender). Grensen for bundelstørrelse er hevet til 5,5 MB. Sammenligningen mot ki-cards hoppes over når den ikke finnes.
 - Testoppsettet (`test/harness.html`) følger `hass.themes.darkMode` som i HA. Før fulgte det Playwrights lyse `prefers-color-scheme`, og noen sjekker kjørte derfor i lys modus.
 
 ## 1.6.0 · KI MSH som integrasjon + Claude Design 23.10.2026 (runde 2)
