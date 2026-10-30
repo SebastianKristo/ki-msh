@@ -1,0 +1,27 @@
+name: Release
+
+# Ny versjon: push en tag (f.eks. `git tag v55.0.0 && git push origin v55.0.0`) → GitHub-release med siste seksjon fra
+# CHANGELOG.md. HACS installerer integrasjonen fra den nyeste releasen (custom_components/ki_msh i taggen).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release-notater fra CHANGELOG.md
+        run: |
+          {
+            echo "**KI MSH er en Home Assistant-integrasjon.** HACS → ⋮ → *Custom repositories* → \`https://github.com/${GITHUB_REPOSITORY}\`, type **Integration**. Har du lagt til repoet som *Dashboard* tidligere: fjern det i HACS og legg det til på nytt som *Integration* (se README → «Fra plugin-utgaven»)."
+            echo
+            awk '/^## /{n++} n==1' CHANGELOG.md
+          } > notes.md
+      - name: Opprett release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME · KI MSH $(jq -r .version custom_components/ki_msh/manifest.json)" --notes-file notes.md --latest
