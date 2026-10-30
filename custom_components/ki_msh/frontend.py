@@ -6,6 +6,7 @@ kortene blitt definert to ganger. Bubble Card lastes fra jsDelivr når den mangl
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -34,6 +35,14 @@ _VERSJON = _les_versjon()
 
 def versjon() -> str:
     return _VERSJON
+
+
+def _innholdshash() -> str:
+    """Kort hash av bundelen – byttes ved hver bygging, så nettleser/app aldri bruker en gammel kopi (også uten ny versjon)."""
+    try:
+        return hashlib.sha1((_MAPPE / FRONTEND_FIL).read_bytes()).hexdigest()[:8]
+    except OSError:
+        return "0"
 
 
 async def finnes(hass: HomeAssistant) -> bool:
@@ -93,7 +102,9 @@ async def async_register(hass: HomeAssistant, entry: ConfigEntry) -> None:
         store["static"] = True
 
     await _fjern_gammel_ressurs(hass)
-    url = f"{FRONTEND_URL}/{FRONTEND_FIL}?v={versjon()}"
+    if not store.get("hash"):
+        store["hash"] = await hass.async_add_executor_job(_innholdshash)
+    url = f"{FRONTEND_URL}/{FRONTEND_FIL}?v={versjon()}-{store['hash']}"
     if store.get("js") != url:
         if store.get("js"):  # ny versjon uten omstart (lastet på nytt): ikke last begge
             ha_frontend.remove_extra_js_url(hass, store["js"])
@@ -105,3 +116,17 @@ async def async_register(hass: HomeAssistant, entry: ConfigEntry) -> None:
     if trenger_bubble and not store.get("bubble"):
         ha_frontend.add_extra_js_url(hass, BUBBLE_CDN)
         store["bubble"] = True
+    elif not trenger_bubble and store.get("bubble"):  # «Aldri» valgt / Bubble Card installert: ikke last den to ganger
+        ha_frontend.remove_extra_js_url(hass, BUBBLE_CDN)
+        store["bubble"] = False
+
+
+def async_unregister(hass: HomeAssistant) -> None:
+    """Integrasjonen lastes ut: kortene og Bubble-fra-CDN lastes ikke lenger på nye sider (statiske stier blir stående
+    til omstart – HA kan ikke avregistrere dem). hash beholdes ikke, så en ny bundel får ny URL."""
+    store = hass.data.get(DOMAIN + "_frontend") or {}
+    if store.get("js"):
+        ha_frontend.remove_extra_js_url(hass, store.pop("js"))
+    if store.pop("bubble", False):
+        ha_frontend.remove_extra_js_url(hass, BUBBLE_CDN)
+    store.pop("hash", None)

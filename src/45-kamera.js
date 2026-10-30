@@ -805,6 +805,7 @@
     .sw{position:relative;width:44px;height:26px;border-radius:13px;background:var(--ki-ctrl, var(--gray400,#545454));flex:none;transition:background .2s}
     .sw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px ${BA(0.3)};transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
     .sw.on{background:${M.SWITCH_ON}} .sw.on::after{transform:translateX(18px)} /* Fiks 26: rosa brytere */
+    ${M.tp ? M.tp.sw('.sw', '::after') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .ts{display:flex;gap:4px;padding:3px;border-radius:19px;background:var(--ki-surface-2, var(--gray300,#404040));flex:none}
     .ts button{width:40px;height:32px;border-radius:16px;font-size:13px;font-weight:600;color:var(--ki-text-2, var(--gray800,#afafaf))}
     .ts button.on{background:${PINK};color:var(--ki-on-accent, var(--gray200,#3a3a3a))}

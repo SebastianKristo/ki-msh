@@ -44,8 +44,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     services.async_register(hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _velkommen(hass, entry)  # før update-lytteren: oppdateringen av entry.data skal ikke laste integrasjonen på nytt
     entry.async_on_unload(entry.add_update_listener(_oppdatert))
     return True
+
+
+def _velkommen(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Første oppsett: én melding med lenke til det nye dashbordet (vises ikke igjen etter omstart)."""
+    if entry.data.get("velkommen_vist"):
+        return
+    from homeassistant.components import persistent_notification  # noqa: PLC0415
+    from .dashboard import _valg  # noqa: PLC0415
+    v = _valg(entry)
+    no = (hass.config.language or "").startswith(("nb", "no", "nn"))
+    if v["aktiv"]:
+        msg = (f"Dashbordet er laget automatisk: [{v['tittel']}](/{v['url']}). Rom og popups settes opp fra områdene dine, "
+               "og første gang du åpner det får du en kort veiviser.") if no else (
+               f"The dashboard has been created: [{v['tittel']}](/{v['url']}). Rooms and popups are set up from your areas, "
+               "and the first time you open it you get a short wizard.")
+    else:
+        msg = "Kortene er lastet. Legg til strategien custom:ki-dashboard i et dashbord." if no else "The cards are loaded. Add the custom:ki-dashboard strategy to a dashboard."
+    persistent_notification.async_create(hass, msg, title="KI MSH", notification_id=f"{DOMAIN}_velkommen")
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "velkommen_vist": True})
 
 
 async def _oppdatert(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -59,9 +79,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hub.async_stop()
         dashboard.async_unregister(hass, entry)
         services.async_unregister(hass)
+        frontend.async_unregister(hass)
     return ok
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Integrasjonen fjernes helt: dashbordets lagrede oppsett slettes også."""
+    """Integrasjonen fjernes helt: dashbordet, det felles oppsettet og reparasjonsvarslene slettes også."""
     await dashboard.async_delete(hass, entry)
+    from homeassistant.helpers import issue_registry as ir  # noqa: PLC0415
+    from . import store  # noqa: PLC0415
+    for issue in ("bubble_mangler", "frontend_mangler"):
+        ir.async_delete_issue(hass, DOMAIN, issue)
+    await (await store.async_get(hass)).async_fjern()
+    hass.data.pop(DOMAIN + "_lager", None)

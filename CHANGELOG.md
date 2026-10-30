@@ -2,6 +2,32 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## 1.7.0 · Runde 2 · Enhetlige Tilpass-menyer, jevnere animasjoner, integrasjonen henter inn huset
+**Tilpass-menyene**
+- Én felles bryter (`MSH.tp.sw`: 50×30 spor, hvit knott med fjær, «Reduser bevegelse») i alle Tilpass-ark og editorer (18 filer). Bryterne inni popupene (Server, Tesla) er som i designet.
+- Én liste over Tilpass-oppføringene (`MSH.tp.entries`) med ikon og forklaring, brukt i Tilpass-arket, Innstillinger og HA-hub-en, så navn og forklaring er like overalt.
+- **Navbar:** «Plassering» som egen seksjon. Sjeldne valg ligger under «Avansert» (lukket): plass til navbaren, korte bekreftelser, «Tilpass» i Mer-menyen for brukere uten admin, og visning av handlingsvalg. Tydeligere tekster: «I Mer-menyen», «Når du trykker / holder inne», «Gjelder bare denne enheten (navn)». «Liquid glass» heter nå «Glass» («Glass i menyer og Tilpass-ark»).
+- **Tilpass-arket, PC, Server, Tilpass alt og Analyse** bruker felles header (`MSH.tp.head`), seksjonstitler (`MSH.tp.SEC`), grupper og chips. PC-arket har språkvalg (Norsk/English) og «Bytt til mobilvisning». «Tilpass alt»: «Steg n av 13 · lagres straks», og første steg heter «Hva skal med».
+- Ordbruk: «Nullstill» overalt (ikke «Tilbakestill»), «Tilpass server» og «Tilpass innstillinger» med liten forbokstav. Hurtigpanelets sveip-valg forklarer hva de gjør («Hvor langt du må dra» …).
+- Kosmetikk: grå reservefarger utenfor paletten er byttet til temaets gråtoner (hurtigpanelet, Tilpass alt), og tekst på rosa er `--ki-on-accent`. Ark-bakgrunnen er `--ki-popup`.
+
+**Animasjoner**
+- Trykk-skalering virker igjen i lister som glir inn (`animation-fill-mode: backwards` i stedet for `both` i HA-innstillingene, handlingsvelgeren og varslingsreglene).
+- Tilpass-arkene glir helt ut før de fjernes (`transitionend`, ikke fast 250 ms mot en utgang på 240 ms).
+- «Reduser bevegelse» gjelder alle kort (`MSH.BASE_CSS`). Lastesirkler snurrer fortsatt, også i Ytelsesmodus.
+- Glansen som følger telefonen beregnes bare når glass-temaet er på og Ytelsesmodus er av (før ble hele dokumentet restylet på hver bevegelse).
+- Nedtellingslinja (Hjem → Apparater) bruker `scaleX` i stedet for bredde, og media-prikkene animerer bare bredde og farge (ikke `all`).
+
+**Integrasjonen**
+- **Kilder** (`kilder.py`): KI Rom (romsensorene fra registeret), KI Energi (`unique_id` → entitets-ID, status, tjenester), bryterne fra KI Varslinger m.fl., HAs Energi-oppsett og strømprissensoren samles i husmodellen. Legger du til eller fjerner KI Rom, lastes eller bygges modellen på nytt.
+- **Husmodellen** (`ki_msh/hus`): rom med KI Rom-data, HAs klimasensorer for området, bilde og aliaser, samt `kilder`, `energi`, `reserve` og `rev`. `ki_msh/hus/abonner` sender den på nytt når noe endres. Totalen for «Hele huset» regnes ut med 1 s forsinkelse.
+- **Frontend** (`src/01b-hus.js`, `MSH.hus`): strategien lager rom-popups bare for rommene som er valgt i integrasjonen. Reservesensorene kommer fra Konfigurer → Kilder; de gjettede `sensor.hus_temperature`/`sensor.hus_fuktighet` er fjernet. `MSH.kiRom` og KI Energi-oppslaget bruker integrasjonens kart (virker også for brukere som ikke er admin). Nye rom og enheter gir nye popups uten omlasting. Uten integrasjonen virker alt som før.
+- **Felles lager** (`store.py`, `ki_msh/lager/*`): «Lagring: Felles for alle» (standard) gjør Tilpass-valgene like for alle brukere. ki-store bruker lageret automatisk og laster opp det eksisterende oppsettet første gang. «Per Home Assistant-bruker» beholder `user_data`.
+- **Oppsett:** adressen gjøres om til en gyldig URL (æøå håndteres), og du får feilmelding hvis den er ugyldig eller opptatt. Nytt steg «Kilder» (reservesensorer for temperatur og fukt, strømpris). Tømte valg fjernes fra innstillingene. Etter oppsettet får du en velkomstmelding med lenke til dashbordet.
+- **Ryddig:** bundelen får innholdshash i URL-en (`?v=<versjon>-<hash>`), Bubble Card fra CDN fjernes når den ikke trengs lenger, og integrasjonens JS avregistreres ved utlasting. Ved fjerning slettes også det felles lageret og reparasjonsmeldingene. Bubble Card-CDN er låst til `v3.4.2`. `sensor.ki_msh` lagrer ikke store attributter i historikken.
+- **Tester:** `tests/test_runde2.py` (URL-er, innstillinger, KI Energi-kart, lager, websocket) og `test/runde2-check.mjs` (frontend med og uten integrasjonen, felles lager, live-oppdatering, felles kontroller, ark som lukkes).
+- Testoppsettet (`test/harness.html`) følger `hass.themes.darkMode` som i HA. Før fulgte det Playwrights lyse `prefers-color-scheme`, og noen sjekker kjørte derfor i lys modus.
+
 ## 1.6.0 · KI MSH som integrasjon + Claude Design 23.10.2026 (runde 2)
 **KI MSH er nå en Home Assistant-integrasjon** (`custom_components/ki_msh/`, HACS-type *Integration*). Se README → Installasjon for flytting fra plugin-utgaven.
 - **Kortene** serveres fra integrasjonen (`/ki_msh_static/ki-msh.js?v=<versjon>`) og lastes på alle sider – ingen Lovelace-ressurs. Den gamle ressursen til `ki-msh.js` (HACS-plugin eller `/local/`) fjernes automatisk. Bubble Card lastes fra jsDelivr når den mangler (Konfigurer → Kort: auto/cdn/av).

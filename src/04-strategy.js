@@ -494,13 +494,17 @@
   const roomCfg = (area) => { const r = (M.store && M.store.eff('rooms.' + area)) || {}; const o = {}; Object.keys(r).forEach((k) => { if (r[k] !== null && k !== 'type' && k !== 'card_id' && k !== 'area') o[k] = r[k]; }); return o; };
   M.generateDashboardView = async function (config, hass) {
     config = config || {};
-    M.FALLBACK = { temperature: config.fallback_temperature || 'sensor.hus_temperature', humidity: config.fallback_humidity || 'sensor.hus_fuktighet' };
+    // Runde 2: husmodellen fra integrasjonen (null uten den). Reservesensorene kommer derfra (Konfigurer → Kilder) eller
+    // strategi-configen – aldri gjettede entitets-ID-er.
+    const HUS = M.hus ? await M.hus.load(hass) : null;
+    M.FALLBACK = { temperature: config.fallback_temperature || (HUS && M.hus.reserve('temperatur')) || null, humidity: config.fallback_humidity || (HUS && M.hus.reserve('fuktighet')) || null };
     if (M.store) await M.store.load(hass);
     const user = (M.store && (M.store.view ? M.store.view() : M.store.get())) || {};
     const R = await registries(hass);
     const funcs = buildFunctionPopups(R, hass, config, user);
     const fHash = new Set(funcs.map((f) => f.hash));
-    const rooms = buildRooms(R, hass, config, user).filter((r) => !fHash.has('#' + r.id) && !(M.HASH_ALIAS && M.HASH_ALIAS['#' + r.id]) && !(M.roomBlocked && M.roomBlocked(hass, r.id))); // samme hash som en funksjon → funksjons-popupen vinner; ingen rom-popup for området «Basseng»/«Pool» mens #basseng er på (M.ROOM_BLOCK)
+    const husRom = HUS ? new Set(M.hus.romIds()) : null; // integrasjonen: bare rommene valgt i Konfigurer → Rom
+    const rooms = buildRooms(R, hass, config, user).filter((r) => (!husRom || husRom.has(r.id)) && !fHash.has('#' + r.id) && !(M.HASH_ALIAS && M.HASH_ALIAS['#' + r.id]) && !(M.roomBlocked && M.roomBlocked(hass, r.id))); // samme hash som en funksjon → funksjons-popupen vinner; ingen rom-popup for området «Basseng»/«Pool» mens #basseng er på (M.ROOM_BLOCK)
     const uo = (hash) => popOf(user, hash) || {}; // «Tilpass Hjem» → Popups: navn/ikon/ikonfarge på genererte
     const I = M.CARD_IDS;
     const home = { type: 'custom:msh-hjem-card', card_id: I.home, ...(config.home || {}), cards: {
@@ -645,8 +649,8 @@
           { type: 'range', name: 'popup_header_gap', label: 'Popups · fra Bubble-headeren til første kort (px)', icon: 'mdi:format-vertical-align-top', min: -40, max: 40, default: -10, presets: [[-10, 'Standard −10'], [0, 'Som før 0']] }, // 26.18 (overstyres av Tilpass Hjem → Popups)
           { type: 'select', name: 'navbar.style', label: 'Navbar', options: [['white', 'Standard'], ['glass', 'Liquid Glass']], default: 'white' },
           { type: 'boolean', name: 'stue', label: 'Stue-dashbord for nettbrett (egen visning /stue)', default: false }, // Fiks 58 B
-          { type: 'entity', name: 'fallback_temperature', label: 'Temperatur når rommet mangler sensor', domain: 'sensor', device_class: 'temperature', auto: () => 'sensor.hus_temperature' },
-          { type: 'entity', name: 'fallback_humidity', label: 'Fukt når rommet mangler sensor', domain: 'sensor', device_class: 'humidity', auto: () => 'sensor.hus_fuktighet' },
+          { type: 'entity', name: 'fallback_temperature', label: 'Temperatur når rommet mangler sensor', domain: 'sensor', device_class: 'temperature', auto: () => (M.hus && M.hus.reserve('temperatur')) || null },
+          { type: 'entity', name: 'fallback_humidity', label: 'Fukt når rommet mangler sensor', domain: 'sensor', device_class: 'humidity', auto: () => (M.hus && M.hus.reserve('fuktighet')) || null },
         ] },
       ];
       if (!this._ed) {

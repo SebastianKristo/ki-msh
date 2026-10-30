@@ -10,12 +10,21 @@
           "url_path": "Adresse (må ha bindestrek)",
           "ikon": "Ikon",
           "sidepanel": "Vis i sidepanelet",
-          "kun_admin": "Bare for administratorer"
+          "kun_admin": "Bare for administratorer",
+          "lagring": "Hvor dashbordoppsettet lagres"
+        },
+        "data_description": {
+          "lagring": "Felles: alle brukere og enheter ser samme oppsett. Per bruker: hver Home Assistant-bruker har sitt eget.",
+          "url_path": "Bokstaver, tall og bindestrek, f.eks. ki-msh."
         }
       }
     },
     "abort": {
       "already_configured": "KI MSH er allerede satt opp."
+    },
+    "error": {
+      "ugyldig": "Bruk bare små bokstaver, tall og bindestrek, med minst én bindestrek (f.eks. mitt-hjem).",
+      "opptatt": "Adressen brukes allerede av et annet dashbord eller panel."
     }
   },
   "options": {
@@ -25,7 +34,8 @@
         "menu_options": {
           "dashbord": "Dashbord",
           "rom": "Rom og romtellere",
-          "kort": "Kort og Bubble Card"
+          "kort": "Kort og Bubble Card",
+          "kilder": "Datakilder"
         }
       },
       "dashbord": {
@@ -36,12 +46,17 @@
           "url_path": "Adresse (må ha bindestrek)",
           "ikon": "Ikon",
           "sidepanel": "Vis i sidepanelet",
-          "kun_admin": "Bare for administratorer"
+          "kun_admin": "Bare for administratorer",
+          "lagring": "Hvor dashbordoppsettet lagres"
+        },
+        "data_description": {
+          "lagring": "Felles: alle brukere og enheter ser samme oppsett. Per bruker: hver Home Assistant-bruker har sitt eget.",
+          "url_path": "Bokstaver, tall og bindestrek, f.eks. ki-msh."
         }
       },
       "rom": {
         "title": "Rom",
-        "description": "Romtellerne er de samme som KI Rom lager (sensor.<rom>_lys … _oversikt). Automatisk = bare når KI Rom ikke er installert.",
+        "description": "Hvilke rom som får popups og romtellere. Romtellerne er de samme som KI Rom lager (sensor.<rom>_lys … _oversikt). Automatisk = bare når KI Rom ikke er installert.",
         "data": {
           "romsensorer": "Romtellere",
           "ekskluder_rom": "Hopp over disse rommene",
@@ -56,7 +71,20 @@
         "data": {
           "bubble": "Bubble Card"
         }
+      },
+      "kilder": {
+        "title": "Datakilder",
+        "description": "KI MSH finner det meste selv (KI Rom, KI Energi, HAs Energi-oppsett, strømprissensorer). Velg her bare der det automatiske valget er feil eller mangler.",
+        "data": {
+          "temp_reserve": "Temperatur når et rom ikke har egen sensor",
+          "fukt_reserve": "Luftfuktighet når et rom ikke har egen sensor",
+          "pris": "Strømprissensor (tom = finnes automatisk)"
+        }
       }
+    },
+    "error": {
+      "ugyldig": "Bruk bare små bokstaver, tall og bindestrek, med minst én bindestrek (f.eks. mitt-hjem).",
+      "opptatt": "Adressen brukes allerede av et annet dashbord eller panel."
     }
   },
   "selector": {
@@ -72,6 +100,12 @@
         "auto": "Last fra jsDelivr hvis den mangler",
         "cdn": "Alltid fra jsDelivr",
         "av": "Aldri – jeg har den selv"
+      }
+    },
+    "lagring": {
+      "options": {
+        "felles": "Felles for alle",
+        "bruker": "Per Home Assistant-bruker"
       }
     }
   },

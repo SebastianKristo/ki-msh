@@ -134,15 +134,32 @@ Dashbordet lages automatisk på **/ki-msh** med strategien `custom:ki-dashboard`
 rom-popup per HA-område med entiteter og en funksjons-popup for det du har. Nye rom og integrasjoner dukker opp av seg selv.
 Kortene lastes på alle sider (ingen Lovelace-ressurs å legge inn), og endringer du gjør i dashbordet beholdes.
 
+Når integrasjonen er lagt til, får du en melding med lenke til dashbordet. Integrasjonen henter også inn det dashbordet
+trenger fra resten av huset, så kortene slipper å gjette:
+- **KI Rom:** romsensorene per område leses fra entitetsregisteret (riktig også når du har gitt dem nye navn).
+- **KI Energi:** entitets-ID-ene (via `unique_id`), statussensoren og tjenestene. Det virker også for brukere som ikke er admin.
+- **KI Varslinger** og andre KI-integrasjoner (bryterne deres), **HAs Energi-oppsett** (strøm inn/ut, sol, batteri, vann,
+  enheter) og strømprissensoren (Nordpool, Tibber …).
+- **Klimasensorer:** HAs eget valg for hvert område (temperatur-/fuktsensor). Reservesensorer for rom uten egne sensorer
+  velger du i Konfigurer → Kilder.
+
+Kommer det et nytt rom, en ny enhet, eller du legger til eller fjerner KI Rom, oppdateres popupene i dashbordet uten
+omlasting.
+
+**Lagring (Konfigurer → Dashbord):** *Felles for alle* (standard) betyr at Tilpass-valgene er like for alle brukere og enheter.
+De ligger i integrasjonens lager (`.storage/ki_msh.oppsett`), og første gang lastes ditt eksisterende oppsett opp dit.
+*Per Home Assistant-bruker* betyr at hver HA-bruker har sitt eget oppsett (HAs `user_data`, som i plugin-utgaven).
+
 Integrasjonen gir også:
-- `sensor.ki_msh` og websocket-kommandoen `ki_msh/hus`: hele husmodellen (rom, etasjer, hvilke funksjons-popups som er
-  aktive og hvorfor, dashbord-URL, versjon).
+- `sensor.ki_msh` og websocket-kommandoene `ki_msh/hus` (hele husmodellen: rom med KI Rom-data og klimasensorer, etasjer,
+  funksjons-popups med `aktiv`/`grunn`, kilder, energi og reservesensorer) og `ki_msh/hus/abonner` (live). Det felles
+  lageret ligger bak `ki_msh/lager/hent|lagre|abonner`.
 - Romtellerne fra KI Rom (`sensor.<rom>_lys`, `_media`, `_brytere`, `_sensorer`, `_effekt`, `_oversikt`) når KI Rom ikke
   er installert (Konfigurer → Rom: *Automatisk* / *Alltid* / *Av*).
 - Tjenestene `ki_msh.lag_dashbord` (skriv strategien på nytt) og `ki_msh.les_rom` (kartlegg huset på nytt).
 - Reparasjoner når Bubble Card eller `ki-msh.js` mangler.
 
-Fjernes integrasjonen, slettes dashbordet og oppsettet det lagret.
+Fjernes integrasjonen, slettes dashbordet, det felles oppsettet og reparasjonsmeldingene.
 
 ### Valgfritt: strategien i et eget dashbord
 
@@ -324,7 +341,7 @@ npm run icons       # ikonvelgeren og trykk-handlinger (MSH.tap) mot ekte Bubble
 npm run glass       # Liquid Glass-indikatoren (TV / Musikk i Media)
 npm run templates   # button-card-/decluttering-maler (MSH.resolveTemplates)
 npm run funksjoner  # FUNKSJONER i custom_components/ki_msh/const.py = M.FUNCTION_POPUPS
-pip install pytest-homeassistant-custom-component && pytest   # integrasjonen (tests/)
+pip install -r requirements_test.txt && pytest   # integrasjonen (tests/), også i CI (.github/workflows/integrasjon.yml)
 ```
 
 **Ytelsesmodus (Android):** på Android (og svake berøringsenheter) skrus backdrop-blur (også Bubble-popupenes `bg_blur`)

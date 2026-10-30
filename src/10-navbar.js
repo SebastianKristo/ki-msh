@@ -491,9 +491,9 @@
     .mbox.ic .mi .mic{width:44px;height:44px}
     .mi .mdot{width:8px;height:8px;border-radius:4px;background:var(--red,#f28073);margin-left:auto;box-shadow:0 0 0 3px color-mix(in srgb, var(--red,#f28073) 25%, transparent)}
     .mbox.ic .mi .mdot{position:absolute;right:6px;top:6px;margin:0}
-    .mi.tool{margin-top:2px;height:58px;padding:0 14px 0 8px;background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%);color:#2a1720!important;box-shadow:0 8px 22px rgb(242 133 201/.25)}
+    .mi.tool{margin-top:2px;height:58px;padding:0 14px 0 8px;background:linear-gradient(145deg,rgb(242 133 201) -10%,rgb(245 205 198) 100%);color:var(--ki-on-accent, #2a1720)!important;box-shadow:0 8px 22px rgb(242 133 201/.25)}
     .mi.tool .mic{background:rgb(255 255 255/.4)}
-    .mi.tool .mic ha-icon,.mi.tool ha-icon{color:#2a1720!important}
+    .mi.tool .mic ha-icon,.mi.tool ha-icon{color:var(--ki-on-accent, #2a1720)!important}
     .mi.tool .ml{display:flex;flex-direction:column;gap:1px;line-height:1.15}
     .mi.tool .ml small{font-size:11.5px;font-weight:500;opacity:.7}
     .mi.tool .mchev{opacity:.6}
@@ -505,7 +505,7 @@
     .mbox.glass{${M.glassSurface('menu')}border-radius:32px;padding:7px}
     .mbox.glass.ic{width:64px}
     .mbox.glass .mi{color:var(--ki-text, #fafafa)!important;border-radius:22px}
-    .mbox.glass .mi.tool{color:#2a1720!important}
+    .mbox.glass .mi.tool{color:var(--ki-on-accent, #2a1720)!important}
     .mbox.glass .mi:hover{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.08*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     .mbox.glass .sep{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.18*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
     ${M.glassFallback('.mbox.glass', 'menu')}
@@ -527,7 +527,7 @@
     .mbox.exp .mi:hover{background:color-mix(in srgb,var(--nc) 6%,transparent)}
     .mbox.exp .mi .mdot{position:absolute;top:10px;right:calc(50% - 30px);margin:0}
     .mbox.exp .sep{grid-column:1/-1;margin:2px 10px;background:color-mix(in srgb,var(--nc) 12%,transparent)}
-    .mbox.exp .mi.tool{grid-column:1/-1;flex-direction:row;justify-content:flex-start;height:58px;padding:0 14px 0 8px;text-align:left;color:#2a1720!important}
+    .mbox.exp .mi.tool{grid-column:1/-1;flex-direction:row;justify-content:flex-start;height:58px;padding:0 14px 0 8px;text-align:left;color:var(--ki-on-accent, #2a1720)!important}
     .mbox.exp .mi.tool .ml{flex:1;text-align:left}
     @keyframes mshExp{0%{clip-path:inset(calc(100% - var(--nh,72px)) 0 0 0 round 32px);opacity:.6}100%{clip-path:inset(0 0 0 0 round 32px);opacity:1}}
     @media (prefers-reduced-motion:reduce){.mbox,.mi{animation:none}}
@@ -602,24 +602,27 @@
   class Navbar extends M.Card {
     static get cardName() { return 'Navbar'; }
     static get editorTitle() { return 'Tilpass navbar'; }
-    static get editorSub() { return 'Knapper, merker og stil'; }
+    static get editorSub() { return (M.tp && M.tp.entries(['navbar'])[0] || [])[3] || 'Knapper, rekkefølge, plassering og mini-spiller'; }
     static get defaults() { return { show_names: false, menu_names: true, shrink: true, width: 'std', style: 'white', layout: 'auto', reserve_space: true, toasts: true, admin_tools: true }; }
     static get schema() {
       return [
         { type: 'navbar' },
-        { type: 'nbkiosk' }, // Fiks 23.5: «Kiosk-modus» mellom «Ny knapp» og «Plassering og oppførsel» (samme data som kiosk-arket, 22.9)
+        // Runde 2: «Kiosk-modus» er tatt ut av «Tilpass navbar» – den har egen rad i Tilpass-arket (og i Profil)
         // Fiks 20.6: kortet «Plassering og oppførsel» = brytere → Visning → Bredde → Avstand fra bunnen (nbplace); «Stil» rett etter
-        { type: 'section', label: 'Plassering og oppførsel', icon: 'mdi:dock-left', fields: [
+        { type: 'section', label: 'Plassering', icon: 'mdi:dock-left', fields: [
           { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): ≥ 1000 px, eller berøring ≥ 600 px (Fold åpen, iPad) = vertikal rail til venstre.' },
-          { type: 'boolean', name: 'reserve_space', label: 'Gi innholdet plass (padding i bunnen / til venstre)', default: true },
-          { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
-          { type: 'boolean', name: 'admin_tools', label: 'Vis «Tilpass» i Mer-menyen', default: true },
-          { type: 'select', name: 'action_style', label: 'Handlingsvelger', options: [['ruter', 'Ruter'], ['liste', 'Liste']], default: 'ruter', help: 'Hvordan «Ved trykk» / «Ved hold» vises for knappene.' }, // 30.3
           { type: 'nbplace' },
         ] },
         { type: 'navbar', part: 'style' },
         // Fiks 57 C: flervalg av popup-hasher (hide_in_popups, standard ['#vaer']) – etter Stil/Mini-spiller (20.6: Stil rett etter «Plassering og oppførsel»)
         { type: 'section', id: 'nbhide', label: 'Skjul i popups', icon: 'mdi:eye-off-outline', meta: (h, c) => { const L = hideListOf(c); return L.length ? L.join(' · ') : 'Ingen'; }, fields: [{ type: 'nbhidepop' }] },
+        // Runde 2: sjeldne/tekniske valg samlet og lukket
+        { type: 'section', id: 'avansert', label: 'Avansert', icon: 'mdi:tune-variant', fields: [
+          { type: 'boolean', name: 'reserve_space', label: 'Hold innholdet fri for navbaren', help: 'Legger luft i bunnen (eller til venstre som rail), så navbaren aldri dekker innhold.', default: true },
+          { type: 'boolean', name: 'toasts', label: 'Vis korte bekreftelser nederst', default: true },
+          { type: 'boolean', name: 'admin_tools', label: 'Vis «Tilpass» i Mer-menyen (for brukere uten admin)', default: true, help: 'Admin finner Tilpass i Innstillinger.' },
+          { type: 'select', name: 'action_style', label: 'Vis handlingsvalg som', options: [['ruter', 'Rutenett'], ['liste', 'Liste']], default: 'ruter', help: 'Hvordan «Ved trykk» / «Ved hold» vises for knappene.' }, // 30.3
+        ] },
       ];
     }
     static getConfigElement() { const e = document.createElement('msh-navbar-editor'); e.cardClass = this; return e; }
@@ -890,27 +893,23 @@
     _tilpassSheet() {
       if (this._tpSheet && !this._tpSheet.closed) return this._tpSheet;
       const kioskOn = () => { const h = this._hass || M.lastHass || {}, e = M.kioskEntity ? M.kioskEntity() : null, st = e && h.states && h.states[e]; return !!(st && st.state === 'on'); };
-      const ROWS = [
-        ['alt', 'auto_awesome', 'Tilpass alt', 'Veiviser for hele dashbordet', !!M.openTilpassAlt],
-        ['home', 'dashboard_customize', 'Tilpass Hjem', 'Kort, faner, popups og tekst', true],
-        ['navbar', 'tune', 'Tilpass navbar', 'Knapper, plassering og stil', true],
-        ['header', 'mdi:page-layout-header', 'Tilpass header', 'Hilsen, vær og personer', true],
-        ['pc', 'mdi:monitor', 'Dashbord på PC', () => (M.pc && M.pc.mode() === 'pc' ? 'Oversikt for PC' : 'Mobilvisning'), !!M.pc], // Fiks 64
-        ['kiosk', 'mdi:fullscreen', 'Kiosk-modus', () => (kioskOn() ? 'På' : 'Av'), !!M.kioskSheet],
-        // Fiks 35 (oppfølging 33.3): enhetsoversikten (gi nytt navn / nullstill / slett) lå før nederst i Innstillinger
-        ['devices', 'mdi:devices', 'Enheter', () => { const n = M.store && M.store.devices ? M.store.devices().filter((d) => d.own > 0).length : 0; return n ? `${n} ${n === 1 ? 'enhet' : 'enheter'} med eget oppsett` : 'Gi nytt navn, nullstill eller slett'; }, !!(M.store && customElements.get('msh-settings-card'))],
-        ['ha', 'mdi:home-assistant', 'Home Assistant', 'Automasjoner, scener, oppdateringer og backup', !!M.ha && ((this._hass || M.lastHass || {}).user || {}).is_admin !== false], // Fiks 65
-      ].filter((r) => r[4]);
-      const html = () => `<div class="tph"><span class="tpt">Tilpass</span><button class="tpd" data-a="done">Ferdig</button></div>
+      // Runde 2: inngangene kommer fra MSH.tp.entries (samme liste i Innstillinger, PC-oversikten og HA-hub-en)
+      const SUBF = {
+        pc: () => (M.pc && M.pc.mode() === 'pc' ? 'Oversikt for PC' : 'Mobilvisning'),
+        kiosk: () => (kioskOn() ? 'På' : 'Av'),
+        devices: () => { const n = M.store && M.store.devices ? M.store.devices().filter((d) => d.own > 0).length : 0; return n ? `${n} ${n === 1 ? 'enhet' : 'enheter'} med eget oppsett` : 'Gi nytt navn, nullstill eller slett'; },
+      };
+      const SHOW = { alt: !!M.openTilpassAlt, home: true, navbar: true, header: true, pc: !!M.pc, kiosk: !!M.kioskSheet, devices: !!(M.store && customElements.get('msh-settings-card')), ha: !!M.ha && ((this._hass || M.lastHass || {}).user || {}).is_admin !== false };
+      const ROWS = M.tp.entries().filter((e) => SHOW[e[0]]).map(([k, icn, t, sub]) => [k, icn, t, SUBF[k] || sub, true]);
+      const html = () => `<div class="tph kt-head">${M.tp.head({ title: 'Tilpass', sub: 'Velg hva du vil endre', done: 'done' })}</div>
         <div class="tpc">${ROWS.map(([k, icn, t, sub]) => `<button class="tpr" data-a="row" data-v="${k}" data-key="tp-${k}"><span class="tpi">${M.icon(icn, 22)}</span><span class="tpx"><b>${esc(t)}</b><i>${esc(typeof sub === 'function' ? sub() : sub)}</i></span>${M.icon('mdi:chevron-right', 22, 'color:var(--ki-text-3, #7f7f7f);flex:none')}</button>`).join('')}</div>`;
       // 28.8/28.11: geometrien (Fiks 40: top 52 px, maks 440 px, bunnforankret over navbaren, radius 38 38 0 0, bunnpadding) kommer fra M.overlay({ tilpass: true })
       const css = `.sh{background:var(--ki-popup, var(--gray050,#282828))}
-        .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
-        .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
-        .tpd{${M.DONE_PILL}} /* Fiks 26: lik Ferdig-pille */
-        .tpc{display:flex;flex-direction:column;border-radius:24px;background:var(--ki-surface, var(--gray200,#3a3a3a));overflow:hidden}
-        .tpr{display:flex;align-items:center;gap:12px;height:64px;padding:0 12px 0 14px;width:100%;box-sizing:border-box;text-align:left;color:var(--ki-text, #fafafa);border-top:1px solid rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.06*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
-        .tpr:first-child{border-top:0}
+        ${M.tp.CSS}
+        .tph{padding:4px 2px 14px}
+        .tpc{display:flex;flex-direction:column;${M.tp.GROUP}overflow:hidden}
+        .tpr{${M.tp.ROW}min-height:64px;width:100%;box-sizing:border-box;text-align:left;color:var(--ki-text, #fafafa);border:0;${M.tp.ROW_SEP}}
+        .tpr:first-child{box-shadow:none}
         .tpr:active{background:rgb(var(--ki-wa-c,255 255 255)/clamp(var(--ki-wa-min,0),calc(0.04*var(--ki-wa-k,1)),var(--ki-wa-max,1)))}
         .tpi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, #fafafa)}
         .tpx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -940,11 +939,10 @@
     _devicesSheet() {
       if (this._dvSheet && !this._dvSheet.closed) return this._dvSheet;
       const css = `.sh{background:var(--ki-popup, var(--gray050,#282828))}
-        .tph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 14px}
-        .tpt{font-size:22px;font-weight:600;letter-spacing:-0.01em}
-        .tpd{${M.DONE_PILL}}
+        ${M.tp.CSS}
+        .tph{padding:4px 2px 14px}
         .dvh{font-size:12px;color:var(--ki-text-mid, #979797);padding:0 6px 10px;line-height:1.4}`;
-      const html = `<div class="tph"><span class="tpt">Enheter</span><button class="tpd" data-a="done">Ferdig</button></div>
+      const html = `<div class="tph kt-head">${M.tp.head({ title: 'Enheter', sub: 'Eget oppsett per enhet', done: 'done' })}</div>
         <div class="dvh">Kamera og Person kan ha eget oppsett per enhet. Alt annet er felles for alle enhetene dine.</div><div class="dvw" data-dv></div>`;
       const ov = M.overlay({ html, css, maxWidth: 480, guard: 300, tilpass: true, onClose: () => { this._dvSheet = null; } });
       ov.host.setAttribute('data-enheter', '');
@@ -2329,6 +2327,7 @@
     .trk.on{background:${M.SWITCH_ON}} /* Fiks 26: rosa brytere */
     .knb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#c7c7c7;transition:left .2s}
     .trk.on .knb{left:23px;background:var(--ki-surface-3, #2f2f2f)}
+    ${M.tp ? M.tp.sw('.trk', ' .knb') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .wseg{display:flex;gap:2px;padding:4px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
     .nbbot{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:var(--ki-surface, #3a3a3a)}
     .nbbot .ln{display:flex;align-items:center;gap:10px}
@@ -2471,7 +2470,7 @@
           <button class="b36" data-a="nbsel" data-id="${esc(id)}" title="Rediger">${M.icon('edit', 20, `color:${open ? C.pink : 'var(--ki-text-2, #afafaf)'}`)}</button>
           <div class="ud"><button class="${i > 0 ? '' : 'off'}" data-a="nbmv" data-k="${key}" data-i="${i}" data-d="-1" title="Flytt opp">${M.icon('expand_less', 20)}</button><button class="${i < list.length - 1 ? '' : 'off'}" data-a="nbmv" data-k="${key}" data-i="${i}" data-d="1" title="Flytt ned">${M.icon('expand_more', 20)}</button></div>
           <button class="b36" data-a="nbhide" data-id="${esc(id)}" title="Vis / skjul">${M.icon(hid ? 'visibility_off' : 'visibility', 20, `color:${hid ? 'var(--ki-text-lo, #696969)' : 'var(--ki-text-2, #afafaf)'}`)}</button>
-          <button class="b36" data-a="nbswap" data-id="${esc(id)}" data-k="${key}" title="${key === 'bar' ? 'Flytt til menyen' : 'Legg i navbaren'}">${M.icon(key === 'bar' ? 'do_not_disturb_on' : 'add_circle', 22, `color:${key === 'bar' ? C.red : C.green}`)}</button>
+          <button class="b36" data-a="nbswap" data-id="${esc(id)}" data-k="${key}" title="${key === 'bar' ? 'Flytt til Mer-menyen' : 'Flytt til navbaren'}" aria-label="${key === 'bar' ? 'Flytt til Mer-menyen' : 'Flytt til navbaren'}">${M.icon(key === 'bar' ? 'mdi:arrow-down-bold-circle-outline' : 'mdi:arrow-up-bold-circle-outline', 22, 'color:var(--ki-text-2, #afafaf)')}</button>
         </div>`;
         if (!open) return html;
         const base = CAT[id] || ['star', 'Ny knapp'];
@@ -2501,12 +2500,12 @@
         const acts = [...ACTS.map(([k, , l]) => [k, l]), ...M.areas(h).map((a) => ['light:' + a.id, 'Lys ' + a.name])];
         html += `<div class="ned" data-key="e_${esc(id)}">
           <div class="fl"><span class="cap">Navn</span><input class="i44" data-nbf="label" data-id="${esc(id)}" value="${esc(b.label || (isC ? '' : ''))}" placeholder="${esc(isC ? 'Navn på knappen' : base[1])}"></div>
-          <div class="fl"><span class="cap">Ikon · søk i mdi og egne ikonsett</span>
+          <div class="fl"><span class="cap">Ikon</span>
             ${M.iconPicker ? M.iconPicker.html({ key: 'nbic_' + id, value: b.icon ? M.iconName(b.icon) : '', placeholder: M.iconName(base[0]), label: 'Ikon · ' + (b.label || base[1]), attrs: `data-nbicon="${esc(id)}"` })
     : `<div class="ln"><span class="icp">${M.icon(curIcon, 22)}</span><input class="i44" data-nbf="icon" data-id="${esc(id)}" value="${esc(b.icon || '')}" placeholder="${esc(base[0])}" style="flex:1"></div>`}
             <div class="sug">${sug.map((ic) => `<button class="chp ${curIcon === ic ? 'on' : ''}" data-a="nbicon" data-id="${esc(id)}" data-v="${esc(ic)}" title="${esc(ic)}">${M.icon(ic, 16)}</button>`).join('')}</div></div>
           <div class="bdg">
-            <div class="bh">${M.icon('circle', 18, `color:${M.theme ? M.theme.accentText(C.red) : C.red}`)}<span class="t">Badge · varselprikk</span><span class="st ${R.length && anyOn ? 'red' : ''}">${!R.length ? 'Ingen vilkår' : anyOn ? 'Vises nå' : 'Skjult nå'}</span></div>
+            <div class="bh">${M.icon('circle', 18, `color:${M.theme ? M.theme.accentText(C.red) : C.red}`)}<span class="t">Varselprikk</span><span class="st ${R.length && anyOn ? 'red' : ''}">${!R.length ? 'Ingen vilkår' : anyOn ? 'Vises nå' : 'Skjult nå'}</span></div>
             ${rules}
             <button class="ol" data-a="nbradd" data-id="${esc(id)}">${M.icon('add', 20)}Legg til vilkår</button>
             <span class="hint">Prikken vises når minst ett vilkår slår til.</span>
@@ -2514,10 +2513,10 @@
           ${isC ? `<div class="fl"><span class="cap">Når du trykker · handling</span><select class="s44" data-nbf="action" data-id="${esc(id)}">${acts.map(([k, l]) => `<option value="${esc(k)}" ${String(b.action || '') === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
             ${b.action === 'service' ? `<input class="i44" data-nbf="service" data-id="${esc(id)}" value="${esc(b.service || '')}" placeholder="Tjeneste eller entitet, f.eks. script.godnatt">` : ''}
             ${ACT_DOM[b.action] ? `<span class="cap">Entitet · ${b.entity ? esc(M.name(h, b.entity)) + ' (' + esc(b.entity) + ')' : 'auto: ' + esc(M.all(h, ACT_DOM[b.action])[0] || 'fant ingen')}</span>${this._search({ type: 'entity', domain: ACT_DOM[b.action] }, 'nbbe_' + id, 'nbbent', id, b.entity ? 'Bytt …' : 'Velg ' + ACT_DOM[b.action] + ' …')}${b.entity ? `<button class="rsb" data-a="nbbclr" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Bruk auto</button>` : ''}` : ''}</div>` : ''}
-          ${M.tap ? `<div class="fl"><span class="cap">${isC ? 'Ved trykk · og så' : 'Ved trykk'}</span>${M.tap.html({ key: 'nbtap_' + id, value: tapOf(N, id) || { action: 'none' }, style: c.action_style, entity: '', attrs: `data-nbtap="${esc(id)}" data-nbw="tap"` })}</div>
-            <div class="fl"><span class="cap">Ved hold</span>${M.tap.html({ key: 'nbhold_' + id, value: holdOf(N, id) || { action: 'none' }, style: c.action_style, noneHint: 'Hold og dra flytter knappen. Ingen egen hold-handling.', attrs: `data-nbtap="${esc(id)}" data-nbw="hold"` })}</div>`
+          ${M.tap ? `<div class="fl"><span class="cap">${isC ? 'Når du trykker, og så' : 'Når du trykker'}</span>${M.tap.html({ key: 'nbtap_' + id, value: tapOf(N, id) || { action: 'none' }, style: c.action_style, entity: '', attrs: `data-nbtap="${esc(id)}" data-nbw="tap"` })}</div>
+            <div class="fl"><span class="cap">Når du holder inne</span>${M.tap.html({ key: 'nbhold_' + id, value: holdOf(N, id) || { action: 'none' }, style: c.action_style, noneHint: 'Hold og dra flytter knappen. Ingen egen hold-handling.', attrs: `data-nbtap="${esc(id)}" data-nbw="hold"` })}</div>`
     : `<div class="fl"><span class="cap">${isC ? 'Og åpne popup' : 'Åpner popup'}</span><select class="s44" data-nbf="hash" data-id="${esc(id)}">${tgt.map(([k, l]) => `<option value="${esc(k)}" ${curH === k ? 'selected' : ''}>${esc(l)}${k ? ' · ' + esc(k) : ''}</option>`).join('')}</select></div>`}
-          ${isC ? `<button class="dlb" data-a="nbdel" data-id="${esc(id)}">${M.icon('delete', 18)}Slett knappen</button>` : `<button class="rsb" data-a="nbreset" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Tilbakestill til ${esc(base[1])}</button>`}
+          ${isC ? `<button class="dlb" data-a="nbdel" data-id="${esc(id)}">${M.icon('delete', 18)}Slett knappen</button>` : `<button class="rsb" data-a="nbreset" data-id="${esc(id)}">${M.icon('restart_alt', 18)}Nullstill til ${esc(base[1])}</button>`}
         </div>`;
         return html;
       };
@@ -2527,16 +2526,16 @@
       // Fiks 20.6: knappene øverst · «Plassering og oppførsel» (schema-seksjonen, med Visning/Bredde/Avstand – _nbPlace) · så Stil og Mini-spiller
       if (part !== 'style') return `<style>${ED_CSS}</style><div class="nbx">
         ${group('bar', 'I navbaren')}
-        ${group('more', 'Bak de tre prikkene')}
+        ${group('more', 'I Mer-menyen')}
         <span class="gt">Ny knapp</span>
         <button class="add" data-a="nbadd">${M.icon('add', 22)}Legg til knapp</button>
       </div>`;
       return `<div class="nbx">
         <span class="gt">Stil</span>
-        <div class="profs">${[['white', 'Standard', 'Hvit navbar'], ['glass', 'Liquid glass', 'Glass-navbar med linse']].map(([k, l, sub]) => `<button class="prof ${style === k ? 'on' : ''}" data-a="nbstyle" data-v="${k}">
+        <div class="profs">${[['white', 'Standard', 'Hvit navbar'], ['glass', 'Glass', 'Glass-navbar med linse']].map(([k, l, sub]) => `<button class="prof ${style === k ? 'on' : ''}" data-a="nbstyle" data-v="${k}">
           <span class="pvw ${k}">${pvIcons.slice(0, 5).map((ic) => M.icon(ic, 18)).join('')}</span>
           <span class="pft"><span class="x"><b>${l}</b><i>${sub}</i></span>${M.icon('check_circle', 24, `color:${M.theme ? M.theme.accentText(C.pink) : C.pink};opacity:${style === k ? 1 : 0}`)}</span></button>`).join('')}</div>
-        ${M.store ? `<button class="tg" data-a="nbtheme" data-v="${M.glassOn() ? 0 : 1}"><span class="tx2"><b>Liquid Glass-tema</b><i>Frosted glass i alle Tilpass-ark · gjelder deg på alle enheter</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><span class="knb"></span></span></button>` : ''}
+        ${M.store ? `<button class="tg" data-a="nbtheme" data-v="${M.glassOn() ? 0 : 1}"><span class="tx2"><b>Glass i menyer og Tilpass-ark</b><i>Gjennomsiktige ark med uskarp bakgrunn · gjelder deg på alle enheter</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><span class="knb"></span></span></button>` : ''}
         <span class="gt">Mini-spiller</span>
         ${this._mini(c)}
       </div>`;
@@ -2577,7 +2576,7 @@
       const rail = document.documentElement.style.getPropertyValue('--ki-nav-h') === '0px';
       return `<span class="gt nbbl">Avstand fra bunnen</span>
         <div class="nbbot" data-key="nbbot"><div class="ln"><input type="range" min="0" max="48" step="1" value="${v}" data-nbbot="1" aria-label="Avstand fra bunnen"><span class="nbbv num">${v} px</span></div>
-        <div class="ln"><span class="hint" style="flex:1">${rail ? 'Navbaren står vertikalt nå – brukes når navbaren ligger i bunnen' : `Gjelder bare ${esc(dev)} · standard ${def} px`}</span>${own != null ? `<button class="rsb" data-a="nbbotstd">${M.icon('restart_alt', 18)}Standard</button>` : ''}</div></div>`;
+        <div class="ln"><span class="hint" style="flex:1">${rail ? 'Navbaren står vertikalt nå – brukes når navbaren ligger i bunnen' : `Gjelder bare denne enheten${M.store && M.store.deviceName ? ' (' + esc(M.store.deviceName) + ')' : ''} · standard ${def} px`}</span>${own != null ? `<button class="rsb" data-a="nbbotstd">${M.icon('restart_alt', 18)}Standard</button>` : ''}</div></div>`;
     }
     // «Mini-spiller» (Fiks 17.26): navbar.mini – samme felt i «Tilpass navbar» og GUI-editoren (samme element)
     _mini(c) {
@@ -2599,7 +2598,7 @@
       }
       html += tg('Skjul i Media-popupen', 'hide_in_media', m.hide_in_media !== false);
       // Fiks 20.16: per bruker × enhet (nav_profiles, lagres straks som «Avstand fra bunnen»)
-      html += `<button class="tg" data-a="nbmhpop" data-v="${mHidePopOn(m) ? 0 : 1}"><span class="tx2"><b>Skjul når en popup er åpen</b><i>${esc(M.deviceInfo ? 'Gjelder bare ' + (M.deviceInfo().model || M.deviceInfo().label || 'denne enheten') : 'Alle popuper, også Media')}</i></span><span class="trk ${mHidePopOn(m) ? 'on' : ''}"><span class="knb"></span></span></button>`;
+      html += `<button class="tg" data-a="nbmhpop" data-v="${mHidePopOn(m) ? 0 : 1}"><span class="tx2"><b>Skjul når en popup er åpen</b><i>${esc('Gjelder bare denne enheten' + (M.store && M.store.deviceName ? ' (' + M.store.deviceName + ')' : ''))}</i></span><span class="trk ${mHidePopOn(m) ? 'on' : ''}"><span class="knb"></span></span></button>`;
       // Fiks 19.15: TV i mini-spilleren – − / + i pillen (standard) eller slider som for musikk
       const tvv = m.tv_vol === 'slider' ? 'slider' : 'steps';
       html += `<span class="cap" style="padding:0 6px">Volum for TV</span><div class="wseg">${[['steps', '− / +'], ['slider', 'Slider']].map(([k, l]) => `<button class="${tvv === k ? 'on' : ''}" aria-selected="${tvv === k}" data-a="nbmtv" data-v="${k}">${l}</button>`).join('')}</div>`;

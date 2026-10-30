@@ -10,12 +10,21 @@
           "url_path": "Address (must contain a hyphen)",
           "ikon": "Icon",
           "sidepanel": "Show in sidebar",
-          "kun_admin": "Administrators only"
+          "kun_admin": "Administrators only",
+          "lagring": "Where the dashboard setup is saved"
+        },
+        "data_description": {
+          "lagring": "Shared: all users and devices see the same setup. Per user: each Home Assistant user has their own.",
+          "url_path": "Letters, digits and hyphens, e.g. ki-msh."
         }
       }
     },
     "abort": {
       "already_configured": "KI MSH is already set up."
+    },
+    "error": {
+      "ugyldig": "Use only lower-case letters, digits and hyphens, with at least one hyphen (e.g. my-home).",
+      "opptatt": "This address is already used by another dashboard or panel."
     }
   },
   "options": {
@@ -25,7 +34,8 @@
         "menu_options": {
           "dashbord": "Dashboard",
           "rom": "Rooms and room counters",
-          "kort": "Cards and Bubble Card"
+          "kort": "Cards and Bubble Card",
+          "kilder": "Data sources"
         }
       },
       "dashbord": {
@@ -36,12 +46,17 @@
           "url_path": "Address (must contain a hyphen)",
           "ikon": "Icon",
           "sidepanel": "Show in sidebar",
-          "kun_admin": "Administrators only"
+          "kun_admin": "Administrators only",
+          "lagring": "Where the dashboard setup is saved"
+        },
+        "data_description": {
+          "lagring": "Shared: all users and devices see the same setup. Per user: each Home Assistant user has their own.",
+          "url_path": "Letters, digits and hyphens, e.g. ki-msh."
         }
       },
       "rom": {
         "title": "Rooms",
-        "description": "The room counters are the same ones KI Rom creates (sensor.<room>_lys … _oversikt). Automatic = only when KI Rom is not installed.",
+        "description": "Which rooms get popups and room counters. The room counters are the same ones KI Rom creates (sensor.<room>_lys … _oversikt). Automatic = only when KI Rom is not installed.",
         "data": {
           "romsensorer": "Room counters",
           "ekskluder_rom": "Skip these rooms",
@@ -56,7 +71,20 @@
         "data": {
           "bubble": "Bubble Card"
         }
+      },
+      "kilder": {
+        "title": "Data sources",
+        "description": "KI MSH finds most things itself (KI Rom, KI Energi, HA Energy, price sensors). Choose here only where automatic detection is wrong or missing.",
+        "data": {
+          "temp_reserve": "Temperature when a room has no sensor of its own",
+          "fukt_reserve": "Humidity when a room has no sensor of its own",
+          "pris": "Electricity price sensor (empty = found automatically)"
+        }
       }
+    },
+    "error": {
+      "ugyldig": "Use only lower-case letters, digits and hyphens, with at least one hyphen (e.g. my-home).",
+      "opptatt": "This address is already used by another dashboard or panel."
     }
   },
   "selector": {
@@ -72,6 +100,12 @@
         "auto": "Load from jsDelivr if missing",
         "cdn": "Always from jsDelivr",
         "av": "Never – I have it"
+      }
+    },
+    "lagring": {
+      "options": {
+        "felles": "Shared for everyone",
+        "bruker": "Per Home Assistant user"
       }
     }
   },

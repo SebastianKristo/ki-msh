@@ -2142,7 +2142,7 @@
       { type: 'boolean', name: 'toasts', label: 'Bekreftelsesmeldinger', default: true },
       { type: 'section', id: 'innstillinger', label: 'KI Vanning', icon: 'mdi:tune-variant', fields: [innst] },
       M.spacingSchema(),
-      { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-vanning-card', card_id: id }; ed._set('card_id', id); } },
+      { type: 'button', label: 'Nullstill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-vanning-card', card_id: id }; ed._set('card_id', id); } },
     ];
     return [
       { type: 'tabs', id: 'vanning', tabs: [

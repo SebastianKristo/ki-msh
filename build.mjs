@@ -57,7 +57,10 @@ if (!outArg && !dev) {
   mkdirSync(`${CC}/frontend`, { recursive: true });
   writeFileSync(`${CC}/frontend/ki-msh.js`, out);
   const man = JSON.parse(readFileSync(`${CC}/manifest.json`, 'utf8'));
-  if (man.version !== pkg.version) { man.version = pkg.version; writeFileSync(`${CC}/manifest.json`, JSON.stringify(man, null, 2) + '\n'); }
+  // hassfest: domain, name først, deretter alfabetisk
+  const sortert = (m) => Object.fromEntries([['domain', m.domain], ['name', m.name], ...Object.keys(m).filter((k) => k !== 'domain' && k !== 'name').sort().map((k) => [k, m[k]])]);
+  const ny = JSON.stringify(sortert({ ...man, version: pkg.version }), null, 2) + '\n';
+  if (ny !== readFileSync(`${CC}/manifest.json`, 'utf8')) writeFileSync(`${CC}/manifest.json`, ny);
 }
 const bytes = Buffer.byteLength(out);
 console.log(`${target} · ${files.length} filer · ${(bytes / 1024).toFixed(0)} KB${esbuild ? ` minifisert (${(gzipSync(out).length / 1024).toFixed(0)} KB gzip)` : ' uminifisert'}`);

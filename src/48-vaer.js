@@ -970,7 +970,7 @@
         { type: 'html', html: (hh, cc, key, ed) => placesGui(hh, cc, key, ed), click: (d, ed) => placesClick(d, ed) },
         ...HIDE.map(([k, l]) => ({ type: 'boolean', label: l, get: (hh, cc) => !hiddenOf(cc).has(k), set: (v, hh, cc, ed) => { if (!ed || !ed._set) return; const p = secPatch(ed._config || cc, k, v); ed._config = { ...ed._config, hidden_sections: p.hidden_sections, hide: undefined }; ed._set('sections', p.sections); } })),
         { type: 'order', name: 'tile_order', hiddenName: 'hidden_tiles', label: 'Fliser (rekkefølge – eller hold inne en flis og dra)', options: [...TILES.map((t) => [t[0], t[1]]), ['moon', 'Månefase (Scene)'], ['feels', 'Føles som (Scene)'], ['vis', 'Sikt (Scene)']] },
-        { type: 'button', label: 'Tilbakestill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); M.haptic('medium'); } } },
+        { type: 'button', label: 'Nullstill rekkefølge', icon: 'mdi:restore', run: (hh, cc, ed) => { if (ed && ed._set) { ed._config = { ...ed._config, tiles: undefined }; ed._set('tile_order', undefined); M.haptic('medium'); } } },
         { type: 'overrides', label: 'Bytt entiteter', fields: FIELDS },
         // 56 I · Visning (samme nøkler som Tilpass Hjem → Popups → Vær)
         { type: 'section', label: 'Visning', icon: 'mdi:fullscreen', id: 'display', fields: [
@@ -2253,6 +2253,7 @@ ${VE}`;
     .tsw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px ${BA(0.3)};transition:left .2s}
     .tsw.on{background:${PINKG}}
     .tsw.on i{left:23px}
+    ${M.tp ? M.tp.sw('.tsw', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .tbox{flex:none;display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:24px;background:var(--ki-surface, #3a3a3a)}
     .tnote{font-size:14px;color:var(--ki-text-1, #c7c7c7);line-height:1.4;text-wrap:pretty}
     .nb{height:44px;border-radius:22px;background:var(--ki-surface-2, #404040);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}

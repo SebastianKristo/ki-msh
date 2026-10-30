@@ -73,6 +73,9 @@
       const m = /^(.+?)_\d+$/.exec(e.entity_id);
       if (m && !egne.has(m[1]) && !ids.has(m[1])) ids.set(m[1], e.entity_id);
     });
+    // 3) Runde 2: KI MSH-integrasjonen har allerede lest registeret (unique_id → entity_id) – virker også for ikke-admin
+    const hk = M.hus && M.hus.kilde(DOMENE);
+    if (hk && hk.lastet) Object.keys(hk.entiteter || {}).forEach((k) => { const v = hk.entiteter[k]; if (v && v !== k) ids.set(k, v); });
     // Oppslaget skal aldri peke vekk fra en ID som selv er integrasjonens
     egne.forEach((id) => ids.delete(id));
     // Tegn på avvikende ID-er uten unique_id i hass.entities (kollisjonssuffiks, eller omdøpt vekk fra ki_/vvb_-mønsteret)
@@ -86,6 +89,7 @@
     if (!KI.entryAsked || !KI.regAsked) kiAsk(hass);
     return KI;
   }
+  window.addEventListener('ki-hus', () => kiBump()); // ny husmodell (KI Energi lagt til / entiteter endret) → bygg oppslaget på nytt
   const kiBump = () => { KI.ver++; KI.cards.forEach((c) => { if (c.isConnected) { if (c.update) c.update(); } else KI.cards.delete(c); }); };
   // Reserve-oppslag over WS (én gang per økt): config entry for loggen/«installert», registeret når statussensoren
   // ikke kan finnes via hass.entities.
@@ -101,7 +105,8 @@
     // Registeret hentes bare når noe tyder på avvikende ID-er: statussensoren er ikke funnet, eller en ki_energi-entitet
     // har kollisjonssuffiks / et navn som ikke følger integrasjonens mønster (omdøpt av brukeren) og mangler unique_id.
     const funnet = (hass.states && hass.states[STATUS] && (!hass.entities || !hass.entities[STATUS] || hass.entities[STATUS].platform === DOMENE)) || KI.ids.has(STATUS);
-    if (!KI.regAsked && (!funnet || KI.avvik)) {
+    const viaHus = !!(M.hus && M.hus.kilde(DOMENE) && M.hus.kilde(DOMENE).lastet); // integrasjonen har kartet → ingen registerhenting
+    if (!KI.regAsked && !viaHus && (!funnet || KI.avvik)) {
       KI.regAsked = true;
       Promise.resolve().then(() => hass.callWS({ type: 'config/entity_registry/list' }))
         .then((r) => { if (Array.isArray(r)) { KI.reg = r.filter((e) => e && e.platform === DOMENE); kiBump(); } })
@@ -1773,6 +1778,7 @@
     .kb-sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--ki-knob, #fafafa);transition:left .2s}
     .kb-sw.on{background:rgb(242 133 201)}
     .kb-sw.on i{left:21px}
+    ${M.tp ? M.tp.sw('.kb-sw', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .kb-sw.miss{opacity:.35}
     .kb-msw{margin-left:2px;cursor:pointer}
     .kb-stats{display:grid;gap:6px}

@@ -640,6 +640,9 @@
   MSH.kiRom = function (hass, area, kind = 'oversikt') {
     if (!hass) return null;
     const aid = area || 'hele_huset';
+    // Runde 2: integrasjonens kart (entitetsregisteret – riktig også når brukeren har gitt sensoren nytt navn)
+    const hk = MSH.hus && MSH.hus.data && ((((MSH.hus.data.kilder || {}).ki_rom || {}).rom || {})[aid]);
+    if (hk && hk[kind] && hass.states[hk[kind]]) return hass.states[hk[kind]];
     let ov = kiRomIdx(hass.states).get(aid) || null;
     if (!ov && hass.states[`sensor.${aid}_oversikt`]) ov = `sensor.${aid}_oversikt`;
     if (!ov) {
@@ -1207,7 +1210,8 @@
     let last = 0, raf = 0, val = 0;
     const set = () => { raf = 0; document.documentElement.style.setProperty('--ki-gl-tilt', val.toFixed(1) + 'deg'); };
     window.addEventListener('deviceorientation', (e) => {
-      if (reduced() || e.gamma == null) return; const now = performance.now(); if (now - last < 50) return; last = now;
+      // bare når glansen faktisk vises (glass-tema, ikke ytelsesmodus): ellers ville hver skriving restilt hele dokumentet for ingenting
+      if (reduced() || e.gamma == null || (MSH.perf && MSH.perf.lite) || !MSH.glassOn()) return; const now = performance.now(); if (now - last < 50) return; last = now;
       const v = Math.max(-24, Math.min(24, e.gamma * 0.6)); if (Math.abs(v - val) < 0.8) return; val = v; if (!raf) raf = requestAnimationFrame(set);
     }, { passive: true });
   })();
@@ -1414,7 +1418,14 @@
         const rm = () => { if (gone) return; gone = true; host.remove(); };
         if (!api.started || (MSH.reducedMotion && MSH.reducedMotion())) rm();
         else { shEl.addEventListener('transitionend', (e) => { if (e.target === shEl && e.propertyName === 'transform') rm(); }); setTimeout(rm, MSH.CENTER_FX.ms + 300); }
-      } else setTimeout(() => host.remove(), 250);
+      } else if (tp) {
+        // Runde 2: Tilpass-arket glir ut på 240 ms – verten fjernes når det er ute (transitionend), reserve 280 ms
+        const shEl = sr.querySelector('.sh');
+        let gone = false;
+        const rm = () => { if (gone) return; gone = true; host.remove(); };
+        shEl.addEventListener('transitionend', (e) => { if (e.target === shEl && e.propertyName === 'transform') rm(); });
+        setTimeout(rm, 280);
+      } else setTimeout(() => host.remove(), 250); // vanlig ark: opasiteten er 0 etter 200 ms
       off();
       MSH.sheetCount(-1);
       onClose && onClose();
@@ -2248,6 +2259,9 @@
     .num{font-variant-numeric:tabular-nums}
     .press{transition:transform .15s cubic-bezier(.34,1.5,.64,1)}
     .press:active{transform:scale(.96)}
+    /* Runde 2: «Reduser bevegelse» gjelder alle kort – overganger og animasjoner blir øyeblikkelige (transitionend/animationend
+       kommer fortsatt, så logikk som venter på dem virker). Lastesirkler snurrer videre. */
+    @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.spin,.spin ha-icon,.spn,.spinner,[data-ki-spin]{animation-duration:1s!important;animation-iteration-count:infinite!important}}
     .row{display:flex;align-items:center}
     .col{display:flex;flex-direction:column}
     .grow{flex:1;min-width:0}

@@ -10,6 +10,8 @@
   .pop .hdr{height:60px;display:flex;align-items:center;gap:10px;font:500 20px system-ui}
 </style>
 <script>
+  // Som i HA: «Auto»-temaet følger hass.themes.darkMode (ikke Playwrights prefers-color-scheme: light)
+  window.__kiInHA = true;
   // Stubs for HA-elementer i testen
   customElements.define('ha-icon', class extends HTMLElement { connectedCallback(){ this._r(); } static get observedAttributes(){return['icon']} attributeChangedCallback(){ this._r(); } _r(){ const i=this.getAttribute('icon')||''; this.setAttribute('data-ok', /^[a-z]+:[a-z0-9-]+$/.test(i)?'1':'0'); if(!this.shadowRoot){this.attachShadow({mode:'open'}).innerHTML='<span style="display:block;width:100%;height:100%;border-radius:4px;background:currentColor;opacity:.35"></span>';} } });
   // Minimal Bubble Card pop-up: åpnes via hash, transform på rammen (som ekte Bubble Card).

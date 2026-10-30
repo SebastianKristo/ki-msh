@@ -6,7 +6,8 @@ NAVN = "KI MSH"
 # Frontend: ki-msh.js ligger i integrasjonen (frontend/ki-msh.js, kopiert av build.mjs) og serveres herfra.
 FRONTEND_URL = "/ki_msh_static"
 FRONTEND_FIL = "ki-msh.js"
-BUBBLE_CDN = "https://cdn.jsdelivr.net/gh/Clooos/Bubble-Card@main/dist/bubble-card.js"
+# Låst til en utgivelse – en ny Bubble Card-versjon tas inn bevisst (ikke @main, som kan endre seg uten varsel)
+BUBBLE_CDN = "https://cdn.jsdelivr.net/gh/Clooos/Bubble-Card@v3.4.2/dist/bubble-card.js"
 
 # Oppsett
 CONF_DASHBORD = "dashbord"            # lag dashbordet automatisk
@@ -22,10 +23,15 @@ CONF_EKSKLUDER_ROM = "ekskluder_rom"
 CONF_EXCLUDE = "exclude"
 CONF_INCLUDE_CATEGORY = "include_category"
 CONF_INCLUDE_GROUPS = "include_groups"
+CONF_LAGRING = "lagring"              # "felles" (alle brukere, ki_msh/lager) | "bruker" (HAs user_data per bruker)
+CONF_TEMP_RESERVE = "temp_reserve"    # temperatur når rommet/huset ikke har egen sensor
+CONF_FUKT_RESERVE = "fukt_reserve"
+CONF_PRIS = "pris"                    # strømprissensor (ellers funnet automatisk)
 
 STD_URL = "ki-msh"
 STD_TITTEL = "Hjem"
 STD_IKON = "mdi:home-heart"
+STD_LAGRING = "felles"
 
 STRATEGI = {"strategy": {"type": "custom:ki-dashboard"}}
 

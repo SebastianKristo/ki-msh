@@ -21,8 +21,9 @@
   if (MSH.perf) return;
   const KEY = 'ki-perf';
   const Q = '@container style(--ki-perf: lite)';
-  // I alle kortenes shadow roots (via MSH.BASE_CSS) – bare når modusen er på
-  const ALL = `${Q}{*,*::before,*::after{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;animation-iteration-count:1!important}}`;
+  // I alle kortenes shadow roots (via MSH.BASE_CSS) – bare når modusen er på. Unntak (Runde 2): lastesirkler (.spin …) snurrer
+  // fortsatt – en frossen sirkel ser ut som en hengt app.
+  const ALL = `${Q}{*,*::before,*::after{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;animation-iteration-count:1!important}.spin,.spin ha-icon,.spn,.spinner,[data-ki-spin]{animation-iteration-count:infinite!important}}`;
   // Bubble-popupens shadow root: bg_blur → 0 (Bubble setter --custom-popup-filter inline – !important vinner)
   const POP = `${Q}{.bubble-pop-up,.bubble-pop-up::before,.bubble-pop-up::after,.bubble-backdrop{--custom-popup-filter:none!important;--custom-backdrop-filter:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}}`;
   const DOC = `:root[data-ki-perf=lite]{--ki-perf:lite;--bubble-backdrop-filter:none!important}`;

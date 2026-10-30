@@ -1242,6 +1242,7 @@
     .sw{position:relative;width:52px;height:30px;border-radius:15px;flex:none;background:var(--ki-ctrl, #4a4a4d);transition:background .2s}
     .sw span{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #d8d6d1);box-shadow:var(--ki-pill-sh, none);transition:left .2s}
     .sw.on{background:${M.SWITCH_ON}} .sw.on span{left:26px;background:#2a2a2c} /* Fiks 26: rosa */
+    ${M.tp ? M.tp.sw('.sw', ' span') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
     .r.col2{flex-direction:column;align-items:stretch;gap:10px;padding:12px 10px 12px 14px}
     .hsg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}

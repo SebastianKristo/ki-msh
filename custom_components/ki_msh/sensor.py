@@ -29,9 +29,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class KiMshStatus(SensorEntity):
-    """sensor.ki_msh: tilstand = antall rom; attributtene er hele husmodellen."""
+    """sensor.ki_msh: tilstand = antall rom. Attributtene er et sammendrag (romnavn, aktive funksjons-popups, rev) –
+    hele modellen hentes med websocket ki_msh/hus. Ingenting av det store lagres i databasen (_unrecorded_attributes)."""
 
     _attr_has_entity_name = False
+    _unrecorded_attributes = frozenset({"rom", "popups", "etasjer", "kilder"})
     _attr_should_poll = False
     _attr_icon = "mdi:home-heart"
     _attr_name = NAVN
@@ -48,8 +50,13 @@ class KiMshStatus(SensorEntity):
         hus = self._hub.hus()
         v = _valg(self._hub.entry)
         self._attr_native_value = len(hus["rom"])
+        k = hus.get("kilder") or {}
         self._attr_extra_state_attributes = {
-            "integrasjon": DOMAIN, "versjon": versjon(), "dashbord": f"/{v['url']}" if v["aktiv"] else None, **hus,
+            "integrasjon": DOMAIN, "versjon": versjon(), "dashbord": f"/{v['url']}" if v["aktiv"] else None,
+            "rev": hus["rev"], "romsensorer": hus["romsensorer"],
+            "rom": [r["navn"] for r in hus["rom"]], "etasjer": [e["navn"] for e in hus["etasjer"]], "popups": hus["popups"],
+            "kilder": sorted([n for n in ("ki_rom", "ki_energi") if (k.get(n) or {}).get("lastet")] + list(k.get("brytere") or {})
+                             + (["energi"] if (hus.get("energi") or {}).get("lastet") else [])),
         }
 
     async def async_added_to_hass(self) -> None:

@@ -1173,7 +1173,7 @@
     const entSec = ([g, label, icon]) => ({ type: 'section', id: 'vp-' + g, label, icon,
       meta: (hh, cc) => { const L = ROLES.filter((r) => r[2] === g); return `${L.filter((r) => entOf(hh, cc, r[0])).length} av ${L.length} funnet`; },
       fields: ROLES.filter((r) => r[2] === g).map(([k, l, , doms, pids, , ic]) => ({ type: 'entity', name: 'overrides.' + k, label: l + (pids.length ? ` · ${pids[0]}` : ''), icon: ic, domain: doms, auto: (hh, cc) => autoOf(hh, { ...cc, overrides: {} }, k), none_label: '– · Velg entitet' })) });
-    const reset = { type: 'button', label: 'Tilbakestill alt', icon: 'mdi:restart', run: (hh, cc, ed) => {
+    const reset = { type: 'button', label: 'Nullstill alt', icon: 'mdi:restart', run: (hh, cc, ed) => {
       M.haptic('warning');
       const id = (cc && cc.card_id) || M.uid();
       ed._config = { type: cc.type || 'custom:msh-varmepumpe-card', card_id: id };

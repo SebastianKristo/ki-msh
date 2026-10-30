@@ -806,6 +806,7 @@
     .tsw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:var(--ki-knob, #fafafa);transition:transform .2s cubic-bezier(.34,1.4,.64,1)}
     .tsw.on{background:${PINK}}
     .tsw.on::after{transform:translateX(18px)}
+    ${M.tp ? M.tp.sw('.tsw', '::after') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .chips{display:flex;gap:6px;flex-wrap:wrap}
     .chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:18px;background:var(--ki-g-row,var(--ki-surface, var(--gray200,#3a3a3a)));font-size:13px;font-weight:500;color:var(--ki-text-2, var(--gray800,#afafaf))}
     .chip.on{background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, #282828)}

@@ -1,7 +1,12 @@
 {
   "domain": "ki_msh",
   "name": "KI MSH",
-  "version": "1.6.0",
+  "after_dependencies": [
+    "energy",
+    "ki_energi",
+    "ki_notifications",
+    "ki_rom"
+  ],
   "codeowners": [
     "@SebastianKristo"
   ],
@@ -12,14 +17,11 @@
     "lovelace",
     "websocket_api"
   ],
-  "after_dependencies": [
-    "ki_rom",
-    "hacs"
-  ],
   "documentation": "https://github.com/SebastianKristo/ki-msh",
   "integration_type": "hub",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/SebastianKristo/ki-msh/issues",
   "requirements": [],
-  "single_config_entry": true
+  "single_config_entry": true,
+  "version": "1.7.0"
 }

@@ -176,6 +176,7 @@
     .trk.big{width:52px;height:32px;border-radius:16px}
     .trk.big::after{width:26px;height:26px;border-radius:13px}
     .trk.big.on::after{left:23px}
+    ${M.tp ? M.tp.sw('.trk', '::after') + M.tp.sw('.trk.big', '::after') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
     .trk.off{opacity:.4}
     .gr{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;border-radius:26px;background:var(--ki-bg, var(--gray000,#232323))}
     .gc{display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -708,7 +709,7 @@
       }
       return `<div class="box" data-key="hctools"><span style="display:flex;flex-direction:column;gap:2px"><span class="lb">Kort på Hjem-fanen</span><span class="sub">${esc(info)}</span></span>
           <div class="chs"><button class="o34 press ${u.hcAdd ? 'on-pk' : ''}" data-a="hcaddopen">${ic('add', 16)} Legg til</button>
-          <button class="o34 press" data-a="hcreset" data-h="${u.hcConfirm ? 'warning' : 'light'}" style="${u.hcConfirm ? 'color:rgb(242 128 115);box-shadow:inset 0 0 0 1.5px rgb(242 128 115)' : ''}">${u.hcConfirm ? 'Trykk igjen for å tilbakestille' : 'Tilbakestill til forslag'}</button></div></div>${search}`;
+          <button class="o34 press" data-a="hcreset" data-h="${u.hcConfirm ? 'warning' : 'light'}" style="${u.hcConfirm ? 'color:rgb(242 128 115);box-shadow:inset 0 0 0 1.5px rgb(242 128 115)' : ''}">${u.hcConfirm ? 'Trykk igjen for å tilbakestille' : 'Nullstill til forslag'}</button></div></div>${search}`;
     }
     // «Forslag»: nye rom og enheter i HA som ikke er på Hjem (og ikke fjernet før) – nederst i editoren.
     _hcSuggest(m) {

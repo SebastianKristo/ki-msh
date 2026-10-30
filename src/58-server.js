@@ -25,7 +25,7 @@
  *   systemmonitor/uptime + Supervisor via WS `supervisor/api` /addons, /addons/<slug>/info|stats).
  *   Integrasjonene oppdages fra config entries (config_entries/get) + entitets-/enhetsregisteret; manuelt valg
  *   integrations: { unifi, protect, proxmox, unraid: <entry_id|'none'> } via integrasjonsvelgeren (portalt ark).
- * Config (samme skjema i «Tilpass Server» (MSH.openEditor → MSH.overlay tilpass:true) og GUI-editoren):
+ * Config (samme skjema i «Tilpass server» (MSH.openEditor → MSH.overlay tilpass:true) og GUI-editoren):
  *   velger: faner|kort · tab_mode · host_icons · tab_height (32–60) · show_prose · tab_order · hidden_tabs · start_tab · hero_metric { net, proxmox,
  *   unraid, ha } · integrations · overrides · exclude · gap/pad_top/pad_bottom. Gamle v5-nøkler (tabs.order/hidden/start) leses.
  * Farger: tokens fra ki-theme (src/00-a-theme.js) med dagens mørke verdi som fallback – mørk modus er uendret.
@@ -796,7 +796,7 @@
   const TB_IC = `--mdc-icon-size:${TV('ti', 18)};width:${TV('ti', 18)};height:${TV('ti', 18)}`;
   const hostName = (k) => `<span class="tbn"${k === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[k][1])}</span>`;
   const tabRowHTML = (V, act, attrs, c) => { const md = tabMode(c); return `<div class="trow"><div class="tbox"><div class="tabs" role="tablist" data-mode="${md}">${V.map((k) => { const on = k === act, nm = md === 'alle' || (md === 'aktiv' && on); return `<button class="tb${on ? ' on' : ''}${nm ? '' : ' io'}" role="tab" aria-selected="${on}" data-v="${k}" title="${esc(HOSTL[k][1])}"${nm ? '' : ` aria-label="${esc(HOSTL[k][1])}"`} ${attrs ? attrs(k) : ''}>${M.icon(hostIcon(c, k), 18, TB_IC)}${nm ? hostName(k) : ''}</button>`; }).join('')}</div></div>
-    <button class="gear" ${attrs ? 'data-act="customize"' : ''} aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button></div>`; };
+    <button class="gear" ${attrs ? 'data-act="customize"' : ''} aria-label="Tilpass server" title="Tilpass">${M.icon('mdi:cog', 22)}</button></div>`; };
   // Kort-variant: ring (CPU-/ned-last) + statusprikk + navn + undertekst. X: { [k]: { pct, col, ok, none, sub } }
   const ringDash = (p) => `${((M.clamp(p || 0, 0, 100) / 100) * 106.8).toFixed(1)} 106.8`;
   const hostCardsHTML = (V, act, X, attrs, c) => `<div class="hcards">${V.map((k) => {
@@ -833,25 +833,25 @@
   /* ------------------------------------------------------------ Fiks 62: «Tilpass server»-arket (designet: cu) */
   // Arket ligger øverst i popupen (top 12 px under popupens toppkant), radius 32, #2f2f2f-flate, liste #3a3a3a, utvidet rad #404040
   const TP_CSS = () => `.sh{top:var(--sv-tp-top,12px);bottom:auto;left:calc(var(--ki-rail-x,0px) + 8px);right:8px;max-width:440px;border-radius:32px;padding:16px 14px;
-      max-height:calc(100% - var(--sv-tp-top,12px) - 16px);background:var(--ki-popup, #2f2f2f);box-shadow:0 16px 48px ${M.theme.blackA(0.5)};transform:translate3d(0,-10px,0)}
+      max-height:calc(100% - var(--sv-tp-top,12px) - 16px);background:var(--ki-popup, #282828);box-shadow:0 16px 48px ${M.theme.blackA(0.5)};transform:translate3d(0,-10px,0)}
     :host(.on) .sh{transform:translate3d(0,0,0)}
     .body{gap:14px}
-    .tph{display:flex;align-items:center;gap:10px;padding:0 4px}.tt{flex:1;font-size:20px;font-weight:600;letter-spacing:-0.02em}
+    .tph{padding:0 2px}
     ${M.tp.CSS} /* felles Tilpass-header (MSH.tp) */
-    .x{width:44px;height:44px;border-radius:22px;background:var(--ki-surface-2, #404040);display:grid;place-items:center;color:var(--ki-text, #fafafa)}
-    .grp{display:flex;flex-direction:column;gap:8px}.gl{padding:0 4px;font-size:13px;color:var(--ki-text-2, #afafaf)}
+    .grp{display:flex;flex-direction:column;gap:8px}.gl{padding:0 8px;${M.tp.SEC}}
     .mds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
     .md{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 6px;border-radius:20px;min-width:0;background:var(--ki-surface, #3a3a3a);color:var(--ki-text-1, #e1e1e1);transition:background .2s,color .2s}
     .md:active,.io:active{transform:scale(.95)}
-    .md.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
+    .md,.io{transition:background .2s,color .2s,transform .12s}
+    .md.on{${M.tp.CHIP_ON}}
     .dm{display:flex;align-items:center;gap:3px;height:28px}
     .dmi{display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 6px;border-radius:11px;color:var(--ki-text-1, #c7c7c7)}
     .dmi i{width:14px;height:3px;border-radius:2px;background:currentColor;opacity:.7}
     .md .dmi.a{background:var(--ki-text, #fafafa);color:var(--ki-popup, #282828)}
     .md.on .dmi{color:var(--ki-on-accent, #3a3a3a)}.md.on .dmi.a{background:var(--ki-on-accent, #3a3a3a);color:var(--ki-text, #fafafa)}
     .ml{font-size:12px;font-weight:600;text-align:center;line-height:1.25}
-    .hl{display:flex;flex-direction:column;gap:4px;border-radius:22px;background:var(--ki-surface, #3a3a3a);padding:4px}
-    .hr{border-radius:18px;transition:background .2s}.hr.open{background:var(--ki-surface-2, #404040)}
+    .hl{display:flex;flex-direction:column;${M.tp.GROUP}overflow:hidden}
+    .hr{transition:background .2s;${M.tp.ROW_SEP}}.hr:first-child{box-shadow:none}.hr.open{background:var(--ki-surface-2, #404040)}
     .hb{display:flex;align-items:center;gap:12px;min-height:56px;width:100%;padding:0 12px 0 8px;box-sizing:border-box;text-align:left;color:var(--ki-text, #fafafa)}
     .hb>ha-icon:last-child{transition:transform .2s}.hr.open .hb>ha-icon:last-child{transform:rotate(180deg)}
     .hi{width:40px;height:40px;border-radius:20px;flex:none;display:grid;place-items:center;background:var(--ki-text, #fafafa);color:var(--ki-popup, #282828)}
@@ -859,10 +859,11 @@
     .rs{font-size:12px;color:var(--ki-text-mid, #979797);padding:6px 8px}
     .ig{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding:4px 8px 12px;animation:tpf .2s ease}
     .io{aspect-ratio:1;min-width:0;border-radius:14px;display:grid;place-items:center;background:var(--ki-surface-3, #2f2f2f);color:var(--ki-text-1, #e1e1e1)}
-    .io.on{background:${C.accent};color:var(--ki-on-accent, #3a3a3a)}
-    .more{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border-radius:22px;background:var(--ki-surface, #3a3a3a);color:var(--ki-text, #fafafa);text-align:left;font-size:14px;font-weight:500}
+    .io.on{${M.tp.CHIP_ON}}
+    .more{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;${M.tp.GROUP}color:var(--ki-text, #fafafa);text-align:left;font-size:14px;font-weight:500}
     .more span{flex:1}
-    @keyframes tpf{from{opacity:0}to{opacity:1}}`;
+    @keyframes tpf{from{opacity:0}to{opacity:1}}
+    @media (prefers-reduced-motion: reduce){.ig{animation:none}.md,.io,.hr,.hb>ha-icon{transition:none}}`;
 
   /* ------------------------------------------------------------ «Tilpass Server» (= GUI-editoren, samme skjema) */
   const intStatus = (hh, cc, k) => {
@@ -892,7 +893,7 @@
     // overrides.<nøkkel> med eget autovalg (qBittorrent / SpeedTest) – autovalget ignorerer overstyringen
     const entX = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => { if (!hh) return null; try { return fnc(hh, cc || {}) || null; } catch (e) { return null; } }, none_label: '– · Velg entitet', ...(extra || {}) });
     const ent = (name, label, fnc, extra) => ({ type: 'entity', name: 'overrides.' + name, label, domains: ['sensor'], auto: (hh, cc) => autoOf(hh, cc, fnc), none_label: '– · Velg entitet', ...(extra || {}) });
-    const reset = { type: 'button', label: 'Tilbakestill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-server-card', card_id: id }; ed._set('card_id', id); } };
+    const reset = { type: 'button', label: 'Nullstill til standard', icon: 'mdi:restore', run: (hh, cc, ed) => { M.haptic('warning'); const id = (cc && cc.card_id) || M.uid(); ed._config = { type: cc.type || 'custom:msh-server-card', card_id: id }; ed._set('card_id', id); } };
     const hostOpts = HOSTS.map((t) => [t[0], t[1]]);
     return [
       { type: 'tabs', id: 'server', tabs: [
@@ -954,7 +955,7 @@
             ...((M.serverCF && M.serverCF.ALL) || []).map(([k, , , l]) => entX('cf_' + k, l, (hh, cc) => M.serverCF.discover(hh, cc).auto[k])),
           ] },
           M.spacingSchema(),
-          { type: 'section', id: 'avansert', label: 'Tilbakestill', icon: 'mdi:restore', fields: [reset] },
+          { type: 'section', id: 'avansert', label: 'Nullstill', icon: 'mdi:restore', fields: [reset] },
         ] },
       ] },
     ];
@@ -1335,7 +1336,7 @@
             <span class="dm">${dm.map((t, j) => `<span class="dmi${j === 0 ? ' a' : ''}">${M.icon(icMdi(['router', 'dns', 'home'][j]), 12)}${t ? '<i></i>' : ''}</span>`).join('')}</span><span class="ml">${esc(l)}</span></button>`).join('');
         const hosts = V.map((k) => {
           const cur = hostIconName(c, k), on = open.k === k, changed = cur !== HOST_IC[k];
-          return `<div class="hr${on ? ' open' : ''}" data-key="tph-${k}"><button class="hb" data-sa="toggle" data-v="${k}" aria-expanded="${on}"><span class="hi">${M.icon(icMdi(cur), 20)}</span><span class="hn"${k === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[k][1])}</span>${changed ? `<span class="rs" data-sa="reset" data-v="${k}" role="button">Tilbakestill</span>` : ''}${M.icon('mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
+          return `<div class="hr${on ? ' open' : ''}" data-key="tph-${k}"><button class="hb" data-sa="toggle" data-v="${k}" aria-expanded="${on}"><span class="hi">${M.icon(icMdi(cur), 20)}</span><span class="hn"${k === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[k][1])}</span>${changed ? `<span class="rs" data-sa="reset" data-v="${k}" role="button">Nullstill</span>` : ''}${M.icon('mdi:chevron-down', 20, 'color:var(--ki-text-mid, #979797)')}</button>
             ${on ? `<div class="ig">${IC_OPTS.map((ic) => `<button class="io${ic === cur ? ' on' : ''}" data-sa="icon" data-k="${k}" data-v="${ic}" title="${ic}" aria-pressed="${ic === cur}">${M.icon(icMdi(ic), 20)}</button>`).join('')}</div>` : ''}</div>`;
         }).join('');
         M.morph(ov.body, `<div class="tph kt-head" data-sheet-head>${M.tp.head({ title: 'Tilpass server', sub: 'Lagres med en gang', done: 'close', act: 'sa' })}</div>
@@ -1490,7 +1491,7 @@
       const unit = (m) => (m.unit === '%' || m.unit === '°' ? m.unit : m.unit ? ' ' + m.unit : ' ' + m.label.toLowerCase());
       return `<section class="hero" aria-label="Toppkort" data-key="hero-${host}">
           <div class="htop"><span class="hn ell"${host === 'cf' ? ' data-noi18n' : ''}>${esc(HOSTL[host][1])}</span><span class="chip ${st.none ? 'none' : st.ok ? 'ok' : 'warn'}">${M.icon(st.none ? 'mdi:link-variant-off' : st.ok ? 'mdi:check' : 'mdi:alert', 13)}<span class="ell">${esc(st.t)}</span></span></div>
-          ${cards ? `<button class="hcog" data-act="customize" aria-label="Tilpass Server" title="Tilpass">${M.icon('mdi:cog', 22)}</button>` : ''}
+          ${cards ? `<button class="hcog" data-act="customize" aria-label="Tilpass server" title="Tilpass">${M.icon('mdi:cog', 22)}</button>` : ''}
           <div class="vals"><span class="bigw"><span class="big num">${fv(M0, at(M0))}</span><span class="bu">${esc(unit(M0).trim() === M0.label.toLowerCase() ? '' : unit(M0))}</span></span>
             ${Ms.map((m, j) => (j === mi ? '' : `<button class="sv" data-act="hm" data-v="${m.k}" data-haptic="selection" aria-label="Vis ${esc(m.label)}"><span class="svv num">${fv(m, at(m))}</span><span class="svu">${esc(unit(m))}</span></button>`)).join('')}</div>
           <span class="when">${esc(time)}</span>
@@ -1551,7 +1552,7 @@
       const I = INT[k], off = R.mode[k] === 'none';
       if (R.loading && !off) return `<section class="card nf" data-key="nf-${k}">${M.icon('mdi:timer-sand', 26)}<b>Leter etter ${esc(I.name)} …</b></section>`;
       return `<section class="card nf" data-key="nf-${k}"><span class="nfi">${M.icon(off ? 'mdi:eye-off' : 'mdi:puzzle-remove-outline', 26)}</span><b>${off ? `${esc(I.name)} er slått av` : `Fant ikke ${esc(I.name)}`}</b>
-        <span>${off ? 'Integrasjonen er satt til «Ingen» i Tilpass Server.' : `Legg til integrasjonen i Home Assistant, eller velg en annen config entry.${k === 'unraid' ? ' Glances brukes automatisk som reserve.' : ''}`}</span>
+        <span>${off ? 'Integrasjonen er satt til «Ingen» i Tilpass server.' : `Legg til integrasjonen i Home Assistant, eller velg en annen config entry.${k === 'unraid' ? ' Glances brukes automatisk som reserve.' : ''}`}</span>
         <div class="nfb"><button class="pick press" data-act="pickint" data-v="${k}">${M.icon('mdi:swap-horizontal', 18)}Velg integrasjon</button><button class="pick press" data-act="addint" data-v="${esc(I.domain)}">${M.icon('mdi:plus', 18)}Legg til i HA</button></div></section>`;
     }
     _head(title, sum, icon) { return `<div class="ch">${icon ? M.icon(icon, 20, 'color:var(--ki-text-1, #c7c7c7)') : ''}<span class="ct">${esc(title)}</span>${sum != null ? `<span class="cs">${esc(sum)}</span>` : ''}</div>`; }

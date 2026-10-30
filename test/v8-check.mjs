@@ -74,8 +74,8 @@ for (const W of [1280, 1920]) {
   // Tilpass: toggles
   await p.evaluate(() => __R('[data-act="tilpass"]').click()); await sleep(300);
   await p.evaluate(() => __R('.tb[data-v="oversikt"]').click()); await sleep(100);
-  const T = await p.evaluate(async () => { const r = MSH.portals().pop().shadowRoot; const rows = [...r.querySelectorAll('.mr b')].map((x) => x.textContent); r.querySelector('.kr[data-k="fukt"]').click(); await new Promise((q) => setTimeout(q, 300)); return { rows, ls: localStorage.getItem('ki-pc-kort'), fukt: !!__R('[data-key="pc-fukt"]') }; });
-  ok('Tilpass: meny + «Kort i oversikten» skjuler kort og lagres', T.rows.length === 5 && T.ls === '{"fukt":true}' && !T.fukt, T);
+  const T = await p.evaluate(async () => { const r = MSH.portals().pop().shadowRoot; const rows = [...r.querySelectorAll('.mr b')].map((x) => x.textContent); r.querySelector('.kr[data-k="fukt"]').click(); await new Promise((q) => setTimeout(q, 300)); return { rows, lang: r.querySelectorAll('.lang [data-ta="lang"]').length, ls: localStorage.getItem('ki-pc-kort'), fukt: !!__R('[data-key="pc-fukt"]') }; });
+  ok('Tilpass: meny + «Kort i oversikten» skjuler kort og lagres', T.rows.length === 4 && T.lang === 2 && T.ls === '{"fukt":true}' && !T.fukt, T);
   await p.keyboard.press('Escape'); await sleep(300);
   // Analyse
   await p.evaluate(() => __R('[data-act="ana"]').click()); await sleep(600);

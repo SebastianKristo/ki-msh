@@ -1,6 +1,6 @@
 /* KI MSH · ki-store – innstillinger fra dashbord-editorene (Tilpass Hjem/navbar/header/rom …).
  * Lagres per HA-bruker med frontend/set_user_data (nøkkel «ki_dashboard») og synkes mellom alle enhetene til
- * brukeren. Trigger ingen Lovelace-rebuild. localStorage er bare cache for rask første visning.
+ * brukeren – eller felles for alle brukere i KI MSH-integrasjonens lager (MSH.store.shared, se BK under). Trigger ingen Lovelace-rebuild. localStorage er bare cache for rask første visning.
  *   MSH.store.get(path)            – les (sti med punktum, tom = alt)
  *   MSH.store.set(path, value)     – skriv (debounce 600 ms mot HA), varsler abonnenter straks
  *   MSH.store.subscribe(cb)        – cb(data, path) ved endring; returnerer avmelding
@@ -59,6 +59,18 @@
     data = v; cache(); emit('');
   };
   const cache = () => { try { localStorage.setItem(CACHE, JSON.stringify(data)); } catch (e) { /* */ } };
+  /* Runde 2 · lagringssted. Standard: HAs user_data (per HA-bruker). Med KI MSH-integrasjonen og «Lagring: felles»
+   * (Konfigurer → Dashbord) ligger oppsettet i integrasjonens lager (ki_msh/lager/*, .storage/ki_msh.oppsett) – likt for
+   * alle brukere og enheter. Første gang lageret er tomt lastes brukerens eget oppsett opp dit (ingenting går tapt). */
+  let shared = false;
+  const BK = {
+    get: () => (shared ? hass.callWS({ type: 'ki_msh/lager/hent' }).then((r) => ({ value: r && r.data })) : hass.callWS({ type: 'frontend/get_user_data', key: KEY })),
+    put: (value) => (shared ? hass.callWS({ type: 'ki_msh/lager/lagre', data: value }) : hass.callWS({ type: 'frontend/set_user_data', key: KEY, value })),
+    sub: (cb) => (shared
+      ? hass.connection.subscribeMessage((m) => cb(m && m.data), { type: 'ki_msh/lager/abonner' })
+      : hass.connection.subscribeMessage((m) => cb(m && m.value), { type: 'frontend/subscribe_user_data', key: KEY })),
+  };
+  const isEmpty = (v) => !v || typeof v !== 'object' || !Object.keys(v).length;
   // Lagring mot HA: debounce 600 ms; alle som venter får samme svar ({ ok, error }) når callWS har returnert.
   let waiters = [];
   const write = async () => {
@@ -69,7 +81,7 @@
     if (!hass || !hass.callWS) res = { ok: false, error: 'Ingen forbindelse til Home Assistant' };
     else {
       writing++;
-      try { await hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: data }); res = { ok: true }; }
+      try { await BK.put(data); res = { ok: true }; }
       catch (e) { res = { ok: false, error: (e && e.message) || String(e) }; }
       finally { writing--; }
     }
@@ -190,7 +202,7 @@
         tx.snap = setIn(tx.snap, path, value); tx.touched.delete(path);
         emit(path, opts.src);
         if (!hass || !hass.callWS) return Promise.resolve({ ok: false, error: 'Ingen forbindelse til Home Assistant' });
-        return hass.callWS({ type: 'frontend/set_user_data', key: KEY, value: tx.snap }).then(() => { cache(); return { ok: true }; }, (e) => ({ ok: false, error: (e && e.message) || String(e) }));
+        return BK.put(tx.snap).then(() => { cache(); return { ok: true }; }, (e) => ({ ok: false, error: (e && e.message) || String(e) }));
       }
       if (tx) { tx.touched.add(path || ''); emit(path, opts.src); return Promise.resolve({ ok: true, draft: true }); } // utkast: sendes ved tx.commit()
       if (!opts.confirm) { cache(); emit(path, opts.src); return push(opts.immediate); }
@@ -251,13 +263,14 @@
       if (h) hass = h;
       if (!hass || !hass.callWS || busy()) return data;
       try {
-        const r = await hass.callWS({ type: 'frontend/get_user_data', key: KEY });
+        const r = await BK.get();
         if (r) remote(r.value);
       } catch (e) { /* */ }
       return data;
     },
     subscribe(cb) { subs.add(cb); return () => subs.delete(cb); },
     get loaded() { return loaded; },
+    get shared() { return shared; }, // true = felles lager i integrasjonen (alle brukere)
     flush() { if (timer && !tx) write(); },
     async load(h) {
       if (h) hass = h;
@@ -265,7 +278,16 @@
       if (loading) return loading;
       loading = (async () => {
         try {
-          const r = await hass.callWS({ type: 'frontend/get_user_data', key: KEY });
+          const H = M.hus ? await M.hus.load(hass) : null;
+          shared = !!(H && H.lagring === 'felles');
+          let r = await BK.get();
+          if (shared && isEmpty(r && r.value)) {
+            // første gang med felles lager: last opp brukerens eget oppsett (user_data, ellers cachen)
+            let own = null;
+            try { own = ((await hass.callWS({ type: 'frontend/get_user_data', key: KEY })) || {}).value; } catch (e) { /* */ }
+            if (isEmpty(own)) own = isEmpty(data) ? null : data;
+            if (own) { await BK.put(own); r = { value: own }; console.info('[ki-store] oppsettet er flyttet til det felles lageret (KI MSH-integrasjonen)'); }
+          }
           if (r && r.value && typeof r.value === 'object' && !busy()) { data = r.value; cache(); emit(''); }
         } catch (e) { /* eldre HA: behold cache */ }
         loaded = true;
@@ -284,9 +306,7 @@
         // endringer fra andre enheter/faner
         try {
           if (hass.connection && hass.connection.subscribeMessage && !unsubRemote) {
-            unsubRemote = await hass.connection.subscribeMessage((msg) => {
-              remote(msg && msg.value);
-            }, { type: 'frontend/subscribe_user_data', key: KEY });
+            unsubRemote = await BK.sub(remote);
           }
         } catch (e) { /* ikke støttet */ }
         return data;

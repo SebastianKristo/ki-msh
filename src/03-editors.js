@@ -75,7 +75,7 @@
     .seg button.on{background:var(--ki-pill-bg, var(--gray1000,#e1e1e1));color:var(--ki-pill-fg, var(--gray000,#232323))}
     .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 4px 0;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
     .sub .who{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .chip{height:22px;padding:0 9px;border-radius:11px;background:rgb(115 185 242);color:#1f2a36;font-size:11px;font-weight:600;display:inline-flex;align-items:center}
+    .chip{height:22px;padding:0 9px;border-radius:11px;background:rgb(115 185 242);color:var(--ki-on-accent, #1f2a36);font-size:11px;font-weight:600;display:inline-flex;align-items:center}
     .act{display:flex;gap:6px;margin:8px 0 0}
     .act button{height:32px;padding:0 12px;border-radius:16px;background:var(--ki-surface-2, var(--gray300,#404040));color:var(--ki-text, var(--white,#fafafa));font-size:13px;font-weight:500}
     .act button.warn{background:rgba(242,128,115,.18);color:var(--ki-red-text, var(--red,#f28073))}`;
@@ -133,15 +133,13 @@
       const row = (act, icon, label, sub, extra = '') => `<button class="r press" data-act="${act}" ${extra}><span class="ic">${M.icon(icon, 22)}</span><span class="tx"><b>${M.esc(label)}</b><i>${M.esc(sub)}</i></span>${M.icon('chevron_right', 22, 'color:var(--ki-text-3, #7f7f7f)')}</button>`;
       return `<div class="st">
         <div class="grp">
-          ${row('ed', 'mdi:view-dashboard-edit', 'Tilpass Hjem', 'Kort, faner, popups og tekst', 'data-e="home"')}
-          ${row('ed', 'mdi:dock-bottom', 'Tilpass navbar', 'Knapper, merker og stil', 'data-e="navbar"')}
-          ${row('ed', 'mdi:page-layout-header', 'Tilpass header', 'Hilsen, personer og soner', 'data-e="header"')}
+          ${(M.tp ? M.tp.entries(['home', 'navbar', 'header']) : []).map(([k, ic, t, sub]) => row('ed', ic, t, sub, `data-e="${k}"`)).join('')}
         </div>
         <div class="grp">
           ${row('nav', 'mdi:cog', 'Home Assistant', 'Innstillinger', 'data-path="/config"')}
           ${row('nav', 'mdi:texture-box', 'Områder og etasjer', 'Nye rom gir nye popups automatisk', 'data-path="/config/areas/dashboard"')}
         </div>
-        ${M.store ? `<div class="gh">Utseende</div><div class="grp"><button class="r press" data-act="glass" role="switch" aria-checked="${M.glassOn()}"><span class="ic">${M.icon('mdi:blur', 22)}</span><span class="tx"><b>Liquid Glass-tema</b><i>Frosted glass i alle Tilpass-ark</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><i></i></span></button></div>` : ''}
+        ${M.store ? `<div class="gh">Utseende</div><div class="grp"><button class="r press" data-act="glass" role="switch" aria-checked="${M.glassOn()}"><span class="ic">${M.icon('mdi:blur', 22)}</span><span class="tx"><b>Glass i menyer og Tilpass-ark</b><i>Gjennomsiktige ark med uskarp bakgrunn</i></span><span class="trk ${M.glassOn() ? 'on' : ''}"><i></i></span></button></div>` : ''}
         ${this._perf()}
         ${this._devices()}
         <div class="who">${M.esc(u.name || '')} · innstillingene gjelder for deg på alle enhetene dine${M.store ? ' · denne enheten: ' + M.esc(M.store.deviceName) : ''}</div>
@@ -214,13 +212,14 @@
         .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.tx b{font-size:15px;font-weight:500}.tx i{font-style:normal;font-size:12px;color:var(--ki-text-mid, var(--gray700,#979797))}
         .who{font-size:12px;color:var(--ki-text-3, var(--gray600,#7f7f7f));padding:4px 6px}
         .gh{font-size:13px;font-weight:500;color:var(--ki-text-mid, var(--gray700,#979797));padding:8px 8px 0}
-        .dv{cursor:default}.tx em{font-style:normal;font-size:11px;font-weight:600;padding:2px 7px;border-radius:9px;background:rgb(115 185 242);color:#1f2a36;margin-left:6px;vertical-align:1px}
+        .dv{cursor:default}.tx em{font-style:normal;font-size:11px;font-weight:600;padding:2px 7px;border-radius:9px;background:rgb(115 185 242);color:var(--ki-on-accent, #1f2a36);margin-left:6px;vertical-align:1px}
         .dva{display:flex;gap:6px;flex:none}
         .sm{min-width:36px;height:36px;padding:0 10px;border-radius:18px;background:var(--ki-surface-2, var(--gray300,#404040));display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:500}
         .trk{position:relative;width:50px;height:30px;border-radius:15px;flex:none;background:var(--ki-ctrl, var(--gray400,#545454));transition:background .2s}
         .trk.on{background:${M.SWITCH_ON || 'var(--pink,#f285c9)'}} /* Fiks 26: rosa brytere */
         .trk i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa);transition:left .2s}
         .trk.on i{left:23px}
+        ${M.tp ? M.tp.sw('.trk', ' i') : ''} /* Runde 2: felles bryter (MSH.tp.sw) */
         .sm.on{background:${M.SWITCH_ON || 'var(--pink,#f285c9)'};color:var(--ki-on-accent, #2a1720)}
         .pf .tx i{white-space:normal}
         .sm.warn{background:rgba(242,128,115,.18);color:var(--ki-red-text, var(--red,#f28073))}

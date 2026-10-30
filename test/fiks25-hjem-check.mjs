@@ -99,7 +99,7 @@ const ok = (c, m, info) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (info != 
   await p.evaluate(async () => {
     window.deepAll = (sel, root) => { const out = []; const walk = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(root || document); return out; };
     window.deep = (sel, root) => window.deepAll(sel, root)[0] || null;
-    const H = window.mockHass(); window.H = H;
+    const H = window.mockHass(); H.user = { ...(H.user || {}), is_admin: false }; H.themes = { ...(H.themes || {}), darkMode: true }; window.H = H; // ikke-admin: «Tilpass» ligger i Mer (admin har det i Innstillinger); mørk modus
     window.MSH.lastHass = H;
     await window.MSH.store.load(H);
     window.__view = await window.MSH.generateDashboardView({}, H);
@@ -162,12 +162,12 @@ const ok = (c, m, info) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (info != 
     const r = h.shadowRoot, s = r.querySelector('.sh'), sr = s.getBoundingClientRect(), cs = getComputedStyle(s), nav = window.deep('nav.nb'), nr = nav && nav.getBoundingClientRect();
     const rows = [...r.querySelectorAll('.tpr')], row0 = rows[0] && rows[0].getBoundingClientRect(), ic = r.querySelector('.tpi'), card = r.querySelector('.tpc');
     return { rows: rows.map((e) => e.dataset.v), titles: rows.map((e) => e.querySelector('b').textContent), subs: rows.map((e) => e.querySelector('i').textContent), h0: row0 && Math.round(row0.height),
-      title: (r.querySelector('.tpt') || {}).textContent, done: (r.querySelector('.tpd') || {}).textContent, rad: cs.borderTopLeftRadius, bg: cs.backgroundColor, cardBg: card && getComputedStyle(card).backgroundColor, cardR: card && getComputedStyle(card).borderTopLeftRadius,
+      title: (r.querySelector('.tpt, .kt-head .tt') || {}).textContent, done: (r.querySelector('.tpd, .kt-head .kt-done') || {}).textContent, rad: cs.borderTopLeftRadius, bg: cs.backgroundColor, cardBg: card && getComputedStyle(card).backgroundColor, cardR: card && getComputedStyle(card).borderTopLeftRadius,
       ic: ic && [Math.round(ic.getBoundingClientRect().width), getComputedStyle(ic).backgroundColor], sheetB: sr.bottom, sheetT: sr.top, navT: nr && nr.top, navB: nr && nr.bottom,
       hostZ: +getComputedStyle(h).zIndex || 0, overNav: !!nr && window.MSH.overlayRoot().getRootNode().elementFromPoint(nr.left + nr.width / 2, nr.top + nr.height / 2) === h, navZ: (() => { let e = nav, z = 0; while (e) { const zz = +getComputedStyle(e).zIndex; if (zz) z = zz; e = e.parentElement || (e.getRootNode() && e.getRootNode().host); } return z; })(), occB: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ki-nav-occ-bottom')) || 0, vh: innerHeight, left: sr.left, D: window.MSH.dashRect() };
   });
   ok(sh && sh.rows.join().replace(/,ha$/, '').replace(/,devices$/, '') === 'alt,home,navbar,header,pc,kiosk', '24.5 arket: Tilpass alt · Hjem · navbar · header · Dashbord på PC (Fiks 64) · Kiosk-modus (+ Enheter, fiks 35)', sh && sh.rows);
-  ok(sh && sh.title === 'Tilpass' && /Ferdig/.test(sh.done) && sh.rad === '38px' && sh.cardR === '24px' && sh.cardBg === 'rgb(58, 58, 58)' && sh.h0 === 64 && sh.ic && sh.ic[0] === 40 && sh.ic[1] === 'rgb(64, 64, 64)', '24.5 arket: tittel/Ferdig, radius 38 (Fiks 40), kort #3a3a3a r24, rader 64 px, ikon-sirkel 40 #404040', sh);
+  ok(sh && sh.title === 'Tilpass' && /Ferdig/.test(sh.done) && sh.rad === '38px' && sh.cardR === '24px' && sh.cardBg === 'rgb(58, 58, 58)' && sh.h0 === 64 && sh.ic && sh.ic[0] === 40 && sh.ic[1] === 'rgb(64, 64, 64)', '24.5 arket: tittel/Ferdig, radius 38 (Fiks 40), kort #3a3a3a r24, rader 64 px, ikon-sirkel 40 #404040', sh && { title: sh.title, done: sh.done, rad: sh.rad, cardR: sh.cardR, cardBg: sh.cardBg, h0: sh.h0, ic: sh.ic });
   ok(sh && sh.subs[0] === 'Veiviser for hele dashbordet' && /^(På|Av)$/.test(sh.subs[5]) && sh.subs[4] === 'Mobilvisning', '24.5 underteksten (Kiosk På/Av)', sh && sh.subs);
   // 28.8/28.11: arket går helt til bunnen (top 50 px) og ligger OVER navbaren (dekker den)
   ok(sh && sh.navT != null && Math.abs(sh.sheetB - sh.vh) <= 1 && Math.abs(sh.sheetT - 52) <= 1 && sh.sheetB >= sh.navB - 1 && sh.hostZ > sh.navZ && sh.overNav, '28.8 arket går til bunnen (top 52, Fiks 40) og dekker navbaren', sh && { sheetT: sh.sheetT, sheetB: sh.sheetB, vh: sh.vh, navT: sh.navT, navB: sh.navB, hostZ: sh.hostZ, navZ: sh.navZ, overNav: sh.overNav });

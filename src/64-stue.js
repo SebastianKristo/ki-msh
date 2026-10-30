@@ -549,7 +549,7 @@
     }
     _editBar() {
       const hid = new Set(this.lay.hidden);
-      return `<section class="eb" data-key="eb"><div class="et">${M.icon('mdi:view-dashboard-edit-outline', 22)}<b>Tilpass stua</b><button class="ebt press" data-act="ereset" data-haptic="medium">Tilbakestill</button><button class="ebt p press" data-act="edone" data-haptic="success">Ferdig</button></div>
+      return `<section class="eb" data-key="eb"><div class="et">${M.icon('mdi:view-dashboard-edit-outline', 22)}<b>Tilpass stua</b><button class="ebt press" data-act="ereset" data-haptic="medium">Nullstill</button><button class="ebt p press" data-act="edone" data-haptic="success">Ferdig</button></div>
         <span class="eh">Dra kortene for å flytte dem. Trykk på øyet for å vise eller skjule et kort.</span>
         <div class="ecs">${CHIPS.map(([k, l]) => `<button class="ec press${hid.has(k) ? ' off' : ''}" data-act="echip" data-k="${k}" data-haptic="selection" aria-pressed="${!hid.has(k)}">${M.icon(hid.has(k) ? 'mdi:eye-off-outline' : 'mdi:eye-outline', 18)}${esc(l)}</button>`).join('')}</div><div class="elg" data-noi18n><span>Språk · Language</span><div class="seg">${[['no', 'Norsk'], ['en', 'English']].map(([k, l]) => `<button class="${(M.i18n ? M.i18n.lang() : 'no') === k ? 'on' : ''}" data-act="lang" data-v="${k}" data-haptic="selection">${l}</button>`).join('')}</div></div></section>`;
     }
@@ -735,7 +735,7 @@
       const row = (id) => { const on = sel.includes(id); return `<button class="r${on ? ' on' : ''}" data-a="tl" data-id="${esc(id)}" aria-pressed="${on}"><span class="i">${M.icon(M.domainIcon(id, h.states[id]), 22)}</span><span class="x"><b>${esc(M.name(h, id))}</b><i>${esc(id)}</i></span><span class="c">${on ? M.icon('mdi:check', 18) : ''}</span></button>`; };
       const body = () => `<div class="w"><span class="t">Lys i stua</span><span class="s">Trykk for å legge til eller fjerne. Rekkefølgen er den du velger i.</span>
         <div class="l">${inA.length ? `<span class="g">${esc(M.areaName(h, area))}</span>${inA.map(row).join('')}` : ''}${rest.length ? `<span class="g">Andre lys</span>${rest.map(row).join('')}` : ''}${all.length ? '' : '<span class="s">Fant ingen lys.</span>'}</div>
-        <div class="bt"><button data-a="reset">Tilbakestill</button><button class="p" data-a="done">Ferdig</button></div></div>`;
+        <div class="bt"><button data-a="reset">Nullstill</button><button class="p" data-a="done">Ferdig</button></div></div>`;
       const ov = M.overlay({ center: true, maxWidth: 460, css: PICK_CSS, html: body() });
       if (!ov || !ov.root) return;
       ov.root.addEventListener('click', (e) => {

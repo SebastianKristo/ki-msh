@@ -23,6 +23,9 @@
  *   MSH.tp.CHIP / CHIP_ON    → valg-chip 34 px r17 (indre flate) / valgt = rosa gradient + mørk tekst
  *   MSH.tp.SNAP / SNAP_ON    → små forvalg under slidere (28 px, stille kant) / valgt = rosa tone
  *   MSH.tp.ROW               → rad i en gruppe (min 52 px, ingen egen flate – skillelinje mellom radene: ROW_SEP)
+ *   MSH.tp.sw(spor, knott, på) → CSS for ÉN felles bryter (50×30, knott 24, transform) – se under
+ *   MSH.tp.SEG / SEG_BTN     → felles segmentkontroll (valgt knapp + CHIP_ON)
+ *   MSH.tp.entries(nøkler?)  → de felles inngangene til Tilpass [nøkkel, ikon, tittel, undertittel]
  */
 (function () {
   const M = window.MSH;
@@ -113,5 +116,34 @@
     document.addEventListener('change', on, true);
   }
 
-  M.tp = { head, title, CSS, SEC, SEC_META, GROUP, HINT, IB, LABEL, SUB, VAL, CHIP, CHIP_ON, SNAP, SNAP_ON, ROW, ROW_SEP, range, fill, PINK };
+  // Runde 2 · ÉN bryter i alle Tilpass-ark: 50×30, knott 24 px (alltid hvit --ki-knob), av = --ki-ctrl, på = rosa (M.SWITCH_ON).
+  // Knotten flyttes med transform (ingen layout per frame). Legges ETTER arkets egne regler (samme spesifisitet → vinner).
+  //   MSH.tp.sw(sporet, knotten relativt til sporet, på-klassen) – f.eks. sw('.trk', ' i', '.on') eller sw('.sw', '::after', '.on')
+  //   on kan også være et forfedre-prefiks: sw('.qtr', ' i', '.on', '.qalt') → «.qalt.on .qtr»
+  const sw = (t, k, on = '.on', anc = '') => {
+    const pse = /^::/.test(k), T = anc ? `${anc} ${t}` : t, TON = anc ? `${anc}${on} ${t}` : `${t}${on}`;
+    return `${T}{position:relative;display:inline-block;width:50px;height:30px;border-radius:15px;flex:none;box-sizing:border-box;padding:0;background:var(--ki-ctrl, var(--gray400,#545454));box-shadow:none;transition:background .2s ease}
+    ${T}${k}{${pse ? "content:'';" : ''}position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:var(--ki-knob, #fafafa);box-shadow:0 1px 3px rgb(0 0 0/.3);transform:translateX(0);transition:transform .22s cubic-bezier(.3,1.3,.6,1)}
+    ${TON}{background:${M.SWITCH_ON || PINK}}
+    ${TON}${k}{left:3px;background:var(--ki-knob, #fafafa);transform:translateX(20px)}
+    @media (prefers-reduced-motion: reduce){${T},${T}${k}{transition:none}}`;
+  };
+  // Runde 2 · felles segmentkontroll (spor --ki-surface-3, valgt = CHIP_ON)
+  const SEG = 'display:flex;gap:2px;padding:3px;border-radius:20px;background:var(--ki-surface-3, var(--gray100,#2f2f2f));';
+  const SEG_BTN = 'flex:1 1 0;min-width:0;height:34px;padding:0 12px;border:0;border-radius:17px;background:transparent;color:var(--ki-text-2, var(--gray800,#afafaf));font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;transition:background .2s,color .2s;';
+  // Runde 2 · de felles inngangene til Tilpass (én kilde for navbarens Tilpass-ark, Innstillinger, PC-oversikten og HA-hub-en):
+  //   [nøkkel, ikon, tittel, undertittel] – synlighet avgjøres av kalleren
+  const ENTRIES = [
+    ['alt', 'mdi:auto-fix', 'Tilpass alt', 'Veiviser for hele dashbordet'],
+    ['home', 'mdi:view-dashboard-edit-outline', 'Tilpass Hjem', 'Kort, faner, popups og tekst på forsiden'],
+    ['navbar', 'mdi:dock-bottom', 'Tilpass navbar', 'Knapper, rekkefølge, plassering og mini-spiller'],
+    ['header', 'mdi:page-layout-header', 'Tilpass header', 'Hilsen, vær og personer øverst'],
+    ['pc', 'mdi:monitor', 'Dashbord på PC', null],
+    ['kiosk', 'mdi:fullscreen', 'Kiosk-modus', null],
+    ['devices', 'mdi:devices', 'Enheter', 'Eget oppsett per enhet'],
+    ['ha', 'mdi:home-assistant', 'Home Assistant', 'Automasjoner, scener, oppdateringer og backup'],
+  ];
+  const entries = (keys) => (keys ? ENTRIES.filter((e) => keys.includes(e[0])) : ENTRIES.slice());
+
+  M.tp = { head, title, CSS, SEC, SEC_META, GROUP, HINT, IB, LABEL, SUB, VAL, CHIP, CHIP_ON, SNAP, SNAP_ON, ROW, ROW_SEP, range, fill, PINK, sw, SEG, SEG_BTN, entries };
 })();
