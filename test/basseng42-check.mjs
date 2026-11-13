@@ -19,7 +19,7 @@ if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.github
 const bundle = resolve(`test/.build/basseng42-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((m) => resolve('test/mock/' + m));
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const fail = [];
 const ok = (name, cond, info) => { console.log(`${cond ? '✔' : '✘'} ${name}${cond ? '' : ' · ' + JSON.stringify(info)}`); if (!cond) fail.push(name); };
 

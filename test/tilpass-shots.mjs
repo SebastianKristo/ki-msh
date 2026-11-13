@@ -35,7 +35,7 @@ const HARNESS = resolve(`test/.harness-tps-${process.pid}.html`);
   h = h.replace('</style>', `html,body{font-family:'Space Grotesk',system-ui,sans-serif}:root{--primary-background-color:#232323;--card-background-color:#282828}</style>`);
   writeFileSync(HARNESS, h);
 }
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const SHOTS = [
   ['navbar', { editor: 'navbar' }],
   ['header', { editor: 'header' }],

@@ -13,7 +13,7 @@ mkdirSync(resolve('test/.build'), { recursive: true });
 const bundle = resolve(`test/.build/utelys-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const SHOTS = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const errs = [];
 let fail = 0;
 const ok = (name, cond, info) => { if (!cond) fail++; console.log(`${cond ? 'OK  ' : 'FEIL'} ${name}${info !== undefined ? ' · ' + JSON.stringify(info) : ''}`); };

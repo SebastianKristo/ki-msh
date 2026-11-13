@@ -15,7 +15,7 @@ mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/fiks26ark-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const shots = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 let fail = 0;
 const ok = (m, c, d) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (c || d === undefined ? '' : ' → ' + JSON.stringify(d).slice(0, 400))); if (!c) fail++; };
 const PINK_RE = /242,\s*133,\s*201|rgb\(242 133 201/;

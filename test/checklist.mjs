@@ -20,7 +20,7 @@ const navbarCfg = JSON.parse(execFileSync('python3', ['-c', "import yaml,json;d=
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => resolve('test/mock/' + f));
 const only = process.argv[2];
 
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => pw.chromium.launch());
 const rows = [];
 let fails = 0;
 for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 900, sb: 256 }]) {

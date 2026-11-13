@@ -18,7 +18,7 @@ if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.github
 const bundle = resolve(`test/.build/lysglass-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle], { cwd: R, stdio: 'inherit' });
 const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => R + 'test/mock/' + f);
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => pw.chromium.launch());
 const res = [];
 const ok = (name, cond, info) => { res.push(`${cond ? '✔' : '✘'} ${name}${info != null ? ' · ' + JSON.stringify(info) : ''}`); };
 const page = await browser.newPage({ viewport: { width: 390, height: 700 }, hasTouch: true, isMobile: true });

@@ -10,7 +10,7 @@ const BC = resolve('test/.vendor/bubble-card.js');
 if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js']);
 const bundle = resolve(`test/.build/save-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const p = await b.newPage({ viewport: { width: 390, height: 700 } });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message));
 await p.goto('file://' + resolve('test/harness-bubble.html'));

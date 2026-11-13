@@ -18,7 +18,7 @@ const ok = (name, cond, info) => { res[name] = cond ? 'OK' : ['FEIL', info]; if 
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((m) => resolve('test/mock/' + m));
 const errs = [];
 
-const browsers = [['Chromium', await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })]];
+const browsers = [['Chromium', await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ })]];
 try {
   const wk = pw.webkit.executablePath && pw.webkit.executablePath();
   if (wk && existsSync(wk)) browsers.push(['WebKit', await pw.webkit.launch()]);

@@ -20,7 +20,7 @@ const BASE = process.env.TEMA_BASE ? resolve(process.env.TEMA_BASE) : null;
 const SHOT = process.env.SHOT_DIR ? resolve(process.env.SHOT_DIR) : null;
 if (SHOT) mkdirSync(SHOT, { recursive: true });
 const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => R + 'test/mock/' + f);
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => pw.chromium.launch());
 const res = [];
 const ok = (name, cond, info) => { res.push(`${cond ? '✔' : '✘'} ${name}${!cond && info != null ? ' · ' + JSON.stringify(info) : ''}`); };
 

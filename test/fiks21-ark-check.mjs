@@ -12,7 +12,7 @@ mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/fiks21ark-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const shots = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 let fail = 0;
 for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['pc', { width: 1280, height: 900 }, false]]) {
   const p = await b.newPage({ viewport: vp, hasTouch: touch });

@@ -13,7 +13,7 @@ execFileSync('node', ['build.mjs', bundle]);
 const py = JSON.parse(execFileSync('python3', ['-I', '-c',
   'import json,runpy,sys; c=runpy.run_path(sys.argv[1]); print(json.dumps([[f["hash"], f["navn"]] for f in c["FUNKSJONER"]]))',
   resolve('custom_components/ki_msh/const.py')]).toString());
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const p = await (await b.newContext()).newPage();
 await p.goto('file://' + resolve('test/harness.html'));
 for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });

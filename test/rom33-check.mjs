@@ -17,7 +17,7 @@ mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/rom33-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const shots = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = {}, fail = [];
 const ok = (name, cond, info) => { res[name] = cond ? 'OK' : ['FEIL', info]; if (!cond) fail.push(name); };
 const errs = [];

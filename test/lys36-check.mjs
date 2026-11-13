@@ -32,7 +32,7 @@ const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort
 const SHOTS = process.env.SHOTS || '';
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = [];
 let fails = 0;
 const ok = (name, cond, info) => { if (!cond) fails++; res.push(`${cond ? '✔' : '✘'} ${name}${info != null && !cond ? ' · ' + JSON.stringify(info) : ''}`); };

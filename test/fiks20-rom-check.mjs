@@ -11,7 +11,7 @@ mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/rom20-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const shots = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message));
 await p.goto('file://' + resolve('test/harness.html'));

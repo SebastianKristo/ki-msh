@@ -13,7 +13,7 @@ const bundle = resolve(`test/.build/f20s-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle], { cwd: R, stdio: 'inherit' });
 const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => R + 'test/mock/' + f);
 const SHOTS = process.env.SHOTS || '';
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = [];
 let bad = 0;
 const ok = (name, cond, info) => { if (!cond) bad++; res.push(`${cond ? '✔' : '✘'} ${name}${info != null ? ' · ' + JSON.stringify(info) : ''}`); };

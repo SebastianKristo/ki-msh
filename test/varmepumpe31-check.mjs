@@ -21,7 +21,7 @@ execFileSync('node', ['build.mjs', bundle]);
 const shots = process.env.SHOTS || '';
 const DESIGN = readFileSync('design/Varmepumpe v3.dc.html', 'utf8');
 const KF = Object.fromEntries([...DESIGN.matchAll(/@keyframes (\w+)\{(.*?\})\}/g)].map((m) => [m[1], m[0]]));
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = {}, fail = [];
 const ok = (name, cond, info) => { res[name] = cond ? 'OK' : ['FEIL', info]; if (!cond) fail.push(name); };
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((m) => resolve('test/mock/' + m));

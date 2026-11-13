@@ -15,7 +15,7 @@ const BC = resolve('test/.vendor/bubble-card.js');
 if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js']);
 const bundle = process.env.KI_BUNDLE || resolve(`test/.build/draft-${process.pid}.js`);
 if (!process.env.KI_BUNDLE) execFileSync('node', ['build.mjs', bundle]);
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 } });
 
 // Side med strategi-dashbordet: #stue, #lys og #vaer som Bubble-popups. set_user_data har 120 ms forsinkelse og

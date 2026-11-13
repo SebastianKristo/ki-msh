@@ -28,7 +28,7 @@ const CASES = ['50-ringeklokke', '43-lys', '59-avfall', '52-energi', '47-ruter']
   .flatMap((f) => JSON.parse(readFileSync(`test/cases/${f}.json`, 'utf8')))
   .filter((c) => !ONLY || c.name.toLowerCase().includes(ONLY.toLowerCase()));
 const VPS = [{ w: 390, h: 844, sb: 0, n: 'mobil' }, { w: 1400, h: 900, sb: 256, n: 'PC' }].map((v) => (SHOT ? { ...v, h: 2600 } : v)); // høy flate for hele popupen i skjermbildene
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => pw.chromium.launch());
 const res = [];
 const ok = (name, cond, info) => { res.push(`${cond ? '✔' : '✘'} ${name}${info != null && !cond ? ' · ' + JSON.stringify(info) : ''}`); };
 

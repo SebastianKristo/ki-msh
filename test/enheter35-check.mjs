@@ -10,7 +10,7 @@ let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node2
 mkdirSync(resolve('test/.build'), { recursive: true });
 const bundle = resolve(`test/.build/enh35-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = [];
 const ok = (name, c, info) => res.push(`${c ? '✔' : '✘'} ${name}${info != null ? ' · ' + JSON.stringify(info) : ''}`);
 const lum = (c) => { const m = c.match(/[\d.]+/g).map(Number); const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]); };

@@ -14,7 +14,7 @@ mkdirSync(resolve('test/.build'), { recursive: true });
 const bundle = resolve(`test/.build/f25hjem-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const SHOTS = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 let fail = 0;
 const ok = (c, m, info) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (info != null && !c ? ' · ' + JSON.stringify(info).slice(0, 400) : '')); if (!c) fail++; };
 
