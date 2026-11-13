@@ -6,6 +6,7 @@
 - **Alle områder får rom-popup** (Fiks 24.3), også de uten synlige entiteter. Romkortet viser da «Velg entitet». Bare eksplisitt ekskluderte områder (`exclude_areas` / `areas: { id: false }`) holdes ute. Entiteter tilordnes fortsatt via enheten når entiteten ikke har eget område.
 - **Nye rom uten omlasting:** strategien lytter på område-, enhet-, entitet- og etasjeregisteret og genererer popupene på nytt (debounce 1 s). Med KI MSH-integrasjonen kommer det samme også via `ki_msh/hus/abonner`.
 - Testene bruker Playwrights egen Chromium (fast sti fantes ikke i nye containere; `KI_CHROME` overstyrer).
+- Testene virker med Bubble Card 3.4.3: test-mocken svarer på `frontend/get_icons` som HA. Et tomt svar fikk Bubble Card 3.4.3 til å hente ikonene og tegne alle kortene på nytt i det uendelige, og popupene hang (gjelder bare testene, ikke HA).
 
 ## 1.7.0 · Runde 2 · Enhetlige Tilpass-menyer, jevnere animasjoner, integrasjonen henter inn huset
 **Tilpass-menyene**
