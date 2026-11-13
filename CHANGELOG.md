@@ -2,9 +2,14 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## 1.7.1 · Alle rom fra HA, live ved registerendringer
+- **Alle områder får rom-popup** (Fiks 24.3), også de uten synlige entiteter. Romkortet viser da «Velg entitet». Bare eksplisitt ekskluderte områder (`exclude_areas` / `areas: { id: false }`) holdes ute. Entiteter tilordnes fortsatt via enheten når entiteten ikke har eget område.
+- **Nye rom uten omlasting:** strategien lytter på område-, enhet-, entitet- og etasjeregisteret og genererer popupene på nytt (debounce 1 s). Med KI MSH-integrasjonen kommer det samme også via `ki_msh/hus/abonner`.
+- Testene bruker Playwrights egen Chromium (fast sti fantes ikke i nye containere; `KI_CHROME` overstyrer).
+
 ## 1.7.0 · Runde 2 · Enhetlige Tilpass-menyer, jevnere animasjoner, integrasjonen henter inn huset
 **Tilpass-menyene**
-- Én felles bryter (`MSH.tp.sw`: 50×30 spor, hvit knott med fjær, «Reduser bevegelse») i alle Tilpass-ark og editorer. På-fargen er arkets egen (rosa eller designets gradient). Bryterne inni popupene (Server, Tesla, Klima-varslinger) er som i designet. Bryterne inni popupene (Server, Tesla) er som i designet.
+- Én felles bryter (`MSH.tp.sw`: 50×30 spor, hvit knott med fjær, «Reduser bevegelse») i alle Tilpass-ark og editorer. På-fargen er arkets egen (rosa eller designets gradient). Bryterne inni popupene (Server, Tesla, Klima-varslinger) er som i designet.
 - Én liste over Tilpass-oppføringene (`MSH.tp.entries`) med ikon og forklaring, brukt i Tilpass-arket, Innstillinger og HA-hub-en, så navn og forklaring er like overalt.
 - **Navbar:** «Plassering» som egen seksjon. Sjeldne valg ligger under «Avansert» (lukket): plass til navbaren, korte bekreftelser, «Tilpass» i Mer-menyen for brukere uten admin, og visning av handlingsvalg. Tydeligere tekster: «I Mer-menyen», «Når du trykker / holder inne», «Gjelder bare denne enheten (navn)». «Liquid glass» heter nå «Glass» («Glass i menyer og Tilpass-ark»).
 - **Tilpass-arket, PC, Server, Tilpass alt og Analyse** bruker felles header (`MSH.tp.head`), seksjonstitler (`MSH.tp.SEC`), grupper og chips. PC-arket har språkvalg (Norsk/English) og «Bytt til mobilvisning». «Tilpass alt»: «Steg n av 13 · lagres straks», og første steg heter «Hva skal med».

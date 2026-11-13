@@ -126,6 +126,32 @@ const page = async () => {
   ok(!errs.length, 'ingen sidefeil', errs);
   await p.close();
 }
+/* 4 · Fiks 24.3: alle områder får rom-popup (også uten synlige entiteter), og registerendringer genererer popupene på nytt */
+{
+  const { p, errs } = await page();
+  const r = await p.evaluate(async () => {
+    const wait = (ms) => new Promise((q) => setTimeout(q, ms));
+    const H = window.mockHass();
+    H.areas.tomt_rom = { area_id: 'tomt_rom', name: 'Tomt rom', floor_id: null, icon: null };
+    const subs = {}; const sub0 = H.connection.subscribeMessage;
+    H.connection.subscribeEvents = (cb, t) => { subs[t] = cb; return Promise.resolve(() => {}); };
+    MSH.lastHass = H; await MSH.store.load(H);
+    const S = customElements.get('ll-strategy-dashboard-ki-dashboard');
+    const d = await S.generate({}, H);
+    const pops = d.views[0].cards[0].cards.filter((c) => c.card_type === 'pop-up');
+    const tomt = pops.find((c) => c.hash === '#tomt_rom');
+    let refreshed = 0; const rp = MSH.refreshPopups; MSH.refreshPopups = () => { refreshed++; return Promise.resolve(true); };
+    (subs.area_registry_updated || (() => {}))({}); (subs.entity_registry_updated || (() => {}))({});
+    await wait(1300);
+    MSH.refreshPopups = rp;
+    return { tomt: !!tomt && /msh-rom-card/.test(JSON.stringify(tomt.cards)), subs: Object.keys(subs).filter((k) => /registry_updated/.test(k)).sort(), refreshed };
+  });
+  ok('24.3 område uten synlige entiteter får rom-popup (#tomt_rom med msh-rom-card)', r.tomt, r);
+  ok('24.3 strategien lytter på område-/enhet-/entitet-/etasjeregisteret', r.subs.join() === 'area_registry_updated,device_registry_updated,entity_registry_updated,floor_registry_updated', r.subs);
+  ok('24.3 registerendring → popupene genereres på nytt én gang (debounce 1 s)', r.refreshed === 1, r);
+  ok('ingen sidefeil (24.3)', !errs.length, errs);
+  await p.close();
+}
 await b.close();
 console.log(fail ? `${n - fail}/${n} OK` : `Alle ${n} bestod`);
 process.exit(fail ? 1 : 0);
