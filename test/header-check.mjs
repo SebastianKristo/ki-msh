@@ -15,7 +15,7 @@ let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node2
 const bundle = resolve(`test/.build/header-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const SHOTS = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const fails = [], res = {};
 const page = async (w, h, touch) => {
   const p = await b.newPage({ viewport: { width: w, height: h }, hasTouch: touch, isMobile: false });

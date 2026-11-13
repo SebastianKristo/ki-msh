@@ -33,7 +33,7 @@ if (!BASE) {
     execFileSync('node', ['build.mjs', BASE], { cwd: baseDir, stdio: 'ignore' });
   } catch (e) { BASE = null; }
 }
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = {};
 const ok = (name, cond, info) => { res[name] = cond ? 'OK' : { FEIL: info }; };
 const wait = (ms) => new Promise((q) => setTimeout(q, ms));

@@ -21,7 +21,7 @@ try { execFileSync('node', ['--check', bundle], { stdio: 'ignore' }); } catch (e
   console.warn('Advarsel: hoppet over filer med syntaksfeil:', skip.join(', '));
 }
 const shots = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = {}, fail = [];
 const ok = (name, cond, info) => { res[name] = cond ? 'OK' : ['FEIL', info]; if (!cond) fail.push(name); };
 const mocks = readdirSync('test/mock').sort().map((m) => resolve('test/mock/' + m));

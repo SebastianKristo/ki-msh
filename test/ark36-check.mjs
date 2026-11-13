@@ -22,7 +22,7 @@ execFileSync('node', ['build.mjs', bundle]);
 const popups = JSON.parse(execFileSync('python3', ['-c', "import yaml,json;d=yaml.safe_load(open('examples/dashboard.yaml'));print(json.dumps([c for s in d['views'][0]['sections'] for c in s['cards'] if c.get('card_type')=='pop-up']))"]).toString());
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => resolve('test/mock/' + f));
 const only = process.argv[2];
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 let fails = 0, sheets = 0;
 const ok = (name, cond, info) => { if (!cond) fails++; console.log(`${cond ? '✔' : '✘'} ${name}${info != null && !cond ? ' · ' + JSON.stringify(info).slice(0, 900) : ''}`); };
 const errs = [];

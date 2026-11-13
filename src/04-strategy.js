@@ -79,8 +79,9 @@
     const lvl = {}; R.floors.forEach((f) => { lvl[f.floor_id] = f.level != null ? f.level : 99; });
     const ex = new Set([...(config.exclude_areas || []), ...Object.keys(config.areas || {}).filter((k) => config.areas[k] === false)]);
     return R.areas
+      // Fiks 24.3: alle områder (også de uten synlige entiteter – romkortet viser da «Velg entitet»); bare eksplisitt
+      // ekskluderte holdes ute. byArea brukes fortsatt for hvilke entiteter rommet har.
       .filter((a) => !ex.has(a.area_id))
-      .filter((a) => (byArea[a.area_id] || []).length > 0 || (M.kiRom(hass, a.area_id, 'oversikt') && Number(M.kiRom(hass, a.area_id, 'oversikt').state) > 0))
       .sort((a, b) => (lvl[a.floor_id] ?? 99) - (lvl[b.floor_id] ?? 99) || M.cmpNb(a.name, b.name))
       .map((a) => ({ id: a.area_id, name: a.name, icon: a.icon }));
   }
@@ -413,6 +414,15 @@
   };
   // Generer på nytt fra ki-store og oppdater popupene i dashbordet
   let refreshing = null;
+  // Fiks 24.3: nytt/endret område, enhet eller entitet i HA → popupene genereres på nytt (debounce 1 s), uten omlasting.
+  // Med KI MSH-integrasjonen kommer det samme også via ki_msh/hus/abonner (MSH.hus) – refreshPopups slår kallene sammen.
+  let regSub = null, regT = 0;
+  M.watchRegistries = function (hass) {
+    const c = hass && hass.connection;
+    if (!c || !c.subscribeEvents || (regSub && regSub.c === c)) return;
+    const again = () => { clearTimeout(regT); regT = setTimeout(() => { if (M.strategyConfig) M.refreshPopups(); }, 1000); };
+    regSub = { c, offs: ['area_registry_updated', 'device_registry_updated', 'entity_registry_updated', 'floor_registry_updated'].map((t) => Promise.resolve(c.subscribeEvents(again, t)).catch(() => null)) };
+  };
   M.refreshPopups = async function (hass) {
     hass = hass || M.lastHass || (document.querySelector('home-assistant') || {}).hass;
     if (!hass || !M.strategyConfig) return false;
@@ -477,7 +487,7 @@
       sigTimer = setTimeout(() => M.refreshPopups(), 250);
     });
   }
-  const remember = (config, dash) => { M.strategyConfig = config || {}; if (dash) M.strategyIsDashboard = true; const d = (M.store && M.store.get()) || {}; lastSig = sigOf(d); lastG = gSigOf(d); };
+  const remember = (config, dash, hass) => { M.strategyConfig = config || {}; if (dash) M.strategyIsDashboard = true; try { M.watchRegistries(hass || M.lastHass || (document.querySelector('home-assistant') || {}).hass); } catch (e) { /* */ } const d = (M.store && M.store.get()) || {}; lastSig = sigOf(d); lastG = gSigOf(d); };
 
   // Fiks 36.4 · kombinerte rom fra Hjem-configen (ki-store cards.<faner>.combined_rooms › strategiens home.cards.faner)
   // validert mot områdene i registeret (slettet område → fjernes, < 2 rom → oppløst)
@@ -611,7 +621,7 @@
   class KiDashboardStrategy extends HTMLElement {
     static async generate(config, hass) {
       const view = await M.generateDashboardView(config, hass);
-      remember(config, true);
+      remember(config, true, hass);
       // maler og andre dashbord-globale nøkler (fiks 15.8) på rotnivå – der button-card/decluttering-card/paper-buttons-row leter
       const G = M.dashboardGlobals();
       if (G.err) console.warn('[ki-msh] dashboard_globals har ugyldig YAML – maler tas ikke med:', G.err.msg, G.err.line ? 'linje ' + G.err.line : '');
@@ -626,7 +636,7 @@
     static noEditor = false;
   }
   class KiHomeViewStrategy extends HTMLElement {
-    static async generate(config, hass) { const v = await M.generateDashboardView(config, hass); remember(config); return v; }
+    static async generate(config, hass) { const v = await M.generateDashboardView(config, hass); remember(config, false, hass); return v; }
     static async getConfigElement() { return document.createElement('ki-dashboard-strategy-editor'); }
   }
   customElements.define('ll-strategy-dashboard-ki-dashboard', KiDashboardStrategy);

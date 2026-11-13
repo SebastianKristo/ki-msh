@@ -16,7 +16,7 @@ mkdirSync('test/.build', { recursive: true });
 // SRV_BASE=<bundel> kjører samme måling mot en annen bundel (f.eks. før-koden) i stedet for å bygge
 const bundle = process.env.SRV_BASE ? resolve(process.env.SRV_BASE) : resolve(`test/.build/srvvelger-${process.pid}.js`);
 if (!process.env.SRV_BASE) execFileSync('node', ['build.mjs', bundle]);
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((m) => resolve('test/mock/' + m));
 let fails = 0;
 const out = [];

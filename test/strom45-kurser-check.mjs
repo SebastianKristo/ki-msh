@@ -16,7 +16,7 @@ const R = resolve('.') + '/';
 mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/sk45-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 let fails = 0;
 const ok = (name, cond, info) => { if (!cond) fails++; console.log(`${cond ? '✔' : '✘'} ${name}${info != null && !cond ? ' · ' + JSON.stringify(info).slice(0, 900) : ''}`); };
 const errs = [];

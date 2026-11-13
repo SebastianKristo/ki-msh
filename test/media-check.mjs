@@ -11,7 +11,7 @@ mkdirSync(resolve('test/.build'), { recursive: true });
 const bundle = resolve(`test/.build/media-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const SHOTS = process.env.MEDIA_SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const fails = [];
 const ok = (c, msg) => { if (!c) fails.push(msg); };
 

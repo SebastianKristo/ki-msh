@@ -34,7 +34,7 @@ const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 13; Pixel 6a) AppleWebKit/537.36
 const TARGETS = [['server', '#server'], ['strom', '#strom'], ['media', '#media'], ['vaer', '#vaer'], ['stue', '#stue'], ['kjokken', '#kjokken']];
 const WATCH = ['msh-hjem-card', 'msh-navbar-card', 'msh-hjem-header-card', 'msh-prosa-card', 'msh-hjem-faner-card'];
 const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => R + 'test/mock/' + f);
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => pw.chromium.launch());
 
 // Instrumentering før alt annet: lange oppgaver, haptic, hashchange (capture – før Bubble Card)
 const INIT = () => {

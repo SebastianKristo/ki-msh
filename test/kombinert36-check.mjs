@@ -17,7 +17,7 @@ if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.github
 mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/kombinert36-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message));
 p.on('console', (m) => { if (m.type() === 'error' && !/ERR_|CORS|bubble-modules|Failed to/.test(m.text())) errs.push(m.text().slice(0, 200)); });

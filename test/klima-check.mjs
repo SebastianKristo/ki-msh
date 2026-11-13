@@ -17,7 +17,7 @@ if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.github
 mkdirSync(resolve('test/.build'), { recursive: true });
 const bundle = resolve(`test/.build/klima-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 
 // Fiks 15.12: opptak av KI Energi v2.32.0 (states + entitetsregister). Generert fra integrasjonens kode til brukerens
 // ekte eksport finnes (test/fixtures/ki-energi-2.32.gen.py, docs/ki-energi-eksport.md) – samme format.

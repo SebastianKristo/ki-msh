@@ -16,7 +16,7 @@ mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/ki-msh-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle], { stdio: 'inherit' });
 const mocks = existsSync('test/mock') ? readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => resolve('test/mock/' + f)) : [];
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => chromium.launch());
+const browser = await chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => chromium.launch());
 let fails = 0;
 const rows = [];
 for (const vp of [{ w: 390, h: 844, sb: 0, n: 'mobil' }, { w: 1400, h: 900, sb: 256, n: 'PC' }]) {

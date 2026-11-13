@@ -13,7 +13,7 @@ mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/nav44-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const shots = process.env.SHOTS || '';
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 let fail = 0;
 const ok = (n, c, i) => { console.log(`${c ? '✔' : '✘'} ${n}${!c && i != null ? ' · ' + JSON.stringify(i).slice(0, 500) : ''}`); if (!c) fail++; };
 

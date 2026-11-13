@@ -13,7 +13,7 @@ execFileSync('node', ['build.mjs', bundle], { cwd: R, stdio: 'inherit' });
 const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => R + 'test/mock/' + f);
 const SHOTS = process.env.SHOTS || '';
 process.on('exit', () => { if (res.length && !globalThis.__done) console.log(res.join('\n')); });
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = [];
 const ok = (name, cond, info) => { res.push(`${cond ? '✔' : '✘'} ${name}${info != null ? ' · ' + JSON.stringify(info) : ''}`); };
 const page = await browser.newPage({ viewport: { width: 430, height: 900 } });

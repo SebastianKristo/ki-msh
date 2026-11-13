@@ -25,7 +25,7 @@ if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.github
 const bundle = resolve(`test/.build/kal36-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => R + 'test/mock/' + f);
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 let fails = 0;
 const ok = (name, cond, info) => { if (!cond) fails++; console.log(`${cond ? '✔' : '✘'} ${name}${info != null && !cond ? ' · ' + JSON.stringify(info).slice(0, 700) : ''}`); };
 const errs = [];

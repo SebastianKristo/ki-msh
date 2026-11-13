@@ -39,7 +39,7 @@ ok('bundelen har ingen rester av msh-light-slider / light-slider / mysmart-light
 // src/vendor finnes igjen (geo-no.js, Fiks 63) – sjekk at ingen lysslider-filer ligger der
 ok('src/vendor har ingen mysmart-light-control (ute av bygget)', !existsSync('src/vendor') || !readdirSync('src/vendor').some((f) => /light/i.test(f)));
 
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const POPS = [
   { hash: '#stue', name: 'Stue', cards: [{ type: 'custom:msh-rom-card', card_id: 'l41a' }] },
   { hash: '#soverom', name: 'Soverom', cards: [{ type: 'custom:msh-rom-card', card_id: 'l41b' }] },

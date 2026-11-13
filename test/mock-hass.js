@@ -109,6 +109,8 @@
         if (m.type === 'todo/item/list') return Promise.resolve({ items: [{ uid: '1', summary: 'Kjøp melk', status: 'needs_action' }, { uid: '2', summary: 'Bytt filter', status: 'completed' }] });
         if (m.type === 'lovelace/config') return Promise.reject(new Error('yaml'));
         if (m.type === 'weather/subscribe_forecast') return Promise.resolve(() => {});
+        // Bubble Card 3.4.3 henter ikonene og spør på nytt (og tegner alle kortene) så lenge svaret er tomt – svar som HA
+        if (m.type === 'frontend/get_icons') return Promise.resolve({ resources: { light: { default: 'mdi:lightbulb' }, sensor: { default: 'mdi:eye' }, switch: { default: 'mdi:toggle-switch' } } });
         return Promise.resolve({});
       },
       connection: { subscribeMessage: (cb, m) => { if (m.type === 'weather/subscribe_forecast') setTimeout(() => cb({ type: m.forecast_type, forecast: Array.from({ length: 24 }, (_, i) => ({ datetime: new Date(Date.now() + i * 3600000).toISOString(), temperature: 10 + Math.sin(i / 4) * 4, condition: i % 5 ? 'partlycloudy' : 'rainy', precipitation: i % 5 ? 0 : 1.2, wind_speed: 4 })) }), 10); if (m.type === 'todo/item/subscribe') setTimeout(() => cb({ items: [{ uid: '1', summary: 'Kjøp melk', status: 'needs_action' }, { uid: '2', summary: 'Bytt filter', status: 'completed' }] }), 10); return Promise.resolve(() => {}); } },

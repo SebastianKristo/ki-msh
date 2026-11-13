@@ -39,7 +39,7 @@ const CARDS = [
 const only = process.argv.slice(2);
 const list = only.length ? CARDS.filter((c) => only.some((o) => c[0].toLowerCase() === o.toLowerCase())) : CARDS;
 
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = [];
 let fails = 0;
 const ok = (name, cond, info) => { if (!cond) fails++; res.push(`${cond ? '✔' : '✘'} ${name}${info != null ? ' · ' + JSON.stringify(info) : ''}`); };

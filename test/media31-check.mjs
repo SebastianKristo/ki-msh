@@ -12,7 +12,7 @@ let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node2
 mkdirSync(resolve('test/.build'), { recursive: true });
 const bundle = resolve(`test/.build/media31-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const fails = [];
 const ok = (c, msg) => { if (!c) fails.push(msg); };
 const p = await b.newPage({ viewport: { width: 820, height: 1180 } });

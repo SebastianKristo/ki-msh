@@ -218,7 +218,7 @@ const DEVICES = {
 };
 const only = process.argv[2];
 const devs = (process.env.DEVICES || 'iphone,pc').split(',');
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => pw.chromium.launch());
 const report = [];
 const slug = (h) => h.replace(/^#/, '').replace(/[^a-z0-9_-]+/gi, '-');
 

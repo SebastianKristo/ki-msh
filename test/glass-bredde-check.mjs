@@ -14,7 +14,7 @@ const BC = resolve('test/.vendor/bubble-card.js');
 if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.githubusercontent.com/Clooos/Bubble-Card/main/dist/bubble-card.js']);
 const yml = (py) => JSON.parse(execFileSync('python3', ['-c', `import yaml,json;d=yaml.safe_load(open('examples/dashboard.yaml'));cs=[c for s in d['views'][0]['sections'] for c in s['cards']];print(json.dumps(${py}))`]).toString());
 const popup = yml("[c for c in cs if c.get('hash')=='#energi'][0]");
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const res = {}, fail = [];
 const ok = (name, cond, info) => { res[name] = cond ? 'OK' : ['FEIL', info]; if (!cond) fail.push(name); };
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((m) => resolve('test/mock/' + m));

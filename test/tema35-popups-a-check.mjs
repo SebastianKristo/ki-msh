@@ -74,7 +74,7 @@ const STATES = {
 };
 const CARD = { vaer: 'msh-vaer-card', kamera: 'msh-kamera-card', kart: 'msh-kart-card', kalender: 'msh-kalender-card', rolf: 'msh-stovsuger-card' };
 
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => pw.chromium.launch());
 const res = [];
 let nFail = 0;
 const ok = (name, cond, info) => { if (!cond) nFail++; res.push(`${cond ? '✔' : '✘'} ${name}${!cond && info != null ? ' · ' + JSON.stringify(info).slice(0, 900) : ''}`); };

@@ -18,7 +18,7 @@ mkdirSync('test/.build', { recursive: true });
 const bundle = resolve(`test/.build/i18n-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle], { cwd: R, stdio: 'inherit' });
 const mocks = readdirSync(R + 'test/mock').filter((f) => f.endsWith('.js')).sort().map((f) => R + 'test/mock/' + f);
-const browser = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => pw.chromium.launch());
+const browser = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ }).catch(() => pw.chromium.launch());
 let fails = 0;
 const ok = (c, msg) => { console.log((c ? '✔ ' : '✘ ') + msg); if (!c) fails++; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

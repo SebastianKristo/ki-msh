@@ -19,7 +19,7 @@ if (!existsSync(BC)) execFileSync('curl', ['-sSL', '-o', BC, 'https://raw.github
 const bundle = resolve(`test/.build/basseng42-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((m) => resolve('test/mock/' + m));
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const fail = [];
 const ok = (name, cond, info) => { console.log(`${cond ? '✔' : '✘'} ${name}${cond ? '' : ' · ' + JSON.stringify(info)}`); if (!cond) fail.push(name); };
 
@@ -153,7 +153,8 @@ const R = await p.evaluate(async () => {
   if (eye) eye.click();
   await wait(1600);
   out.F.disabled = M.store.get('popups.basseng.enabled') === false;
-  out.F.liveOff2 = liveN();
+  // Fiks 24.3: området «Basseng» får rom-popupen (#basseng, msh-rom-card) tilbake når bassengpopupen er av – tell bassengkortet
+  out.F.liveOff2 = M.liveBubbles().filter((x) => x.cfg.hash === '#basseng' && /msh-basseng-card/.test(JSON.stringify(x.cfg.cards || []))).length;
   out.F.rowStill = !!rowOf();
   out.F.noLovelaceSave = (window.__calls ? window.__calls.filter((c) => /lovelace\/config\/save/.test(JSON.stringify(c))).length : 0) === lc;
   M.portals().forEach((x) => x.remove());

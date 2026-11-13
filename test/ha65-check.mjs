@@ -12,7 +12,7 @@ const bundle = resolve(`test/.build/ha65-${process.pid}.js`);
 execFileSync('node', ['build.mjs', bundle]);
 const SHOTS = process.argv[2] || '';
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 const fail = [], errs = [];
 const ok = (name, cond, info) => { console.log(`${cond ? 'OK  ' : 'FEIL'} ${name}${cond ? '' : ' · ' + JSON.stringify(info)}`); if (!cond) fail.push(name); };
 const mocks = readdirSync('test/mock').filter((f) => f.endsWith('.js')).sort().map((m) => resolve('test/mock/' + m));

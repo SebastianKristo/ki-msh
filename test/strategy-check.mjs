@@ -24,7 +24,7 @@ const FX = { popups: readFileSync('test/fixtures/popups.html', 'utf8'), deps: re
   try { py = JSON.parse(execFileSync('python3', ['-c', `import yaml,json\nprint(json.dumps([yaml.safe_load(open('${tmp}/%d.yaml' % i)) for i in range(${docs.length})],ensure_ascii=False))`]).toString()); } catch (e) { console.warn('(PyYAML mangler – sammenligner ikke mot PyYAML)'); }
   FX.py = py; FX.nDocs = docs.length;
 }
-const b = await pw.chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const b = await pw.chromium.launch({ executablePath: process.env.KI_CHROME || undefined /* Playwrights egen Chromium (KI_CHROME overstyrer) */ });
 let fail = 0;
 for (const vp of [{ n: 'mobil', w: 390, h: 844, sb: 0 }, { n: 'PC', w: 1400, h: 900, sb: 256 }]) {
   const p = await b.newPage({ viewport: { width: vp.w, height: vp.h } });
