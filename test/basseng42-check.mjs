@@ -153,7 +153,8 @@ const R = await p.evaluate(async () => {
   if (eye) eye.click();
   await wait(1600);
   out.F.disabled = M.store.get('popups.basseng.enabled') === false;
-  out.F.liveOff2 = liveN();
+  // Fiks 24.3: området «Basseng» får rom-popupen (#basseng, msh-rom-card) tilbake når bassengpopupen er av – tell bassengkortet
+  out.F.liveOff2 = M.liveBubbles().filter((x) => x.cfg.hash === '#basseng' && /msh-basseng-card/.test(JSON.stringify(x.cfg.cards || []))).length;
   out.F.rowStill = !!rowOf();
   out.F.noLovelaceSave = (window.__calls ? window.__calls.filter((c) => /lovelace\/config\/save/.test(JSON.stringify(c))).length : 0) === lc;
   M.portals().forEach((x) => x.remove());
