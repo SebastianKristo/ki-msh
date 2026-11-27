@@ -2,6 +2,17 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## 1.7.2 · Svevende navbar på iPhone, ingen komma i Innstillinger
+- **Navbaren svever på iPhone** (Fiks 25.2). Det var tre feil:
+  - Avstanden fra bunnen tok ikke med safe area.
+  - Standardavstanden på iPhone var 0 px.
+  - Navbaren lå inni kortet, så en forelder med `transform`/`contain` (panel-visning, Bubble) kunne gjøre `position: fixed` relativ til forelderen.
+  Nå ligger den alltid direkte i `document.body`, 12 px over hjem-streken, og står fast når du ruller og etter at en popup er åpnet og lukket. Mini-spilleren følger med.
+- **Plassering i «Tilpass navbar»:** *Svevende* (standard) eller *Fast i bunnen* (den gamle plasseringen uten safe area).
+- `viewport-fit=cover` legges til i viewport-meta hvis den mangler, så safe area virker.
+- Navbar og mini-spiller skjules mens et tekstfelt har fokus på touch, så de ikke ligger over tastaturet.
+- **Ingen komma mellom radene i «Tilpass dashbordet»** (Innstillinger, Fiks 25.1). Radene ble satt sammen uten `.join('')`, og felles `ui.group` tåler nå arrayer. Ny test (`test/komma25-check.mjs`) leter etter løse komma i alle popups, Tilpass-ark og HA-sider.
+
 ## 1.7.1 · Alle rom fra HA, live ved registerendringer
 - **Alle områder får rom-popup** (Fiks 24.3), også de uten synlige entiteter. Romkortet viser da «Velg entitet». Bare eksplisitt ekskluderte områder (`exclude_areas` / `areas: { id: false }`) holdes ute. Entiteter tilordnes fortsatt via enheten når entiteten ikke har eget område.
 - **Nye rom uten omlasting:** strategien lytter på område-, enhet-, entitet- og etasjeregisteret og genererer popupene på nytt (debounce 1 s). Med KI MSH-integrasjonen kommer det samme også via `ki_msh/hus/abonner`.

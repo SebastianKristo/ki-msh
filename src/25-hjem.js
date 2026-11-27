@@ -270,7 +270,7 @@
         ha-card{display:flow-root}
         .out{position:relative}
         .g{box-sizing:border-box}
-        .g.mob{width:100%;margin:0;padding:20px 18px calc(120px + var(--ki-nav-bottom, 8px) - 8px);display:flex;flex-direction:column;gap:22px}
+        .g.mob{width:100%;margin:0;padding:20px 18px calc(120px + var(--ki-nav-bottom, 8px) + var(--ki-nav-safe, env(safe-area-inset-bottom, 0px)) - 8px);display:flex;flex-direction:column;gap:22px}
         .s{display:block;min-width:0}
         .s>*{display:block;width:100%}
         .g.fold{padding-bottom:calc(40px + var(--ki-mini-h, 0px));--msh-prosa-max:28px}

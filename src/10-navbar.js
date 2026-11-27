@@ -427,7 +427,7 @@
   /* ------------------------------------------------------------ CSS */
   const NAV_CSS = `
     nav.nb{position:fixed;z-index:24;display:flex;box-sizing:border-box;overflow:hidden;isolation:isolate;border-radius:40px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:${M.FONT};transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
-    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:var(--ki-nav-bottom, 8px)}
+    nav.nb.row{flex-direction:row;justify-content:space-between;padding:9px 14px;transform-origin:bottom center;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-safe, env(safe-area-inset-bottom, 0px)))} /* Fiks 25.2: svevende over safe area */
     nav.nb.rail{flex-direction:column;justify-content:flex-start;padding:10px;transform-origin:left center;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none} /* 55 B2: for høy rail scroller internt */
     nav.nb.rail::-webkit-scrollbar{display:none}
     nav.nb.white{background:var(--ki-surface, var(--gray1000,#e1e1e1));color:var(--ki-text, var(--gray000,#232323));backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);box-shadow:0 10px 30px rgb(0 0 0/max(var(--ki-ka-min,0),calc(0.35*var(--ki-ka-k,1))))}
@@ -466,6 +466,7 @@
     :host{position:fixed;left:0;top:0;width:0;height:0;z-index:6;color:var(--ki-text, #fafafa);font-family:${M.FONT};-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
     :host([data-ring]) nav.nb,:host([data-ring]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .3s ease !important} /* 19.17: skjult mens #ringeklokke er åpen */
     :host([data-sheet]) nav.nb,:host([data-sheet]) .mini,:host([data-sheet]) .mbg,:host([data-sheet]) .mpos,:host([data-sheet]) .mpos *{pointer-events:none !important} /* 26.16: under Tilpass-arkets bakteppe */
+    :host([data-kbd]) nav.nb,:host([data-kbd]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .15s ease !important} /* Fiks 25.2: skjult mens tastaturet er oppe */
     :host([data-kart]) .mini{opacity:0 !important;pointer-events:none !important;transition:opacity .25s ease !important} /* 20.22: mini-spilleren skjult mens #kart er åpen */
     *,*::before,*::after{box-sizing:border-box}
     button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -605,7 +606,7 @@
     static get cardName() { return 'Navbar'; }
     static get editorTitle() { return 'Tilpass navbar'; }
     static get editorSub() { return (M.tp && M.tp.entries(['navbar'])[0] || [])[3] || 'Knapper, rekkefølge, plassering og mini-spiller'; }
-    static get defaults() { return { show_names: false, menu_names: true, shrink: true, width: 'std', style: 'white', layout: 'auto', reserve_space: true, toasts: true, admin_tools: true }; }
+    static get defaults() { return { show_names: false, menu_names: true, shrink: true, width: 'std', style: 'white', layout: 'auto', dock: 'float', reserve_space: true, toasts: true, admin_tools: true }; }
     static get schema() {
       return [
         { type: 'navbar' },
@@ -613,6 +614,8 @@
         // Fiks 20.6: kortet «Plassering og oppførsel» = brytere → Visning → Bredde → Avstand fra bunnen (nbplace); «Stil» rett etter
         { type: 'section', label: 'Plassering', icon: 'mdi:dock-left', fields: [
           { type: 'select', name: 'layout', label: 'Oppsett', options: [['auto', 'Auto'], ['mobil', 'Bunn (mobil)'], ['stor', 'Rail (bred)']], default: 'auto', help: 'Auto måler dashbordflaten (ikke vinduet): ≥ 1000 px, eller berøring ≥ 600 px (Fold åpen, iPad) = vertikal rail til venstre.' },
+          // Fiks 25.2: standard Svevende (over safe area); «Fast i bunnen» = den gamle plasseringen uten safe area
+          { type: 'select', name: 'dock', label: 'Plassering', options: [['float', 'Svevende'], ['fast', 'Fast i bunnen']], default: 'float', help: 'Svevende: navbaren svever over innholdet, over hjem-streken på iPhone. Fast i bunnen: helt nede ved kanten.' },
           { type: 'nbplace' },
         ] },
         { type: 'navbar', part: 'style' },
@@ -658,6 +661,14 @@
       window.addEventListener('pageshow', this._onVis);
       window.addEventListener('orientationchange', this._onVis);
       if (window.visualViewport) window.visualViewport.addEventListener('resize', this._onResize);
+      // Fiks 25.2: tekstfelt med fokus på touch (iOS-/Android-tastaturet er oppe) → navbar og mini-spiller skjules, så de ikke
+      // flyter midt på skjermen over tastaturet. Ingen endring på PC (mus).
+      const isText = (n) => n && n.nodeType === 1 && (n.isContentEditable || (n.localName === 'textarea') || (n.localName === 'input' && !/^(checkbox|radio|range|button|submit|reset|color|file|image)$/i.test(n.type || '')));
+      this._onFocusIn = (e) => { const t = e.composedPath ? e.composedPath()[0] : e.target; const on = isText(t) && window.matchMedia && matchMedia('(pointer: coarse)').matches; if (this._portal) this._portal.toggleAttribute('data-kbd', !!on); };
+      this._onFocusOut = () => { clearTimeout(this._kbdT); this._kbdT = setTimeout(() => { const a = M.deepActive ? M.deepActive() : document.activeElement; let x = a; while (x && x.shadowRoot && x.shadowRoot.activeElement) x = x.shadowRoot.activeElement; if (this._portal && !isText(x)) this._portal.removeAttribute('data-kbd'); }, 120); };
+      document.addEventListener('focusin', this._onFocusIn, true);
+      document.addEventListener('focusout', this._onFocusOut, true);
+      if (window.visualViewport) window.visualViewport.addEventListener('scroll', this._onResize);
       if (window.ResizeObserver && !this._hostRO) {
         this._hostRO = new ResizeObserver(() => {
           const on = this.getClientRects().length > 0;
@@ -694,7 +705,8 @@
       document.removeEventListener('visibilitychange', this._onVis); // Fiks 55 B2
       window.removeEventListener('pageshow', this._onVis);
       window.removeEventListener('orientationchange', this._onVis);
-      if (window.visualViewport) window.visualViewport.removeEventListener('resize', this._onResize);
+      if (window.visualViewport) { window.visualViewport.removeEventListener('resize', this._onResize); window.visualViewport.removeEventListener('scroll', this._onResize); }
+      document.removeEventListener('focusin', this._onFocusIn, true); document.removeEventListener('focusout', this._onFocusOut, true); clearTimeout(this._kbdT);
       if (this._hostRO) { this._hostRO.disconnect(); this._hostRO = null; this._hostOn = undefined; }
       cancelAnimationFrame(this._msRaf); clearTimeout(this._msT); clearTimeout(this._msT2); clearTimeout(this._keepT); clearTimeout(this._hfT);
       window.removeEventListener('ki-nav-bottom', this._onResize);
@@ -1048,10 +1060,15 @@
         this._portal = p;
         this._pFirst = true;
       }
-      // Helst inni kortet (følger dashbordet); document.body kun når en forelder ødelegger position: fixed.
+      // Fiks 25.2: alltid direkte i document.body – inni kortet ble position: fixed relativt til en forelder med
+      // transform/filter/contain (panel-visning, Bubble, temaets backdrop-filter), og sjekken kom ikke etter senere endringer
       this._railVars(geo.rail, geo);
-      const parent = this._fixedSafe() ? this : document.body;
+      const parent = document.body;
       if (this._portal.parentNode !== parent) parent.appendChild(this._portal);
+      const fast = this.config.dock === 'fast';
+      this._portal.toggleAttribute('data-dock-fast', fast);
+      const safe = fast ? '0px' : 'env(safe-area-inset-bottom, 0px)';
+      if (document.documentElement.style.getPropertyValue('--ki-nav-safe') !== safe) document.documentElement.style.setProperty('--ki-nav-safe', safe);
       this._portal.toggleAttribute('data-ring', location.hash === '#ringeklokke'); // 19.17: navbar og mini-spiller skjules (#ringeklokke)
       this._syncHide(); // Fiks 57 C: glir ut mens en popup i hide_in_popups er åpen (standard #vaer)
       this._portal.toggleAttribute('data-sheet', !!(M.sheetOpen && M.sheetOpen())); // 26.16
@@ -1428,7 +1445,7 @@
         // Følger navbarens krymping (scale .8 fra bunnen + translateY 8): samme skala, flyttet ned like mye som navbarens topp
         const compact = !!this.ui.compact && this.config.shrink !== false, nh = this._navH || (glass ? 64 : 68);
         const dy = compact ? nh * 0.2 + 6.4 : 0;
-        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) translate(var(--mx,0px),var(--my,0px)) scale(${compact ? 0.8 : 1})${AND ? ' translateZ(0)' : ''}`;
+        pos = `left:${geo.left + geo.width / 2}px;width:${W}px;bottom:calc(var(--ki-nav-bottom, 8px) + var(--ki-nav-safe, env(safe-area-inset-bottom, 0px)) + var(--ki-nav-h, ${nh}px) + 10px);transform:translateX(-50%) translateY(calc(${dy.toFixed(1)}px + var(--mo,0px))) translate(var(--mx,0px),var(--my,0px)) scale(${compact ? 0.8 : 1})${AND ? ' translateZ(0)' : ''}`;
       }
       const vo = this._mVolV;
       const rows = L.map((id) => {

@@ -61,4 +61,7 @@ window.MSH.i18n.add({
   "Nullstille alle innstillinger for Lys til standard": "Reset all Light settings to default",
   "Hjem fylles automatisk med alle rom (tidligere oppsett). «Nullstill til forslag» gir en kuratert forside": "Home is filled automatically with all rooms (previous setup). «Reset to suggestion» gives a curated front page",
   "§ dag igjen": "§ day left",
+  "Svevende": "Floating",
+  "Fast i bunnen": "Docked at the bottom",
+  "Svevende: navbaren svever over innholdet, over hjem-streken på iPhone. Fast i bunnen: helt nede ved kanten.": "Floating: the navbar floats above the content, above the home indicator on iPhone. Docked at the bottom: right at the edge.",
 });

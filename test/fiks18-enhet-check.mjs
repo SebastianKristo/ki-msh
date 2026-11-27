@@ -45,7 +45,7 @@ async function setup(ua, vp, bm) {
 const navB = (p) => p.evaluate(() => { const n = deep('nav.nb'), m = deep('[data-mini]'); const r = n.getBoundingClientRect(); return { bottom: Math.round(innerHeight - r.bottom), rail: n.classList.contains('rail'), mini: m && !m.classList.contains('off') ? Math.round(r.top - m.getBoundingClientRect().bottom) : null }; });
 
 /* ---------------- 18.6 standard per enhet */
-for (const [k, want] of [['iphone', 0], ['oneplus', 20], ['pixel', 16]]) {
+for (const [k, want] of [['iphone', 12] /* Fiks 25.2: svever 12 px over hjem-streken (var 0) */, ['oneplus', 20], ['pixel', 16]]) {
   const { p, ctx, errs } = await setup(UA[k]);
   const r = await navB(p);
   ok(`18.6 ${k}: navbaren står ${want} px fra bunnen uten innstilling`, r.bottom === want && !r.rail, r);
