@@ -114,7 +114,7 @@ const st = await page.evaluate(async () => { localStorage.setItem('ki-lang', 'en
 ok(st === 'en', 'L1 · storage-eventet fra en annen fane bytter språk');
 // L5: onboarding (Fiks 61.2: veiviseren v2 – første steg Språk)
 const ob = await page.evaluate(async () => {
-  window.MSH.openOnboarding({ step: 0 }); await new Promise((r) => setTimeout(r, 400));
+  window.MSH.tilpassV2.open({ step: 0 }); await new Promise((r) => setTimeout(r, 400));
   const P = window.MSH.portals(), sr = P[P.length - 1].shadowRoot;
   const t0 = sr.querySelector('.hd b').textContent;
   sr.querySelector('[data-a="lang"][data-v="en"]').click(); await new Promise((r) => setTimeout(r, 300));

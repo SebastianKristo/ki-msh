@@ -905,6 +905,7 @@
     // (64 px): Tilpass alt · Tilpass Hjem · Tilpass navbar · Tilpass header · Kiosk-modus (På/Av). Trykk lukker arket og
     // åpner editoren (ki-open-editor / M.kioskSheet). Haptic light (én per trykk).
     _tilpassSheet() {
+      if (M.tps) return M.tps.open(); // Fiks 26.2: Mer → Tilpass åpner Tilpass-senteret (70-tilpass-senter.js)
       if (this._tpSheet && !this._tpSheet.closed) return this._tpSheet;
       const kioskOn = () => { const h = this._hass || M.lastHass || {}, e = M.kioskEntity ? M.kioskEntity() : null, st = e && h.states && h.states[e]; return !!(st && st.state === 'on'); };
       // Runde 2: inngangene kommer fra MSH.tp.entries (samme liste i Innstillinger, PC-oversikten og HA-hub-en)

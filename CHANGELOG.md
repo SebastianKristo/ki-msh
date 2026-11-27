@@ -2,6 +2,36 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## 1.8.0 · Nytt Tilpass-senter, veiviser og redigering på Hjem
+- **Hvorfor det nye Tilpass-senteret ikke viste seg** (Fiks 26.1):
+  - 25.3 var aldri bygget, fordi designfilen `Tilpass.dc.html` manglet i repoet.
+  - Bygget, ressurs-URL-en (`?v=`) og PWA-bufferen var ikke årsaken. Det finnes ingen egen service worker eller cache for kortene.
+  - `?v=`-sjekken i `build.mjs` ga en falsk advarsel. Den er rettet.
+- **Tilpass-senteret** (Fiks 25.3, `src/70-tilpass-senter.js`, fasit `design/Tilpass.dc.html`):
+  - Åpnes som helskjerm-ark med søk og snarveiene «Rediger på Hjem» og «Veiviser».
+  - Har fire grupper: Utseende, Hjem, Huset, og Verdier og skjermer. Til sammen ti sider: tema, språk og navn, header, faner og kort, navbar, rom, personer, popups, grenser og verdier, og kiosk.
+  - Endringer lagres med en gang i kortenes egen config i ki-store.
+  - Hver endring kan angres med «Angre» i toasten, og toppen viser «Lagrer…» → «Lagret».
+  - Rader flyttes ved å dra i håndtaket, på touch og med mus.
+  - Rom-arket viser hvilke sensorer som brukes. Du kan bytte dem, og valget lagres som `overrides`.
+  - **Installatørmodus** (per bruker) viser entitets-ID-er og gir eksport og import av oppsettet.
+  - **«Lås for kunden»** låser alt unntatt tema og kort.
+- **Veiviseren** (`ki-setup-wizard`) har stegene Velkommen, Rom, Personer, Tema og Ferdig.
+  - Den starter selv for en ny bruker uten lagret oppsett, og erstatter den gamle første oppstarten.
+  - Den kan også startes fra snarveien «Veiviser» i senteret.
+- **Rediger Hjem:** hold inne en blokk på Hjem i 450 ms. Da kan du flytte, skjule og tilpasse kortene og legge til nye.
+  - Romkortene i fanekortet har sitt eget langt trykk og er unntatt.
+- **Alt går til senteret** (Fiks 26.2):
+  - Disse åpner nå samme senter: `tune` i headeren, «Tilpass» i Mer og én rad «Tilpass» i Innstillinger (som erstatter listen «Tilpass dashbordet» med fem rader).
+  - De gamle editorene for navbar, header og kiosk åpnes ikke lenger. `ki-open-editor` med navbar, header eller kiosk går til senterets sider.
+- **Versjon og byggetidspunkt** står under «Om» i Innstillinger og i konsollen ved oppstart (Fiks 26.3).
+- Begrensninger:
+  - Fargevalget slår bare ut der kortene bruker `var(--pink)`.
+  - Tetthet og hjørner setter `--ki-gap` og `--ki-radius`, som foreløpig få kort bruker.
+  - Nynorsk har ingen ordbok ennå. Valget viser en melding, og bokmål brukes.
+  - Sensorvalg for lys og bevegelse i rom-arket, og kortenes størrelse, navn og «Vises» i kort-arket, lagres, men brukes ikke av kortene ennå.
+- Ny test: `test/tilpass26-check.mjs`.
+
 ## 1.7.2 · Svevende navbar på iPhone, ingen komma i Innstillinger
 - **Navbaren svever på iPhone** (Fiks 25.2). Det var tre feil:
   - Avstanden fra bunnen tok ikke med safe area.

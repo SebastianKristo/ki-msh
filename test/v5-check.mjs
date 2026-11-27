@@ -52,7 +52,7 @@ for (const [label, servere, want] of [['én server', [{ navn: 'Oslo' }], false],
 /* ---------------- 2 · «Tilpass alt» v2 */
 {
   const { p, ctx, errs } = await page();
-  await p.evaluate(async () => { await window.mk('msh-navbar-card', { card_id: 'ki-navbar' }); await new Promise((q) => setTimeout(q, 1500)); window.__api = MSH.openTilpassAlt(); await new Promise((q) => setTimeout(q, 300)); });
+  await p.evaluate(async () => { await window.mk('msh-navbar-card', { card_id: 'ki-navbar' }); await new Promise((q) => setTimeout(q, 1500)); window.__api = MSH.tilpassV2.open({ step: 0 }); await new Promise((q) => setTimeout(q, 300)); });
   const steps = [];
   for (let i = 0; i < 13; i++) { await p.evaluate((i) => deep(`[data-a="dot"][data-v="${i}"]`).click(), i); await sleep(120); steps.push(await p.evaluate(() => deep('.tw .hd b').textContent)); }
   ok('2 13 steg, prikkene er klikkbare', steps.length === 13 && steps[0] === 'Språk' && steps[12] === 'Ferdig' && new Set(steps).size === 13, steps);

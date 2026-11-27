@@ -1769,7 +1769,7 @@
         navigate: (x) => { const p = String(x.navigation_path || ''); return p[0] === '#' ? M.openPopup(p) : M.navigate(p[0] === '?' ? location.pathname + p : p); },
       });
     }
-    _tilpass() { this._srvClose(true); window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } })); }
+    _tilpass() { this._srvClose(true); window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass' } })); }
     // Kiosk-modus av/på: veksler kiosk_entity (standard input_boolean.kiosk_mode) – samme entitet som kiosk-mode / UIX bruker.
     _kiosk() {
       const id = M.hjemKioskEntity(this.config), s = this.hass && this.hass.states[id];
@@ -1816,7 +1816,7 @@
       // Fiks 22.7: hold på personbilde (basekortets hold, haptic medium, stopper klikket) → person_actions.hold
       if (el && el.dataset && el.dataset.act === 'person') { if (this._pTap) { clearTimeout(this._pTap.t); this._pTap = null; } this._personRun(M.hjemPersonActions(this.config).hold, el.dataset.id); return true; }
       if (id !== '__tilpass') return undefined;
-      window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'header' } }));
+      window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: 'tilpass' } }));
       return true;
     }
     // Fiks 37 · «Bytt sted»-menyen (MSH.servervelger.meny): portalt lag over dashbord-containeren, 260 px ark med spiss

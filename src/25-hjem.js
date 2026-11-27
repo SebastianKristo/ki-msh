@@ -233,6 +233,7 @@
       </div>`;
     }
     afterRender() {
+      if (M.tps && M.tps.bindHold) M.tps.bindHold(this.shadowRoot); // Fiks 25.3/26.2: langt trykk på en blokk → «Rediger Hjem»
       if (this._pcOn) {
         const w = this.shadowRoot.querySelector('.pcw');
         if (!this._pcEl) { this._pcEl = document.createElement('msh-pc-card'); try { this._pcEl.setConfig({ type: 'custom:msh-pc-card', card_id: 'ki-pc', ...(this.config.pc || {}) }); } catch (e) { console.error('[ki-msh] msh-pc-card', e); } }
