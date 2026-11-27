@@ -1466,7 +1466,7 @@
       const openLbl = x.kind === 'film' ? 'Åpne i Radarr' : x.kind === 'serie' ? 'Åpne i Sonarr' : null;
       const when = x.kind === 'plex' ? (x.date ? 'Lagt til ' + dShort(x.date) : 'Nylig lagt til') : `${dayLabel(d0(x.date))}${x.allDay ? '' : ' · ' + hm(x.date)}`;
       const ov = M.overlay({ maxWidth: 480, guard: 350, css: `
-        .dt{display:flex;flex-direction:column;gap:14px;padding-bottom:calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px))}
+        .dt{display:flex;flex-direction:column;gap:14px;padding-bottom:calc(var(--ki-nav-h, 68px) + var(--ki-nav-bottom, 8px) + env(safe-area-inset-bottom, 0px))}
         .dtop{display:flex;gap:14px;align-items:flex-end}
         ${ARR() ? ARR().CSS : ''}
         .pst{width:84px;height:124px;border-radius:12px;overflow:hidden;flex:none;display:grid;place-items:center} /* 47 K: det.poster 84×124 r12 */

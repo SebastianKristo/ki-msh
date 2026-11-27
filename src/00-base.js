@@ -376,9 +376,14 @@
   MSH.hapticOff();
 
   // Fiks 18.6 · navbarens avstand fra bunnen: standard per enhet, egen verdi i nav_profiles.bottom
+  // Fiks 25.2: env(safe-area-inset-*) er bare > 0 med viewport-fit=cover – legg det til i HAs viewport-meta én gang (beholder resten)
+  try {
+    const vm = document.querySelector('meta[name="viewport"]');
+    if (vm && !/viewport-fit\s*=\s*cover/i.test(vm.getAttribute('content') || '')) vm.setAttribute('content', ((vm.getAttribute('content') || '').replace(/\s*,?\s*$/, '') + ', viewport-fit=cover').replace(/^,\s*/, ''));
+  } catch (e) { /* */ }
   MSH.navBottomDefault = function () {
     const ua = navigator.userAgent || '', d = MSH.deviceInfo(), s = d.model + ' ' + ua;
-    if (d.os === 'iOS') return 0;
+    if (d.os === 'iOS') return 12; // Fiks 25.2: svever 12 px over hjem-streken (safe area kommer i tillegg) – var 0 (limt til kanten)
     if (d.os === 'iPadOS') return 12;
     if (/OnePlus|\bCPH2\d{3}\b|\bPJ[A-Z]\d{3}\b|\bPJ[A-Z0-9]{4}\b/i.test(s)) return 20;
     if (d.os === 'Android') return 16; // Pixel 9 Pro / Pixel 9 Pro Fold lukket / annen Android
