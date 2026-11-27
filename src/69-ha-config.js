@@ -65,7 +65,8 @@
         ${o.icon ? `<span class="hi" ${o.iconBg ? `style="background:${o.iconBg};color:var(--ki-on-accent, #2a1720)"` : ''}>${ui.ic(o.icon, 22)}</span>` : ''}
         <span class="ht"><b>${o.titleHtml || esc(o.title || '')}</b>${o.sub || o.subHtml ? `<i>${o.subHtml || esc(o.sub)}</i>` : ''}</span>${right}${chev}</${tag}>`;
     },
-    group: (rows, key) => (rows ? `<div class="hg" ${key ? `data-key="${esc(key)}"` : ''}>${rows}</div>` : ''),
+    // Fiks 25.1: en array (rader fra .map) slås sammen uten komma – Array.toString ga «,» mellom radene
+    group: (rows, key) => { if (Array.isArray(rows)) rows = rows.join(''); return rows ? `<div class="hg" ${key ? `data-key="${esc(key)}"` : ''}>${rows}</div>` : ''; },
     sec: (t, right) => `<div class="hs"><span>${esc(t)}</span>${right || ''}</div>`,
     sw: (on, a, v, dis) => `<button class="sw ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}" data-a="${esc(a)}" ${v != null ? `data-v="${esc(v)}"` : ''} ${dis ? 'disabled' : ''}><i></i></button>`,
     chip: (label, on, a, v, extra) => `<button class="ch ${on ? 'on' : ''}" data-a="${esc(a)}" ${v != null ? `data-v="${esc(v)}"` : ''} aria-pressed="${!!on}" ${extra || ''}>${label}</button>`,
