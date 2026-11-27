@@ -23,6 +23,7 @@ for (const dark of [true, false]) {
   await p.evaluate(() => { localStorage.setItem('ki-device-id', 'dtest'); window.__userData = { ki_dashboard: { devices: { dtest: { name: 'Denne', seen: Date.now() }, dipad: { name: 'iPad kjøkken', seen: Date.now() - 3600e3, cards: { 'pop-kamera': { cols: 2 } } }, dmac: { name: 'Mac kontor', seen: Date.now() - 7200e3, cards: { 'pop-person-x': { a: 1 } } } } } }; });
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   await p.addScriptTag({ path: bundle });
+  await p.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2: de gamle arkene testes direkte
   const r = await p.evaluate(async (dark) => {
     const M = window.MSH, w = (ms) => new Promise((q) => setTimeout(q, ms));
     const H = window.mockHass(); H.user = { ...(H.user || {}), is_admin: false }; H.themes = { ...(H.themes || {}), darkMode: dark };

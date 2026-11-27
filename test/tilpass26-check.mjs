@@ -33,7 +33,7 @@ const closeAll = () => p.evaluate(() => window.MSH.portals().forEach((x) => x.re
 // hub
 await p.evaluate(() => window.MSH.tps.open()); await wait(500);
 let s = await sheet();
-ok('hub: søk, snarveiene og gruppene Utseende · Hjem · Huset · Verdier og skjermer', s && s.center && ['Søk', 'Rediger på Hjem', 'Veiviser', 'Utseende', 'Hjem', 'Huset', 'Verdier og skjermer', 'For installatør', 'Tilbakestill alt'].every((t) => s.text.includes(t)) || p.evaluate(() => 0), s && s.text.slice(0, 400));
+ok('hub: søk, snarveiene og gruppene Utseende · Hjem · Huset · Verdier og skjermer', s && s.center && ['Søk', 'Rediger på Hjem', 'Veiviser', 'Utseende', 'Hjem', 'Huset', 'Verdier og skjermer', 'For installatør', 'Enheter og system', 'Home Assistant', 'Tilbakestill alt'].every((t) => s.text.includes(t)) || p.evaluate(() => 0), s && s.text.slice(0, 400));
 const ph = await p.evaluate(() => document.querySelector('ki-overlay-root').shadowRoot.querySelector('.msh-portal[data-tps]').shadowRoot.querySelector('[data-in="q"]').placeholder);
 ok('søkefeltet har plassholderen fra fasiten', ph === 'Søk, f.eks. strømpris eller navbar', ph);
 // søk

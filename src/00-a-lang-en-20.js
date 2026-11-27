@@ -37,5 +37,6 @@ window.MSH && window.MSH.i18n && window.MSH.i18n.add({
   "Hopp over": "Skip", "Kom i gang": "Get started", "Neste: personer": "Next: people", "Neste: tema": "Next: theme", "Fullfør": "Finish", "Åpne dashbordet": "Open the dashboard",
   "Bruk standardoppsettet": "Use the default setup", "Gå til Tilpass": "Go to Customize", "Endre": "Change",
   "Tema, Hjem, navbar, rom og mer": "Theme, Home, navbar, rooms and more",
+  "Enheter og system": "Devices and system",
   "Endringen er angret": "The change was undone", "Angre": "Undo", "Hjem er lagret": "Home was saved",
 });

@@ -475,6 +475,7 @@
         <button class="scb" data-a="edithome"><span class="sci gi">${ic('mdi:gesture-tap-hold', 22)}</span><span class="tx"><b>${esc(T('Rediger på Hjem', 'Edit on Home'))}</b><i>${esc(T('Hold inne et kort', 'Press and hold a card'))}</i></span></button>
         <button class="scb" data-a="wizard"><span class="sci" style="background:${ROW_}">${ic('mdi:auto-fix', 22)}</span><span class="tx"><b>${esc(T('Veiviser', 'Wizard'))}</b><i>${esc(T('Rom, personer og tema', 'Rooms, people and theme'))}</i></span></button></div>`
       + GROUPS.map(([label, keys]) => `<div class="col"><span class="gl">${esc(label)}</span><div class="card">${keys.map(item).join('')}</div></div>`).join('')
+      + sysGroup()
       + `<div class="col"><span class="gl">${esc(T('For installatør', 'For installers'))}</span><div class="card">
         ${isAdmin() ? `<button class="it" data-a="pro"><span class="tx"><b>${esc(T('Installatørmodus', 'Installer mode'))}</b><i>${esc(T('Viser tekniske navn, entiteter og eksport', 'Shows technical names, entities and export'))}</i></span>${sw(pro)}</button>` : ''}
         ${pro ? `<button class="it" data-a="lock"><span class="tx"><b>${esc(T('Lås for kunden', 'Lock for the customer'))}</b><i>${esc(T('Kunden kan bare endre tema og kort', 'The customer can only change the theme and cards'))}</i></span>${sw(!!c.lock)}</button>
@@ -483,6 +484,15 @@
         <button class="it red" data-a="reset" style="min-height:60px"><span style="display:flex">${ic('mdi:restart', 22)}</span><span class="tx"><b style="font-weight:400">${esc(T('Tilbakestill alt', 'Reset everything'))}</b></span></button>
       </div></div><span class="foot">${esc(T('Endringer lagres med en gang, og du kan alltid angre.', 'Changes are saved right away, and you can always undo.'))}</span>`;
   };
+  // Utenfor fasiten: det gamle Mer → Tilpass-arket hadde også PC-dashbordet, Enheter og Home Assistant – de må fortsatt nås
+  function sysGroup() {
+    const nb = M.liveOf && M.liveOf('msh-navbar-card'), it = [];
+    if (M.pc) it.push(['pc', 'mdi:monitor', T('Dashbord på PC', 'Dashboard on PC'), M.pc.mode() === 'pc' ? T('Oversikt for PC', 'Overview for PC') : T('Mobilvisning', 'Mobile view')]);
+    if (M.store && M.store.devices && nb && nb._devicesSheet) { const n = M.store.devices().filter((d) => d.own > 0).length; it.push(['devices', 'mdi:devices', T('Enheter', 'Devices'), n ? `${n} ${n === 1 ? T('enhet med eget oppsett', 'device with its own setup') : T('enheter med eget oppsett', 'devices with their own setup')}` : T('Gi nytt navn, nullstill eller slett', 'Rename, reset or delete')]); }
+    if (M.ha && isAdmin()) it.push(['ha', 'mdi:home-assistant', 'Home Assistant', T('Automasjoner, scener, oppdateringer og backup', 'Automations, scenes, updates and backup')]);
+    if (!it.length) return '';
+    return `<div class="col"><span class="gl">${esc(T('Enheter og system', 'Devices and system'))}</span><div class="card">${it.map(([k, i, t, sub]) => `<button class="it" data-a="sys" data-v="${k}"><span class="ii">${ic(i, 22)}</span><span class="tx"><b>${esc(t)}</b><i>${esc(sub)}</i></span><span class="chev">${ic('mdi:chevron-right', 22)}</span></button>`).join('')}</div></div>`;
+  }
   // Tema-forhåndsvisning (hilsen, to romkort, navbar) – samme i siden og i veiviseren
   function themePreview(h) {
     const R = roomsModel(h), fav = R.filter((r) => r.on && r.fav), sh = (fav.length ? fav : R.filter((r) => r.on)).slice(0, 2), NV = navModel().list.filter((x) => x.on).slice(0, 5);
@@ -769,6 +779,14 @@
       if (a === 'back') { M.haptic('light'); return go(null); }
       if (a === 'open') { M.haptic('selection'); return go(v); }
       if (a === 'clearq') { st.q = ''; return render(); }
+      if (a === 'sys') {
+        M.haptic('light');
+        if (v === 'pc') { const to = M.pc.mode() === 'pc' ? 'mobil' : 'pc'; M.pc.set(to); if (to === 'pc' && M.pc.wide && !M.pc.wide()) toast(T('PC-dashbordet vises når skjermen er minst 1100 px bred', 'The PC dashboard shows when the screen is at least 1100 px wide'), false); return render(); }
+        ov.close();
+        if (v === 'devices') { const nb = M.liveOf && M.liveOf('msh-navbar-card'); return nb && nb._devicesSheet(); }
+        if (v === 'ha') return M.ha && M.ha.open();
+        return undefined;
+      }
       if (a === 'edithome') { M.haptic('light'); ov.close(); return TPS.editHome(); }
       if (a === 'wizard') { M.haptic('light'); ov.close(); return TPS.wizard({ step: 1 }); }
       act(st, a, v, b);
@@ -922,6 +940,7 @@
   const ROUTE = { tilpass: null, 'tilpass-alt': null, navbar: 'navbar', header: 'header', kiosk: 'kiosk' };
   // 03-editors.js sender hver ki-open-editor til M.openDashEditor (også Innstillinger-radene) – omdirigeres her
   const dash0 = M.openDashEditor;
+  M.openDashEditorV1 = dash0;
   M.openDashEditor = function (d) {
     d = d || {};
     if (d.editor === 'wizard' || d.editor === 'onboarding') return TPS.wizard({ step: d.step > 0 ? d.step : 0, first: d.editor === 'onboarding' });

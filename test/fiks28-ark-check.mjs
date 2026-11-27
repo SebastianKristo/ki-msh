@@ -33,6 +33,7 @@ for (const [vn, vp, touch] of [['mobil', { width: 390, height: 844 }, true], ['p
   await p.goto('file://' + resolve('test/harness.html'));
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   await p.addScriptTag({ path: bundle });
+  await p.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2: de gamle arkene testes direkte
   const cdp = await p.context().newCDPSession(p);
   const W = (ms) => p.waitForTimeout(ms);
   await p.evaluate(async () => {

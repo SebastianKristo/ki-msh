@@ -15,6 +15,7 @@ const errs = []; p.on('pageerror', (e) => errs.push(e.message));
 await p.goto('file://' + resolve('test/harness.html'));
 for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
 await p.addScriptTag({ path: bundle });
+await p.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2: de gamle arkene testes direkte
 const out = await p.evaluate(async () => {
   const wait = (ms) => new Promise((q) => setTimeout(q, ms));
   const M = window.MSH, hass = window.mockHass(), ws0 = hass.callWS, calls = [];
