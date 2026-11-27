@@ -36,10 +36,15 @@ out += `(function () { try {
   if (window.KI_MSH_VERSION && window.KI_MSH_VERSION !== ${V}) console.warn('[ki-msh] To versjoner er lastet (' + window.KI_MSH_VERSION + ' og ' + ${V} + '). Fjern den gamle Lovelace-ressursen og tøm cachen.');
   var cs = document.currentScript && document.currentScript.src; // klassisk <script>; som modul (HA-ressurs): ressurslisten
   var urls = cs ? [cs] : (performance.getEntriesByType ? performance.getEntriesByType('resource') : []).map(function (e) { return e.name; }).filter(function (u) { return /ki-msh(\\.min)?\\.js/.test(u); });
-  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\\d+\\.\\d+/.test(v) && v !== ${V}; });
+  var bad = urls.map(function (u) { try { return new URL(u, location.href).searchParams.get('v'); } catch (e) { return null; } }).filter(function (v) { return v && /^\\d+\\.\\d+/.test(v) && v.split('-')[0] !== ${V}; });
   if (bad.length) console.warn('[ki-msh] Ressurs-URL-en har ?v=' + bad[0] + ', men bundelen er ' + ${V} + ' – nettleseren/appen bruker en gammel kopi. Sett ?v=' + ${V} + ' på ressursen og tøm cachen (se README).');
 } catch (e) { /* */ } })();\n`;
-out += `window.KI_MSH_VERSION = ${V};\n`;
+// Fiks 26.3: byggetidspunkt (ISO) for «Om» og oppstartsloggen – endres ved hver build
+const BUILT = JSON.stringify(new Date().toISOString());
+out += `window.KI_MSH_VERSION = ${V};\nwindow.KI_MSH_BUILD = ${BUILT};\n`;
+out += `(function () { try { if (window.__kiMshInfo) return; window.__kiMshInfo = true; var d = new Date(window.KI_MSH_BUILD), p = function (n) { return String(n).padStart(2, '0'); };
+  window.KI_MSH_BUILT_TEXT = 'Versjon ' + window.KI_MSH_VERSION + ' · bygget ' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + ' kl. ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  console.info('[ki-msh] ' + window.KI_MSH_BUILT_TEXT); } catch (e) { /* */ } })();\n`;
 for (const f of files) {
   const src = readFileSync('src/' + f, 'utf8');
   // Hver fil i egen try/catch (én feil stopper ikke resten) – også etter minifisering

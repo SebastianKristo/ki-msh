@@ -26,6 +26,7 @@ for (const [vpName, vp, touch] of [['mobil', { width: 390, height: 844 }, true],
   await p.goto('file://' + resolve('test/harness.html'));
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   await p.addScriptTag({ path: bundle });
+  await p.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2: de gamle arkene testes direkte
   const cdp = await p.context().newCDPSession(p);
   // Touch-sveip via CDP-touchhendelser (synthesizeScrollGesture scroller ikke i headless) – loddrett dra oppover dy px
   const swipe = async (x, y0, dy) => {

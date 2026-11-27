@@ -25,6 +25,7 @@ const ok = (c, m, info) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (info != 
   await p.goto('file://' + resolve('test/harness.html'));
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   await p.addScriptTag({ path: bundle });
+  await p.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2: de gamle arkene testes direkte
   await p.evaluate(async () => {
     try { localStorage.clear(); } catch (e) { /* */ }
     const h = window.mockHass();
@@ -96,6 +97,7 @@ const ok = (c, m, info) => { console.log((c ? 'OK   ' : 'FEIL ') + m + (info != 
   await p.evaluate(() => { localStorage.clear(); localStorage.setItem('ki-device-id', 'testenhet'); window.__userData = { ki_dashboard: { onboarded: true } }; });
   for (const m of readdirSync('test/mock').sort()) await p.addScriptTag({ path: resolve('test/mock/' + m) });
   await p.addScriptTag({ path: bundle });
+  await p.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2: de gamle arkene testes direkte
   await p.evaluate(async () => {
     window.deepAll = (sel, root) => { const out = []; const walk = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(root || document); return out; };
     window.deep = (sel, root) => window.deepAll(sel, root)[0] || null;

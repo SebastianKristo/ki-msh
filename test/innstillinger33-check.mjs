@@ -31,6 +31,7 @@ async function popup(vp, cfg, light) {
   await p.goto('file://' + resolve('test/harness-bubble.html'));
   for (const m of mocks) await p.addScriptTag({ path: m });
   await p.addScriptTag({ path: bundle });
+  await p.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2: de gamle arkene testes direkte
   await p.addScriptTag({ path: BC, type: 'module' });
   await p.waitForFunction(() => customElements.get('bubble-card'), null, { timeout: 15000 });
   await p.evaluate(async ({ vp, cfg, light, LIGHT }) => {
@@ -79,6 +80,7 @@ for (const vp of [{ n: '390', w: 390, h: 844 }, { n: 'PC', w: 1400, h: 900, sb: 
   await p.goto('file://' + resolve('test/harness.html'));
   for (const m of mocks) await p.addScriptTag({ path: m });
   await p.addScriptTag({ path: bundle });
+  await p.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2: de gamle arkene testes direkte
   await p.evaluate(async () => {
     try { localStorage.clear(); } catch (e) { /* */ }
     window.deepAll = (sel, root) => { const out = []; const walk = (r) => r.querySelectorAll('*').forEach((e) => { if (e.matches(sel)) out.push(e); if (e.shadowRoot) walk(e.shadowRoot); }); walk(root || document); return out; };

@@ -229,7 +229,7 @@ ok('dobbelttrykk: andre trykk innen 320 ms lukker uten utgangsanimasjon og kjør
 ok('andre trykk etter fristen bare lukker', !g.d3.open && !g.d3.nav.length, g.d3);
 ok('hold 500 ms → kiosk-modus (standard), klikket etter hold teller ikke, haptic medium', g.hold.calls.join() === 'input_boolean.toggle:input_boolean.kiosk_mode' && !g.hold.menu && g.hold.hap.includes('medium'), g.hold);
 ok('kort trykk (< 500 ms) er ikke hold', g.short === 0, g.short);
-ok('hold uten annen handling → Tilpass header', g.holdTp.ed.join() === 'header' && !g.holdTp.menu, g.holdTp);
+ok('hold uten annen handling → Tilpass-senteret (Fiks 26.2)', g.holdTp.ed.join() === 'tilpass' && !g.holdTp.menu, g.holdTp);
 ok('server_meny_med hold: trykk kjører trykk-handlingen med en gang (ingen dobbelttrykk), hold åpner menyen', g.mh1.nav.join() === '/x' && !g.mh1.menu && g.mh2, [g.mh1, g.mh2]);
 ok('server_meny_med double_tap: ett trykk venter og kjører trykket; to trykk åpner menyen', g.md1 === 0 && g.md2.join() === '/y' && g.md3.menu && g.md3.nav === 1, [g.md1, g.md2, g.md3]);
 ok('uten dobbelttrykk-handling: andre trykk bare lukker', g.n1 && !g.n2.menu && !g.n2.nav.length, g.n2);

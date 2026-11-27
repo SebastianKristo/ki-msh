@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;background:#181818;color:#fafafa;font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#fafafa}a:hover{color:rgb(242 133 201)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input{font:inherit;color:inherit}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes toastIn{from{transform:translateY(12px);opacity:0}}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}}
+@keyframes fadein{from{opacity:0}}
+.ms{font-family:'Material Symbols Rounded';font-weight:400;font-style:normal;line-height:1;white-space:nowrap;font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;user-select:none}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 12px 40px;box-sizing:border-box">
+  <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#2a2a2a">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.go }}" style="{{ t.s }}">{{ t.label }}</button></sc-for>
+  </div>
+
+  <div data-screen-label="Tilpass" style="position:relative;width:100%;max-width:400px;height:860px;border-radius:44px;overflow:hidden;background:{{ T.bg }};display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.07);transition:background .3s">
+    <div style="height:46px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px 0 32px;font-size:15px;font-weight:600">
+      <span>21:14</span>
+      <span style="display:flex;gap:5px;align-items:center"><span class="ms" style="font-size:17px">signal_cellular_alt</span><span class="ms" style="font-size:17px">wifi</span><span class="ms" style="font-size:20px">battery_full</span></span>
+    </div>
+
+    <sc-if value="{{ is.wizTop }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;display:flex;align-items:center;gap:12px;padding:6px 16px 10px">
+        <button onClick="{{ wiz.back }}" title="Tilbake" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:{{ T.row }}"><span class="ms" style="font-size:22px">arrow_back</span></button>
+        <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+          <span style="font-size:13px;color:#a8a8a8">Steg {{ wiz.n }} av 3</span>
+          <div style="display:flex;gap:4px"><sc-for list="{{ wiz.segs }}" as="g" hint-placeholder-count="3"><span style="{{ g.s }}"></span></sc-for></div>
+        </div>
+        <button onClick="{{ wiz.skip }}" style="height:44px;padding:0 6px;font-size:14px;color:#c8c8c8">Hopp over</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ is.detTop }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;display:flex;align-items:center;gap:12px;padding:6px 16px 10px">
+        <button onClick="{{ det.back }}" title="Tilbake" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;background:{{ T.row }}"><span class="ms" style="font-size:22px">arrow_back</span></button>
+        <span style="flex:1;min-width:0;font-size:21px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ det.title }}</span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:#a8a8a8"><span class="ms" style="{{ det.iconS }}">{{ det.icon }}</span>{{ det.saved }}</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ is.hubTop }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;display:flex;flex-direction:column;gap:12px;padding:8px 16px 10px">
+        <div style="display:flex;align-items:center;gap:12px;padding:0 4px">
+          <span style="flex:1;font-size:30px;font-weight:600;letter-spacing:-.02em">Tilpass</span>
+          <button onClick="{{ hubClose }}" title="Lukk" style="width:44px;height:44px;border-radius:22px;display:grid;place-items:center;background:{{ T.row }}"><span class="ms" style="font-size:22px">close</span></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 6px 0 16px;border-radius:24px;background:{{ T.row }}">
+          <span class="ms" style="font-size:20px;color:#a8a8a8">search</span>
+          <input value="{{ q }}" onChange="{{ setQ }}" placeholder="Søk, f.eks. strømpris eller navbar" style="flex:1;min-width:0;height:44px;border:0;outline:0;background:transparent;font-size:15px">
+          <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearQ }}" title="Tøm" style="width:36px;height:36px;border-radius:18px;display:grid;place-items:center"><span class="ms" style="font-size:20px;color:#a8a8a8">cancel</span></button></sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ is.home }}" hint-placeholder-val="{{ false }}"><iframe src="Hjem v3.dc.html" title="Hjem" style="position:absolute;left:0;top:46px;width:100%;height:calc(100% - 46px);border:0;z-index:4;background:#232323"></iframe></sc-if>
+
+    <div ref="{{ scrollRef }}" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;padding:6px 16px 150px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px">
+
+      <sc-if value="{{ is.welcome }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:24px;padding:30px 4px 0">
+          <span style="width:72px;height:72px;border-radius:24px;background:{{ T.grad }};display:grid;place-items:center;color:#2f2f2f"><span class="ms" style="font-size:38px;font-variation-settings:'FILL' 1">home</span></span>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <span style="font-size:36px;font-weight:600;letter-spacing:-.03em;line-height:1.05">Velkommen hjem</span>
+            <span style="font-size:16px;line-height:1.45;color:#b4b4b4;text-wrap:pretty">Vi har gått gjennom Home Assistant og funnet huset ditt. Sjekk at det stemmer, så er dashbordet klart på et par minutter.</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+            <sc-for list="{{ found }}" as="f" hint-placeholder-count="3"><div style="background:{{ T.card }};border-radius:22px;padding:16px 14px;display:flex;flex-direction:column;gap:2px"><span style="font-size:30px;font-weight:500;letter-spacing:-.02em">{{ f.n }}</span><span style="font-size:13px;color:#a8a8a8">{{ f.label }}</span></div></sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;background:{{ T.card }};border-radius:24px;padding:10px 16px">
+            <span style="font-size:13px;color:#a0a0a0;padding:6px 0">Dette lager vi for deg</span>
+            <sc-for list="{{ makes }}" as="m" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:12px;min-height:44px"><span class="ms" style="font-size:20px;color:{{ T.a }}">{{ m.icon }}</span><span style="font-size:15px">{{ m.text }}</span></div></sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is.hub }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;background:{{ T.card }};border-radius:24px;overflow:hidden">
+            <sc-for list="{{ results }}" as="it" hint-placeholder-count="2">
+              <button onClick="{{ it.go }}" style="{{ it.s }}"><span style="width:40px;height:40px;border-radius:14px;background:{{ T.soft }};color:{{ T.a }};display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">{{ it.icon }}</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:500">{{ it.title }}</span><span style="font-size:13px;color:#a0a0a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.sum }}</span></span><span class="ms" style="font-size:22px;color:#7a7a7a">chevron_right</span></button>
+            </sc-for>
+          </div>
+          <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}"><span style="font-size:15px;color:#a8a8a8;padding:24px 4px;text-align:center">Fant ingenting for «{{ q }}». Prøv «farge», «rom» eller «temperatur».</span></sc-if>
+        </sc-if>
+        <sc-if value="{{ noQ }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+            <button onClick="{{ editHome }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:16px;border-radius:24px;background:{{ T.card }};text-align:left"><span style="width:40px;height:40px;border-radius:20px;background:{{ T.grad }};color:#2f2f2f;display:grid;place-items:center"><span class="ms" style="font-size:22px">touch_app</span></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">Rediger på Hjem</span><span style="font-size:12px;color:#a0a0a0;line-height:1.35">Hold inne et kort</span></span></button>
+            <button onClick="{{ rerunWiz }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:16px;border-radius:24px;background:{{ T.card }};text-align:left"><span style="width:40px;height:40px;border-radius:20px;background:{{ T.row }};display:grid;place-items:center"><span class="ms" style="font-size:22px">auto_awesome</span></span><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">Veiviser</span><span style="font-size:12px;color:#a0a0a0;line-height:1.35">Rom, personer og tema</span></span></button>
+          </div>
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:13px;color:#a0a0a0;padding:0 6px">{{ g.label }}</span>
+              <div style="display:flex;flex-direction:column;background:{{ T.card }};border-radius:24px;overflow:hidden">
+                <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+                  <button onClick="{{ it.go }}" style="{{ it.s }}"><span style="width:40px;height:40px;border-radius:14px;background:{{ T.soft }};color:{{ T.a }};display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">{{ it.icon }}</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:500">{{ it.title }}</span><span style="font-size:13px;color:#a0a0a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.sum }}</span></span><span class="ms" style="font-size:22px;color:#7a7a7a">chevron_right</span></button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:13px;color:#a0a0a0;padding:0 6px">For installatør</span>
+            <div style="display:flex;flex-direction:column;background:{{ T.card }};border-radius:24px;overflow:hidden">
+              <button onClick="{{ pro.toggle }}" style="display:flex;align-items:center;gap:14px;padding:10px 14px;min-height:68px;text-align:left"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:500">Installatørmodus</span><span style="font-size:13px;color:#a0a0a0">Viser tekniske navn, entiteter og eksport</span></span><span style="{{ pro.sw }}"><span style="{{ pro.knob }}"></span></span></button>
+              <sc-if value="{{ is.pro }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ lock.toggle }}" style="display:flex;align-items:center;gap:14px;padding:10px 14px;min-height:68px;text-align:left;border-top:1px solid rgba(255,255,255,.06)"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:500">Lås for kunden</span><span style="font-size:13px;color:#a0a0a0">Kunden kan bare endre tema og kort</span></span><span style="{{ lock.sw }}"><span style="{{ lock.knob }}"></span></span></button>
+                <button onClick="{{ exportCfg }}" style="display:flex;align-items:center;gap:14px;padding:10px 14px;min-height:60px;text-align:left;border-top:1px solid rgba(255,255,255,.06)"><span class="ms" style="font-size:22px;color:#c8c8c8">upload</span><span style="flex:1;font-size:16px">Eksporter oppsett</span></button>
+                <button onClick="{{ importCfg }}" style="display:flex;align-items:center;gap:14px;padding:10px 14px;min-height:60px;text-align:left;border-top:1px solid rgba(255,255,255,.06)"><span class="ms" style="font-size:22px;color:#c8c8c8">download</span><span style="flex:1;font-size:16px">Importer oppsett</span></button>
+              </sc-if>
+              <button onClick="{{ resetAll }}" style="display:flex;align-items:center;gap:14px;padding:10px 14px;min-height:60px;text-align:left;border-top:1px solid rgba(255,255,255,.06);color:#f4a196"><span class="ms" style="font-size:22px">restart_alt</span><span style="flex:1;font-size:16px">Tilbakestill alt</span></button>
+            </div>
+          </div>
+          <span style="font-size:13px;color:#8e8e8e;text-align:center;padding:0 20px;line-height:1.45">Endringer lagres med en gang, og du kan alltid angre.</span>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ is.rom }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ is.wiz }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px;padding:4px 4px 0"><span style="font-size:28px;font-weight:600;letter-spacing:-.02em">Hvilke rom vil du se?</span><span style="font-size:15px;color:#b4b4b4;line-height:1.45;text-wrap:pretty">Vi fant {{ roomCount }} rom fordelt på etasjene. Dra for å endre rekkefølgen, og trykk på stjernen for rom som skal vises på Hjem-fanen.</span></div></sc-if>
+        <sc-if value="{{ is.notWiz }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#a8a8a8;padding:0 4px;line-height:1.45">Dra for å endre rekkefølgen. Trykk på et rom for å se hvilke sensorer som brukes.</span></sc-if>
+        <sc-for list="{{ roomGroups }}" as="g" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="display:flex;justify-content:space-between;font-size:13px;color:#a0a0a0;padding:0 6px"><span>{{ g.label }}</span><span>{{ g.count }}</span></span>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ g.rooms }}" as="r" hint-placeholder-count="4">
+            <div style="{{ r.s }}">
+              <button onPointerDown="{{ r.drag }}" title="Dra" style="width:40px;height:58px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#8a8a8a"><span class="ms" style="font-size:22px">drag_indicator</span></button>
+              <button onClick="{{ r.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;height:58px;text-align:left">
+                <span style="{{ r.ic }}"><span class="ms" style="font-size:20px">{{ r.icon }}</span></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span><span style="font-size:12px;color:#a0a0a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></span>
+              </button>
+              <button onClick="{{ r.favTap }}" title="På Hjem-fanen" style="width:40px;height:44px;flex:none;display:grid;place-items:center"><span class="ms" style="{{ r.favS }}">star</span></button>
+              <button onClick="{{ r.toggle }}" title="Vis eller skjul" style="width:58px;height:58px;flex:none;display:grid;place-items:center"><span style="{{ r.sw }}"><span style="{{ r.knob }}"></span></span></button>
+            </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:#9a9a9a;padding:0 6px"><span class="ms" style="font-size:16px;font-variation-settings:'FILL' 1;color:{{ T.a }}">star</span>Stjerne betyr at rommet også vises på Hjem-fanen.</span>
+      </sc-if>
+
+      <sc-if value="{{ is.personer }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ is.wiz }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px;padding:4px 4px 0"><span style="font-size:28px;font-weight:600;letter-spacing:-.02em">Hvem bor her?</span><span style="font-size:15px;color:#b4b4b4;line-height:1.45;text-wrap:pretty">Vi bruker telefonene til å vise hvem som er hjemme. Slå av dem som ikke skal vises.</span></div></sc-if>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ persons }}" as="p" hint-placeholder-count="3">
+            <div style="{{ p.s }}">
+              <span style="{{ p.av }}">{{ p.ini }}</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:500">{{ p.name }}</span><span style="font-size:12px;color:#a0a0a0">{{ p.sub }}</span></span>
+              <button onClick="{{ p.toggle }}" title="Vis eller skjul" style="width:62px;height:58px;flex:none;display:grid;place-items:center"><span style="{{ p.sw }}"><span style="{{ p.knob }}"></span></span></button>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Vis på Hjem</span>
+          <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:{{ T.row }}"><sc-for list="{{ personSeg }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is.tema }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ is.wiz }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px;padding:4px 4px 0"><span style="font-size:28px;font-weight:600;letter-spacing:-.02em">Velg et uttrykk</span><span style="font-size:15px;color:#b4b4b4;line-height:1.45">Du ser endringen med en gang.</span></div></sc-if>
+        <div style="background:{{ T.bg }};border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:{{ T.gapPx }};box-shadow:0 0 0 1px rgba(255,255,255,.1) inset;transition:background .3s">
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:20px;font-weight:600">{{ greet }}</span><span style="font-size:12px;color:#a8a8a8">{{ greetSub }}</span></div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:{{ T.gapPx }}">
+            <sc-for list="{{ miniRooms }}" as="m" hint-placeholder-count="2"><div style="background:{{ T.card }};border-radius:{{ T.rPx }};padding:12px;display:flex;flex-direction:column;gap:10px;transition:background .3s,border-radius .3s"><span style="width:32px;height:32px;border-radius:16px;background:{{ T.soft }};color:{{ T.a }};display:grid;place-items:center"><span class="ms" style="font-size:18px">{{ m.icon }}</span></span><span style="display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500">{{ m.name }}</span><span style="font-size:12px;color:#a8a8a8">{{ m.t }}</span></span></div></sc-for>
+          </div>
+          <div style="display:flex;justify-content:center"><div style="display:flex;gap:4px;padding:5px;border-radius:24px;background:{{ T.row }}"><sc-for list="{{ miniNav }}" as="n" hint-placeholder-count="5"><span style="{{ n.s }}"><span class="ms" style="font-size:18px">{{ n.icon }}</span></span></sc-for></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Farge</span>
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px">
+            <sc-for list="{{ swatches }}" as="w" hint-placeholder-count="5"><button onClick="{{ w.tap }}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 0"><span style="{{ w.dot }}"></span><span style="{{ w.ns }}">{{ w.name }}</span></button></sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Bakgrunn</span>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+            <sc-for list="{{ bgTiles }}" as="b" hint-placeholder-count="3"><button onClick="{{ b.tap }}" style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="{{ b.s }}"><span style="{{ b.card }}"></span><span style="{{ b.row }}"></span></span><span style="{{ b.ns }}">{{ b.name }}</span></button></sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Tetthet</span>
+          <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:{{ T.row }}"><sc-for list="{{ densSeg }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Hjørner</span>
+          <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:{{ T.row }}"><sc-for list="{{ cornerSeg }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is.done }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:24px;padding:30px 4px 0">
+          <span style="width:72px;height:72px;border-radius:36px;background:{{ T.grad }};display:grid;place-items:center;color:#2f2f2f"><span class="ms" style="font-size:40px;font-variation-settings:'FILL' 1">check</span></span>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <span style="font-size:34px;font-weight:600;letter-spacing:-.03em;line-height:1.05">Dashbordet er klart</span>
+            <span style="font-size:16px;line-height:1.45;color:#b4b4b4;text-wrap:pretty">Du finner alt igjen under Tilpass. Hold inne et kort på Hjem for å endre det direkte.</span>
+          </div>
+          <div style="display:flex;flex-direction:column;background:{{ T.card }};border-radius:24px;overflow:hidden">
+            <sc-for list="{{ doneRows }}" as="d" hint-placeholder-count="3">
+              <div style="{{ d.s }}"><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;color:#a0a0a0">{{ d.label }}</span><span style="font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.val }}</span></span><button onClick="{{ d.go }}" style="height:40px;padding:0 16px;border-radius:20px;background:{{ T.row }};font-size:14px;font-weight:500">Endre</button></div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is.header }}" hint-placeholder-val="{{ false }}">
+        <div style="background:{{ T.bg }};border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 0 0 1px rgba(255,255,255,.1) inset">
+          <span style="font-size:26px;font-weight:600;letter-spacing:-.02em">{{ greet }}</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ homeChips }}" as="h" hint-placeholder-count="2"><span style="display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:16px;background:{{ T.row }};font-size:13px"><span class="ms" style="font-size:16px;color:{{ T.a }}">{{ h.icon }}</span>{{ h.t }}</span></sc-for></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Hilsen</span>
+          <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:{{ T.row }}"><sc-for list="{{ greetSeg }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+          <sc-if value="{{ is.greetFast }}" hint-placeholder-val="{{ false }}"><input value="{{ greetText }}" onChange="{{ setGreetText }}" placeholder="Skriv hilsenen" style="height:52px;padding:0 18px;border-radius:26px;border:0;outline:0;background:{{ T.row }};font-size:16px"></sc-if>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Vis under hilsenen · velg opptil to</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ chipOpts }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.tap }}" style="{{ o.s }}"><span class="ms" style="font-size:18px">{{ o.icon }}</span>{{ o.label }}</button></sc-for></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is.kort }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Faner</span>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ tabRows }}" as="r" hint-placeholder-count="4">
+              <div style="{{ r.s }}">
+                <button onPointerDown="{{ r.drag }}" title="Dra" style="width:40px;height:58px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#8a8a8a"><span class="ms" style="font-size:22px">drag_indicator</span></button>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:500">{{ r.label }}</span><span style="font-size:12px;color:#a0a0a0">{{ r.sub }}</span></span>
+                <button onClick="{{ r.eyeTap }}" title="Vis eller skjul" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#c8c8c8;margin-right:6px"><span class="ms" style="font-size:22px">{{ r.eye }}</span></button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Kort på Hjem-fanen</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ cardRows }}" as="r" hint-placeholder-count="6">
+            <div style="{{ r.s }}">
+              <button onPointerDown="{{ r.drag }}" title="Dra" style="width:40px;height:58px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#8a8a8a"><span class="ms" style="font-size:22px">drag_indicator</span></button>
+              <span style="{{ r.ic }}"><span class="ms" style="font-size:20px">{{ r.icon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;padding-left:12px"><span style="font-size:15px;font-weight:500">{{ r.label }}</span><span style="font-size:12px;color:#a0a0a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></span>
+              <button onClick="{{ r.eyeTap }}" title="Vis eller skjul" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#c8c8c8"><span class="ms" style="font-size:22px">{{ r.eye }}</span></button>
+              <button onClick="{{ r.edit }}" title="Innstillinger" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#c8c8c8;margin-right:6px"><span class="ms" style="font-size:22px">tune</span></button>
+            </div>
+          </sc-for>
+        </div>
+        <button onClick="{{ openAdd }}" style="height:52px;border-radius:26px;border:1.5px dashed rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:500"><span class="ms" style="font-size:20px">add</span>Legg til kort</button>
+      </sc-if>
+
+      <sc-if value="{{ is.navbar }}" hint-placeholder-val="{{ false }}">
+        <div style="background:{{ T.bg }};border-radius:28px;padding:28px 12px;display:flex;justify-content:center;box-shadow:0 0 0 1px rgba(255,255,255,.1) inset">
+          <div style="display:flex;align-items:center;gap:2px;padding:6px;border-radius:32px;background:{{ T.row }};box-shadow:0 10px 30px rgba(0,0,0,.35)">
+            <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5"><span style="{{ n.s }}"><span class="ms" style="{{ n.iconS }}">{{ n.icon }}</span><sc-if value="{{ is.navNames }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px">{{ n.label }}</span></sc-if></span></sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Plassering</span>
+          <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:{{ T.row }}"><sc-for list="{{ navPosSeg }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+        </div>
+        <button onClick="{{ navNamesT.toggle }}" style="display:flex;align-items:center;gap:12px;min-height:58px;padding:0 10px 0 18px;border-radius:29px;background:{{ T.row }};text-align:left"><span style="flex:1;font-size:15px;font-weight:500">Vis navn under ikonene</span><span style="{{ navNamesT.sw }}"><span style="{{ navNamesT.knob }}"></span></span></button>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Knapper · de fem første vises i navbaren, resten under Mer</span>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ navRows }}" as="r" hint-placeholder-count="6">
+              <div style="{{ r.s }}">
+                <button onPointerDown="{{ r.drag }}" title="Dra" style="width:40px;height:58px;flex:none;display:grid;place-items:center;touch-action:none;cursor:grab;color:#8a8a8a"><span class="ms" style="font-size:22px">drag_indicator</span></button>
+                <span style="{{ r.ic }}"><span class="ms" style="font-size:20px">{{ r.icon }}</span></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;padding-left:12px"><span style="font-size:15px;font-weight:500">{{ r.label }}</span><span style="font-size:12px;color:#a0a0a0">{{ r.sub }}</span></span>
+                <button onClick="{{ r.eyeTap }}" title="Vis eller skjul" style="width:44px;height:44px;border-radius:22px;flex:none;display:grid;place-items:center;color:#c8c8c8;margin-right:6px"><span class="ms" style="font-size:22px">{{ r.eye }}</span></button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is.popups }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:14px;color:#a8a8a8;padding:0 4px;line-height:1.45">Popupene lages ut fra det vi finner i huset. Slår du en av, forsvinner den fra navbaren og Mer.</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ popRows }}" as="p" hint-placeholder-count="6">
+            <div style="{{ p.s }}">
+              <span style="{{ p.ic }}"><span class="ms" style="font-size:20px">{{ p.icon }}</span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;padding-left:12px"><span style="font-size:15px;font-weight:500">{{ p.name }}</span><span style="font-size:12px;color:#a0a0a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.sub }}</span></span>
+              <button onClick="{{ p.toggle }}" title="På eller av" style="width:62px;height:58px;flex:none;display:grid;place-items:center"><span style="{{ p.sw }}"><span style="{{ p.knob }}"></span></span></button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ is.var }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:14px;color:#a8a8a8;padding:0 4px;line-height:1.45">Disse grensene brukes overalt i dashbordet. Endrer du en verdi her, oppdateres kortene, fargene og varslene med en gang.</span>
+        <sc-for list="{{ varGroups }}" as="g" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:13px;color:#a0a0a0;padding:0 6px">{{ g.label }}</span>
+            <sc-if value="{{ g.hasNote }}" hint-placeholder-val="{{ false }}"><div style="{{ g.noteS }}"><span class="ms" style="font-size:18px">bolt</span>{{ g.note }}</div></sc-if>
+            <div style="display:flex;flex-direction:column;background:{{ T.card }};border-radius:24px;overflow:hidden">
+              <sc-for list="{{ g.items }}" as="v" hint-placeholder-count="2">
+                <div style="{{ v.s }}">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px"><span style="font-size:15px;font-weight:500">{{ v.label }}</span><span style="font-size:22px;font-weight:500;font-variant-numeric:tabular-nums">{{ v.disp }}</span></div>
+                  <input type="range" min="{{ v.min }}" max="{{ v.max }}" step="{{ v.step }}" value="{{ v.val }}" onChange="{{ v.set }}" style="width:100%;height:28px;margin:0;accent-color:{{ T.a }}">
+                  <span style="font-size:12px;color:#9a9a9a">Brukes av {{ v.uses }}</span>
+                  <sc-if value="{{ is.pro }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#8a8a8a;font-family:ui-monospace,monospace">{{ v.id }}</span></sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <sc-if value="{{ is.kiosk }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:14px;color:#a8a8a8;padding:0 4px;line-height:1.45">Velg hvordan dashbordet skal oppføre seg på hver skjerm.</span>
+        <sc-for list="{{ devs }}" as="d" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:26px;background:{{ T.card }}">
+            <div style="display:flex;align-items:center;gap:12px"><span style="width:40px;height:40px;border-radius:14px;background:{{ T.soft }};color:{{ T.a }};display:grid;place-items:center;flex:none"><span class="ms" style="font-size:22px">{{ d.icon }}</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:500">{{ d.name }}</span><span style="font-size:12px;color:#a0a0a0">{{ d.sub }}</span></span></div>
+            <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:{{ T.row }}"><sc-for list="{{ d.seg }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+            <span style="font-size:13px;color:#b0b0b0;line-height:1.4;padding:0 4px">{{ d.exp }}</span>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <sc-if value="{{ is.sprak }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Språk</span>
+          <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:{{ T.row }}"><sc-for list="{{ langSeg }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+        </div>
+        <div style="display:flex;flex-direction:column;background:{{ T.card }};border-radius:24px;overflow:hidden">
+          <button onClick="{{ cleanT.toggle }}" style="display:flex;align-items:center;gap:14px;padding:10px 14px 10px 16px;min-height:68px;text-align:left"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">Rydd opp i navn</span><span style="font-size:13px;color:#a0a0a0">Gjør «Stue_Tak 2» om til «Stue taklampe»</span></span><span style="{{ cleanT.sw }}"><span style="{{ cleanT.knob }}"></span></span></button>
+          <button onClick="{{ stripT.toggle }}" style="display:flex;align-items:center;gap:14px;padding:10px 14px 10px 16px;min-height:68px;text-align:left;border-top:1px solid rgba(255,255,255,.06)"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">Kortere navn inne i rom</span><span style="font-size:13px;color:#a0a0a0">«Stue taklampe» blir «Taklampe» i Stue</span></span><span style="{{ stripT.sw }}"><span style="{{ stripT.knob }}"></span></span></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Slik ser navnene ut</span>
+          <div style="display:flex;flex-direction:column;background:{{ T.card }};border-radius:24px;overflow:hidden">
+            <sc-for list="{{ names }}" as="n" hint-placeholder-count="5">
+              <div style="{{ n.s }}"><span style="font-size:15px;font-weight:500">{{ n.shown }}</span><span style="font-size:12px;color:#9a9a9a">{{ n.sub }}</span><sc-if value="{{ is.pro }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#8a8a8a;font-family:ui-monospace,monospace">{{ n.id }}</span></sc-if></div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+          </div>
+
+    <sc-if value="{{ is.cta }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:16px 16px 26px;display:flex;flex-direction:column;gap:4px;background:linear-gradient(to top,{{ T.bg }} 70%,transparent)">
+        <button onClick="{{ wiz.next }}" style="height:56px;border-radius:28px;background:{{ T.grad }};color:#2f2f2f;font-size:17px;font-weight:600">{{ wiz.cta }}</button>
+        <sc-if value="{{ wiz.hasAlt }}" hint-placeholder-val="{{ true }}"><button onClick="{{ wiz.alt }}" style="height:44px;font-size:14px;color:#c8c8c8">{{ wiz.altLabel }}</button></sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ toast.show }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ toast.s }}">
+        <span class="ms" style="font-size:20px;color:{{ T.a }};font-variation-settings:'FILL' 1">{{ toast.icon }}</span>
+        <span style="flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ toast.msg }}</span>
+        <sc-if value="{{ toast.undo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ undo }}" style="height:36px;padding:0 14px;border-radius:18px;background:rgba(255,255,255,.1);font-size:14px;font-weight:600;color:{{ T.a }}">Angre</button></sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sheet.open }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ sheet.close }}" style="position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.5);animation:fadein .2s ease"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:21;max-height:82%;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;background:#282828;border-radius:34px 34px 0 0;padding:10px 16px 30px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;animation:sheetUp .25s ease">
+        <span style="width:40px;height:5px;border-radius:3px;background:#555;align-self:center;flex:none"></span>
+        <div style="display:flex;align-items:center;gap:10px;padding:0 4px">
+          <span style="flex:1;min-width:0;font-size:22px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sheet.title }}</span>
+          <button onClick="{{ sheet.close }}" style="height:40px;padding:0 18px;border-radius:20px;background:{{ T.grad }};color:#2f2f2f;font-size:14px;font-weight:600">Ferdig</button>
+        </div>
+
+        <sc-if value="{{ sheet.isCard }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px;border-radius:26px;background:{{ T.bg }};box-shadow:0 0 0 1px rgba(255,255,255,.1) inset;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+            <div style="{{ sc.prev.s }}"><span style="{{ sc.prev.ic }}"><span class="ms" style="font-size:20px;font-variation-settings:'FILL' 1">{{ sc.prev.icon }}</span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;color:#a8a8a8">{{ sc.prev.label }}</span><span style="{{ sc.prev.vs }}">{{ sc.prev.val }}</span></span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Navn</span>
+            <input value="{{ sc.name }}" onChange="{{ sc.setName }}" style="height:52px;padding:0 18px;border-radius:26px;border:0;outline:0;background:#3a3a3a;font-size:16px">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Størrelse</span>
+            <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a"><sc-for list="{{ sc.sizeSeg }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Vises</span>
+            <div style="display:flex;gap:2px;padding:4px;border-radius:24px;background:#3a3a3a"><sc-for list="{{ sc.whenSeg }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.tap }}" style="{{ o.s }}">{{ o.label }}</button></sc-for></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sheet.isRoom }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ sr.toggle }}" style="display:flex;align-items:center;gap:12px;min-height:58px;padding:0 10px 0 18px;border-radius:29px;background:#3a3a3a;text-align:left"><span style="flex:1;font-size:15px;font-weight:500">Vis på Hjem</span><span style="{{ sr.sw }}"><span style="{{ sr.knob }}"></span></span></button>
+        </sc-if>
+
+        <sc-if value="{{ sheet.hasSlots }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:13px;color:#a0a0a0;padding:0 6px">{{ sheet.slotLabel }}</span>
+            <div style="display:flex;flex-direction:column;background:#323232;border-radius:24px;overflow:hidden">
+              <sc-for list="{{ slots }}" as="sl" hint-placeholder-count="2">
+                <div style="{{ sl.s }}">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                      <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;color:#a0a0a0">{{ sl.label }}</span><sc-if value="{{ sl.has }}" hint-placeholder-val="{{ true }}"><span style="{{ sl.badgeS }}">{{ sl.badge }}</span></sc-if></span>
+                      <span style="font-size:15px;font-weight:500">{{ sl.name }}</span>
+                      <span style="font-size:12px;color:#9a9a9a">{{ sl.src }}</span>
+                      <sc-if value="{{ sl.showId }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#8a8a8a;font-family:ui-monospace,monospace">{{ sl.id }}</span></sc-if>
+                    </span>
+                    <span style="font-size:16px;font-weight:500;font-variant-numeric:tabular-nums">{{ sl.val }}</span>
+                    <button onClick="{{ sl.toggle }}" style="height:40px;padding:0 14px;border-radius:20px;background:#454545;font-size:14px;font-weight:500;flex:none">{{ sl.btn }}</button>
+                  </div>
+                  <sc-if value="{{ sl.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;gap:4px;padding-top:6px">
+                      <sc-for list="{{ sl.cands }}" as="cd" hint-placeholder-count="2">
+                        <button onClick="{{ cd.tap }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 12px;border-radius:18px;background:#3a3a3a;text-align:left">
+                          <span class="ms" style="{{ cd.markS }}">{{ cd.mark }}</span>
+                          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:500">{{ cd.name }}</span><span style="font-size:12px;color:#9a9a9a">{{ cd.src }}</span><sc-if value="{{ is.pro }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#8a8a8a;font-family:ui-monospace,monospace">{{ cd.id }}</span></sc-if></span>
+                          <span style="font-size:14px;color:#d0d0d0">{{ cd.v }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sheet.isCard }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ sc.onTap }}" style="{{ sc.onS }}"><span class="ms" style="font-size:20px">{{ sc.onIcon }}</span>{{ sc.onLabel }}</button>
+        </sc-if>
+
+        <sc-if value="{{ sheet.isAdd }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size:13px;color:#a0a0a0;padding:0 6px">Foreslått for huset ditt</span>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ addList }}" as="a" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:12px;min-height:64px;padding:0 8px 0 12px;border-radius:24px;background:#3a3a3a">
+                <span style="width:40px;height:40px;border-radius:20px;background:{{ T.soft }};color:{{ T.a }};display:grid;place-items:center;flex:none"><span class="ms" style="font-size:20px">{{ a.icon }}</span></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:500">{{ a.label }}</span><span style="font-size:12px;color:#a0a0a0">{{ a.reason }}</span></span>
+                <button onClick="{{ a.add }}" style="height:40px;padding:0 16px;border-radius:20px;background:{{ T.grad }};color:#2f2f2f;font-size:14px;font-weight:600">Legg til</button>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ noAdd }}" hint-placeholder-val="{{ false }}"><span style="font-size:15px;color:#a8a8a8;padding:16px 4px;text-align:center">Alle kortene er allerede på Hjem.</span></sc-if>
+        </sc-if>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;wiz&quot;,&quot;home&quot;,&quot;hub&quot;],&quot;default&quot;:&quot;wiz&quot;,&quot;tsType&quot;:&quot;'wiz'|'home'|'hub'&quot;},&quot;installer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const ACC = { rosa: ['Rosa', 'rgb(242 133 201)', 'rgb(245 205 198)'], hav: ['Hav', 'rgb(115 185 242)', 'rgb(188 226 246)'], skog: ['Skog', 'rgb(102 209 158)', 'rgb(206 238 198)'], rav: ['Rav', 'rgb(242 181 115)', 'rgb(247 222 182)'], lilla: ['Lilla', 'rgb(180 156 240)', 'rgb(224 210 248)'] };
+const BGS = { grafitt: ['Grafitt', '#232323', '#2e2e2e', '#3a3a3a'], svart: ['Svart', '#000000', '#141414', '#262626'], varm: ['Varm', '#24201d', '#2f2a26', '#3c3631'] };
+const FL = { '1': '1. etg', '2': '2. etg', ute: 'Ute' };
+const ROOMS = [['stue','Stue','1','weekend',23,56,1,0,1],['gang','Gang','1','door_front',23,56,1,0,1],['kjokken','Kjøkken','1','countertops',23,56,1,0,1],['bad','Bad 1. et','1','wc',23,56,1],['sov1','Soverom 1. et','1','bed',23,56,1],['vask','Vaskerom','1','local_laundry_service',25,56,1],['allrom','Allrom','2','chair',23,56,1],['pult','Pult','2','computer',23,56,1,0,1],['kontor','Rune kontor','2','desk',23,56,1],['bad2','Bad 2. et','2','bathtub',25,56,1],['sov','Soverom','2','bed',23,56,1],['sovc','Cybele soverom','2','single_bed',23,56,1],['sovr','Rune soverom','2','king_bed',23,56,1],['vaskegang','Vaskegang','2','local_laundry_service',22,50,0],['trapp','Trappegang','2','stairs',22,48,0],['loft','Loft','2','roofing',19,52,0,1],['garasje','Garasje','ute','garage',9,70,0],['ute','Ute','ute','park',14,82,0,0,1],['basseng','Basseng','ute','pool',24,null,0,1]];
+const PERSONS = [['sebastian', 'Sebastian', 'Pixel Fold', true, 'rgb(242 133 201)', true], ['cybele', 'Cybele', 'iPhone', true, 'rgb(115 185 242)', true], ['rune', 'Rune', 'iPhone', false, 'rgb(242 181 115)', true]];
+const CARDS = [['prosa', 'Tekst øverst', 'notes', 'stor'], ['rom', 'Romkort', 'grid_view', 'stor'], ['swipe', 'Swipe-kort', 'view_carousel', 'stor'], ['snarvei', 'Snarveier', 'bolt', 'stor']];
+const REASON = { prosa: 'Setningene øverst på Hjem', rom: 'Rommene med stjerne', swipe: 'Ekstra kort etter rommene', snarvei: 'Én snarvei om gangen' };
+const TABS = [['hjem', 'Hjem'], ['1', '1. etg'], ['2', '2. etg'], ['aktuelt', 'Aktuelt']];
+const NAVS = [['vann', 'Sprinkler', 'sprinkler'], ['media', 'Musikk', 'music_note'], ['klima', 'Klima', 'thermostat'], ['pool', 'Basseng', 'pool'], ['ruter', 'Ruter', 'tram'], ['todo', 'Gjøremål', 'checklist'], ['lys', 'Lys', 'lightbulb', false], ['sik', 'Sikkerhet', 'shield', false], ['cam', 'Kamera', 'videocam', false], ['vaer', 'Vær', 'partly_cloudy_day', false]];
+const POPS = [['sik', 'Sikkerhet', 'shield', 'Vi fant alarm og dørlåser', 'sikkerhet'], ['lock', 'Dørlås (hurtig)', 'key', 'Vi fant dørlåsen', 'dorlas'], ['cam', 'Kamera', 'videocam', 'Vi fant UniFi Protect', 'kamera'], ['lys', 'Lys', 'lightbulb', 'Vi fant lys i 13 rom', 'lys'], ['klima', 'Klima', 'thermostat', 'Vi fant termostater', 'klima'], ['vaer', 'Vær', 'partly_cloudy_day', 'Met.no er satt opp', 'vaer'], ['todo', 'Gjøremål', 'checklist', 'Vi fant gjøremålslister', 'gjoremal'], ['vann', 'Vanning', 'sprinkler', 'Vi fant sprinkleranlegget', 'vanning'], ['media', 'Media', 'music_note', 'Vi fant høyttalere og TV-er', 'media'], ['pool', 'Basseng', 'pool', 'Vi fant bassengstyringen', 'basseng'], ['person', 'Tilstedeværelse', 'person', 'Vi fant 3 personer', 'personer'], ['ruter', 'Ruter', 'tram', 'Ruter-holdeplass er satt opp', 'ruter']];
+const DEVS = [['veggskjerm_gang', 'Veggskjerm · Gang', 'tablet', 'Fully Kiosk'], ['ipad_kjokken', 'iPad · Kjøkken', 'tablet_mac', 'Safari · Sebastian'], ['pixel_fold', 'Pixel Fold', 'smartphone', 'HA-appen · Sebastian'], ['macbook', 'MacBook', 'laptop_mac', 'Chrome · Sebastian'], ['stue_tv', 'Stue TV', 'tv', 'Fully Kiosk']];
+const KMODE = [['vanlig', 'Vanlig'], ['kiosk', 'Kiosk'], ['vegg', 'Veggskjerm']];
+const KEXP = { vanlig: 'Viser Home Assistant-menyen og sidebaren som vanlig.', kiosk: 'Skjuler menyen og sidebaren. Bare dashbordet vises.', vegg: 'Som kiosk. Skjermen dimmes om natten og viser klokke når ingen er i nærheten.' };
+const NAMES = [['light.stue_tak_2', 'Stue_Tak 2', 'Stue taklampe', 'Taklampe', 'Stue'], ['sensor.0x00158d0004_temperature', '0x00158d0004 temperature', 'Gang temperatur', 'Temperatur', 'Gang'], ['switch.sonoff_10013a2b', 'SONOFF 10013a2b', 'Kjøkken kaffetrakter', 'Kaffetrakter', 'Kjøkken'], ['media_player.samsung_qn90b', 'Samsung QN90B 65"', 'Stue TV', 'TV', 'Stue'], ['climate.mitsubishi_ac_1', 'MITSUBISHI-AC-1', 'Stue varmepumpe', 'Varmepumpe', 'Stue']];
+const CHIPS = [['vaer', 'partly_cloudy_day', 'Vær'], ['strom', 'bolt', 'Strømpris'], ['hjemme', 'group', 'Hvem er hjemme'], ['kalender', 'event', 'Neste i kalenderen'], ['soppel', 'delete', 'Søppel']];
+const CAND = {
+  temp: [['Temperatur', 'Aqara-sensor', 'sensor.{r}_temperatur'], ['Termostat', 'Netatmo', 'climate.{r}'], ['Varmepumpe · inne', 'Mitsubishi', 'sensor.vp_{r}_inne']],
+  hum: [['Luftfukt', 'Aqara-sensor', 'sensor.{r}_fukt'], ['Luftrenser', 'Philips', 'sensor.{r}_renser_fukt']],
+  lys: [['Alle lys i rommet', 'Gruppe laget automatisk', 'light.ki_{r}'], ['Taklampe', 'Hue', 'light.{r}_tak']],
+  bev: [['Bevegelse', 'Aqara-sensor', 'binary_sensor.{r}_bevegelse'], ['Tilstedeværelse', 'Aqara FP2', 'binary_sensor.{r}_fp2']],
+  strom: [['Strømpris nå', 'Tibber', 'sensor.tibber_pris'], ['Strømpris', 'Nord Pool', 'sensor.nordpool_kwh_no1']],
+  vaer: [['Hjem', 'Met.no', 'weather.forecast_hjem'], ['Hjem · time for time', 'Met.no', 'weather.forecast_hjem_hourly']],
+  soppel: [['Neste tømming', 'Renovasjon', 'sensor.renovasjon_neste']],
+  personer: [['Alle personer', 'Gruppe laget automatisk', 'group.ki_personer']],
+  kamera: [['Alle kameraer', 'Gruppe laget automatisk', 'group.ki_kamera'], ['Inngang', 'UniFi Protect', 'camera.inngang']],
+};
+const VARS = [['Strøm', [['billig', 'Billig strøm under', 0.2, 1.5, 0.05, 'kr', 'Strømkort og oppsummering', 'input_number.ki_strom_billig'], ['dyr', 'Dyr strøm over', 0.8, 3, 0.05, 'kr', 'Strømkort, varsler og navbar-prikken', 'input_number.ki_strom_dyr']]],
+  ['Temperatur', [['komfort', 'Komfort', 16, 25, 0.5, '°', 'Klima og romkortene', 'input_number.ki_temp_komfort'], ['natt', 'Natt', 14, 22, 0.5, '°', 'Klima om natten', 'input_number.ki_temp_natt'], ['borte', 'Borte', 10, 20, 0.5, '°', 'Klima når alle er borte', 'input_number.ki_temp_borte']]],
+  ['Varsler', [['batteri', 'Lavt batteri under', 5, 50, 5, '%', 'Batterivarsel og Innstillinger', 'input_number.ki_batteri_lav'], ['borteMin', 'Regn som borte etter', 2, 60, 1, 'min', 'Hvem er hjemme og Klima', 'input_number.ki_borte_min']]]];
+const META = { tema: ['palette', 'Tema og farger', 'tema farge farger bakgrunn mørk utseende tetthet hjørner'], sprak: ['translate', 'Språk og navn', 'språk tekst tekster navn engelsk nynorsk entitet entiteter'], header: ['waving_hand', 'Header og hilsen', 'header hilsen topp velkommen'], kort: ['dashboard', 'Faner og kort', 'kort hjem faner fane etasje rekkefølge skjul flytte swipe snarvei tekst'], navbar: ['call_to_action', 'Navbar', 'navbar meny knapper bunn svevende'], rom: ['meeting_room', 'Rom', 'rom område etasje temperatur sensor'], personer: ['group', 'Personer', 'personer familie hjemme borte telefon'], popups: ['web_asset', 'Popups', 'popup popups vindu'], var: ['tune', 'Grenser og verdier', 'variabler grenser verdier strøm strømpris temperatur komfort natt batteri pris'], kiosk: ['tablet', 'Kiosk og skjermer', 'kiosk skjerm nettbrett ipad veggskjerm enhet enheter'] };
+const GROUPS = [['Utseende', ['tema', 'sprak']], ['Hjem', ['header', 'kort', 'navbar']], ['Huset', ['rom', 'personer', 'popups']], ['Verdier og skjermer', ['var', 'kiosk']]];
+const PRICE = 0.82;
+const fT = v => (v % 1 ? v.toFixed(1).replace('.', ',') : String(Math.round(v))) + '°';
+const fV = (v, u) => u === 'kr' ? v.toFixed(2).replace('.', ',') + ' kr' : u === '°' ? String(v).replace('.', ',') + '°' : v + ' ' + u;
+const initCfg = () => ({
+  theme: 'rosa', bg: 'grafitt', density: 'luftig', corner: 'rund',
+  rooms: ROOMS.map(([id, name, floor, icon, t, h, l, skjul, fav]) => ({ id, name, floor, icon, t, h, l: !!l, on: !skjul, fav: !!fav })),
+  tabs: TABS.map(([id, label]) => ({ id, label, on: true })),
+  persons: PERSONS.map(([id, name, dev, home, c, on]) => ({ id, name, dev, home, c, on })), personStyle: 'navn',
+  cards: CARDS.map(([id, label, icon, size, on]) => ({ id, label, icon, size, on: on !== false, when: 'alltid' })),
+  nav: NAVS.map(([id, label, icon, on]) => ({ id, label, icon, on: on !== false })), navPos: 'sveve', navNames: false,
+  greet: 'vink', greetText: 'Velkommen hjem', chips: ['vaer', 'strom'],
+  vars: { billig: 0.6, dyr: 1.5, komfort: 21, natt: 18, borte: 16, batteri: 20, borteMin: 10 },
+  popups: POPS.map(([id, name, icon, reason, hash]) => ({ id, name, icon, reason, hash, on: true })),
+  kiosk: { veggskjerm_gang: 'vegg', ipad_kjokken: 'kiosk', pixel_fold: 'vanlig', macbook: 'vanlig', stue_tv: 'kiosk' }, lang: 'nb', clean: true, strip: true, picks: {}, pro: false, lock: false,
+});
+
+class Component extends DCLogic {
+  state = { screen: this.props.startScreen ?? 'wiz', step: 0, detail: null, q: '', drag: null, hist: [], toast: null, saving: false, editing: false, hint: true, sheet: null, pickOpen: null, pressing: null, cfg: { ...initCfg(), pro: !!this.props.installer } };
+  scrollRef = React.createRef();
+  componentDidUpdate(_, ps) { const k = s => s.screen + s.step + s.detail; if (k(ps) !== k(this.state) && this.scrollRef.current) this.scrollRef.current.scrollTop = 0; }
+  componentWillUnmount() { clearTimeout(this.tt); clearTimeout(this.st); clearTimeout(this.lp); window.removeEventListener('pointermove', this.mv); }
+  showToast(msg, undo) { clearTimeout(this.tt); this.setState({ toast: { msg, undo } }); this.tt = setTimeout(() => this.setState({ toast: null }), undo ? 4000 : 2400); }
+  flash = msg => this.showToast(msg, false);
+  commit(mut, msg, key) {
+    const now = Date.now(), same = key && this.lastKey === key && now - this.lastT < 1500;
+    this.lastKey = key; this.lastT = now;
+    this.setState(s => ({ hist: same ? s.hist : [...s.hist.slice(-40), s.cfg], cfg: mut(s.cfg), saving: true }));
+    clearTimeout(this.st); this.st = setTimeout(() => this.setState({ saving: false }), 600);
+    if (msg && this.state.screen !== 'wiz') this.showToast(msg, true);
+  }
+  undo = () => { const h = this.state.hist; if (!h.length) return; this.lastKey = null; this.setState({ cfg: h[h.length - 1], hist: h.slice(0, -1) }); this.flash('Endringen er angret'); };
+  set = (k, v, msg, key) => this.commit(c => ({ ...c, [k]: v }), msg, key);
+  upd = (list, id, patch, msg, key) => this.commit(c => ({ ...c, [list]: c[list].map(x => x.id === id ? { ...x, ...patch } : x) }), msg, key);
+  startDrag = (list, i, rowH, ids, base) => e => { e.preventDefault(); e.stopPropagation(); clearTimeout(this.lp); this.dg = { y0: e.clientY }; this.setState({ drag: { list, from: i, dy: 0, rowH, ids, base } }); window.addEventListener('pointermove', this.mv); window.addEventListener('pointerup', this.up, { once: true }); };
+  mv = e => { if (this.dg) this.setState(s => ({ drag: s.drag && { ...s.drag, dy: e.clientY - this.dg.y0 } })); };
+  up = () => {
+    window.removeEventListener('pointermove', this.mv); this.dg = null;
+    const d = this.state.drag; if (!d) return; this.setState({ drag: null });
+    if (d.ids) { const to = this.dragTo(d, d.ids.length); if (to === d.from) return; const ids = [...d.ids]; const [m] = ids.splice(d.from, 1); ids.splice(to, 0, m); const nm = this.state.cfg[d.base].find(x => x.id === m); this.commit(c => { let k = 0; const by = Object.fromEntries(c[d.base].map(x => [x.id, x])); return { ...c, [d.base]: c[d.base].map(x => d.ids.includes(x.id) ? by[ids[k++]] : x) }; }, `${nm.label || nm.name} er flyttet`); return; }
+    const arr = this.state.cfg[d.list], to = this.dragTo(d, arr.length);
+    if (to !== d.from) this.commit(c => { const a = [...c[d.list]]; const [x] = a.splice(d.from, 1); a.splice(to, 0, x); return { ...c, [d.list]: a }; }, `${arr[d.from].label || arr[d.from].name} er flyttet`);
+  };
+  dragTo(d, n) { return Math.max(0, Math.min(n - 1, d.from + Math.round(d.dy / d.rowH))); }
+  dragT(list, i, n) {
+    const d = this.state.drag;
+    if (!d || d.list !== list) return { transform: 'none', transition: 'transform .2s ease' };
+    if (i === d.from) return { transform: `translateY(${d.dy}px) scale(1.02)`, transition: 'none', zIndex: 3, boxShadow: '0 12px 30px rgba(0,0,0,.45)' };
+    const to = this.dragTo(d, n); let y = 0;
+    if (d.from < to && i > d.from && i <= to) y = -d.rowH;
+    if (d.from > to && i >= to && i < d.from) y = d.rowH;
+    return { transform: `translateY(${y}px)`, transition: 'transform .2s ease' };
+  }
+  renderVals() {
+    const s = this.state, c = s.cfg, A = ACC[c.theme], B = BGS[c.bg];
+    const soft = A[1].replace(')', ' / .18)');
+    const T = { a: A[1], grad: `linear-gradient(145deg, ${A[1]} -10%, ${A[2]} 100%)`, bg: B[1], card: B[2], row: B[3], soft, rPx: (c.corner === 'myk' ? 14 : 26) + 'px', gapPx: (c.density === 'kompakt' ? 8 : 12) + 'px' };
+    const R = c.corner === 'myk' ? 14 : 26, pill = c.corner === 'myk' ? 16 : 29;
+    const tog = (on, fn) => ({ sw: { width: 44, height: 26, borderRadius: 13, background: on ? T.a : '#555', position: 'relative', display: 'block', flex: 'none', transition: 'background .2s' }, knob: { position: 'absolute', top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: '#fff', transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }, toggle: fn });
+    const seg = (opts, cur, fn) => opts.map(([v, label]) => ({ label, tap: () => v !== cur && fn(v, label), s: { flex: 1, minWidth: 0, height: 40, borderRadius: 20, fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', padding: '0 8px', background: v === cur ? '#f2f2f2' : 'transparent', color: v === cur ? '#232323' : '#c8c8c8', transition: 'background .2s,color .2s' } }));
+    const rowS = (on, extra) => ({ display: 'flex', alignItems: 'center', height: 58, borderRadius: pill, background: T.row, position: 'relative', opacity: on ? 1 : .5, ...extra });
+    const icS = on => ({ width: 38, height: 38, borderRadius: 19, flex: 'none', display: 'grid', placeItems: 'center', background: on ? soft : 'rgba(255,255,255,.06)', color: on ? T.a : '#9a9a9a', marginLeft: 0 });
+    const wiz = s.screen === 'wiz', hub = s.screen === 'hub', home = s.screen === 'home';
+    const pane = wiz ? ['welcome', 'rom', 'personer', 'tema', 'done'][s.step] : hub ? (s.detail || 'hub') : 'home';
+    const is = { wiz, notWiz: !wiz, wizTop: wiz && s.step > 0 && s.step < 4, detTop: hub && !!s.detail, hubTop: hub && !s.detail, homeTop: home && !s.editing, editTop: home && s.editing, cta: wiz, nav: home && !s.editing, editing: s.editing, pro: c.pro, navNames: c.navNames, greetFast: c.greet === 'fast' };
+    ['welcome', 'rom', 'personer', 'tema', 'done', 'hub', 'header', 'kort', 'navbar', 'popups', 'var', 'kiosk', 'sprak', 'home'].forEach(k => is[k] = pane === k);
+
+    const onRooms = c.rooms.filter(r => r.on), onP = c.persons.filter(p => p.on), navOn = c.nav.filter(n => n.on), bar = navOn.slice(0, 5);
+    const lvl = PRICE < c.vars.billig ? 'Billig' : PRICE > c.vars.dyr ? 'Dyr' : 'Normal';
+    const lvlC = lvl === 'Billig' ? 'rgb(102 209 158)' : lvl === 'Dyr' ? 'rgb(242 128 115)' : 'rgb(242 210 111)';
+    const homeP = onP.filter(p => p.home).map(p => p.name);
+    const homeTxt = homeP.length ? homeP.join(' og ') + (homeP.length > 1 ? ' er hjemme' : ' er hjemme') : 'Alle er borte';
+    const greet = c.greet === 'tid' ? 'God kveld, Sebastian' : c.greet === 'fast' ? (c.greetText || 'Velkommen hjem') : '👋 Sebastian!';
+    const chipT = { vaer: '14° Delvis skyet', strom: fV(PRICE, 'kr'), hjemme: `${homeP.length} hjemme`, kalender: 'Fotball 18:00', soppel: 'Restavfall tor' };
+    const chipsOn = CHIPS.filter(x => c.chips.includes(x[0]));
+    const favs = onRooms.filter(r => r.fav);
+    const val = id => ({ prosa: `Det er 14° ute, og strømmen er ${lvl.toLowerCase()} nå.`, rom: favs.map(r => r.name).join(' · ') || 'Ingen rom med stjerne', swipe: 'Ekstra kort du sveiper til etter rommene', snarvei: 'Én snarvei om gangen, sveip for neste' })[id];
+    const cardN = c.cards.length;
+    const cardStyle = (x, edit, i, inSheet) => edit
+      ? { display: 'flex', alignItems: 'center', gap: 12, height: 64, borderRadius: pill + 3, background: T.card, paddingRight: 6, opacity: x.on ? 1 : .45, position: 'relative', boxShadow: '0 0 0 1.5px rgba(255,255,255,.1) inset', userSelect: 'none', ...this.dragT('cards', i, cardN) }
+      : { gridColumn: x.size === 'stor' ? '1 / -1' : 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 14, padding: 16, minHeight: x.size === 'stor' ? 118 : 104, boxSizing: 'border-box', borderRadius: R, background: T.card, userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', cursor: inSheet ? 'default' : 'pointer', transition: 'transform .2s, background .3s', transform: s.pressing === x.id ? 'scale(.96)' : 'none' };
+    const cic = { width: 38, height: 38, borderRadius: 19, flex: 'none', display: 'grid', placeItems: 'center', background: soft, color: T.a };
+    const cvs = (x, edit) => edit ? { fontSize: 15, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : { fontSize: x.size === 'stor' ? 19 : 16, fontWeight: 500, lineHeight: 1.3, textWrap: 'pretty', color: x.id === 'strom' ? lvlC : '#fafafa' };
+
+    const SUM = { tema: `${A[0]} · ${B[0]} · ${c.density === 'kompakt' ? 'Kompakt' : 'Luftig'}`, sprak: `${{ nb: 'Bokmål', nn: 'Nynorsk', en: 'English' }[c.lang]} · ${c.clean ? 'Ryddige navn' : 'Originale navn'}`, header: `«${greet}»${chipsOn.length ? ' · ' + chipsOn.map(x => x[2]).join(', ') : ''}`, kort: `${c.tabs.filter(t => t.on).map(t => t.label).join(', ')} · ${c.cards.filter(x => x.on).length} av ${cardN} kort`, navbar: `${c.navPos === 'sveve' ? 'Svevende' : 'Fast i bunnen'} · ${bar.map(n => n.label).join(', ')}`, rom: `${onRooms.length} av ${c.rooms.length} rom · ${favs.length} på Hjem-fanen`, personer: onP.map(p => p.name).join(', ') || 'Ingen vises', popups: `${c.popups.filter(p => p.on).length} av ${c.popups.length} er på`, var: `Dyr strøm over ${fV(c.vars.dyr, 'kr')} · Komfort ${fV(c.vars.komfort, '°')}`, kiosk: `${DEVS.length} skjermer · ${Object.values(c.kiosk).filter(m => m !== 'vanlig').length} i kiosk` };
+    const locked = k => c.lock && !c.pro && !['tema', 'kort'].includes(k);
+    const item = (k, i) => ({ icon: locked(k) ? 'lock' : META[k][0], title: META[k][1], sum: locked(k) ? 'Låst av installatøren' : SUM[k], go: () => locked(k) ? this.flash('Installatøren har låst denne delen') : this.setState({ detail: k }), s: { width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '10px 12px 10px 14px', minHeight: 68, boxSizing: 'border-box', borderTop: i ? '1px solid rgba(255,255,255,.06)' : 'none', opacity: locked(k) ? .55 : 1, textAlign: 'left' } });
+    const q = s.q.trim().toLowerCase();
+    const results = q ? Object.keys(META).filter(k => (META[k][1] + ' ' + META[k][2] + ' ' + SUM[k]).toLowerCase().includes(q)).map(item) : [];
+
+    const slot = (key, label, cands, valFn, prefix) => {
+      const sel = Math.min(c.picks[key] ?? 0, Math.max(0, cands.length - 1)), cur = cands[sel], open = s.pickOpen === key;
+      return { label, has: !!cur, name: cur ? (prefix ? prefix + ' · ' : '') + cur[0] : 'Fant ingen sensor', src: cur ? cur[1] : 'Trykk Velg for å velge en selv', id: cur ? cur[2] : '', showId: c.pro && !!cur, val: cur ? valFn(sel) : '',
+        badge: sel === 0 ? 'Valgt automatisk' : 'Valgt av deg', badgeS: { fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 10, background: sel === 0 ? soft : 'rgba(255,255,255,.1)', color: sel === 0 ? T.a : '#d0d0d0' },
+        open, btn: open ? 'Lukk' : cur ? 'Bytt' : 'Velg', toggle: () => this.setState({ pickOpen: open ? null : key }),
+        s: { display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 12px 12px 16px', borderTop: '1px solid rgba(255,255,255,.06)' },
+        cands: cands.map((cd, j) => ({ name: (prefix ? prefix + ' · ' : '') + cd[0], src: cd[1] + (j === 0 ? ' · anbefalt' : ''), id: cd[2], v: valFn(j), mark: j === sel ? 'radio_button_checked' : 'radio_button_unchecked', markS: { fontSize: 22, color: j === sel ? T.a : '#7a7a7a' }, tap: () => { this.commit(cc => ({ ...cc, picks: { ...cc.picks, [key]: j } }), `${label}: ${cd[0]}`); this.setState({ pickOpen: null }); } })) };
+    };
+    const sh = s.sheet, shCard = sh && sh.t === 'card' ? c.cards.find(x => x.id === sh.id) : null, shRoom = sh && sh.t === 'room' ? c.rooms.find(x => x.id === sh.id) : null;
+    let slots = [];
+    if (shCard && CAND[shCard.id]) slots = [slot('card:' + shCard.id, 'Data', CAND[shCard.id], () => val(shCard.id).split(' · ')[0])];
+    if (shRoom) {
+      const r = shRoom, fill = a => a.map(x => [x[0], x[1], x[2].replace('{r}', r.id)]);
+      slots = [slot(r.id + ':temp', 'Temperatur', fill(CAND.temp), j => fT(r.t + [0, -0.4, 0.3][j]), r.name), slot(r.id + ':hum', 'Luftfukt', r.h == null ? [] : fill(CAND.hum), j => (r.h + j * 2) + ' %', r.name), slot(r.id + ':lys', 'Lys', r.l ? fill(CAND.lys) : [], j => j ? '1 lys' : 'Alle', r.name), slot(r.id + ':bev', 'Bevegelse', fill(CAND.bev), () => 'Ingen nå', r.name)];
+      slots[0].s = { ...slots[0].s, borderTop: 'none' };
+    } else if (slots[0]) slots[0].s = { ...slots[0].s, borderTop: 'none' };
+    const WHEN = { alltid: 'Vises alltid', hjemme: 'Når noen er hjemme', kveld: 'Bare om kvelden' };
+
+    const navItems = [...bar, ...(navOn.length > 5 ? [{ id: 'mer', label: 'Mer', icon: 'more_horiz' }] : [])].map((n, i) => ({ icon: n.icon, label: n.label, iconS: { fontSize: 22 }, s: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, minWidth: c.navNames ? 54 : 48, height: c.navNames ? 52 : 48, borderRadius: 26, color: '#e0e0e0' } }));
+    const tb = home ? 110 : wiz ? 116 : 24;
+
+    return {
+      T, is, q: s.q, hasQ: !!q, noQ: !q, noResults: !!q && !results.length, results, scrollRef: this.scrollRef,
+      setQ: e => this.setState({ q: e.target.value }), clearQ: () => this.setState({ q: '' }),
+      tabs: [['wiz', 'Veiviser'], ['home', 'Hjem'], ['hub', 'Tilpass']].map(([k, label]) => ({ label, go: () => this.setState(k === 'wiz' ? { screen: 'wiz', step: 0, sheet: null } : k === 'home' ? { screen: 'home', editing: false, sheet: null } : { screen: 'hub', detail: null, sheet: null }), s: { height: 36, padding: '0 16px', borderRadius: 18, fontSize: 14, fontWeight: 500, background: s.screen === k ? '#f2f2f2' : 'transparent', color: s.screen === k ? '#232323' : '#c8c8c8' } })),
+      wiz: { n: s.step, segs: [1, 2, 3].map(n => ({ s: { flex: 1, height: 4, borderRadius: 2, background: n <= s.step ? T.a : 'rgba(255,255,255,.14)', transition: 'background .3s' } })),
+        back: () => this.setState({ step: Math.max(0, s.step - 1) }), skip: () => this.setState({ step: 4 }),
+        cta: ['Kom i gang', 'Neste: personer', 'Neste: tema', 'Fullfør', 'Åpne dashbordet'][s.step],
+        next: () => s.step < 4 ? this.setState({ step: s.step + 1 }) : this.setState({ screen: 'home', editing: false, hint: true }),
+        hasAlt: s.step === 0 || s.step === 4, altLabel: s.step === 0 ? 'Bruk standardoppsettet' : 'Gå til Tilpass', alt: () => s.step === 0 ? this.setState({ step: 4 }) : this.setState({ screen: 'hub', detail: null }) },
+      det: { title: s.detail ? META[s.detail][1] : '', back: () => this.setState({ detail: null }), icon: s.saving ? 'progress_activity' : 'cloud_done', saved: s.saving ? 'Lagrer…' : 'Lagret', iconS: { fontSize: 18, animation: s.saving ? 'spin .8s linear infinite' : 'none', color: s.saving ? '#a8a8a8' : T.a } },
+      hubClose: () => this.setState({ screen: 'home', editing: false }), openHub: () => this.setState({ screen: 'hub', detail: null, editing: false, sheet: null }),
+      editHome: () => this.setState({ screen: 'home', editing: false }), rerunWiz: () => this.setState({ screen: 'wiz', step: 1 }),
+      editDone: () => { this.setState({ editing: false }); this.flash('Hjem er lagret'); },
+      found: [{ n: c.rooms.length, label: 'rom' }, { n: c.persons.length, label: 'personer' }, { n: 3, label: 'etasjer' }],
+      makes: [['dashboard', 'Fanene Hjem, 1. etg, 2. etg og Aktuelt'], ['meeting_room', 'Romkort og rom-popup for hvert rom'], ['call_to_action', 'Navbar med Sprinkler, Musikk, Klima, Basseng og Ruter'], ['web_asset', `${POPS.length} popups som passer huset`]].map(([icon, text]) => ({ icon, text })),
+      roomCount: c.rooms.length,
+      roomGroups: ['1', '2', 'ute'].map(fl => { const list = c.rooms.filter(r => r.floor === fl), ids = list.map(r => r.id), key = 'rooms:' + fl; return { label: FL[fl], count: list.filter(r => r.on).length + ' av ' + list.length, rooms: list.map((r, i) => ({ name: r.name, icon: r.icon, sub: [fT(r.t), r.h != null ? r.h + ' %' : null, r.l ? 'Lys' : null].filter(Boolean).join(' · '), s: rowS(r.on, this.dragT(key, i, list.length)), ic: icS(r.on), drag: this.startDrag(key, i, 64, ids, 'rooms'),
+        favS: { fontSize: 22, color: r.fav ? T.a : '#6a6a6a', fontVariationSettings: r.fav ? "'FILL' 1" : "'FILL' 0" }, favTap: () => this.upd('rooms', r.id, { fav: !r.fav }, `${r.name} ${r.fav ? 'er fjernet fra' : 'vises på'} Hjem-fanen`),
+        open: () => wiz ? this.upd('rooms', r.id, { on: !r.on }) : this.setState({ sheet: { t: 'room', id: r.id }, pickOpen: null }),
+        ...tog(r.on, () => this.upd('rooms', r.id, { on: !r.on }, `${r.name} ${r.on ? 'er skjult' : 'vises igjen'}`)) })) }; }),
+      tabRows: c.tabs.map((t, i) => ({ label: t.label, sub: t.id === 'hjem' ? `${favs.length} rom med stjerne` : t.id === 'aktuelt' ? 'Det som skjer nå' : `${c.rooms.filter(r => r.floor === t.id && r.on).length} rom`, s: rowS(t.on, { paddingRight: 0, ...this.dragT('tabs', i, c.tabs.length) }), drag: this.startDrag('tabs', i, 64), eye: t.on ? 'visibility' : 'visibility_off', eyeTap: () => this.upd('tabs', t.id, { on: !t.on }, `${t.label} ${t.on ? 'er skjult' : 'vises igjen'}`) })),
+      persons: c.persons.map(p => ({ name: p.name, ini: p.name[0], sub: `Følges med ${p.dev} · ${p.home ? 'Hjemme' : 'Borte'}`, s: rowS(p.on, { gap: 12, paddingLeft: 10 }), av: { width: 40, height: 40, borderRadius: 20, flex: 'none', background: p.c, color: '#232323', fontWeight: 600, fontSize: 17, display: 'grid', placeItems: 'center' },
+        ...tog(p.on, () => this.upd('persons', p.id, { on: !p.on }, `${p.name} ${p.on ? 'er skjult' : 'vises igjen'}`)) })),
+      personSeg: seg([['navn', 'Navn og bilde'], ['bilde', 'Bare bilde']], c.personStyle, (v, l) => this.set('personStyle', v, `Personer: ${l}`)),
+      greet, greetSub: chipsOn.map(x => chipT[x[0]]).join(' · '), greetText: c.greetText,
+      homeChips: chipsOn.map(([k, icon]) => ({ icon, t: chipT[k] })),
+      miniRooms: (favs.length ? favs : onRooms).slice(0, 2).map(r => ({ icon: r.icon, name: r.name, t: fT(r.t) })),
+      miniNav: bar.map(n => ({ icon: n.icon, s: { width: 34, height: 34, borderRadius: 17, display: 'grid', placeItems: 'center', color: '#d0d0d0' } })),
+      swatches: Object.entries(ACC).map(([k, [n, a, b]]) => ({ name: n, tap: () => this.set('theme', k, `Farge: ${n}`), dot: { width: 48, height: 48, borderRadius: 24, background: `linear-gradient(145deg, ${a} -10%, ${b} 100%)`, boxShadow: c.theme === k ? `0 0 0 3px ${T.bg}, 0 0 0 5px ${a}` : 'none', transition: 'box-shadow .2s' }, ns: { fontSize: 12, color: c.theme === k ? '#fafafa' : '#a0a0a0' } })),
+      bgTiles: Object.entries(BGS).map(([k, [n, bg, card, row]]) => ({ name: n, tap: () => this.set('bg', k, `Bakgrunn: ${n}`), s: { width: '100%', boxSizing: 'border-box', borderRadius: 22, padding: 10, background: bg, display: 'flex', flexDirection: 'column', gap: 8, boxShadow: c.bg === k ? `0 0 0 2px ${T.a}` : '0 0 0 1px rgba(255,255,255,.14)' }, card: { height: 34, borderRadius: 12, background: card }, row: { height: 12, width: '60%', borderRadius: 6, background: row }, ns: { fontSize: 13, color: c.bg === k ? '#fafafa' : '#a0a0a0' } })),
+      densSeg: seg([['luftig', 'Luftig'], ['kompakt', 'Kompakt']], c.density, (v, l) => this.set('density', v, `Tetthet: ${l}`)),
+      cornerSeg: seg([['rund', 'Runde'], ['myk', 'Mindre runde']], c.corner, (v, l) => this.set('corner', v, `Hjørner: ${l}`)),
+      doneRows: [['Rom', `${onRooms.length} av ${c.rooms.length} vises`, 1], ['Personer', onP.map(p => p.name).join(', ') || 'Ingen', 2], ['Tema', `${A[0]} på ${B[0].toLowerCase()}`, 3]].map(([label, v, step], i) => ({ label, val: v, go: () => this.setState({ step }), s: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 12px 12px 16px', minHeight: 68, boxSizing: 'border-box', borderTop: i ? '1px solid rgba(255,255,255,.06)' : 'none' } })),
+      groups: GROUPS.map(([label, keys]) => ({ label, items: keys.map(item) })),
+      pro: tog(c.pro, () => this.set('pro', !c.pro, c.pro ? 'Installatørmodus er av' : 'Installatørmodus er på')),
+      lock: tog(c.lock, () => this.set('lock', !c.lock, c.lock ? 'Kunden kan endre alt' : 'Låst for kunden')),
+      exportCfg: () => this.flash('Oppsettet er kopiert som YAML'), importCfg: () => this.flash('Lim inn et oppsett for å importere'),
+      resetAll: () => this.commit(() => ({ ...initCfg(), pro: c.pro }), 'Alt er tilbakestilt'),
+      greetSeg: seg([['vink', 'Vink og navn'], ['tid', 'Etter tiden'], ['fast', 'Egen tekst']], c.greet, () => {}).map((o, i) => ({ ...o, tap: () => this.set('greet', ['vink', 'tid', 'fast'][i], 'Hilsenen er endret') })),
+      setGreetText: e => this.set('greetText', e.target.value, 'Hilsenen er lagret', 'greetText'),
+      chipOpts: CHIPS.map(([k, icon, label]) => { const on = c.chips.includes(k); return { label, icon, tap: () => this.set('chips', on ? c.chips.filter(x => x !== k) : [...(c.chips.length >= 2 ? c.chips.slice(1) : c.chips), k], `${label} ${on ? 'er fjernet' : 'vises'}`), s: { display: 'flex', alignItems: 'center', gap: 6, height: 44, padding: '0 16px 0 12px', borderRadius: 22, fontSize: 14, fontWeight: 500, background: on ? soft : T.row, color: on ? T.a : '#d0d0d0', boxShadow: on ? `0 0 0 1.5px ${T.a} inset` : 'none' } }; }),
+      cardRows: c.cards.map((x, i) => ({ label: x.label, icon: x.icon, sub: `${x.size === 'stor' ? 'Stor' : 'Liten'} · ${WHEN[x.when]}`, s: rowS(x.on, this.dragT('cards', i, cardN)), ic: icS(x.on), drag: this.startDrag('cards', i, 64), eye: x.on ? 'visibility' : 'visibility_off',
+        eyeTap: () => this.upd('cards', x.id, { on: !x.on }, `${x.label} ${x.on ? 'er skjult' : 'vises igjen'}`), edit: () => this.setState({ sheet: { t: 'card', id: x.id }, pickOpen: null }) })),
+      navItems, navBarS: c.navPos === 'sveve'
+        ? { position: 'absolute', left: 16, right: 16, bottom: 22, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 6, borderRadius: 32, background: T.row, boxShadow: '0 10px 30px rgba(0,0,0,.45)' }
+        : { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '8px 10px 22px', background: T.card, borderTop: '1px solid rgba(255,255,255,.06)' },
+      navPosSeg: seg([['sveve', 'Svevende'], ['fast', 'Fast i bunnen']], c.navPos, (v, l) => this.set('navPos', v, `Navbar: ${l.toLowerCase()}`)),
+      navNamesT: tog(c.navNames, () => this.set('navNames', !c.navNames, c.navNames ? 'Navn er skjult' : 'Navn vises')),
+      navRows: c.nav.map((n, i) => { const k = navOn.indexOf(n); return { label: n.label, icon: n.icon, sub: !n.on ? 'Skjult' : k < 5 ? 'I navbaren' : 'I Mer-menyen', s: rowS(n.on, this.dragT('nav', i, c.nav.length)), ic: icS(n.on), drag: this.startDrag('nav', i, 64), eye: n.on ? 'visibility' : 'visibility_off', eyeTap: () => this.upd('nav', n.id, { on: !n.on }, `${n.label} ${n.on ? 'er skjult' : 'vises igjen'}`) }; }),
+      popRows: c.popups.map(p => ({ name: p.name, icon: p.icon, sub: c.pro ? `${p.reason} · #${p.hash}` : p.reason, s: rowS(p.on, { paddingLeft: 10 }), ic: icS(p.on), ...tog(p.on, () => this.upd('popups', p.id, { on: !p.on }, `${p.name} er ${p.on ? 'av' : 'på'}`)) })),
+      varGroups: VARS.map(([label, items], gi) => ({ label, hasNote: gi === 0, note: `Nå: ${fV(PRICE, 'kr')} per kWh. Det regnes som ${lvl.toLowerCase()} pris.`, noteS: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 18, fontSize: 13, background: lvlC.replace(')', ' / .14)'), color: lvlC },
+        items: items.map(([k, l, min, max, step, u, uses, id], i) => ({ label: l, min, max, step, val: c.vars[k], disp: fV(c.vars[k], u), uses, id, s: { display: 'flex', flexDirection: 'column', gap: 6, padding: '14px 16px', borderTop: i ? '1px solid rgba(255,255,255,.06)' : 'none' },
+          set: e => { const v = parseFloat(e.target.value); this.commit(cc => { const vars = { ...cc.vars, [k]: v }; if (k === 'billig' && v >= vars.dyr) vars.dyr = +(v + 0.1).toFixed(2); if (k === 'dyr' && v <= vars.billig) vars.billig = +(v - 0.1).toFixed(2); return { ...cc, vars }; }, `${l} ${fV(v, u)}`, 'var:' + k); } })) })),
+      devs: DEVS.map(([id, name, icon, sub]) => ({ name, icon, sub, exp: KEXP[c.kiosk[id]], seg: seg(KMODE, c.kiosk[id], (v, l) => this.commit(cc => ({ ...cc, kiosk: { ...cc.kiosk, [id]: v } }), `${name}: ${l}`)) })),
+      langSeg: seg([['nb', 'Bokmål'], ['nn', 'Nynorsk'], ['en', 'English']], c.lang, (v, l) => this.set('lang', v, `Språk: ${l}`)),
+      cleanT: tog(c.clean, () => this.set('clean', !c.clean, c.clean ? 'Viser originale navn' : 'Navnene er ryddet')),
+      stripT: tog(c.strip, () => this.set('strip', !c.strip, c.strip ? 'Viser fulle navn' : 'Kortere navn i rom')),
+      names: NAMES.map(([id, raw, full, short, room], i) => ({ shown: !c.clean ? raw : c.strip ? short : full, sub: c.clean ? `I ${room} · før: ${raw}` : `I ${room}`, id, s: { display: 'flex', flexDirection: 'column', gap: 2, padding: '12px 16px', borderTop: i ? '1px solid rgba(255,255,255,.06)' : 'none' } })),
+      showHint: s.hint && !s.editing, hideHint: () => this.setState({ hint: false }),
+      homeGrid: s.editing ? { display: 'flex', flexDirection: 'column', gap: 8 } : { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: T.gapPx },
+      homeCards: c.cards.map((x, i) => ({ x, i })).filter(({ x }) => s.editing || x.on).map(({ x, i }) => ({ edit: s.editing, icon: x.icon, label: x.label, val: val(x.id), s: cardStyle(x, s.editing, i), ic: cic, vs: cvs(x, s.editing),
+        drag: this.startDrag('cards', i, 72), eye: x.on ? 'visibility' : 'visibility_off', eyeTap: () => this.upd('cards', x.id, { on: !x.on }, `${x.label} ${x.on ? 'er skjult' : 'vises igjen'}`),
+        edit2: () => this.setState({ sheet: { t: 'card', id: x.id }, pickOpen: null }), ctx: e => e.preventDefault(),
+        press: () => { if (s.editing) return; this.setState({ pressing: x.id }); clearTimeout(this.lp); this.lp = setTimeout(() => { navigator.vibrate && navigator.vibrate(10); this.setState({ editing: true, hint: false, pressing: null }); }, 450); },
+        release: () => { clearTimeout(this.lp); if (this.state.pressing) this.setState({ pressing: null }); } })),
+      openAdd: () => this.setState({ sheet: { t: 'add' } }),
+      addList: c.cards.filter(x => !x.on).map(x => ({ label: x.label, icon: x.icon, reason: REASON[x.id] || 'Klar til bruk', add: () => this.upd('cards', x.id, { on: true }, `${x.label} er lagt til`) })), noAdd: !c.cards.some(x => !x.on),
+      sheet: { open: !!sh, close: () => this.setState({ sheet: null, pickOpen: null }), isCard: !!shCard, isRoom: !!shRoom, isAdd: !!(sh && sh.t === 'add'), hasSlots: slots.length > 0, slotLabel: shRoom ? 'Sensorer vi bruker' : 'Henter data fra',
+        title: shCard ? `Tilpass ${shCard.label || 'kort'}` : shRoom ? shRoom.name : 'Legg til kort' },
+      slots,
+      sc: shCard ? { name: shCard.label, setName: e => this.upd('cards', shCard.id, { label: e.target.value }, 'Navnet er lagret', 'name:' + shCard.id),
+        sizeSeg: seg([['liten', 'Liten'], ['stor', 'Stor']], shCard.size, (v, l) => this.upd('cards', shCard.id, { size: v }, `${shCard.label}: ${l.toLowerCase()}`)),
+        whenSeg: seg([['alltid', 'Alltid'], ['hjemme', 'Noen hjemme'], ['kveld', 'Om kvelden']], shCard.when, (v, l) => this.upd('cards', shCard.id, { when: v }, `${shCard.label}: ${WHEN[v].toLowerCase()}`)),
+        prev: { s: { ...cardStyle(shCard, false, 0, true), transform: 'none' }, ic: cic, icon: shCard.icon, label: shCard.label, val: val(shCard.id), vs: cvs(shCard, false) },
+        onLabel: shCard.on ? 'Fjern fra Hjem' : 'Vis på Hjem', onIcon: shCard.on ? 'visibility_off' : 'visibility',
+        onTap: () => this.upd('cards', shCard.id, { on: !shCard.on }, `${shCard.label} ${shCard.on ? 'er fjernet' : 'vises igjen'}`),
+        onS: { height: 52, borderRadius: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 15, fontWeight: 500, background: shCard.on ? 'rgba(242,128,115,.14)' : soft, color: shCard.on ? '#f4a196' : T.a } } : { prev: {} },
+      sr: shRoom ? tog(shRoom.on, () => this.upd('rooms', shRoom.id, { on: !shRoom.on }, `${shRoom.name} ${shRoom.on ? 'er skjult' : 'vises igjen'}`)) : {},
+      toast: { show: !!s.toast, msg: s.toast ? s.toast.msg : '', undo: !!(s.toast && s.toast.undo && s.hist.length), icon: s.toast && s.toast.undo ? 'check_circle' : 'info',
+        s: { position: 'absolute', left: 16, right: 16, bottom: tb, zIndex: 30, display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, padding: '0 8px 0 16px', borderRadius: 26, background: '#474747', boxShadow: '0 10px 30px rgba(0,0,0,.45)', animation: 'toastIn .25s ease' } },
+      undo: this.undo,
+    };
+  }
+}
+</script>
+</body>
+</html>

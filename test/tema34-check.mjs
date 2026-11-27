@@ -55,6 +55,7 @@ async function setup(bundlePath) {
     document.documentElement.style.background = document.body.style.background = 'var(--ki-bg, #232323)';
   });
   await page.addScriptTag({ path: bundlePath });
+  await page.evaluate(() => window.__useTilpassV1 && window.__useTilpassV1()); // Fiks 26.2
   await page.addScriptTag({ path: BC, type: 'module' });
   await page.waitForFunction(() => customElements.get('bubble-card'), null, { timeout: 10000 });
   await page.evaluate(async () => {

@@ -67,7 +67,8 @@
     const TPC = { alt: C.pink, home: C.blue, navbar: C.orange, header: C.green, kiosk: C.purple };
     const TPS = { alt: !!M.openTilpassAlt, home: true, navbar: true, header: true, kiosk: !!M.kioskSheet };
     const TP = (M.tp ? M.tp.entries(Object.keys(TPC)) : []).filter((e) => TPS[e[0]]).map(([k, icon, title, sub]) => [k, icon, TPC[k], title, sub || (k === 'kiosk' ? 'Skjul alt utenom dashbordet' : '')]);
-    const tpSec = `${ui.sec(T('Tilpass dashbordet', 'Customize dashboard'))}${ui.group(TP.map(([k, icon, bg, title, sub]) => ui.row({ a: 'tp', v: k, icon, iconBg: bg, title, sub, chev: true })).join(''))}`;
+    // Fiks 26.2: én rad som åpner Tilpass-senteret (den gamle listen med fem rader er borte)
+    const tpSec = M.tps ? ui.group(ui.row({ a: 'tp', v: 'center', icon: 'mdi:tune', iconBg: C.pink, title: T('Tilpass', 'Customize'), sub: T('Tema, Hjem, navbar, rom og mer', 'Theme, Home, navbar, rooms and more'), chev: true })) : `${ui.sec(T('Tilpass dashbordet', 'Customize dashboard'))}${ui.group(TP.map(([k, icon, bg, title, sub]) => ui.row({ a: 'tp', v: k, icon, iconBg: bg, title, sub, chev: true })).join(''))}`;
     M.ha._tpSec = tpSec;
     return `${ui.sec(T('Companion-appen', 'Companion app'))}${ui.group([
       ui.row({ a: 'go', v: 'servers', icon: 'mdi:server-network', iconBg: C.purple, title: T('Servere', 'Servers'), sub: `${s.name} · ${String(s.url).replace(/^https?:\/\//, '')}`, chev: true }),
@@ -294,6 +295,7 @@ data:
     if (a === 'tp') {
       const k = el && el.dataset ? el.dataset.v : args; c.close();
       setTimeout(() => {
+        if (k === 'center' && M.tps) return M.tps.open();
         if (k === 'kiosk') { const nb = document.querySelector('msh-navbar-card'); return M.kioskSheet && M.kioskSheet(nb); }
         window.dispatchEvent(new CustomEvent('ki-open-editor', { detail: { editor: k === 'alt' ? 'tilpass-alt' : k } }));
       }, 320);
