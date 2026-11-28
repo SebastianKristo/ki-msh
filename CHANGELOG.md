@@ -2,6 +2,9 @@
 
 Én seksjon per fiks-prompt (nyeste først). Detaljer står i kommentarene i `src/` («Fiks NN.x») og i `docs/avvik.md`.
 
+## 1.8.1 · Språkvalg i veiviseren
+- Første steg i veiviseren («Velkommen hjem») har nå valget Norsk · English. Valget gjelder med en gang og er det samme som i Tilpass → Språk og navn (CLAUDE.md: språkvalget skal ligge i onboarding).
+
 ## 1.8.0 · Nytt Tilpass-senter, veiviser og redigering på Hjem
 - **Hvorfor det nye Tilpass-senteret ikke viste seg** (Fiks 26.1):
   - 25.3 var aldri bygget, fordi designfilen `Tilpass.dc.html` manglet i repoet.

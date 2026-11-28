@@ -82,6 +82,8 @@ ok('Innstillinger: én rad «Tilpass» (ikke «Tilpass dashbordet»-listen)', !r
 // veiviseren
 await p.evaluate(() => window.MSH.tps.wizard({ first: true })); await wait(400);
 s = await sheet(); ok('veiviseren: Velkommen hjem + Kom i gang', s && s.wizard && s.text.includes('Velkommen hjem') && s.text.includes('Kom i gang'), s && s.text.slice(0, 200));
+const lw = await p.evaluate(async () => { const r = document.querySelector('ki-overlay-root').shadowRoot.querySelector('.msh-portal[data-tps]').shadowRoot; r.querySelector('[data-a="lang"][data-v="en"]').click(); await new Promise((q) => setTimeout(q, 300)); const en = window.kiLang(), t = r.querySelector('.bigt b').textContent, on = r.querySelector('[data-a="lang"].on').dataset.v; r.querySelector('[data-a="lang"][data-v="nb"]').click(); await new Promise((q) => setTimeout(q, 300)); return { en, t, on, back: window.kiLang(), t2: r.querySelector('.bigt b').textContent }; });
+ok('veiviseren: språkvalg på første steg (English → «Welcome home», tilbake til norsk)', lw.en === 'en' && lw.t === 'Welcome home' && lw.on === 'en' && lw.back !== 'en' && lw.t2 === 'Velkommen hjem', lw);
 const steps = [];
 for (let i = 0; i < 4; i++) { await p.evaluate(() => document.querySelector('ki-overlay-root').shadowRoot.querySelector('.msh-portal[data-tps]').shadowRoot.querySelector('[data-a="wnext"]').click()); await wait(250); steps.push((await sheet()).text.slice(0, 60)); }
 ok('veiviseren: Steg 1–3 og «Dashbordet er klart»', /Steg 1 av 3/.test(steps[0]) && /Steg 3 av 3/.test(steps[2]) && /Dashbordet er klart/.test(steps[3]), steps);
